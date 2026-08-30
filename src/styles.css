@@ -957,6 +957,10 @@ input[type="radio"]:focus-visible {
   height: 100%;
 }
 
+.studio-shell-graph .react-flow__node {
+  visibility: visible !important;
+}
+
 .studio-graph-palette-slot {
   position: absolute;
   top: 76px;

@@ -125,6 +125,20 @@ export async function cleanup(app: LaunchedApp | undefined) {
   }
 }
 
+export async function enterGraphMode(page: Page) {
+  const graphModeButton = page.getByRole('button', { name: /Graph Mode/i });
+  await graphModeButton.click({ force: true });
+  await page.getByRole('region', { name: /Workflow Graph/i }).waitFor({ state: 'visible' });
+  await page.locator('.react-flow__node').first().waitFor({ state: 'attached' });
+  await page.getByRole('button', { name: 'Fit View' }).click({ force: true });
+}
+
+export async function enterPlayMode(page: Page) {
+  const playModeButton = page.getByRole('button', { name: /Play Mode/i });
+  await playModeButton.click({ force: true });
+  await page.getByRole('navigation', { name: /Story surfaces/i }).waitFor({ state: 'visible' });
+}
+
 function workflowEnvelope(nodes: Array<Record<string, unknown>>): WorkflowFixture {
   return {
     format: 'rpgraph-workflow',

@@ -3,6 +3,7 @@ import { currentCoreNodeVersions } from '../../src/nodes/nodeVersion';
 import {
   launchAppWithWorkflow,
   cleanup,
+  enterGraphMode,
   outdatedLlmWorkflow,
   singletonConflictWorkflow,
   type LaunchedApp,
@@ -30,6 +31,7 @@ async function boxOf(locator: Locator) {
 test('renders the outdated node as an incompatible card with an Upgrade button', async () => {
   app = await launchAppWithWorkflow(outdatedLlmWorkflow());
   const { page } = app;
+  await enterGraphMode(page);
 
   const wrapper = nodeWrapper(page, 'outdated-llm-prompt-1');
   const card = wrapper.locator('.workflow-node.incompatible-core-node');
@@ -46,6 +48,7 @@ test('renders the outdated node as an incompatible card with an Upgrade button',
 test('incompatible node has no oversized invisible drag region (size fix)', async () => {
   app = await launchAppWithWorkflow(outdatedLlmWorkflow());
   const { page } = app;
+  await enterGraphMode(page);
 
   const wrapper = nodeWrapper(page, 'outdated-llm-prompt-1');
   const card = wrapper.locator('.workflow-node.incompatible-core-node');
@@ -72,11 +75,12 @@ test('incompatible node has no oversized invisible drag region (size fix)', asyn
 test('clicking Upgrade Node replaces the incompatible node with a live one', async () => {
   app = await launchAppWithWorkflow(outdatedLlmWorkflow());
   const { page } = app;
+  await enterGraphMode(page);
 
   const wrapper = nodeWrapper(page, 'outdated-llm-prompt-1');
   await expect(wrapper.locator('.incompatible-core-node')).toBeVisible();
 
-  await wrapper.getByRole('button', { name: 'Upgrade Node' }).click();
+  await wrapper.getByRole('button', { name: 'Upgrade Node' }).click({ force: true });
 
   // Assert the toast first (it auto-clears after ~4.2s). Substring — the full message
   // contains an em dash.
@@ -93,11 +97,12 @@ test('clicking Upgrade Node replaces the incompatible node with a live one', asy
 test('upgrade is blocked when a live singleton of the same type exists', async () => {
   app = await launchAppWithWorkflow(singletonConflictWorkflow());
   const { page } = app;
+  await enterGraphMode(page);
 
   const wrapper = nodeWrapper(page, 'outdated-input-1');
   await expect(wrapper.locator('.incompatible-core-node')).toBeVisible();
 
-  await wrapper.getByRole('button', { name: 'Upgrade Node' }).click();
+  await wrapper.getByRole('button', { name: 'Upgrade Node' }).click({ force: true });
 
   await expect(page.locator('.graph-system-toast.warning')).toContainText('Cannot upgrade');
   // The node is untouched — still incompatible.
@@ -107,6 +112,7 @@ test('upgrade is blocked when a live singleton of the same type exists', async (
 test('the incompatible node can still be dragged (no drag regression)', async () => {
   app = await launchAppWithWorkflow(outdatedLlmWorkflow());
   const { page } = app;
+  await enterGraphMode(page);
 
   const wrapper = nodeWrapper(page, 'outdated-llm-prompt-1');
   const title = wrapper.locator('.node-title-row');
@@ -120,8 +126,9 @@ test('the incompatible node can still be dragged (no drag regression)', async ()
   // Drag by the title row (not the nodrag Upgrade button) by a clear +200,+160 delta.
   await page.mouse.move(startX, startY);
   await page.mouse.down();
-  await page.mouse.move(startX + 100, startY + 80, { steps: 10 });
-  await page.mouse.move(startX + 200, startY + 160, { steps: 10 });
+  await page.mouse.move(startX + 60, startY + 48);
+  await page.mouse.move(startX + 120, startY + 96);
+  await page.mouse.move(startX + 200, startY + 160);
   await page.mouse.up();
 
   const after = await boxOf(wrapper);

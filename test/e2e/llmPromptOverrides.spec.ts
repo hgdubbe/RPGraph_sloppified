@@ -1,5 +1,11 @@
 import { test, expect, type Locator, type Page } from '@playwright/test';
-import { launchAppWithWorkflow, cleanup, llmPromptOverrideWorkflow, type LaunchedApp } from './helpers';
+import {
+  launchAppWithWorkflow,
+  cleanup,
+  enterGraphMode,
+  llmPromptOverrideWorkflow,
+  type LaunchedApp,
+} from './helpers';
 
 let app: LaunchedApp | undefined;
 
@@ -18,6 +24,7 @@ function llmCard(page: Page): Locator {
 
 test('LLM Prompt node exposes both prompt-override input ports', async () => {
   app = await launchAppWithWorkflow(llmPromptOverrideWorkflow());
+  await enterGraphMode(app.page);
   const card = llmCard(app.page);
 
   await expect(card).toBeVisible();
@@ -29,6 +36,7 @@ test('LLM Prompt node exposes both prompt-override input ports', async () => {
 
 test('no override connection leaves both fields in their authored state', async () => {
   app = await launchAppWithWorkflow(llmPromptOverrideWorkflow());
+  await enterGraphMode(app.page);
   const card = llmCard(app.page);
 
   await expect(card).toBeVisible();
@@ -38,6 +46,7 @@ test('no override connection leaves both fields in their authored state', async 
 
 test('connecting prompt-before overrides only that field and preserves the authored text', async () => {
   app = await launchAppWithWorkflow(llmPromptOverrideWorkflow({ before: true }));
+  await enterGraphMode(app.page);
   const card = llmCard(app.page);
   const fields = card.locator('.llm-prompt-field');
   const beforeField = fields.nth(0);
@@ -57,6 +66,7 @@ test('connecting prompt-before overrides only that field and preserves the autho
 
 test('connecting prompt-after overrides only that field and preserves the authored text', async () => {
   app = await launchAppWithWorkflow(llmPromptOverrideWorkflow({ after: true }));
+  await enterGraphMode(app.page);
   const card = llmCard(app.page);
   const fields = card.locator('.llm-prompt-field');
   const beforeField = fields.nth(0);
