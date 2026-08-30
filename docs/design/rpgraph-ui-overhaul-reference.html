@@ -1,0 +1,918 @@
+<div id="rpgraph-remake-v2">
+  <style>
+    #rpgraph-remake-v2 {
+      --bg: #06080d;
+      --ink: #f2f6fb;
+      --muted: #7e8b9d;
+      --panel: #0e141d;
+      --panel2: #151d28;
+      --line: #263242;
+      --cyan: #45d6e8;
+      --lime: #65d987;
+      --pink: #ee4d9b;
+      --violet: #8e79ff;
+      --blue: #2f9cff;
+      --danger: #ff5e73;
+      --radius: 12px;
+      color: var(--ink);
+      font-family: "Bahnschrift", "Segoe UI Variable", "Segoe UI", sans-serif;
+    }
+
+    #rpgraph-remake-v2 * { box-sizing: border-box; }
+    #rpgraph-remake-v2 h2,
+    #rpgraph-remake-v2 h3,
+    #rpgraph-remake-v2 p { margin: 0; }
+
+    #rpgraph-remake-v2 .intro {
+      display: grid;
+      gap: 7px;
+      margin-bottom: 14px;
+    }
+
+    #rpgraph-remake-v2 h2 {
+      font-size: 29px;
+      font-weight: 850;
+      letter-spacing: 0;
+    }
+
+    #rpgraph-remake-v2 .sub {
+      max-width: 82ch;
+      color: var(--muted);
+      line-height: 1.45;
+    }
+
+    #rpgraph-remake-v2 .tabs {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-bottom: 14px;
+    }
+
+    #rpgraph-remake-v2 .tabs button {
+      min-height: 36px;
+      border: 1px solid #324153;
+      border-radius: 8px;
+      padding: 0 12px;
+      color: #dce6f4;
+      background: #101720;
+      font: inherit;
+      font-size: 13px;
+      font-weight: 800;
+      cursor: pointer;
+    }
+
+    #rpgraph-remake-v2 .tabs button[aria-pressed="true"] {
+      border-color: var(--cyan);
+      color: #061014;
+      background: var(--cyan);
+    }
+
+    #rpgraph-remake-v2 .screen {
+      display: none;
+      overflow: hidden;
+      border: 1px solid #293648;
+      border-radius: 14px;
+      background: var(--bg);
+      box-shadow: 0 24px 70px rgba(0,0,0,.42);
+    }
+
+    #rpgraph-remake-v2 .screen.active { display: block; }
+
+    #rpgraph-remake-v2 .chrome {
+      display: flex;
+      min-height: 46px;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      border-bottom: 1px solid var(--line);
+      padding: 8px 12px;
+      background: #0b1018;
+    }
+
+    #rpgraph-remake-v2 .brand {
+      display: flex;
+      min-width: 0;
+      align-items: center;
+      gap: 10px;
+      font-weight: 850;
+    }
+
+    #rpgraph-remake-v2 .mark {
+      display: grid;
+      width: 25px;
+      height: 25px;
+      place-items: center;
+      border-radius: 7px;
+      color: #061014;
+      background: var(--cyan);
+      font-size: 11px;
+      font-weight: 900;
+    }
+
+    #rpgraph-remake-v2 .actions {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: flex-end;
+      gap: 7px;
+    }
+
+    #rpgraph-remake-v2 button,
+    #rpgraph-remake-v2 input {
+      font: inherit;
+    }
+
+    #rpgraph-remake-v2 .action,
+    #rpgraph-remake-v2 .icon,
+    #rpgraph-remake-v2 .primary {
+      display: inline-flex;
+      min-height: 32px;
+      align-items: center;
+      justify-content: center;
+      gap: 7px;
+      border: 1px solid #334155;
+      border-radius: 8px;
+      padding: 0 10px;
+      color: #d8e4f3;
+      background: #121a25;
+      font-size: 12px;
+      font-weight: 800;
+    }
+
+    #rpgraph-remake-v2 .icon { width: 34px; padding: 0; }
+    #rpgraph-remake-v2 .primary {
+      border-color: var(--cyan);
+      color: #061014;
+      background: var(--cyan);
+    }
+
+    #rpgraph-remake-v2 .play {
+      display: grid;
+      min-height: 650px;
+      grid-template-columns: 68px minmax(0, 1fr) 315px;
+      grid-template-rows: 58px minmax(0, 1fr);
+    }
+
+    #rpgraph-remake-v2 .rail {
+      grid-row: 1 / span 2;
+      display: grid;
+      grid-template-rows: repeat(7, 58px) minmax(0, 1fr);
+      gap: 5px;
+      border-right: 1px solid var(--line);
+      padding: 7px;
+      background: #0b1018;
+    }
+
+    #rpgraph-remake-v2 .rail button {
+      position: relative;
+      display: grid;
+      place-items: center;
+      border: 1px solid transparent;
+      border-radius: 10px;
+      color: #8b99ab;
+      background: transparent;
+      font-size: 9.5px;
+      font-weight: 850;
+    }
+
+    #rpgraph-remake-v2 .rail button.active {
+      border-color: rgba(69,214,232,.62);
+      color: var(--cyan);
+      background: rgba(69,214,232,.09);
+    }
+
+    #rpgraph-remake-v2 .dot {
+      position: absolute;
+      top: 6px;
+      right: 6px;
+      width: 9px;
+      height: 9px;
+      border-radius: 99px;
+      background: var(--lime);
+      box-shadow: 0 0 12px var(--lime);
+    }
+
+    #rpgraph-remake-v2 .characters {
+      grid-column: 2 / span 2;
+      display: flex;
+      min-width: 0;
+      align-items: end;
+      gap: 5px;
+      overflow: hidden;
+      border-bottom: 1px solid var(--line);
+      padding: 8px 10px 0;
+      background: #0e141d;
+    }
+
+    #rpgraph-remake-v2 .character {
+      min-width: 118px;
+      max-width: 154px;
+      height: 42px;
+      border: 1px solid #2a3748;
+      border-bottom: 0;
+      border-radius: 10px 10px 0 0;
+      padding: 7px 10px;
+      color: #8d9bad;
+      background: #0b1018;
+      font-size: 11px;
+      font-weight: 850;
+      text-align: left;
+    }
+
+    #rpgraph-remake-v2 .character.active {
+      height: 49px;
+      border-color: rgba(69,214,232,.58);
+      color: var(--ink);
+      background: var(--bg);
+    }
+
+    #rpgraph-remake-v2 .character span,
+    #rpgraph-remake-v2 .character small {
+      display: block;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    #rpgraph-remake-v2 .character small {
+      margin-top: 2px;
+      color: var(--muted);
+      font-size: 9px;
+    }
+
+    #rpgraph-remake-v2 .timeline {
+      display: grid;
+      min-height: 0;
+      grid-template-rows: minmax(0, 1fr) auto;
+      gap: 11px;
+      padding: 14px;
+      background:
+        radial-gradient(circle at 14% 10%, rgba(69,214,232,.09), transparent 26%),
+        linear-gradient(180deg, #080b10, #090d14);
+    }
+
+    #rpgraph-remake-v2 .feed {
+      display: grid;
+      align-content: start;
+      gap: 13px;
+      overflow: hidden;
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      padding: 14px;
+      background: rgba(14,20,29,.78);
+    }
+
+    #rpgraph-remake-v2 .bubble {
+      max-width: 76%;
+      border-radius: 14px;
+      padding: 12px 14px;
+      color: #eaf1fb;
+      background: #152131;
+      line-height: 1.44;
+    }
+
+    #rpgraph-remake-v2 .bubble.user {
+      justify-self: end;
+      border: 1px solid rgba(142,121,255,.55);
+      background: #17132a;
+    }
+
+    #rpgraph-remake-v2 .bubble strong { color: #fff; }
+
+    #rpgraph-remake-v2 .inline-apps {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 9px;
+      align-items: center;
+    }
+
+    #rpgraph-remake-v2 .mini-phone-msg {
+      border-radius: 16px;
+      padding: 9px 11px;
+      color: #eafff0;
+      background: #075e54;
+      font-size: 12px;
+      line-height: 1.35;
+    }
+
+    #rpgraph-remake-v2 .mini-gram {
+      border-radius: 14px;
+      padding: 9px 11px;
+      background: linear-gradient(135deg, #833ab4, #fd1d1d 55%, #fcb045);
+      color: white;
+      font-size: 12px;
+      font-weight: 750;
+    }
+
+    #rpgraph-remake-v2 .composer {
+      display: grid;
+      grid-template-columns: auto minmax(0, 1fr) auto auto;
+      gap: 8px;
+      align-items: center;
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      padding: 9px;
+      background: #101720;
+    }
+
+    #rpgraph-remake-v2 .composer input {
+      min-width: 0;
+      min-height: 36px;
+      border: 1px solid #334155;
+      border-radius: 9px;
+      padding: 0 12px;
+      color: var(--ink);
+      background: #070a0f;
+    }
+
+    #rpgraph-remake-v2 .side {
+      display: grid;
+      align-content: start;
+      gap: 12px;
+      border-left: 1px solid var(--line);
+      padding: 14px;
+      background: #0d131c;
+    }
+
+    #rpgraph-remake-v2 .side-title {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      font-size: 12px;
+      font-weight: 900;
+      text-transform: uppercase;
+    }
+
+    #rpgraph-remake-v2 .list {
+      display: grid;
+      gap: 9px;
+    }
+
+    #rpgraph-remake-v2 .item {
+      border: 1px solid #2d3a4b;
+      border-radius: 10px;
+      padding: 10px;
+      background: #111925;
+      font-size: 12px;
+      line-height: 1.35;
+    }
+
+    #rpgraph-remake-v2 .item strong,
+    #rpgraph-remake-v2 .item small { display: block; }
+    #rpgraph-remake-v2 .item small { margin-top: 4px; color: var(--muted); }
+
+    #rpgraph-remake-v2 .phone-scene {
+      min-height: 700px;
+      display: grid;
+      place-items: center;
+      padding: 20px;
+      background:
+        radial-gradient(circle at 70% 18%, rgba(238,77,155,.16), transparent 26%),
+        radial-gradient(circle at 22% 78%, rgba(69,214,232,.12), transparent 30%),
+        #070a0f;
+    }
+
+    #rpgraph-remake-v2 .device {
+      width: min(390px, 100%);
+      overflow: hidden;
+      border: 10px solid #151922;
+      border-radius: 42px;
+      background: #030509;
+      box-shadow: 0 34px 90px rgba(0,0,0,.62);
+    }
+
+    #rpgraph-remake-v2 .phone-status {
+      display: flex;
+      justify-content: space-between;
+      padding: 13px 22px 8px;
+      color: white;
+      font-size: 12px;
+      font-weight: 800;
+    }
+
+    #rpgraph-remake-v2 .phone-home {
+      min-height: 650px;
+      display: grid;
+      grid-template-rows: auto minmax(0, 1fr) auto;
+      background:
+        linear-gradient(160deg, rgba(8,38,63,.62), rgba(52,12,58,.42)),
+        radial-gradient(circle at 30% 25%, rgba(255,255,255,.13), transparent 26%),
+        #111827;
+    }
+
+    #rpgraph-remake-v2 .app-icons {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 18px 12px;
+      align-content: start;
+      padding: 22px;
+    }
+
+    #rpgraph-remake-v2 .phone-app {
+      display: grid;
+      gap: 6px;
+      place-items: center;
+      border: 0;
+      color: white;
+      background: transparent;
+      font-size: 11px;
+      font-weight: 700;
+    }
+
+    #rpgraph-remake-v2 .app-square {
+      display: grid;
+      width: 52px;
+      height: 52px;
+      place-items: center;
+      border-radius: 15px;
+      color: white;
+      box-shadow: 0 10px 26px rgba(0,0,0,.3);
+    }
+
+    #rpgraph-remake-v2 .whatsapp { background: #25d366; color: #082113; }
+    #rpgraph-remake-v2 .instagram { background: radial-gradient(circle at 32% 90%, #feda75, #fa7e1e 30%, #d62976 55%, #962fbf 76%, #4f5bd5); }
+    #rpgraph-remake-v2 .onlyfans { background: #00aff0; }
+    #rpgraph-remake-v2 .gallery { background: linear-gradient(135deg, #f8fafc, #91d5ff 45%, #d8b4fe); color: #0f172a; }
+    #rpgraph-remake-v2 .chatgpt { background: #111827; border: 1px solid rgba(255,255,255,.18); }
+    #rpgraph-remake-v2 .bank { background: #164e63; }
+    #rpgraph-remake-v2 .notes { background: #facc15; color: #2a2100; }
+    #rpgraph-remake-v2 .camera { background: #1f2937; }
+
+    #rpgraph-remake-v2 .dock {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 10px;
+      margin: 0 18px 18px;
+      border-radius: 24px;
+      padding: 11px;
+      background: rgba(255,255,255,.12);
+    }
+
+    #rpgraph-remake-v2 .phone-note {
+      margin: 0 22px 18px;
+      border-radius: 18px;
+      padding: 13px;
+      color: white;
+      background: rgba(0,0,0,.32);
+      font-size: 12px;
+      line-height: 1.35;
+    }
+
+    #rpgraph-remake-v2 .graph {
+      position: relative;
+      min-height: 720px;
+      overflow: hidden;
+      background:
+        radial-gradient(circle at 24px 24px, rgba(92,111,135,.72) 1px, transparent 1.2px) 0 0 / 24px 24px,
+        #05070b;
+    }
+
+    #rpgraph-remake-v2 .graph-toolbar {
+      position: absolute;
+      z-index: 3;
+      top: 14px;
+      left: 14px;
+      right: 14px;
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: space-between;
+      gap: 10px;
+      pointer-events: none;
+    }
+
+    #rpgraph-remake-v2 .graph-toolbar > * {
+      pointer-events: auto;
+    }
+
+    #rpgraph-remake-v2 .toolcluster {
+      display: flex;
+      gap: 7px;
+      border: 1px solid #293648;
+      border-radius: 12px;
+      padding: 7px;
+      background: rgba(10,15,22,.94);
+    }
+
+    #rpgraph-remake-v2 .palette-float {
+      position: absolute;
+      z-index: 3;
+      left: 14px;
+      top: 80px;
+      width: 300px;
+      border: 1px solid #2d3a4b;
+      border-radius: 14px;
+      padding: 12px;
+      background: rgba(13,19,28,.96);
+      box-shadow: 0 18px 48px rgba(0,0,0,.46);
+    }
+
+    #rpgraph-remake-v2 .palette-float input {
+      width: 100%;
+      min-height: 34px;
+      border: 1px solid #334155;
+      border-radius: 9px;
+      padding: 0 10px;
+      color: var(--ink);
+      background: #05070b;
+      margin-bottom: 9px;
+    }
+
+    #rpgraph-remake-v2 .node {
+      position: absolute;
+      width: 220px;
+      min-height: 106px;
+      border: 1px solid #34455a;
+      border-radius: 12px;
+      padding: 10px;
+      background: #101821;
+      box-shadow: 0 16px 34px rgba(0,0,0,.42);
+      font-size: 12px;
+    }
+
+    #rpgraph-remake-v2 .node.big { width: 300px; min-height: 190px; }
+    #rpgraph-remake-v2 .node.tall { width: 250px; min-height: 260px; }
+    #rpgraph-remake-v2 .node.active { border-color: var(--cyan); box-shadow: 0 0 0 1px rgba(69,214,232,.25), 0 18px 42px rgba(0,0,0,.5); }
+    #rpgraph-remake-v2 .node.done { border-color: var(--lime); }
+    #rpgraph-remake-v2 .node.pink { border-color: var(--pink); }
+    #rpgraph-remake-v2 .node strong,
+    #rpgraph-remake-v2 .node small { display: block; }
+    #rpgraph-remake-v2 .node small { margin-top: 5px; color: #8c9aad; }
+
+    #rpgraph-remake-v2 .port-row {
+      display: grid;
+      grid-template-columns: 9px minmax(0, 1fr) 9px;
+      gap: 7px;
+      align-items: center;
+      margin-top: 8px;
+      color: #aeb9c8;
+      font-size: 10px;
+    }
+
+    #rpgraph-remake-v2 .port {
+      width: 9px;
+      height: 9px;
+      border-radius: 99px;
+      background: var(--cyan);
+    }
+
+    #rpgraph-remake-v2 .wire {
+      position: absolute;
+      height: 3px;
+      transform-origin: left center;
+      border-radius: 999px;
+      background: linear-gradient(90deg, var(--lime), var(--cyan));
+      opacity: .76;
+    }
+
+    #rpgraph-remake-v2 .minimap {
+      position: absolute;
+      right: 16px;
+      bottom: 16px;
+      width: 170px;
+      height: 112px;
+      border: 1px solid #314052;
+      border-radius: 10px;
+      background: rgba(10,15,22,.92);
+    }
+
+    #rpgraph-remake-v2 .graph-inspector {
+      position: absolute;
+      right: 16px;
+      top: 82px;
+      width: 330px;
+      border: 1px solid #314052;
+      border-radius: 14px;
+      padding: 12px;
+      background: rgba(10,15,22,.96);
+      box-shadow: 0 18px 48px rgba(0,0,0,.46);
+    }
+
+    #rpgraph-remake-v2 .explain {
+      display: grid;
+      min-height: 650px;
+      grid-template-columns: minmax(0, 1fr) 340px;
+      background: #080b10;
+    }
+
+    #rpgraph-remake-v2 .path {
+      display: grid;
+      align-content: start;
+      gap: 12px;
+      padding: 18px;
+    }
+
+    #rpgraph-remake-v2 .step {
+      display: grid;
+      grid-template-columns: 34px minmax(0,1fr) auto;
+      gap: 10px;
+      align-items: center;
+      border: 1px solid #2d3a4b;
+      border-radius: 12px;
+      padding: 11px;
+      background: #101821;
+    }
+
+    #rpgraph-remake-v2 .num {
+      display: grid;
+      width: 30px;
+      height: 30px;
+      place-items: center;
+      border-radius: 10px;
+      color: #061014;
+      background: var(--cyan);
+      font-weight: 900;
+    }
+
+    #rpgraph-remake-v2 .onboard {
+      display: grid;
+      min-height: 650px;
+      grid-template-columns: 330px minmax(0,1fr);
+      background: #080b10;
+    }
+
+    #rpgraph-remake-v2 .onboard-left {
+      display: grid;
+      align-content: center;
+      gap: 14px;
+      border-right: 1px solid var(--line);
+      padding: 28px;
+      background: #0d131c;
+    }
+
+    #rpgraph-remake-v2 .mobile {
+      display: grid;
+      min-height: 650px;
+      grid-template-columns: 320px minmax(0,1fr);
+      gap: 22px;
+      align-items: center;
+      padding: 22px;
+      background: #080b10;
+    }
+
+    #rpgraph-remake-v2 .small-phone {
+      overflow: hidden;
+      border: 9px solid #151922;
+      border-radius: 34px;
+      background: #030509;
+      box-shadow: 0 26px 65px rgba(0,0,0,.58);
+    }
+
+    #rpgraph-remake-v2 .bottom {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      border-top: 1px solid var(--line);
+      background: #0b1018;
+    }
+
+    #rpgraph-remake-v2 .bottom button {
+      min-height: 50px;
+      border: 0;
+      color: #9aa7b8;
+      background: transparent;
+      font-size: 10px;
+      font-weight: 850;
+    }
+
+    @media (max-width: 760px) {
+      #rpgraph-remake-v2 .play,
+      #rpgraph-remake-v2 .explain,
+      #rpgraph-remake-v2 .onboard,
+      #rpgraph-remake-v2 .mobile {
+        grid-template-columns: 1fr;
+        min-height: auto;
+      }
+
+      #rpgraph-remake-v2 .rail {
+        grid-row: auto;
+        display: flex;
+        overflow-x: auto;
+      }
+
+      #rpgraph-remake-v2 .rail button { min-width: 62px; }
+      #rpgraph-remake-v2 .characters { grid-column: auto; overflow-x: auto; }
+      #rpgraph-remake-v2 .side { border-left: 0; border-top: 1px solid var(--line); }
+      #rpgraph-remake-v2 .bubble { max-width: 100%; }
+      #rpgraph-remake-v2 .composer { grid-template-columns: auto minmax(0,1fr); }
+      #rpgraph-remake-v2 .palette-float,
+      #rpgraph-remake-v2 .graph-inspector { position: relative; top: auto; left: auto; right: auto; width: auto; margin: 12px; }
+    }
+  </style>
+
+  <div class="intro">
+    <h2>RPGraph Remake Mockups, V2</h2>
+    <p class="sub">This revision removes the rejected amber/orange direction, treats the graph as a full-screen ComfyUI-class editor, and pushes the phone/apps toward immersion: recognizable real-world app metaphors inside a character-owned device.</p>
+  </div>
+
+  <div class="tabs" role="group" aria-label="Mockup views">
+    <button type="button" aria-pressed="true" data-view="play">Play Mode</button>
+    <button type="button" aria-pressed="false" data-view="phone">Immersive Phone</button>
+    <button type="button" aria-pressed="false" data-view="graph">Full Graph Mode</button>
+    <button type="button" aria-pressed="false" data-view="explain">Run Trace Bridge</button>
+    <button type="button" aria-pressed="false" data-view="onboarding">First Run</button>
+    <button type="button" aria-pressed="false" data-view="mobile">Small Screen</button>
+  </div>
+
+  <section class="screen active" data-screen="play">
+    <div class="chrome">
+      <div class="brand"><span class="mark">RP</span><span>RPGraph Studio</span><span class="sub">Saturday Night at Maple Street</span></div>
+      <div class="actions">
+        <button class="action" type="button"><i data-lucide="folder-open" aria-hidden="true"></i>Files</button>
+        <button class="action" type="button"><i data-lucide="plug" aria-hidden="true"></i>Providers</button>
+        <button class="action" type="button"><i data-lucide="bot" aria-hidden="true"></i>Assistant</button>
+        <button class="primary" type="button"><i data-lucide="workflow" aria-hidden="true"></i>Graph Mode</button>
+      </div>
+    </div>
+    <div class="play">
+      <nav class="rail" aria-label="Roleplay surfaces">
+        <button class="active" type="button"><i data-lucide="messages-square" aria-hidden="true"></i>Chat</button>
+        <button type="button"><i data-lucide="smartphone" aria-hidden="true"></i>Phone<span class="dot"></span></button>
+        <button type="button"><i data-lucide="image" aria-hidden="true"></i>Gallery</button>
+        <button type="button"><i data-lucide="instagram" aria-hidden="true"></i>Social<span class="dot"></span></button>
+        <button type="button"><i data-lucide="calendar-clock" aria-hidden="true"></i>Events<span class="dot"></span></button>
+        <button type="button"><i data-lucide="wallet" aria-hidden="true"></i>Bank</button>
+        <button type="button"><i data-lucide="notebook-tabs" aria-hidden="true"></i>Notes</button>
+      </nav>
+      <div class="characters">
+        <button class="character" type="button"><span>Narrator</span><small>system voice</small></button>
+        <button class="character active" type="button"><span>Helga Harper</span><small>playing now</small></button>
+        <button class="character" type="button"><span>Espen Harper</span><small>WhatsApp unread</small></button>
+        <button class="character" type="button"><span>Jack Carter</span><small>bank contact</small></button>
+        <button class="character" type="button"><span>Ryan Parker</span><small>mentioned</small></button>
+      </div>
+      <main class="timeline">
+        <div class="feed">
+          <article class="bubble user"><strong>Helga input</strong><br>Begin the party scene. I check my phone before leaving.</article>
+          <article class="bubble"><strong>Story output</strong><br>Helga caught her reflection in the mirror while the phone lit up beside the perfume bottles. The party was still an hour away, but the room already felt busy.</article>
+          <div class="inline-apps">
+            <button class="mini-phone-msg" type="button"><strong>WhatsApp</strong> Espen: Relax. I am almost ready.</button>
+            <button class="mini-gram" type="button"><strong>Instagram</strong> Ryan liked your story</button>
+          </div>
+          <article class="bubble"><strong>AutoTurn offer</strong><br>Continue as Helga, let Espen reply, or trigger the scheduled party event.</article>
+        </div>
+        <form class="composer">
+          <button class="icon" type="button" aria-label="Attach"><i data-lucide="paperclip" aria-hidden="true"></i></button>
+          <input aria-label="Chat input" value="Helga answers Espen and checks the mirror." />
+          <button class="icon" type="button" aria-label="Voice"><i data-lucide="volume-2" aria-hidden="true"></i></button>
+          <button class="primary" type="button"><i data-lucide="send" aria-hidden="true"></i>Run</button>
+        </form>
+      </main>
+      <aside class="side">
+        <div class="side-title"><span>Story state</span><button class="icon" type="button" aria-label="Detach"><i data-lucide="panel-right-open" aria-hidden="true"></i></button></div>
+        <div class="list">
+          <div class="item"><strong>Character-owned surfaces</strong><small>Chat, phone, gallery, socials, banking, notes, and events all belong to the fiction.</small></div>
+          <div class="item"><strong>Graph recedes</strong><small>The default experience is roleplay. Graph Mode is one click away when editing the engine.</small></div>
+          <div class="item"><strong>No orange system</strong><small>Status uses cyan active, lime complete, pink social, violet player, blue finance/app utility.</small></div>
+        </div>
+      </aside>
+    </div>
+  </section>
+
+  <section class="screen" data-screen="phone">
+    <div class="phone-scene">
+      <div class="device" aria-label="Character phone mockup">
+        <div class="phone-home">
+          <div class="phone-status"><span>19:07</span><span>Helga's Phone</span><span>87%</span></div>
+          <div class="app-icons">
+            <button class="phone-app" type="button"><span class="app-square whatsapp"><i data-lucide="message-circle" aria-hidden="true"></i></span>WhatsUp</button>
+            <button class="phone-app" type="button"><span class="app-square gallery"><i data-lucide="images" aria-hidden="true"></i></span>Gallery</button>
+            <button class="phone-app" type="button"><span class="app-square camera"><i data-lucide="camera" aria-hidden="true"></i></span>Camera</button>
+            <button class="phone-app" type="button"><span class="app-square bank"><i data-lucide="landmark" aria-hidden="true"></i></span>Bank</button>
+            <button class="phone-app" type="button"><span class="app-square instagram"><i data-lucide="instagram" aria-hidden="true"></i></span>Fotogram</button>
+            <button class="phone-app" type="button"><span class="app-square onlyfans"><i data-lucide="badge-dollar-sign" aria-hidden="true"></i></span>OnlyFriends</button>
+            <button class="phone-app" type="button"><span class="app-square notes"><i data-lucide="notebook" aria-hidden="true"></i></span>Notes</button>
+            <button class="phone-app" type="button"><span class="app-square chatgpt"><i data-lucide="bot" aria-hidden="true"></i></span>ChatGPD</button>
+          </div>
+          <div class="phone-note">
+            Apps should feel like story props: WhatsUp behaves like WhatsApp, Fotogram like Instagram, OnlyFriends like OnlyFans, Gallery like a native phone gallery, and ChatGPD like a ChatGPT-style assistant inside the fiction.
+          </div>
+          <div class="dock">
+            <button class="phone-app" type="button"><span class="app-square whatsapp"><i data-lucide="message-circle" aria-hidden="true"></i></span></button>
+            <button class="phone-app" type="button"><span class="app-square gallery"><i data-lucide="images" aria-hidden="true"></i></span></button>
+            <button class="phone-app" type="button"><span class="app-square instagram"><i data-lucide="instagram" aria-hidden="true"></i></span></button>
+            <button class="phone-app" type="button"><span class="app-square chatgpt"><i data-lucide="bot" aria-hidden="true"></i></span></button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="screen" data-screen="graph">
+    <div class="graph">
+      <div class="graph-toolbar">
+        <div class="toolcluster">
+          <button class="action" type="button"><i data-lucide="message-square" aria-hidden="true"></i>Back to Play</button>
+          <button class="action" type="button"><i data-lucide="save" aria-hidden="true"></i>Save Workflow</button>
+          <button class="action" type="button"><i data-lucide="rotate-ccw" aria-hidden="true"></i>Restore Deleted</button>
+        </div>
+        <div class="toolcluster">
+          <button class="action" type="button"><i data-lucide="scan-search" aria-hidden="true"></i>Find Node</button>
+          <button class="primary" type="button"><i data-lucide="play" aria-hidden="true"></i>Test Run</button>
+        </div>
+      </div>
+      <aside class="palette-float">
+        <div class="side-title">Add node</div>
+        <input aria-label="Search node types" value="llm prompt" />
+        <div class="item"><strong>LLM Prompt Switch</strong><small>Drag onto canvas. Singleton constraints appear inline.</small></div>
+        <div class="item"><strong>Context Compression</strong><small>Large editable node cards remain large.</small></div>
+        <div class="item"><strong>RP Output</strong><small>Quick add and right-click favorite stay available.</small></div>
+      </aside>
+      <div class="node done" style="left: 9%; top: 42%;"><strong>Chat History</strong><small>Prepared memory context</small><div class="port-row"><span class="port"></span><span>formatted history</span><span class="port"></span></div></div>
+      <div class="node big done" style="left: 24%; top: 22%;"><strong>RP Storybook V2</strong><small>Saturday Night at Maple Street. Characters, world context, phone state, image library.</small><div class="port-row"><span></span><span>formatted text</span><span class="port"></span></div><div class="port-row"><span></span><span>character info</span><span class="port"></span></div></div>
+      <div class="node" style="left: 32%; top: 55%;"><strong>User Input</strong><small>Helga input, message format, turn mode, image refs.</small><div class="port-row"><span class="port"></span><span>text</span><span class="port"></span></div></div>
+      <div class="node tall active" style="left: 52%; top: 17%;"><strong>LLM Prompt Switch</strong><small>Normal RP, phone, social, autoplay. This stays a full editable node, not a drawer summary.</small><div class="port-row"><span class="port"></span><span>Normal RP / Main</span><span class="port"></span></div><div class="port-row"><span class="port"></span><span>Messenger / No Image</span><span class="port"></span></div><div class="port-row"><span class="port"></span><span>Social / DM</span><span class="port"></span></div></div>
+      <div class="node big pink" style="left: 76%; top: 44%;"><strong>RP Output</strong><small>Parses story prose, embedded WhatsUp, Fotogram, OnlyFriends, banking, choices, and events.</small><div class="port-row"><span class="port"></span><span>Normal RP</span><span></span></div><div class="port-row"><span class="port"></span><span>Messenger Apps</span><span></span></div></div>
+      <span class="wire" style="left: 21%; top: 49%; width: 17%; transform: rotate(-33deg);"></span>
+      <span class="wire" style="left: 42%; top: 62%; width: 17%; transform: rotate(-45deg);"></span>
+      <span class="wire" style="left: 48%; top: 35%; width: 13%; transform: rotate(-11deg);"></span>
+      <span class="wire" style="left: 68%; top: 41%; width: 14%; transform: rotate(31deg); background: linear-gradient(90deg, var(--cyan), var(--pink));"></span>
+      <aside class="graph-inspector">
+        <div class="side-title">Selected node inspector</div>
+        <div class="item"><strong>Overlay, not drawer compression</strong><small>The inspector floats over the graph and can collapse. It never replaces the node canvas or squeezes editable nodes.</small></div>
+        <div class="item"><strong>Spatial graph preserved</strong><small>Pan, zoom, select, resize, and direct node editing stay central, like ComfyUI.</small></div>
+      </aside>
+      <div class="minimap" aria-label="Mini map"></div>
+    </div>
+  </section>
+
+  <section class="screen" data-screen="explain">
+    <div class="chrome">
+      <div class="brand"><span class="mark">RP</span><span>Run Trace Bridge</span><span class="sub">From story beat to graph path</span></div>
+      <div class="actions"><button class="action" type="button"><i data-lucide="workflow" aria-hidden="true"></i>Open Path in Graph</button><button class="action" type="button"><i data-lucide="copy" aria-hidden="true"></i>Copy Prompt</button></div>
+    </div>
+    <div class="explain">
+      <main class="path">
+        <div class="step"><span class="num">1</span><span><strong>Player action</strong><br><small class="sub">Helga answers Espen and checks the mirror.</small></span><span class="sub">input</span></div>
+        <div class="step"><span class="num">2</span><span><strong>Route selected</strong><br><small class="sub">Normal RP, no image, planning step followed by main step.</small></span><span class="sub">switch</span></div>
+        <div class="step"><span class="num">3</span><span><strong>Model call</strong><br><small class="sub">Story prompt plus storybook, chat history, event context, and phone context.</small></span><span class="sub">14.89s</span></div>
+        <div class="step"><span class="num">4</span><span><strong>Parsed result</strong><br><small class="sub">Story text, one WhatsUp message, one social notification, one proposed event.</small></span><span class="sub">ok</span></div>
+      </main>
+      <aside class="side">
+        <div class="side-title">Repair card</div>
+        <div class="item"><strong>Fiction-facing message</strong><small>“Espen does not have Fotogram enabled yet.”</small></div>
+        <div class="item"><strong>Technical expand</strong><small>Node id, raw JSON, port name, provider, prompt slot, exact parser error.</small></div>
+      </aside>
+    </div>
+  </section>
+
+  <section class="screen" data-screen="onboarding">
+    <div class="onboard">
+      <aside class="onboard-left">
+        <h3>First run should start a story, not teach every format.</h3>
+        <p class="sub">The onboarding remake gets the user into one working scene first. Workflow files, graph routing, and file format details appear after the first successful run.</p>
+        <button class="primary" type="button"><i data-lucide="sparkles" aria-hidden="true"></i>Create Storybook</button>
+      </aside>
+      <main class="path">
+        <div class="step"><span class="num">1</span><span><strong>Story source</strong><br><small class="sub">Create, import SillyTavern, or open RP save.</small></span><i data-lucide="check" aria-hidden="true"></i></div>
+        <div class="step"><span class="num">2</span><span><strong>Provider check</strong><br><small class="sub">LM Studio, Ollama, llama.cpp, OpenRouter, Gemini, or ComfyUI.</small></span><i data-lucide="check" aria-hidden="true"></i></div>
+        <div class="step"><span class="num">3</span><span><strong>Begin scene</strong><br><small class="sub">Choose character, write one action, run.</small></span><button class="primary" type="button">Start</button></div>
+        <div class="step"><span class="num">4</span><span><strong>Reveal graph</strong><br><small class="sub">After output, show “why this happened” and offer Graph Mode.</small></span><button class="action" type="button">Inspect</button></div>
+      </main>
+    </div>
+  </section>
+
+  <section class="screen" data-screen="mobile">
+    <div class="mobile">
+      <div class="small-phone">
+        <div class="phone-home">
+          <div class="phone-status"><span>19:07</span><span>RPGraph</span><span>87%</span></div>
+          <div class="characters" style="grid-column:auto; overflow-x:auto;">
+            <button class="character active" type="button"><span>Helga</span><small>now</small></button>
+            <button class="character" type="button"><span>Espen</span><small>2 new</small></button>
+          </div>
+          <div class="timeline" style="padding:12px;">
+            <div class="feed">
+              <article class="bubble"><strong>Story</strong><br>Her phone lights up again beside the mirror.</article>
+              <button class="mini-phone-msg" type="button"><strong>WhatsUp</strong><br>Espen: Please do not make us late.</button>
+            </div>
+            <form class="composer"><input aria-label="Small screen input" value="Reply..." /><button class="primary" type="button"><i data-lucide="send" aria-hidden="true"></i></button></form>
+          </div>
+          <nav class="bottom" aria-label="Small screen nav">
+            <button type="button">Chat</button>
+            <button type="button">Phone</button>
+            <button type="button">Events</button>
+            <button type="button">Graph</button>
+          </nav>
+        </div>
+      </div>
+      <div class="path">
+        <h3>Small screens become phone/story-first.</h3>
+        <p class="sub">The desktop split should not be crushed into unreadable panels. Chat, phone apps, and character switching stay primary. Graph opens as a separate full-canvas mode.</p>
+        <div class="item"><strong>Immersion preserved</strong><small>Phone interactions look and feel like using a phone, not a generic admin panel.</small></div>
+        <div class="item"><strong>Editable graph preserved</strong><small>No drawer-style graph compression on small or large screens.</small></div>
+      </div>
+    </div>
+  </section>
+
+  <script>
+    (() => {
+      const root = document.getElementById('rpgraph-remake-v2');
+      if (!root) return;
+      const buttons = Array.from(root.querySelectorAll('[data-view]'));
+      const screens = Array.from(root.querySelectorAll('[data-screen]'));
+      function show(view) {
+        buttons.forEach((button) => button.setAttribute('aria-pressed', button.getAttribute('data-view') === view ? 'true' : 'false'));
+        screens.forEach((screen) => screen.classList.toggle('active', screen.getAttribute('data-screen') === view));
+      }
+      buttons.forEach((button) => button.addEventListener('click', () => show(button.getAttribute('data-view'))));
+    })();
+  </script>
+</div>
