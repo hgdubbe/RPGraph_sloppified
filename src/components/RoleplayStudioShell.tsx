@@ -19,23 +19,27 @@ export type RoleplayStudioShellProps = {
   composerActions: ReactNode;
   surfaces: StorySurfaceItem[];
   onOpenGraphMode: () => void;
+  panelWidth: number;
+  onResizeStart: () => void;
   children: ReactNode;
 };
 
-const shellStyle: CSSProperties = {
-  position: 'absolute',
-  zIndex: 14,
-  top: 0,
-  right: 0,
-  bottom: 0,
-  display: 'grid',
-  gridTemplateColumns: '82px minmax(0, 779px)',
-  width: 'min(861px, 100%)',
-  minHeight: 0,
-  borderLeft: '1px solid #242e40',
-  background: '#101620',
-  boxShadow: '-16px 0 44px rgba(0, 0, 0, 0.38)',
-};
+function shellStyle(panelWidth: number): CSSProperties {
+  return {
+    position: 'absolute',
+    zIndex: 14,
+    top: 0,
+    right: 0,
+    bottom: 0,
+    display: 'grid',
+    gridTemplateColumns: `82px 7px minmax(0, ${panelWidth}px)`,
+    width: `min(${panelWidth + 89}px, 100%)`,
+    minHeight: 0,
+    borderLeft: '1px solid #242e40',
+    background: '#101620',
+    boxShadow: '-16px 0 44px rgba(0, 0, 0, 0.38)',
+  };
+}
 
 const railStyle: CSSProperties = {
   display: 'flex',
@@ -45,6 +49,26 @@ const railStyle: CSSProperties = {
   padding: '12px 8px',
   borderRight: '1px solid #242e40',
   background: '#111722',
+};
+
+const resizeHandleStyle: CSSProperties = {
+  position: 'relative',
+  height: '100%',
+  borderLeft: '1px solid #242e40',
+  borderRight: '1px solid #242e40',
+  background: '#141b29',
+  cursor: 'col-resize',
+};
+
+const resizeHandleGripStyle: CSSProperties = {
+  position: 'absolute',
+  top: '50%',
+  left: 2,
+  width: 2,
+  height: 54,
+  borderRadius: 99,
+  background: '#4d5a75',
+  transform: 'translateY(-50%)',
 };
 
 const railButtonStyle: CSSProperties = {
@@ -60,6 +84,7 @@ const railButtonStyle: CSSProperties = {
   cursor: 'pointer',
   fontSize: 11,
   fontWeight: 750,
+  transition: 'none',
 };
 
 const activeRailButtonStyle: CSSProperties = {
@@ -125,6 +150,7 @@ const modeButtonStyle: CSSProperties = {
   cursor: 'pointer',
   fontSize: 11,
   fontWeight: 800,
+  transition: 'none',
 };
 
 const stripStyle: CSSProperties = {
@@ -165,10 +191,12 @@ export function RoleplayStudioShell({
   composerActions,
   surfaces,
   onOpenGraphMode,
+  panelWidth,
+  onResizeStart,
   children,
 }: RoleplayStudioShellProps) {
   return (
-    <section className="studio-shell studio-shell-play" aria-label="Play Mode" style={shellStyle}>
+    <section className="studio-shell studio-shell-play" aria-label="Play Mode" style={shellStyle(panelWidth)}>
       <nav className="studio-activity-rail" aria-label="Story surfaces" style={railStyle}>
         {surfaces.map((surface) => (
           <button
@@ -193,6 +221,17 @@ export function RoleplayStudioShell({
           </button>
         ))}
       </nav>
+
+      <div
+        className="studio-play-resizer"
+        role="separator"
+        aria-label="Resize play panel"
+        aria-orientation="vertical"
+        onPointerDown={onResizeStart}
+        style={resizeHandleStyle}
+      >
+        <span aria-hidden="true" style={resizeHandleGripStyle} />
+      </div>
 
       <div className="studio-play-main" style={playMainStyle}>
         <header className="studio-play-header" style={headerStyle}>

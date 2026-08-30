@@ -241,6 +241,7 @@ import {
   speakerDataForFormat,
 } from './nodes/output/speakerPrompt';
 import {
+  defaultChatPanelWidth,
   defaultConnection,
   useAppSettings,
 } from './settings';
@@ -454,6 +455,8 @@ function loadAssistantConnectionId() {
   }
 }
 
+const minChatPanelWidth = 779;
+const minGraphPanelWidth = 520;
 const phoneEmojiOptions = [
   '🙂',
   '😀',
@@ -595,7 +598,7 @@ type PreviewImageState = {
 function App() {
   const [nodes, setNodes, onNodesChange] = useNodesState<WorkflowNode>(createInitialNodes());
   const [edges, setEdges, onEdgesChange] = useEdgesState(createInitialEdges());
-  const [, setStudioMode] = useState<'play' | 'graph'>('play');
+  const [studioMode, setStudioMode] = useState<'play' | 'graph'>('play');
   const nodesRef = useRef(nodes);
   const commitNodes = useCallback((nextNodes: WorkflowNode[]) => {
     nodesRef.current = nextNodes;
@@ -669,6 +672,8 @@ function App() {
     setReferenceImageTurnLookback,
     maxReferenceImages,
     setMaxReferenceImages,
+    chatPanelWidth: storedChatPanelWidth,
+    setChatPanelWidth: setStoredChatPanelWidth,
     settingsLoadComplete,
     settingsStatus,
     glassDesignEnabled,
@@ -827,6 +832,8 @@ function App() {
   const [workflowAssistantMessages, setWorkflowAssistantMessages] = useState<AssistantChatMessage[]>([]);
   const [outputFormatHelpKind, setOutputFormatHelpKind] =
     useState<OutputFormatHelpKind | null>(null);
+  const [chatWidth, setChatWidth] = useState(defaultChatPanelWidth);
+  const [isResizing, setIsResizing] = useState(false);
   const [showDeletedNodeRestoreButton, setShowDeletedNodeRestoreButton] = useState(false);
   const [activeWorkflowProtection, setActiveWorkflowProtection] = useState<'plain' | 'encrypted'>('plain');
   const [activeStorybookProtection, setActiveStorybookProtection] = useState<'plain' | 'encrypted'>('plain');
@@ -1533,6 +1540,7 @@ function App() {
   const copiedSelection = useRef<CopiedGraphSelection | null>(null);
   const deletedNodeRestoreStack = useRef<DeletedGraphRestoreAction[]>([]);
   const pasteCount = useRef(0);
+  const chatWidthRef = useRef(chatWidth);
   const edgesRef = useRef(edges);
   const commitEdges = useCallback((nextEdges: Edge[]) => {
     edgesRef.current = nextEdges;
@@ -1592,6 +1600,10 @@ function App() {
     cancelBulkNodeRemoval,
     confirmBulkNodeRemoval,
   } = useNodeContextMenu({ nodesRef, flowInstanceRef });
+
+  useEffect(() => {
+    chatWidthRef.current = chatWidth;
+  }, [chatWidth]);
 
   useEffect(() => {
     if (assistantConnectionId) {
@@ -1848,6 +1860,44 @@ function App() {
       ),
     );
   }, [isRunning, messages, rpDateTimeFormat, rpWeekdayLanguage, setNodes]);
+
+  useEffect(() => {
+    if (settingsLoadComplete) {
+      const maximum = Math.max(minChatPanelWidth, window.innerWidth - minGraphPanelWidth);
+      queueMicrotask(() => {
+        const nextWidth = Math.min(maximum, Math.max(minChatPanelWidth, storedChatPanelWidth));
+        setChatWidth((current) => (current === nextWidth ? current : nextWidth));
+      });
+    }
+  }, [settingsLoadComplete, storedChatPanelWidth]);
+
+  useEffect(() => {
+    if (!isResizing) {
+      return;
+    }
+
+    function resize(event: PointerEvent) {
+      const maximum = Math.max(minChatPanelWidth, window.innerWidth - minGraphPanelWidth);
+      const width = Math.min(maximum, Math.max(minChatPanelWidth, window.innerWidth - event.clientX));
+      chatWidthRef.current = width;
+      setChatWidth(width);
+    }
+
+    function stopResize() {
+      setIsResizing(false);
+      setStoredChatPanelWidth(chatWidthRef.current);
+    }
+
+    document.body.classList.add('resizing-panels');
+    window.addEventListener('pointermove', resize);
+    window.addEventListener('pointerup', stopResize);
+
+    return () => {
+      document.body.classList.remove('resizing-panels');
+      window.removeEventListener('pointermove', resize);
+      window.removeEventListener('pointerup', stopResize);
+    };
+  }, [isResizing, setStoredChatPanelWidth]);
 
   useEffect(() => {
     if (!previewImage) {
@@ -5048,10 +5098,34 @@ function App() {
       </header>
 
       <main
-        className="workspace"
+        className={`workspace ${isResizing ? 'resizing' : ''}`}
       >
+        {studioMode === 'graph' && (
         <ErrorBoundary label="Graph Panel">
         <section className="graph-panel" aria-label="Workflow Graph">
+          <button
+            type="button"
+            className="studio-mode-button"
+            onClick={() => setStudioMode('play')}
+            style={{
+              position: 'absolute',
+              zIndex: 6,
+              top: 20,
+              right: 20,
+              height: 28,
+              padding: '0 11px',
+              border: '1px solid rgba(255, 255, 255, 0.08)',
+              borderRadius: 6,
+              color: '#d9e6f8',
+              background: 'rgba(15, 23, 42, 0.7)',
+              cursor: 'pointer',
+              fontSize: 11,
+              fontWeight: 800,
+              transition: 'none',
+            }}
+          >
+            Play Mode
+          </button>
           <div className="graph-toolbar">
             <div className="panel-label">
               <span>GRAPH</span>
@@ -5299,7 +5373,9 @@ function App() {
           )}
         </section>
         </ErrorBoundary>
+        )}
 
+        {studioMode === 'play' && (
         <ErrorBoundary label="Chat Panel">
         <RoleplayStudioShell
           activeSurfaceLabel={
@@ -5363,6 +5439,8 @@ function App() {
             },
           ]}
           onOpenGraphMode={() => setStudioMode('graph')}
+          panelWidth={chatWidth}
+          onResizeStart={() => setIsResizing(true)}
         >
           <div className="chat-lockable">
           {chatPanelView === 'chat' ? (
@@ -5779,6 +5857,7 @@ function App() {
           </div>
         </RoleplayStudioShell>
           </ErrorBoundary>
+        )}
       </main>
 
       {outputFormatHelpKind && (
