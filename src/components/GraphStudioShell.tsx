@@ -16,7 +16,7 @@ export function GraphStudioShell({
   onOpenPlayMode,
 }: GraphStudioShellProps) {
   return (
-    <section className="studio-shell studio-shell-graph" aria-label="Graph Mode">
+    <section className="studio-shell studio-shell-graph graph-panel" aria-label="Graph Mode">
       <header className="studio-graph-commandbar">
         <button type="button" className="studio-mode-button" onClick={onOpenPlayMode}>
           Play Mode
