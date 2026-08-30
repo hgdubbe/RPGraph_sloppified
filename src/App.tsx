@@ -106,6 +106,7 @@ import {
   recentTurnDebugSummaries,
   sanitizeDebugSnapshotValue,
 } from './app/debugSnapshot';
+import { isStudioMode, studioModeStorageKey, type StudioMode } from './app/studioMode';
 import { useTurnTraceState } from './app/useTurnTraceState';
 import { createWorkflowAssistantSnapshotJson } from './assistant/workflowSnapshot';
 import {
@@ -599,7 +600,21 @@ type PreviewImageState = {
 function App() {
   const [nodes, setNodes, onNodesChange] = useNodesState<WorkflowNode>(createInitialNodes());
   const [edges, setEdges, onEdgesChange] = useEdgesState(createInitialEdges());
-  const [studioMode, setStudioMode] = useState<'play' | 'graph'>('play');
+  const [studioMode, setStudioModeState] = useState<StudioMode>(() => {
+    if (typeof window === 'undefined') {
+      return 'play';
+    }
+    const storedMode = window.localStorage.getItem(studioModeStorageKey);
+    return isStudioMode(storedMode) ? storedMode : 'play';
+  });
+  const setStudioMode = useCallback((mode: StudioMode) => {
+    setStudioModeState(mode);
+    try {
+      window.localStorage.setItem(studioModeStorageKey, mode);
+    } catch {
+      // localStorage can be unavailable in hardened environments; the UI still works for this session.
+    }
+  }, []);
   const nodesRef = useRef(nodes);
   const commitNodes = useCallback((nextNodes: WorkflowNode[]) => {
     nodesRef.current = nextNodes;
