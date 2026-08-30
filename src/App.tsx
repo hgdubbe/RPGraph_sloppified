@@ -25,6 +25,7 @@ import {
 import { ChatConversationPanel } from './components/ChatConversationPanel';
 import { EventsPanel } from './components/EventsPanel';
 import { ErrorBoundary } from './components/ErrorBoundary';
+import { GraphStudioShell } from './components/GraphStudioShell';
 import { PhonePanel } from './components/PhonePanel';
 import { RoleplayStudioShell } from './components/RoleplayStudioShell';
 import { useChatGpdPhoneApp } from './chat/useChatGpdPhoneApp';
@@ -4964,6 +4965,265 @@ function App() {
     </div>
   );
 
+  const graphToolbar = (
+    <div className="graph-toolbar">
+      <div className="panel-label">
+        <span>GRAPH</span>
+        <PromptPresetOverview
+          nodes={nodeViewNodes}
+          connections={connections}
+          providerHealthById={providerHealthById}
+          onCheckProviderConnection={(connectionId) => {
+            void checkProviderConnectionById(connectionId);
+          }}
+          promptActionCustomPresets={promptActionCustomPresets}
+          setPromptActionCustomPresets={setPromptActionCustomPresets}
+          promptActionSettings={promptActionSettings}
+          setPromptActionSettings={setPromptActionSettings}
+          promptTextCustomPresets={promptTextCustomPresets}
+          setPromptTextCustomPresets={setPromptTextCustomPresets}
+          updateNodeData={updateRuntimeNode}
+        />
+        <button
+          className="graph-reset"
+          type="button"
+          onClick={() => void resetWorkflow()}
+          disabled={!!activeSessionFileName}
+          title={activeSessionFileName
+            ? 'Workflow reset is unavailable while an RP save is active.'
+            : 'Reset workflow'}
+        >
+          Reset Workflow
+        </button>
+        <button className="graph-reset" type="button" onClick={() => void saveCurrentWorkflow()}>
+          Save Workflow
+        </button>
+        <button className="graph-reset" type="button" onClick={() => void saveCurrentSession()}>
+          Save RP
+        </button>
+        <button
+          className="runtime-summary-button"
+          type="button"
+          onClick={() => setShowRunLlmReport(true)}
+          disabled={!runLlmReport}
+          title="Show LLM calls for the current or last run"
+        >
+          Runtime: <LiveRunClock isRunning={isRunning} startTimeMs={runStartTimeMs} finalMs={runDurationMs} /> s
+        </button>
+        <WorkflowCapabilityStrip indicators={workflowCapabilityIndicators} />
+        {visibleLogEntry && (
+          <div
+            key={visibleLogEntry.id}
+            className={`graph-system-toast ${visibleLogEntry.level}`}
+            role="status"
+            aria-live="polite"
+          >
+            <div className="graph-system-toast-content">
+              <strong>{visibleLogEntry.level}</strong>
+              <span>{visibleLogEntry.text}</span>
+            </div>
+          </div>
+        )}
+      </div>
+      {showDeletedNodeRestoreButton && (
+        <button
+          className="graph-restore-deleted"
+          type="button"
+          onClick={restoreLastDeletedNodes}
+          title="Restore last deleted node"
+          aria-label="Restore last deleted node"
+        >
+          ↶
+        </button>
+      )}
+    </div>
+  );
+
+  const graphCanvas = (
+    <NodeActionsContext.Provider value={nodeActions}>
+      <NodeViewContext.Provider value={nodeViewValues}>
+        <ReactFlow
+          nodes={nodes}
+          edges={renderedEdges}
+          nodeTypes={nodeTypes}
+          edgeTypes={edgeTypes}
+          onInit={initializeFlow}
+          onDragOver={allowNodeDrop}
+          onDrop={dropNode}
+          onPaneContextMenu={(event) => {
+            closeNodeContextMenu();
+            openNodeMenu(event);
+          }}
+          onPaneClick={() => {
+            setNodeMenu(null);
+            closeNodeContextMenu();
+          }}
+          onNodeClick={closeNodeContextMenu}
+          onNodeDoubleClick={(_event, node) => splitWireLink(node.id)}
+          onNodeContextMenu={(event, node) => {
+            // Let form controls inside a node keep their native context
+            // menu — the Remove action would sit right under the cursor.
+            if (isEditableKeyboardTarget(event.target)) {
+              return;
+            }
+            setNodeMenu(null);
+            openNodeContextMenu(event, node);
+          }}
+          onSelectionContextMenu={(event, selectedNodes) => {
+            setNodeMenu(null);
+            openSelectionContextMenu(event, selectedNodes);
+          }}
+          onMoveStart={closeNodeContextMenu}
+          onNodeDragStart={closeNodeContextMenu}
+          onSelectionDragStart={closeNodeContextMenu}
+          onBeforeDelete={handleBeforeNodeDelete}
+          onNodesChange={onNodesChange}
+          onNodesDelete={rememberDeletedNodes}
+          onEdgesChange={onEdgesChange}
+          onConnect={connectNodes}
+          onReconnect={reconnectNodes}
+          onReconnectStart={startReconnect}
+          onReconnectEnd={finishReconnect}
+          minZoom={0.25}
+          maxZoom={1.6}
+          nodesConnectable
+          edgesReconnectable
+          elementsSelectable
+          onlyRenderVisibleElements
+          deleteKeyCode={['Backspace', 'Delete']}
+          multiSelectionKeyCode="Control"
+          selectionKeyCode="Control"
+          connectionRadius={connectionRadius}
+          reconnectRadius={reconnectRadius}
+          zoomOnDoubleClick={false}
+          colorMode="dark"
+          proOptions={{ hideAttribution: true }}
+        >
+          <Background
+            color="#273043"
+            gap={24}
+            size={1.5}
+            variant={BackgroundVariant.Dots}
+          />
+          <Controls position="bottom-left" showInteractive={false} />
+          <ResourceMonitor />
+        </ReactFlow>
+      </NodeViewContext.Provider>
+    </NodeActionsContext.Provider>
+  );
+
+  const graphNodePalette = (
+    <aside className="node-palette" aria-label="Available nodes">
+      <div className="node-palette-handle" aria-hidden="true">
+        NODES
+      </div>
+      <div className="node-palette-drawer">
+        <header>
+          <strong>Add Node</strong>
+          <small>Drag onto graph</small>
+        </header>
+        <div className="node-palette-items">
+          {groupedNodePaletteItems.map((group) => (
+            <section className="node-palette-group" key={group.title}>
+              <div className="node-palette-group-header">
+                <strong>{group.title}</strong>
+              </div>
+              {group.items.map((item) => {
+                const unavailable = nodeTypeUnavailable(item.type);
+                const favorite = favoriteNodeTypeSet.has(item.type);
+                return (
+                  <div className={`node-palette-item-row${favorite ? ' favorite' : ''}`} key={item.type}>
+                    <button
+                      className="node-favorite-button"
+                      type="button"
+                      aria-pressed={favorite}
+                      aria-label={favorite ? `Remove ${item.label} from quick add` : `Add ${item.label} to quick add`}
+                      title={favorite ? 'Remove from right-click quick add' : 'Add to right-click quick add'}
+                      onClick={() => toggleFavoriteNodeType(item.type)}
+                    >
+                      ★
+                    </button>
+                    <button
+                      className="node-palette-item"
+                      type="button"
+                      disabled={unavailable}
+                      draggable={!unavailable}
+                      onDragStart={(event) => startNodeDrag(event, item.type)}
+                    >
+                      <span className="node-menu-item-label">
+                        <span>{item.label}</span>
+                        <small className="node-menu-item-version">v{item.version}</small>
+                      </span>
+                      <small>{unavailable ? 'Already in graph' : item.description}</small>
+                    </button>
+                  </div>
+                );
+              })}
+            </section>
+          ))}
+        </div>
+      </div>
+    </aside>
+  );
+
+  const graphOverlays = (
+    <>
+      {nodeMenu && (
+        <div
+          className="node-menu"
+          style={{ left: nodeMenu.screen.x, top: nodeMenu.screen.y }}
+        >
+          <strong>Quick Add</strong>
+          {favoriteNodeItems.length ? favoriteNodeItems.map((item) => {
+            const unavailable = nodeTypeUnavailable(item.type);
+            return (
+              <button
+                type="button"
+                key={item.type}
+                disabled={unavailable}
+                onClick={() => addNode(item.type)}
+              >
+                <span className="node-menu-item-label">
+                  <span>{item.label}</span>
+                  <small className="node-menu-item-version">v{item.version}</small>
+                </span>
+                <small>{unavailable ? 'Already in graph' : item.description}</small>
+              </button>
+            );
+          }) : (
+            <p className="node-menu-empty">Mark nodes with ★ in the side panel.</p>
+          )}
+        </div>
+      )}
+      {nodeContextMenu && (
+        <div
+          className="node-menu"
+          style={{ left: nodeContextMenu.screen.x, top: nodeContextMenu.screen.y }}
+        >
+          <strong>Node Actions</strong>
+          {nodeContextMenu.selectedNodeIds.length >= 2 ? (
+            <button
+              type="button"
+              onClick={() => removeNodes(nodeContextMenu.selectedNodeIds)}
+            >
+              <span className="node-menu-item-label">
+                <span>Remove All Selected</span>
+              </span>
+              <small>{nodeContextMenu.selectedNodeIds.length} nodes selected</small>
+            </button>
+          ) : (
+            <button type="button" onClick={() => removeNodes(nodeContextMenu.selectedNodeIds)}>
+              <span className="node-menu-item-label">
+                <span>Remove</span>
+              </span>
+              <small>Delete this node</small>
+            </button>
+          )}
+        </div>
+      )}
+    </>
+  );
+
   return (
     <div
       className={`studio node-text-${nodeTextSize}${glassDesignEnabled ? ' glass-design-active' : ''}`}
@@ -5102,276 +5362,13 @@ function App() {
       >
         {studioMode === 'graph' && (
         <ErrorBoundary label="Graph Panel">
-        <section className="graph-panel" aria-label="Workflow Graph">
-          <button
-            type="button"
-            className="studio-mode-button"
-            onClick={() => setStudioMode('play')}
-            style={{
-              position: 'absolute',
-              zIndex: 6,
-              top: 20,
-              right: 20,
-              height: 28,
-              padding: '0 11px',
-              border: '1px solid rgba(255, 255, 255, 0.08)',
-              borderRadius: 6,
-              color: '#d9e6f8',
-              background: 'rgba(15, 23, 42, 0.7)',
-              cursor: 'pointer',
-              fontSize: 11,
-              fontWeight: 800,
-              transition: 'none',
-            }}
-          >
-            Play Mode
-          </button>
-          <div className="graph-toolbar">
-            <div className="panel-label">
-              <span>GRAPH</span>
-              <PromptPresetOverview
-                nodes={nodeViewNodes}
-                connections={connections}
-                providerHealthById={providerHealthById}
-                onCheckProviderConnection={(connectionId) => {
-                  void checkProviderConnectionById(connectionId);
-                }}
-                promptActionCustomPresets={promptActionCustomPresets}
-                setPromptActionCustomPresets={setPromptActionCustomPresets}
-                promptActionSettings={promptActionSettings}
-                setPromptActionSettings={setPromptActionSettings}
-                promptTextCustomPresets={promptTextCustomPresets}
-                setPromptTextCustomPresets={setPromptTextCustomPresets}
-                updateNodeData={updateRuntimeNode}
-              />
-              <button
-                className="graph-reset"
-                type="button"
-                onClick={() => void resetWorkflow()}
-                disabled={!!activeSessionFileName}
-                title={activeSessionFileName
-                  ? 'Workflow reset is unavailable while an RP save is active.'
-                  : 'Reset workflow'}
-              >
-                Reset Workflow
-              </button>
-              <button className="graph-reset" type="button" onClick={() => void saveCurrentWorkflow()}>
-                Save Workflow
-              </button>
-              <button className="graph-reset" type="button" onClick={() => void saveCurrentSession()}>
-                Save RP
-              </button>
-              <button
-                className="runtime-summary-button"
-                type="button"
-                onClick={() => setShowRunLlmReport(true)}
-                disabled={!runLlmReport}
-                title="Show LLM calls for the current or last run"
-              >
-                Runtime: <LiveRunClock isRunning={isRunning} startTimeMs={runStartTimeMs} finalMs={runDurationMs} /> s
-              </button>
-              <WorkflowCapabilityStrip indicators={workflowCapabilityIndicators} />
-              {visibleLogEntry && (
-                <div
-                  key={visibleLogEntry.id}
-                  className={`graph-system-toast ${visibleLogEntry.level}`}
-                  role="status"
-                  aria-live="polite"
-                >
-                  <div className="graph-system-toast-content">
-                    <strong>{visibleLogEntry.level}</strong>
-                    <span>{visibleLogEntry.text}</span>
-                  </div>
-                </div>
-              )}
-            </div>
-            {showDeletedNodeRestoreButton && (
-              <button
-                className="graph-restore-deleted"
-                type="button"
-                onClick={restoreLastDeletedNodes}
-                title="Restore last deleted node"
-                aria-label="Restore last deleted node"
-              >
-                ↶
-              </button>
-            )}
-          </div>
-          <NodeActionsContext.Provider value={nodeActions}>
-            <NodeViewContext.Provider value={nodeViewValues}>
-              <ReactFlow
-                nodes={nodes}
-                edges={renderedEdges}
-                nodeTypes={nodeTypes}
-                edgeTypes={edgeTypes}
-                onInit={initializeFlow}
-                onDragOver={allowNodeDrop}
-                onDrop={dropNode}
-                onPaneContextMenu={(event) => {
-                  closeNodeContextMenu();
-                  openNodeMenu(event);
-                }}
-                onPaneClick={() => {
-                  setNodeMenu(null);
-                  closeNodeContextMenu();
-                }}
-                onNodeClick={closeNodeContextMenu}
-                onNodeDoubleClick={(_event, node) => splitWireLink(node.id)}
-                onNodeContextMenu={(event, node) => {
-                  // Let form controls inside a node keep their native context
-                  // menu — the Remove action would sit right under the cursor.
-                  if (isEditableKeyboardTarget(event.target)) {
-                    return;
-                  }
-                  setNodeMenu(null);
-                  openNodeContextMenu(event, node);
-                }}
-                onSelectionContextMenu={(event, selectedNodes) => {
-                  setNodeMenu(null);
-                  openSelectionContextMenu(event, selectedNodes);
-                }}
-                onMoveStart={closeNodeContextMenu}
-                onNodeDragStart={closeNodeContextMenu}
-                onSelectionDragStart={closeNodeContextMenu}
-                onBeforeDelete={handleBeforeNodeDelete}
-                onNodesChange={onNodesChange}
-                onNodesDelete={rememberDeletedNodes}
-                onEdgesChange={onEdgesChange}
-                onConnect={connectNodes}
-                onReconnect={reconnectNodes}
-                onReconnectStart={startReconnect}
-                onReconnectEnd={finishReconnect}
-                minZoom={0.25}
-                maxZoom={1.6}
-                nodesConnectable
-                edgesReconnectable
-                elementsSelectable
-                onlyRenderVisibleElements
-                deleteKeyCode={['Backspace', 'Delete']}
-                multiSelectionKeyCode="Control"
-                selectionKeyCode="Control"
-                connectionRadius={connectionRadius}
-                reconnectRadius={reconnectRadius}
-                zoomOnDoubleClick={false}
-                colorMode="dark"
-                proOptions={{ hideAttribution: true }}
-              >
-                <Background
-                  color="#273043"
-                  gap={24}
-                  size={1.5}
-                  variant={BackgroundVariant.Dots}
-                />
-                <Controls position="bottom-left" showInteractive={false} />
-                <ResourceMonitor />
-              </ReactFlow>
-            </NodeViewContext.Provider>
-          </NodeActionsContext.Provider>
-          <aside className="node-palette" aria-label="Available nodes">
-            <div className="node-palette-handle" aria-hidden="true">
-              NODES
-            </div>
-            <div className="node-palette-drawer">
-              <header>
-                <strong>Add Node</strong>
-                <small>Drag onto graph</small>
-              </header>
-              <div className="node-palette-items">
-                {groupedNodePaletteItems.map((group) => (
-                  <section className="node-palette-group" key={group.title}>
-                    <div className="node-palette-group-header">
-                      <strong>{group.title}</strong>
-                    </div>
-                    {group.items.map((item) => {
-                      const unavailable = nodeTypeUnavailable(item.type);
-                      const favorite = favoriteNodeTypeSet.has(item.type);
-                      return (
-                        <div className={`node-palette-item-row${favorite ? ' favorite' : ''}`} key={item.type}>
-                          <button
-                            className="node-favorite-button"
-                            type="button"
-                            aria-pressed={favorite}
-                            aria-label={favorite ? `Remove ${item.label} from quick add` : `Add ${item.label} to quick add`}
-                            title={favorite ? 'Remove from right-click quick add' : 'Add to right-click quick add'}
-                            onClick={() => toggleFavoriteNodeType(item.type)}
-                          >
-                            ★
-                          </button>
-                          <button
-                            className="node-palette-item"
-                            type="button"
-                            disabled={unavailable}
-                            draggable={!unavailable}
-                            onDragStart={(event) => startNodeDrag(event, item.type)}
-                          >
-                            <span className="node-menu-item-label">
-                              <span>{item.label}</span>
-                              <small className="node-menu-item-version">v{item.version}</small>
-                            </span>
-                            <small>{unavailable ? 'Already in graph' : item.description}</small>
-                          </button>
-                        </div>
-                      );
-                    })}
-                  </section>
-                ))}
-              </div>
-            </div>
-          </aside>
-          {nodeMenu && (
-            <div
-              className="node-menu"
-              style={{ left: nodeMenu.screen.x, top: nodeMenu.screen.y }}
-            >
-              <strong>Quick Add</strong>
-              {favoriteNodeItems.length ? favoriteNodeItems.map((item) => {
-                const unavailable = nodeTypeUnavailable(item.type);
-                return (
-                  <button
-                    type="button"
-                    key={item.type}
-                    disabled={unavailable}
-                    onClick={() => addNode(item.type)}
-                  >
-                    <span className="node-menu-item-label">
-                      <span>{item.label}</span>
-                      <small className="node-menu-item-version">v{item.version}</small>
-                    </span>
-                    <small>{unavailable ? 'Already in graph' : item.description}</small>
-                  </button>
-                );
-              }) : (
-                <p className="node-menu-empty">Mark nodes with ★ in the side panel.</p>
-              )}
-            </div>
-          )}
-          {nodeContextMenu && (
-            <div
-              className="node-menu"
-              style={{ left: nodeContextMenu.screen.x, top: nodeContextMenu.screen.y }}
-            >
-              <strong>Node Actions</strong>
-              {nodeContextMenu.selectedNodeIds.length >= 2 ? (
-                <button
-                  type="button"
-                  onClick={() => removeNodes(nodeContextMenu.selectedNodeIds)}
-                >
-                  <span className="node-menu-item-label">
-                    <span>Remove All Selected</span>
-                  </span>
-                  <small>{nodeContextMenu.selectedNodeIds.length} nodes selected</small>
-                </button>
-              ) : (
-                <button type="button" onClick={() => removeNodes(nodeContextMenu.selectedNodeIds)}>
-                  <span className="node-menu-item-label">
-                    <span>Remove</span>
-                  </span>
-                  <small>Delete this node</small>
-                </button>
-              )}
-            </div>
-          )}
-        </section>
+          <GraphStudioShell
+            toolbar={graphToolbar}
+            canvas={graphCanvas}
+            nodePalette={graphNodePalette}
+            overlays={graphOverlays}
+            onOpenPlayMode={() => setStudioMode('play')}
+          />
         </ErrorBoundary>
         )}
 
