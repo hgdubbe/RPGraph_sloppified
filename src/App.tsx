@@ -26,6 +26,7 @@ import { ChatConversationPanel } from './components/ChatConversationPanel';
 import { EventsPanel } from './components/EventsPanel';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import { PhonePanel } from './components/PhonePanel';
+import { RoleplayStudioShell } from './components/RoleplayStudioShell';
 import { useChatGpdPhoneApp } from './chat/useChatGpdPhoneApp';
 import { useAutoplay, type AutoplayRunRequest } from './chat/useAutoplay';
 import { PhoneTab } from './chat/PhoneTab';
@@ -240,7 +241,6 @@ import {
   speakerDataForFormat,
 } from './nodes/output/speakerPrompt';
 import {
-  defaultChatPanelWidth,
   defaultConnection,
   useAppSettings,
 } from './settings';
@@ -454,8 +454,6 @@ function loadAssistantConnectionId() {
   }
 }
 
-const minChatPanelWidth = 779;
-const minGraphPanelWidth = 520;
 const phoneEmojiOptions = [
   '🙂',
   '😀',
@@ -597,6 +595,7 @@ type PreviewImageState = {
 function App() {
   const [nodes, setNodes, onNodesChange] = useNodesState<WorkflowNode>(createInitialNodes());
   const [edges, setEdges, onEdgesChange] = useEdgesState(createInitialEdges());
+  const [, setStudioMode] = useState<'play' | 'graph'>('play');
   const nodesRef = useRef(nodes);
   const commitNodes = useCallback((nextNodes: WorkflowNode[]) => {
     nodesRef.current = nextNodes;
@@ -670,8 +669,6 @@ function App() {
     setReferenceImageTurnLookback,
     maxReferenceImages,
     setMaxReferenceImages,
-    chatPanelWidth: storedChatPanelWidth,
-    setChatPanelWidth: setStoredChatPanelWidth,
     settingsLoadComplete,
     settingsStatus,
     glassDesignEnabled,
@@ -830,9 +827,6 @@ function App() {
   const [workflowAssistantMessages, setWorkflowAssistantMessages] = useState<AssistantChatMessage[]>([]);
   const [outputFormatHelpKind, setOutputFormatHelpKind] =
     useState<OutputFormatHelpKind | null>(null);
-  const [chatWidth, setChatWidth] = useState(defaultChatPanelWidth);
-  const [isChatPanelOpen, setIsChatPanelOpen] = useState(false);
-  const [isResizing, setIsResizing] = useState(false);
   const [showDeletedNodeRestoreButton, setShowDeletedNodeRestoreButton] = useState(false);
   const [activeWorkflowProtection, setActiveWorkflowProtection] = useState<'plain' | 'encrypted'>('plain');
   const [activeStorybookProtection, setActiveStorybookProtection] = useState<'plain' | 'encrypted'>('plain');
@@ -1539,7 +1533,6 @@ function App() {
   const copiedSelection = useRef<CopiedGraphSelection | null>(null);
   const deletedNodeRestoreStack = useRef<DeletedGraphRestoreAction[]>([]);
   const pasteCount = useRef(0);
-  const chatWidthRef = useRef(chatWidth);
   const edgesRef = useRef(edges);
   const commitEdges = useCallback((nextEdges: Edge[]) => {
     edgesRef.current = nextEdges;
@@ -1599,10 +1592,6 @@ function App() {
     cancelBulkNodeRemoval,
     confirmBulkNodeRemoval,
   } = useNodeContextMenu({ nodesRef, flowInstanceRef });
-
-  useEffect(() => {
-    chatWidthRef.current = chatWidth;
-  }, [chatWidth]);
 
   useEffect(() => {
     if (assistantConnectionId) {
@@ -1859,43 +1848,6 @@ function App() {
       ),
     );
   }, [isRunning, messages, rpDateTimeFormat, rpWeekdayLanguage, setNodes]);
-
-  useEffect(() => {
-    if (settingsLoadComplete) {
-      const maximum = Math.max(minChatPanelWidth, window.innerWidth - minGraphPanelWidth);
-      queueMicrotask(() => {
-        setChatWidth(Math.min(maximum, Math.max(minChatPanelWidth, storedChatPanelWidth)));
-      });
-    }
-  }, [settingsLoadComplete, storedChatPanelWidth]);
-
-  useEffect(() => {
-    if (!isResizing) {
-      return;
-    }
-
-    function resize(event: PointerEvent) {
-      const maximum = Math.max(minChatPanelWidth, window.innerWidth - minGraphPanelWidth);
-      const width = Math.min(maximum, Math.max(minChatPanelWidth, window.innerWidth - event.clientX));
-      chatWidthRef.current = width;
-      setChatWidth(width);
-    }
-
-    function stopResize() {
-      setIsResizing(false);
-      setStoredChatPanelWidth(chatWidthRef.current);
-    }
-
-    document.body.classList.add('resizing-panels');
-    window.addEventListener('pointermove', resize);
-    window.addEventListener('pointerup', stopResize);
-
-    return () => {
-      document.body.classList.remove('resizing-panels');
-      window.removeEventListener('pointermove', resize);
-      window.removeEventListener('pointerup', stopResize);
-    };
-  }, [isResizing, setStoredChatPanelWidth]);
 
   useEffect(() => {
     if (!previewImage) {
@@ -4816,6 +4768,152 @@ function App() {
       voiceGenerationActive || apiNarratorGenerationActive || readAloudActive,
   });
 
+  const roleplayViewTabs = (
+    <div className="chat-panel-tabs" role="tablist" aria-label="Chat views">
+      <button
+        className={chatPanelView === 'chat' ? 'active' : ''}
+        type="button"
+        role="tab"
+        aria-selected={chatPanelView === 'chat'}
+        onClick={() => selectChatPanelView('chat')}
+      >
+        Chat
+        {unreadChatCount > 0 && (
+          <span className="tab-badge">{unreadChatCount}</span>
+        )}
+      </button>
+      <PhoneTab
+        active={chatPanelView === 'phone'}
+        notificationCount={unreadPhoneNotificationCount}
+        viewedPhoneHasNotifications={viewedPhoneHasNotifications}
+        settingsLoadComplete={settingsLoadComplete}
+        switchHintSeen={phoneNotificationSwitchHintSeen}
+        onSelect={selectPhonePanelView}
+        onCycleNotificationOwner={cyclePhoneNotificationOwner}
+        onSwitchHintSeen={() => setPhoneNotificationSwitchHintSeen(true)}
+      />
+      <button
+        className={chatPanelView === 'events' ? 'active' : ''}
+        type="button"
+        role="tab"
+        aria-selected={chatPanelView === 'events'}
+        onClick={() => selectChatPanelView('events')}
+      >
+        Events
+        {unreadEventCount > 0 && (
+          <span className="tab-badge">{unreadEventCount}</span>
+        )}
+      </button>
+    </div>
+  );
+
+  const roleplayCharacterPicker = (
+    <div className="speaker-picker-menu" ref={characterDropdownRef}>
+      <span className="speaker-picker-label">Play as</span>
+      <button
+        type="button"
+        className="speaker-picker-button nodrag"
+        aria-expanded={characterDropdownOpen}
+        onClick={() => setCharacterDropdownOpen((current) => !current)}
+        style={
+          narratorSelected
+            ? {
+                color: '#cbd5e1',
+                textShadow: '0 0 8px rgba(203, 213, 225, 0.35)',
+              }
+            : selectedCharacter
+            ? {
+                color: characterColors.get(selectedCharacter.name),
+                textShadow: `0 0 8px ${characterColors.get(selectedCharacter.name)}`,
+              }
+            : undefined
+        }
+      >
+        {narratorSelected ? narratorSpeakerName : selectedCharacter ? selectedCharacter.name : 'Select Character'} ▾
+      </button>
+      {characterDropdownOpen && (
+        <div className="speaker-picker-popover" role="menu">
+          <button
+            type="button"
+            role="menuitem"
+            onClick={() => {
+              selectChatCharacter(narratorCharacterId);
+              setCharacterDropdownOpen(false);
+            }}
+            className="narrator-option"
+          >
+            {narratorSpeakerName}
+          </button>
+          {storyCharacters.map((character) => {
+            const charColor = characterColors.get(character.name);
+            return (
+              <button
+                type="button"
+                key={character.id}
+                role="menuitem"
+                onClick={() => {
+                  selectChatCharacter(character.id);
+                  setCharacterDropdownOpen(false);
+                }}
+                style={charColor ? { color: charColor } : undefined}
+              >
+                {character.name}
+              </button>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+
+  const roleplayComposerActions = (
+    <div className="chat-actions">
+      <button
+        className="switch-player-button"
+        type="button"
+        onClick={switchActivePlayer}
+        disabled={switchPlayerDisabled}
+        title={switchPlayerTitle}
+      >
+        Switch
+      </button>
+      <div className="header-turn-actions">
+        <button
+          className="auto-turn-button"
+          type="button"
+          onClick={triggerAutoTurn}
+          disabled={autoTurnDisabled}
+          title={autoTurnTitle}
+        >
+          {chatPanelView === 'events' ? 'Run Event' : 'AutoTurn'}
+        </button>
+        <div className="turn-controls" aria-label="Turn actions">
+          <button
+            type="button"
+            onClick={cancelRunOrUndoLastTurn}
+            disabled={undoTurnDisabled}
+            title={undoTurnTitle}
+            aria-label={undoTurnTitle}
+          >
+            {isRunning ? 'x' : '←'}
+          </button>
+          <button
+            type="button"
+            onClick={regenerateLastOutput}
+            disabled={!isRunning && !currentSessionTurn}
+            title={isRunning ? 'Cancel and restart the running RP output' : 'Regenerate the last RP output'}
+            aria-label={isRunning ? 'Cancel and restart the running RP output' : 'Regenerate the last RP output'}
+          >
+            ↶
+          </button>
+        </div>
+        <span className="turn-counter">
+          Turn {currentSessionTurn?.number ?? 0}
+        </span>
+      </div>
+    </div>
+  );
+
   return (
     <div
       className={`studio node-text-${nodeTextSize}${glassDesignEnabled ? ' glass-design-active' : ''}`}
@@ -4950,7 +5048,7 @@ function App() {
       </header>
 
       <main
-        className={`workspace ${isResizing ? 'resizing' : ''}`}
+        className="workspace"
       >
         <ErrorBoundary label="Graph Panel">
         <section className="graph-panel" aria-label="Workflow Graph">
@@ -5042,12 +5140,8 @@ function App() {
                 onPaneClick={() => {
                   setNodeMenu(null);
                   closeNodeContextMenu();
-                  setIsChatPanelOpen(false);
                 }}
-                onNodeClick={() => {
-                  setIsChatPanelOpen(false);
-                  closeNodeContextMenu();
-                }}
+                onNodeClick={closeNodeContextMenu}
                 onNodeDoubleClick={(_event, node) => splitWireLink(node.id)}
                 onNodeContextMenu={(event, node) => {
                   // Let form controls inside a node keep their native context
@@ -5206,165 +5300,70 @@ function App() {
         </section>
         </ErrorBoundary>
 
-        <div
-          className={`chat-drawer ${isChatPanelOpen || isResizing ? 'open' : ''}`}
-          style={{ gridTemplateColumns: `7px ${chatWidth}px` }}
-          onMouseEnter={() => setIsChatPanelOpen(true)}
+        <ErrorBoundary label="Chat Panel">
+        <RoleplayStudioShell
+          activeSurfaceLabel={
+            chatPanelView === 'phone' ? 'Phone' : chatPanelView === 'events' ? 'Events' : 'Chat'
+          }
+          headerControls={null}
+          viewTabs={roleplayViewTabs}
+          characterPicker={roleplayCharacterPicker}
+          composerActions={roleplayComposerActions}
+          surfaces={[
+            {
+              id: 'chat',
+              label: 'Chat',
+              badge: unreadChatCount,
+              active: chatPanelView === 'chat',
+              onSelect: () => selectChatPanelView('chat'),
+            },
+            {
+              id: 'phone',
+              label: 'Phone',
+              badge: unreadPhoneNotificationCount,
+              active: chatPanelView === 'phone',
+              onSelect: selectPhonePanelView,
+            },
+            {
+              id: 'events',
+              label: 'Events',
+              badge: unreadEventCount,
+              active: chatPanelView === 'events',
+              onSelect: () => selectChatPanelView('events'),
+            },
+            {
+              id: 'gallery',
+              label: 'Gallery',
+              active: false,
+              onSelect: selectPhonePanelView,
+            },
+            {
+              id: 'social',
+              label: 'Social',
+              badge: Object.values(unreadSocialDirectMessages).reduce(
+                (total, byHandle) =>
+                  total + Object.values(byHandle).reduce((sum, unread) => sum + unread.count, 0),
+                0,
+              ),
+              active: false,
+              onSelect: selectPhonePanelView,
+            },
+            {
+              id: 'bank',
+              label: 'Bank',
+              badge: unreadBankingCount,
+              active: false,
+              onSelect: selectPhonePanelView,
+            },
+            {
+              id: 'notes',
+              label: 'Notes',
+              active: false,
+              onSelect: selectPhonePanelView,
+            },
+          ]}
+          onOpenGraphMode={() => setStudioMode('graph')}
         >
-          <div
-            className="panel-resizer"
-            role="separator"
-            aria-label="Resize chat panel"
-            aria-orientation="vertical"
-            onPointerDown={() => {
-              setIsChatPanelOpen(true);
-              setIsResizing(true);
-            }}
-          >
-            <span className="chat-drawer-handle" aria-hidden="true">CHAT</span>
-          </div>
-
-          <ErrorBoundary label="Chat Panel">
-          <aside className="chat-panel">
-          <div className="chat-header">
-            <div className="chat-header-primary">
-              <div className="chat-panel-tabs" role="tablist" aria-label="Chat views">
-                <button
-                  className={chatPanelView === 'chat' ? 'active' : ''}
-                  type="button"
-                  role="tab"
-                  aria-selected={chatPanelView === 'chat'}
-                  onClick={() => selectChatPanelView('chat')}
-	                >
-	                  Chat
-	                  {unreadChatCount > 0 && (
-	                    <span className="tab-badge">{unreadChatCount}</span>
-	                  )}
-	                </button>
-                <PhoneTab
-                  active={chatPanelView === 'phone'}
-                  notificationCount={unreadPhoneNotificationCount}
-                  viewedPhoneHasNotifications={viewedPhoneHasNotifications}
-                  settingsLoadComplete={settingsLoadComplete}
-                  switchHintSeen={phoneNotificationSwitchHintSeen}
-                  onSelect={selectPhonePanelView}
-                  onCycleNotificationOwner={cyclePhoneNotificationOwner}
-                  onSwitchHintSeen={() => setPhoneNotificationSwitchHintSeen(true)}
-                />
-                <button
-                  className={chatPanelView === 'events' ? 'active' : ''}
-                  type="button"
-                  role="tab"
-                  aria-selected={chatPanelView === 'events'}
-                  onClick={() => selectChatPanelView('events')}
-                >
-                  Events
-                  {unreadEventCount > 0 && (
-                    <span className="tab-badge">{unreadEventCount}</span>
-                  )}
-                </button>
-              </div>
-              <div className="speaker-picker-menu" ref={characterDropdownRef}>
-                <span className="speaker-picker-label">Play as</span>
-                <button
-                  type="button"
-                  className="speaker-picker-button nodrag"
-                  aria-expanded={characterDropdownOpen}
-                  onClick={() => setCharacterDropdownOpen((current) => !current)}
-                  style={
-                    narratorSelected
-                      ? {
-                          color: '#cbd5e1',
-                          textShadow: '0 0 8px rgba(203, 213, 225, 0.35)',
-                        }
-                      : selectedCharacter
-                      ? {
-                          color: characterColors.get(selectedCharacter.name),
-                          textShadow: `0 0 8px ${characterColors.get(selectedCharacter.name)}`,
-                        }
-                      : undefined
-                  }
-                >
-                  {narratorSelected ? narratorSpeakerName : selectedCharacter ? selectedCharacter.name : 'Select Character'} ▾
-                </button>
-                {characterDropdownOpen && (
-                  <div className="speaker-picker-popover" role="menu">
-                    <button
-                      type="button"
-                      role="menuitem"
-                      onClick={() => {
-                        selectChatCharacter(narratorCharacterId);
-                        setCharacterDropdownOpen(false);
-                      }}
-                      className="narrator-option"
-                    >
-                      {narratorSpeakerName}
-                    </button>
-                    {storyCharacters.map((character) => {
-                      const charColor = characterColors.get(character.name);
-                      return (
-                        <button
-                          type="button"
-                          key={character.id}
-                          role="menuitem"
-                          onClick={() => {
-                            selectChatCharacter(character.id);
-                            setCharacterDropdownOpen(false);
-                          }}
-                          style={charColor ? { color: charColor } : undefined}
-                        >
-                          {character.name}
-                        </button>
-                      );
-                    })}
-                  </div>
-                )}
-              </div>
-              <button
-                className="switch-player-button"
-                type="button"
-                onClick={switchActivePlayer}
-                disabled={switchPlayerDisabled}
-                title={switchPlayerTitle}
-              >
-                Switch
-              </button>
-              <div className="header-turn-actions">
-                <button
-                  className="auto-turn-button"
-                  type="button"
-                  onClick={triggerAutoTurn}
-                  disabled={autoTurnDisabled}
-                  title={autoTurnTitle}
-                >
-                  {chatPanelView === 'events' ? 'Run Event' : 'AutoTurn'}
-                </button>
-                <div className="turn-controls" aria-label="Turn actions">
-                  <button
-                    type="button"
-                    onClick={cancelRunOrUndoLastTurn}
-                    disabled={undoTurnDisabled}
-                    title={undoTurnTitle}
-                    aria-label={undoTurnTitle}
-                  >
-                    {isRunning ? 'x' : '←'}
-                  </button>
-                  <button
-                    type="button"
-                    onClick={regenerateLastOutput}
-                    disabled={!isRunning && !currentSessionTurn}
-                    title={isRunning ? 'Cancel and restart the running RP output' : 'Regenerate the last RP output'}
-                    aria-label={isRunning ? 'Cancel and restart the running RP output' : 'Regenerate the last RP output'}
-                  >
-                    ↶
-                  </button>
-                </div>
-                <span className="turn-counter">
-                  Turn {currentSessionTurn?.number ?? 0}
-                </span>
-              </div>
-            </div>
-          </div>
           <div className="chat-lockable">
           {chatPanelView === 'chat' ? (
             <ChatConversationPanel
@@ -5778,9 +5777,8 @@ function App() {
             />
           )}
           </div>
-          </aside>
+        </RoleplayStudioShell>
           </ErrorBoundary>
-        </div>
       </main>
 
       {outputFormatHelpKind && (
