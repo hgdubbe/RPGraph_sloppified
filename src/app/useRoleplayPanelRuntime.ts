@@ -984,6 +984,13 @@ export function useRoleplayPanelRuntime({
     setPhoneHomeRequestId((current) => current + 1);
   }
 
+  function openPhoneDesktop() {
+    setHighlightedPhoneMessage(undefined);
+    setSocialPostOpenRequest(undefined);
+    setChatPanelView('phone');
+    setPhoneHomeRequestId((current) => current + 1);
+  }
+
   function cyclePhoneNotificationOwner() {
     if (chatPanelView !== 'phone') {
       return false;
@@ -1314,6 +1321,7 @@ export function useRoleplayPanelRuntime({
     chatPanelView,
     selectChatPanelView,
     selectPhonePanelView,
+    openPhoneDesktop,
     cyclePhoneNotificationOwner,
     selectedCharacterId,
     setSelectedCharacterId,

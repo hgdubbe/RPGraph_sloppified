@@ -924,48 +924,21 @@ input[type="radio"]:focus-visible {
 }
 
 .studio-rail-icon {
-  position: relative;
-  display: block;
-  width: 18px;
-  height: 18px;
-  border: 1px solid currentColor;
-  border-radius: 3px;
+  display: grid;
+  width: 21px;
+  height: 21px;
+  place-items: center;
   opacity: 0.86;
 }
 
-.studio-rail-button.chat .studio-rail-icon::after {
-  position: absolute;
-  right: -4px;
-  bottom: 1px;
-  width: 7px;
-  height: 5px;
-  border-right: 1px solid currentColor;
-  border-bottom: 1px solid currentColor;
-  content: "";
-}
-
-.studio-rail-button.phone .studio-rail-icon {
-  width: 11px;
-  border-radius: 2px;
-}
-
-.studio-rail-button.gallery .studio-rail-icon::after {
-  position: absolute;
-  inset: 4px 3px 3px;
-  border-left: 1px solid currentColor;
-  border-bottom: 1px solid currentColor;
-  transform: skewX(-18deg);
-  content: "";
-}
-
-.studio-rail-button.events .studio-rail-icon,
-.studio-rail-button.bank .studio-rail-icon,
-.studio-rail-button.notes .studio-rail-icon {
-  border-radius: 2px;
-}
-
-.studio-rail-button.social .studio-rail-icon {
-  border-radius: 999px;
+.studio-rail-icon svg {
+  width: 21px;
+  height: 21px;
+  fill: none;
+  stroke: currentColor;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 1.8;
 }
 
 .studio-rail-badge {

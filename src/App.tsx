@@ -926,6 +926,7 @@ function App() {
     chatPanelView,
     selectChatPanelView,
     selectPhonePanelView,
+    openPhoneDesktop,
     cyclePhoneNotificationOwner,
     setSelectedCharacterId,
     selectedCharacter,
@@ -5376,7 +5377,7 @@ function App() {
               id: 'gallery',
               label: 'Gallery',
               active: false,
-              onSelect: selectPhonePanelView,
+              onSelect: openPhoneDesktop,
             },
             {
               id: 'social',
@@ -5387,7 +5388,7 @@ function App() {
                 0,
               ),
               active: false,
-              onSelect: selectPhonePanelView,
+              onSelect: openPhoneDesktop,
             },
             {
               id: 'events',
@@ -5401,13 +5402,13 @@ function App() {
               label: 'Bank',
               badge: unreadBankingCount,
               active: false,
-              onSelect: selectPhonePanelView,
+              onSelect: openPhoneDesktop,
             },
             {
               id: 'notes',
               label: 'Notes',
               active: false,
-              onSelect: selectPhonePanelView,
+              onSelect: openPhoneDesktop,
             },
           ]}
           onOpenGraphMode={() => setStudioMode('graph')}
