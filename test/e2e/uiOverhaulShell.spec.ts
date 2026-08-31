@@ -60,7 +60,16 @@ test('keeps Phone and Events reachable from Play Mode', async () => {
   await expect(page.getByRole('button', { name: /Phone/i })).toHaveAttribute('aria-current', 'page');
 
   await page.getByRole('button', { name: 'Gallery', exact: true }).click({ force: true });
-  await expect(page.getByLabel(/Phone desktop/i)).toBeVisible();
+  await expect(page.getByLabel(/Gallery/i).first()).toBeVisible();
+
+  await page.getByRole('button', { name: 'Social', exact: true }).click({ force: true });
+  await expect(page.getByLabel(/Fotogram/i).first()).toBeVisible();
+
+  await page.getByRole('button', { name: 'Bank', exact: true }).click({ force: true });
+  await expect(page.getByLabel(/Banking/i).first()).toBeVisible();
+
+  await page.getByRole('button', { name: 'Notes', exact: true }).click({ force: true });
+  await expect(page.getByLabel(/Notes/i).first()).toBeVisible();
 
   await page.getByRole('button', { name: /Events/i }).click({ force: true });
   await expect(page.getByRole('button', { name: /Events/i })).toHaveAttribute('aria-current', 'page');

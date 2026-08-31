@@ -926,7 +926,7 @@ function App() {
     chatPanelView,
     selectChatPanelView,
     selectPhonePanelView,
-    openPhoneDesktop,
+    openPhoneApp,
     cyclePhoneNotificationOwner,
     setSelectedCharacterId,
     selectedCharacter,
@@ -1009,6 +1009,7 @@ function App() {
     addBankingContact,
     markSelectedPhoneConversationSeen,
     phoneHomeRequestId,
+    phoneAppOpenRequest,
     phoneDividerAfterByConversation,
     setPhoneDividerAfterByConversation,
     openedPhoneConversationKey,
@@ -5377,7 +5378,7 @@ function App() {
               id: 'gallery',
               label: 'Gallery',
               active: false,
-              onSelect: openPhoneDesktop,
+              onSelect: () => openPhoneApp('gallery'),
             },
             {
               id: 'social',
@@ -5388,7 +5389,7 @@ function App() {
                 0,
               ),
               active: false,
-              onSelect: openPhoneDesktop,
+              onSelect: () => openPhoneApp('fotogram'),
             },
             {
               id: 'events',
@@ -5402,13 +5403,13 @@ function App() {
               label: 'Bank',
               badge: unreadBankingCount,
               active: false,
-              onSelect: openPhoneDesktop,
+              onSelect: () => openPhoneApp('banking'),
             },
             {
               id: 'notes',
               label: 'Notes',
               active: false,
-              onSelect: openPhoneDesktop,
+              onSelect: () => openPhoneApp('notes'),
             },
           ]}
           onOpenGraphMode={() => setStudioMode('graph')}
@@ -5580,6 +5581,7 @@ function App() {
               unreadBankingCount={unreadBankingCount}
               phoneAppNotificationCounts={phoneAppNotificationCounts}
               phoneHomeRequestId={phoneHomeRequestId}
+              phoneAppOpenRequest={phoneAppOpenRequest}
               socialPostOpenRequest={socialPostOpenRequest}
               socialDirectMessageOpenRequest={socialDirectMessageOpenRequest}
               phoneImages={phoneImages}

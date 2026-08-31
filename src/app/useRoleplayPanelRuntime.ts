@@ -85,6 +85,7 @@ import type {
   WorkflowNode,
   WorkflowNodeData,
 } from '../types';
+import type { PhoneAppOpenRequest } from '../components/PhonePanel';
 
 export type ChatPanelView = 'chat' | 'phone' | 'events';
 
@@ -143,6 +144,7 @@ export function useRoleplayPanelRuntime({
   const [onlyFriendsPurchasesByCharacter, setOnlyFriendsPurchasesByCharacter] =
     useState<OnlyFriendsPurchasesByCharacter>({});
   const [phoneHomeRequestId, setPhoneHomeRequestId] = useState(0);
+  const [phoneAppOpenRequest, setPhoneAppOpenRequest] = useState<PhoneAppOpenRequest>();
   const [socialPostOpenRequest, setSocialPostOpenRequest] = useState<{
     requestId: number;
     app: SocialPostRecord['app'];
@@ -991,6 +993,16 @@ export function useRoleplayPanelRuntime({
     setPhoneHomeRequestId((current) => current + 1);
   }
 
+  function openPhoneApp(app: PhoneAppOpenRequest['app']) {
+    setHighlightedPhoneMessage(undefined);
+    setSocialPostOpenRequest(undefined);
+    setChatPanelView('phone');
+    setPhoneAppOpenRequest((current) => ({
+      app,
+      requestId: (current?.requestId ?? 0) + 1,
+    }));
+  }
+
   function cyclePhoneNotificationOwner() {
     if (chatPanelView !== 'phone') {
       return false;
@@ -1322,6 +1334,7 @@ export function useRoleplayPanelRuntime({
     selectChatPanelView,
     selectPhonePanelView,
     openPhoneDesktop,
+    openPhoneApp,
     cyclePhoneNotificationOwner,
     selectedCharacterId,
     setSelectedCharacterId,
@@ -1407,6 +1420,7 @@ export function useRoleplayPanelRuntime({
     addBankingContact,
     markSelectedPhoneConversationSeen,
     phoneHomeRequestId,
+    phoneAppOpenRequest,
     phoneDividerAfterByConversation,
     setPhoneDividerAfterByConversation,
     openedPhoneConversationKey,

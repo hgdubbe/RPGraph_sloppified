@@ -97,6 +97,10 @@ type PhoneScreen =
   | 'fotogram' | 'onlyfriends' | 'notes' | 'ai';
 
 type PhoneDesktopAppId = 'whatsup' | 'gallery' | 'camera' | 'banking' | 'fotogram' | 'onlyfriends' | 'notes' | 'ai';
+export type PhoneAppOpenRequest = {
+  requestId: number;
+  app: Exclude<PhoneScreen, 'desktop' | 'chat-gallery'>;
+};
 
 const phoneDesktopAppIds: readonly PhoneDesktopAppId[] =
   ['whatsup', 'gallery', 'camera', 'banking', 'fotogram', 'onlyfriends', 'notes', 'ai'];
@@ -150,6 +154,7 @@ type PhonePanelProps = {
   unreadBankingCount: number;
   phoneAppNotificationCounts: Record<'notes' | 'ai' | 'fotogram' | 'onlyfriends', number>;
   phoneHomeRequestId: number;
+  phoneAppOpenRequest?: PhoneAppOpenRequest;
   socialPostOpenRequest?: {
     requestId: number;
     app: 'fotogram' | 'onlyfriends';
@@ -326,6 +331,7 @@ export function PhonePanel({
   unreadBankingCount,
   phoneAppNotificationCounts,
   phoneHomeRequestId,
+  phoneAppOpenRequest,
   socialPostOpenRequest,
   socialDirectMessageOpenRequest,
   phoneImages,
@@ -441,6 +447,18 @@ export function PhonePanel({
     setSeenPhoneHomeRequestId(phoneHomeRequestId);
     if (screen !== 'desktop') {
       setScreen('desktop');
+    }
+  }
+  const [seenPhoneAppOpenRequestId, setSeenPhoneAppOpenRequestId] = useState(
+    phoneAppOpenRequest?.requestId ?? 0,
+  );
+  if (
+    phoneAppOpenRequest &&
+    seenPhoneAppOpenRequestId !== phoneAppOpenRequest.requestId
+  ) {
+    setSeenPhoneAppOpenRequestId(phoneAppOpenRequest.requestId);
+    if (screen !== phoneAppOpenRequest.app) {
+      setScreen(phoneAppOpenRequest.app);
     }
   }
   const [seenSocialPostOpenRequestId, setSeenSocialPostOpenRequestId] = useState(
