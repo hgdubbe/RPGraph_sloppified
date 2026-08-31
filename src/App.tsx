@@ -30,7 +30,6 @@ import { PhonePanel } from './components/PhonePanel';
 import { RoleplayStudioShell } from './components/RoleplayStudioShell';
 import { useChatGpdPhoneApp } from './chat/useChatGpdPhoneApp';
 import { useAutoplay, type AutoplayRunRequest } from './chat/useAutoplay';
-import { PhoneTab } from './chat/PhoneTab';
 import {
   autoplayMessageFormat,
   localActivityPromptSlot,
@@ -822,7 +821,6 @@ function App() {
       cancelCurrentRun('cancel');
     },
   });
-  const [characterDropdownOpen, setCharacterDropdownOpen] = useState(false);
   const [showOptions, setShowOptions] = useState(false);
   const [textDialogNodeId, setTextDialogNodeId] = useState<string | null>(null);
   const [textDialogView, setTextDialogView] =
@@ -856,7 +854,6 @@ function App() {
   const [flowInstance, setFlowInstance] = useState<ReactFlowInstance<WorkflowNode> | null>(null);
   const flowInstanceRef = useRef<ReactFlowInstance<WorkflowNode> | null>(null);
   const imageInputRef = useRef<HTMLInputElement | null>(null);
-  const characterDropdownRef = useRef<HTMLDivElement | null>(null);
   const {
     messages,
     setMessages,
@@ -1656,22 +1653,6 @@ function App() {
     document.addEventListener('pointerdown', closePhoneEmojiPicker);
     return () => document.removeEventListener('pointerdown', closePhoneEmojiPicker);
   }, [phoneEmojiPickerRef, setShowPhoneEmojiPicker, showPhoneEmojiPicker]);
-
-  useEffect(() => {
-    if (!characterDropdownOpen) {
-      return;
-    }
-    const closeCharacterDropdown = (event: PointerEvent) => {
-      if (
-        event.target instanceof Node &&
-        !characterDropdownRef.current?.contains(event.target)
-      ) {
-        setCharacterDropdownOpen(false);
-      }
-    };
-    document.addEventListener('pointerdown', closeCharacterDropdown);
-    return () => document.removeEventListener('pointerdown', closeCharacterDropdown);
-  }, [characterDropdownOpen]);
 
   useEffect(() => {
     let active = true;
@@ -4834,101 +4815,67 @@ function App() {
       voiceGenerationActive || apiNarratorGenerationActive || readAloudActive,
   });
 
-  const roleplayViewTabs = (
-    <div className="chat-panel-tabs" role="tablist" aria-label="Chat views">
-      <button
-        className={chatPanelView === 'chat' ? 'active' : ''}
-        type="button"
-        role="tab"
-        aria-selected={chatPanelView === 'chat'}
-        onClick={() => selectChatPanelView('chat')}
-      >
-        Chat
-        {unreadChatCount > 0 && (
-          <span className="tab-badge">{unreadChatCount}</span>
-        )}
+  const playHeaderControls = (
+    <div className="studio-play-command-group">
+      <button className="connection-button" type="button" onClick={() => void openFiles()}>
+        Files
       </button>
-      <PhoneTab
-        active={chatPanelView === 'phone'}
-        notificationCount={unreadPhoneNotificationCount}
-        viewedPhoneHasNotifications={viewedPhoneHasNotifications}
-        settingsLoadComplete={settingsLoadComplete}
-        switchHintSeen={phoneNotificationSwitchHintSeen}
-        onSelect={selectPhonePanelView}
-        onCycleNotificationOwner={cyclePhoneNotificationOwner}
-        onSwitchHintSeen={() => setPhoneNotificationSwitchHintSeen(true)}
-      />
+      <button className="connection-button" type="button" onClick={openConnectionManager}>
+        Providers
+      </button>
       <button
-        className={chatPanelView === 'events' ? 'active' : ''}
+        className="connection-button"
         type="button"
-        role="tab"
-        aria-selected={chatPanelView === 'events'}
-        onClick={() => selectChatPanelView('events')}
+        onClick={() => {
+          setNodeAssistantNodeId(null);
+          setWorkflowAssistantOpen(true);
+        }}
+        title="Open workflow assistant. You can also press F1, or select a node and press F1 for node-specific help."
       >
-        Events
-        {unreadEventCount > 0 && (
-          <span className="tab-badge">{unreadEventCount}</span>
-        )}
+        Assistant
+      </button>
+      <button
+        className={`connection-button log-button studio-play-log-button ${systemLogBadgeCount ? 'has-log' : ''}`}
+        type="button"
+        onClick={() => setShowSystemLog(true)}
+        title="Open system log"
+      >
+        Log
+        {systemLogBadgeCount > 0 && <span key={systemLogBadgeCount}>{systemLogBadgeCount}</span>}
       </button>
     </div>
   );
 
   const roleplayCharacterPicker = (
-    <div className="speaker-picker-menu" ref={characterDropdownRef}>
-      <span className="speaker-picker-label">Play as</span>
+    <div className="studio-character-tabs" role="tablist" aria-label="Playable characters">
       <button
         type="button"
-        className="speaker-picker-button nodrag"
-        aria-expanded={characterDropdownOpen}
-        onClick={() => setCharacterDropdownOpen((current) => !current)}
-        style={
-          narratorSelected
-            ? {
-                color: '#cbd5e1',
-                textShadow: '0 0 8px rgba(203, 213, 225, 0.35)',
-              }
-            : selectedCharacter
-            ? {
-                color: characterColors.get(selectedCharacter.name),
-                textShadow: `0 0 8px ${characterColors.get(selectedCharacter.name)}`,
-              }
-            : undefined
-        }
+        role="tab"
+        aria-selected={narratorSelected}
+        className={narratorSelected ? 'active' : ''}
+        onClick={() => selectChatCharacter(narratorCharacterId)}
       >
-        {narratorSelected ? narratorSpeakerName : selectedCharacter ? selectedCharacter.name : 'Select Character'} ▾
+        <strong>{narratorSpeakerName}</strong>
+        <span>system voice</span>
       </button>
-      {characterDropdownOpen && (
-        <div className="speaker-picker-popover" role="menu">
+      {storyCharacters.map((character) => {
+        const isActive = selectedCharacter?.id === character.id && !narratorSelected;
+        const charColor = characterColors.get(character.name);
+        return (
           <button
             type="button"
-            role="menuitem"
-            onClick={() => {
-              selectChatCharacter(narratorCharacterId);
-              setCharacterDropdownOpen(false);
-            }}
-            className="narrator-option"
+            key={character.id}
+            role="tab"
+            aria-selected={isActive}
+            className={isActive ? 'active' : ''}
+            onClick={() => selectChatCharacter(character.id)}
+            style={charColor ? { '--character-tab-color': charColor } as React.CSSProperties : undefined}
           >
-            {narratorSpeakerName}
+            <strong>{character.name}</strong>
+            <span>{isActive ? 'playing now' : character.id === viewedPhoneCharacter?.id ? 'phone open' : 'available'}</span>
           </button>
-          {storyCharacters.map((character) => {
-            const charColor = characterColors.get(character.name);
-            return (
-              <button
-                type="button"
-                key={character.id}
-                role="menuitem"
-                onClick={() => {
-                  selectChatCharacter(character.id);
-                  setCharacterDropdownOpen(false);
-                }}
-                style={charColor ? { color: charColor } : undefined}
-              >
-                {character.name}
-              </button>
-            );
-          })}
-        </div>
-      )}
+        );
+      })}
     </div>
   );
 
@@ -5241,7 +5188,7 @@ function App() {
 
   return (
     <div
-      className={`studio node-text-${nodeTextSize}${glassDesignEnabled ? ' glass-design-active' : ''}`}
+      className={`studio studio-mode-${studioMode} node-text-${nodeTextSize}${glassDesignEnabled ? ' glass-design-active' : ''}`}
       style={{
         '--glass-opacity': glassDesignOpacity,
         '--glass-blur': glassDesignEnabled ? '1px' : '0px',
@@ -5393,8 +5340,8 @@ function App() {
           activeSurfaceLabel={
             chatPanelView === 'phone' ? 'Phone' : chatPanelView === 'events' ? 'Events' : 'Chat'
           }
-          headerControls={null}
-          viewTabs={roleplayViewTabs}
+          sceneLabel={displayedStorybookName === 'not saved' ? displayedWorkflowNameFormatted : displayedStorybookName}
+          headerControls={playHeaderControls}
           characterPicker={roleplayCharacterPicker}
           composerActions={roleplayComposerActions}
           surfaces={[
@@ -5410,14 +5357,20 @@ function App() {
               label: 'Phone',
               badge: unreadPhoneNotificationCount,
               active: chatPanelView === 'phone',
-              onSelect: selectPhonePanelView,
-            },
-            {
-              id: 'events',
-              label: 'Events',
-              badge: unreadEventCount,
-              active: chatPanelView === 'events',
-              onSelect: () => selectChatPanelView('events'),
+              onSelect: () => {
+                if (
+                  chatPanelView === 'phone' &&
+                  viewedPhoneHasNotifications &&
+                  settingsLoadComplete
+                ) {
+                  cyclePhoneNotificationOwner();
+                } else {
+                  selectPhonePanelView();
+                }
+                if (!phoneNotificationSwitchHintSeen) {
+                  setPhoneNotificationSwitchHintSeen(true);
+                }
+              },
             },
             {
               id: 'gallery',
@@ -5435,6 +5388,13 @@ function App() {
               ),
               active: false,
               onSelect: selectPhonePanelView,
+            },
+            {
+              id: 'events',
+              label: 'Events',
+              badge: unreadEventCount,
+              active: chatPanelView === 'events',
+              onSelect: () => selectChatPanelView('events'),
             },
             {
               id: 'bank',

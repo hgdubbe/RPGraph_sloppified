@@ -25,7 +25,8 @@ test('starts in Play Mode and preserves access to the full graph editor', async 
 
   await expect(page.getByRole('button', { name: /Graph Mode/i })).toBeVisible();
   await expect(page.getByRole('navigation', { name: /Story surfaces/i })).toBeVisible();
-  await expect(page.getByRole('tablist', { name: /Chat views/i })).toBeVisible();
+  await expect(page.getByRole('tablist', { name: /Playable characters/i })).toBeVisible();
+  await expect(page.getByRole('complementary', { name: /Story State/i })).toBeVisible();
 
   await enterGraphMode(page);
 
@@ -37,16 +38,16 @@ test('starts in Play Mode and preserves access to the full graph editor', async 
   await enterPlayMode(page);
 
   await expect(page.getByRole('navigation', { name: /Story surfaces/i })).toBeVisible();
-  await expect(page.getByRole('tab', { name: /Chat/i })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Chat', exact: true })).toBeVisible();
 });
 
 test('keeps Phone and Events reachable from Play Mode', async () => {
   app = await launchAppWithWorkflow(outdatedLlmWorkflow());
   const { page } = app;
 
-  await page.getByRole('tab', { name: /Phone/i }).click({ force: true });
-  await expect(page.getByRole('tab', { name: /Phone/i })).toHaveAttribute('aria-selected', 'true');
+  await page.getByRole('button', { name: /Phone/i }).click({ force: true });
+  await expect(page.getByRole('button', { name: /Phone/i })).toHaveAttribute('aria-current', 'page');
 
-  await page.getByRole('tab', { name: /Events/i }).click({ force: true });
-  await expect(page.getByRole('tab', { name: /Events/i })).toHaveAttribute('aria-selected', 'true');
+  await page.getByRole('button', { name: /Events/i }).click({ force: true });
+  await expect(page.getByRole('button', { name: /Events/i })).toHaveAttribute('aria-current', 'page');
 });
