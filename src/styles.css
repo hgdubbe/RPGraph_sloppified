@@ -1073,14 +1073,32 @@ input[type="radio"]:focus-visible {
   text-transform: uppercase;
 }
 
-.studio-story-state header span {
+.studio-story-state-toggle {
   display: grid;
   width: 32px;
   height: 32px;
   place-items: center;
+  padding: 0;
   border: 1px solid rgba(77, 96, 138, 0.78);
   border-radius: 7px;
   color: #a8b9eb;
+  background: #101421;
+  font: inherit;
+  cursor: pointer;
+}
+
+.studio-story-state-toggle:hover {
+  border-color: #79d8ef;
+  color: #79d8ef;
+}
+
+.studio-story-state-body {
+  display: grid;
+  gap: 10px;
+}
+
+.studio-story-state.collapsed .studio-story-state-body {
+  display: none;
 }
 
 .studio-story-state section {
@@ -1139,6 +1157,10 @@ input[type="radio"]:focus-visible {
 .studio-shell-play .message.user {
   align-self: flex-end;
   width: min(54%, 580px);
+}
+
+.studio-shell-play .message.user:has(.message-edit-textarea) {
+  width: min(78%, 760px);
 }
 
 .studio-shell-play .message.output,
@@ -1225,14 +1247,25 @@ input[type="radio"]:focus-visible {
   font-weight: 800;
 }
 
+.studio-shell-play .message-edit-textarea {
+  width: 100%;
+  min-width: min(520px, calc(100vw - 96px));
+}
+
 .studio-shell-play .composer-actions {
   display: grid;
-  grid-template-columns: auto minmax(0, 1fr) auto;
+  grid-template-columns: auto minmax(0, 1fr);
   gap: 8px;
 }
 
 .studio-shell-play .composer-run-actions {
-  display: contents;
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 0;
+  border-radius: 8px;
+  background: #252a49;
+  overflow: hidden;
 }
 
 .studio-shell-play .composer button[type="submit"] {
@@ -1262,6 +1295,51 @@ input[type="radio"]:focus-visible {
   color: #dce8ff;
   background: #111629;
   box-shadow: none;
+}
+
+.studio-shell-play .composer-left-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.studio-shell-play .attach-image-button:not(.voice-stop-button) {
+  position: relative;
+  width: 36px;
+  min-width: 36px;
+  height: 36px;
+  min-height: 36px;
+  padding: 0;
+  overflow: hidden;
+  color: transparent;
+  font-size: 0;
+}
+
+.studio-shell-play .attach-image-button:not(.voice-stop-button)::before {
+  content: "";
+  display: block;
+  width: 15px;
+  height: 19px;
+  border: 2px solid #dce8ff;
+  border-right-color: transparent;
+  border-radius: 9px 0 0 9px;
+  transform: rotate(-38deg);
+}
+
+.studio-shell-play .composer .composer-icon-button {
+  width: 36px;
+  min-width: 36px;
+  height: 36px;
+}
+
+.studio-shell-play .composer .composer-icon-button svg {
+  width: 17px;
+  height: 17px;
+}
+
+.studio-shell-play .composer-run-actions .autoplay-control,
+.studio-shell-play .composer-run-actions .autoplay-mode-button,
+.studio-shell-play .composer-run-actions .autoplay-pause-button {
+  border-radius: 0;
 }
 
 .studio-shell-play .auto-turn-button {
@@ -7192,6 +7270,115 @@ input[type="number"]::-webkit-outer-spin-button {
   box-shadow:
     0 8px 24px rgba(45, 212, 191, 0.45),
     inset 0 1px 1px rgba(255, 255, 255, 0.35);
+}
+
+.phone-desktop::before {
+  position: absolute;
+  top: 14px;
+  left: 50%;
+  z-index: 1;
+  width: 92px;
+  height: 25px;
+  border-radius: 999px;
+  background: rgba(0, 0, 0, 0.45);
+  content: "";
+  transform: translateX(-50%);
+  pointer-events: none;
+}
+
+.phone-desktop::after {
+  position: absolute;
+  right: 18px;
+  bottom: 14px;
+  left: 18px;
+  z-index: 1;
+  height: 72px;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 28px;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.16), rgba(255, 255, 255, 0.06)),
+    rgba(14, 16, 26, 0.5);
+  backdrop-filter: blur(18px);
+  content: "";
+  pointer-events: none;
+}
+
+.phone-desktop-app {
+  z-index: 2;
+}
+
+.phone-desktop-settings {
+  z-index: 3;
+}
+
+.phone-whatsup-icon,
+.phone-gallery-icon,
+.phone-camera-icon,
+.phone-banking-icon,
+.phone-fotogram-icon,
+.phone-onlyfriends-icon,
+.phone-notes-icon,
+.phone-chatgpd-icon {
+  width: calc(var(--phone-icon, 52px) * 0.92);
+  height: calc(var(--phone-icon, 52px) * 0.92);
+  border: 0;
+  border-radius: 23%;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.36),
+    0 12px 22px rgba(0, 0, 0, 0.34);
+  backdrop-filter: none;
+}
+
+.phone-whatsup-icon {
+  background:
+    radial-gradient(circle at 30% 20%, rgba(255, 255, 255, 0.32), transparent 30%),
+    linear-gradient(145deg, #33d169, #0c8f43);
+}
+
+.phone-gallery-icon {
+  color: #ffffff;
+  background:
+    radial-gradient(circle at 72% 28%, rgba(255, 255, 255, 0.95) 0 9%, transparent 10%),
+    linear-gradient(145deg, #f7fbff, #b9c4d5 42%, #6b7a95);
+}
+
+.phone-camera-icon {
+  color: #171923;
+  background:
+    radial-gradient(circle at 50% 50%, rgba(255, 255, 255, 0.94) 0 21%, rgba(25, 28, 36, 0.9) 22% 35%, transparent 36%),
+    linear-gradient(145deg, #f6f8fb, #8f99a8);
+}
+
+.phone-banking-icon {
+  background:
+    radial-gradient(circle at 28% 22%, rgba(255, 255, 255, 0.28), transparent 32%),
+    linear-gradient(145deg, #2f83ff, #0d3d9a);
+}
+
+.phone-fotogram-icon {
+  background:
+    radial-gradient(circle at 74% 22%, #fff4ba 0 7%, transparent 8%),
+    radial-gradient(circle at 28% 82%, #ffd447 0 16%, transparent 17%),
+    linear-gradient(145deg, #7c3cff 0%, #d62976 46%, #ff3f45 72%, #ffd04d 100%);
+}
+
+.phone-onlyfriends-icon {
+  background:
+    radial-gradient(circle at 68% 28%, rgba(255, 255, 255, 0.35), transparent 30%),
+    linear-gradient(145deg, #1ba9ff, #0068d9);
+}
+
+.phone-notes-icon {
+  color: #171923;
+  background:
+    repeating-linear-gradient(180deg, transparent 0 12px, rgba(0, 0, 0, 0.14) 13px 14px),
+    linear-gradient(180deg, #fff46f 0 26%, #fffdf4 27% 100%);
+}
+
+.phone-chatgpd-icon {
+  background:
+    radial-gradient(circle at 35% 25%, rgba(255, 255, 255, 0.25), transparent 35%),
+    linear-gradient(145deg, #18c6a5, #087363);
 }
 
 .phone-surface {

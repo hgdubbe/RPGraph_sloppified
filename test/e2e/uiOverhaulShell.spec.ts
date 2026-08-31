@@ -41,12 +41,26 @@ test('starts in Play Mode and preserves access to the full graph editor', async 
   await expect(page.getByRole('button', { name: 'Chat', exact: true })).toBeVisible();
 });
 
+test('collapses Story State without hiding turn controls', async () => {
+  app = await launchAppWithWorkflow(outdatedLlmWorkflow());
+  const { page } = app;
+
+  await page.getByRole('button', { name: /Collapse Story State/i }).click({ force: true });
+
+  await expect(page.getByText('Character-owned surfaces')).toBeHidden();
+  await expect(page.getByRole('button', { name: /AutoTurn/i })).toBeVisible();
+  await expect(page.getByText(/Turn 0/i)).toBeVisible();
+});
+
 test('keeps Phone and Events reachable from Play Mode', async () => {
   app = await launchAppWithWorkflow(outdatedLlmWorkflow());
   const { page } = app;
 
   await page.getByRole('button', { name: /Phone/i }).click({ force: true });
   await expect(page.getByRole('button', { name: /Phone/i })).toHaveAttribute('aria-current', 'page');
+
+  await page.getByRole('button', { name: 'Gallery', exact: true }).click({ force: true });
+  await expect(page.getByLabel(/Phone desktop/i)).toBeVisible();
 
   await page.getByRole('button', { name: /Events/i }).click({ force: true });
   await expect(page.getByRole('button', { name: /Events/i })).toHaveAttribute('aria-current', 'page');

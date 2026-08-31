@@ -1,4 +1,4 @@
-import type { CSSProperties, ReactNode } from 'react';
+import { useState, type CSSProperties, type ReactNode } from 'react';
 
 export type StorySurfaceId = 'chat' | 'phone' | 'gallery' | 'social' | 'events' | 'bank' | 'notes';
 
@@ -43,6 +43,8 @@ export function RoleplayStudioShell({
   onResizeStart,
   children,
 }: RoleplayStudioShellProps) {
+  const [storyStateOpen, setStoryStateOpen] = useState(true);
+
   return (
     <section className="studio-shell studio-shell-play" aria-label="Play Mode" style={shellWidthStyle(panelWidth)}>
       <div
@@ -94,23 +96,37 @@ export function RoleplayStudioShell({
 
         <div className="studio-character-strip">{characterPicker}</div>
         <div className="studio-play-content">{children}</div>
-        <aside className="studio-story-state" aria-label="Story State">
+        <aside
+          className={`studio-story-state${storyStateOpen ? '' : ' collapsed'}`}
+          aria-label="Story State"
+        >
           <header>
             <strong>Story State</strong>
-            <span aria-hidden="true">[]</span>
+            <button
+              type="button"
+              className="studio-story-state-toggle"
+              aria-expanded={storyStateOpen}
+              aria-label={storyStateOpen ? 'Collapse Story State' : 'Expand Story State'}
+              title={storyStateOpen ? 'Collapse Story State' : 'Expand Story State'}
+              onClick={() => setStoryStateOpen((open) => !open)}
+            >
+              {storyStateOpen ? '[]' : '[+]'}
+            </button>
           </header>
-          <section>
-            <strong>Character-owned surfaces</strong>
-            <p>Chat, phone, gallery, socials, banking, notes, and events all belong to the fiction.</p>
-          </section>
-          <section>
-            <strong>Graph recedes</strong>
-            <p>The default experience is roleplay. Graph Mode is one click away when editing the engine.</p>
-          </section>
-          <section>
-            <strong>No orange system</strong>
-            <p>Status uses cyan active, lime complete, pink social, violet player, blue finance/app utility.</p>
-          </section>
+          <div className="studio-story-state-body">
+            <section>
+              <strong>Character-owned surfaces</strong>
+              <p>Chat, phone, gallery, socials, banking, notes, and events all belong to the fiction.</p>
+            </section>
+            <section>
+              <strong>Graph recedes</strong>
+              <p>The default experience is roleplay. Graph Mode is one click away when editing the engine.</p>
+            </section>
+            <section>
+              <strong>No orange system</strong>
+              <p>Status uses cyan active, lime complete, pink social, violet player, blue finance/app utility.</p>
+            </section>
+          </div>
           <div className="studio-play-footer">{composerActions}</div>
         </aside>
       </div>
