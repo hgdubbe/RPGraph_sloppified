@@ -797,6 +797,7 @@ input[type="radio"]:focus-visible {
 }
 
 .studio-play-header {
+  -webkit-app-region: drag;
   display: grid;
   grid-template-columns: minmax(118px, 140px) minmax(120px, 1fr) auto;
   align-items: center;
@@ -805,6 +806,24 @@ input[type="radio"]:focus-visible {
   padding: 8px 14px;
   border-bottom: 1px solid rgba(77, 96, 138, 0.6);
   background: #0b0e1a;
+}
+
+.studio-shell-play button,
+.studio-shell-play input,
+.studio-shell-play select,
+.studio-shell-play textarea,
+.studio-shell-play a,
+.studio-play-resizer,
+.studio-activity-rail,
+.studio-character-strip,
+.studio-play-content,
+.studio-story-state {
+  -webkit-app-region: no-drag;
+}
+
+.studio-play-brand,
+.studio-play-scene {
+  -webkit-app-region: drag;
 }
 
 .studio-play-brand {
