@@ -69,8 +69,10 @@ import type {
   ImageAssistantModelState,
 } from '../chat/imageGenerationAssistant';
 import { imageGenerationCharacterContext } from '../chat/imageGenerationAssistant';
-import wallpaper1Url from '../assets/wallpapers/Wallpaper 1.jpg';
-import wallpaper2Url from '../assets/wallpapers/Wallpaper 2.jpg';
+import iphoneAuroraWallpaperUrl from '../assets/wallpapers/iphone-aurora.png';
+import iphoneHorizonWallpaperUrl from '../assets/wallpapers/iphone-horizon.png';
+import iphoneLiquidWallpaperUrl from '../assets/wallpapers/iphone-liquid.png';
+import iphoneSatinWallpaperUrl from '../assets/wallpapers/iphone-satin.png';
 
 type PhoneContact = {
   character: StorybookCharacter;
@@ -107,18 +109,32 @@ const phoneDesktopAppIds: readonly PhoneDesktopAppId[] =
 
 const defaultPhoneWallpapers: ChatImageAttachment[] = [
   {
-    id: 'wallpaper-1',
-    name: 'Wallpaper 1',
-    mimeType: 'image/jpeg',
+    id: 'iphone-aurora',
+    name: 'Aurora',
+    mimeType: 'image/png',
     size: 0,
-    dataUrl: wallpaper1Url,
+    dataUrl: iphoneAuroraWallpaperUrl,
   },
   {
-    id: 'wallpaper-2',
-    name: 'Wallpaper 2',
-    mimeType: 'image/jpeg',
+    id: 'iphone-satin',
+    name: 'Satin',
+    mimeType: 'image/png',
     size: 0,
-    dataUrl: wallpaper2Url,
+    dataUrl: iphoneSatinWallpaperUrl,
+  },
+  {
+    id: 'iphone-horizon',
+    name: 'Horizon',
+    mimeType: 'image/png',
+    size: 0,
+    dataUrl: iphoneHorizonWallpaperUrl,
+  },
+  {
+    id: 'iphone-liquid',
+    name: 'Liquid',
+    mimeType: 'image/png',
+    size: 0,
+    dataUrl: iphoneLiquidWallpaperUrl,
   },
 ];
 

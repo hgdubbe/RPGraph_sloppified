@@ -7354,6 +7354,190 @@ input[type="number"]::-webkit-outer-spin-button {
     linear-gradient(145deg, #18c6a5, #087363);
 }
 
+.phone-desktop {
+  --phone-icon: 58px;
+  --phone-grid-gap: 18px;
+  --phone-cell-w: calc(var(--phone-icon) + 10px);
+  --phone-cell-h: calc(var(--phone-icon) + 28px);
+  gap: var(--phone-grid-gap);
+  justify-content: center;
+  align-content: start;
+  padding: max(74px, calc(var(--phone-icon) * 1.15)) 24px 112px;
+  color: #ffffff;
+  background-color: #02040b;
+  background-position: center;
+  background-size: cover;
+}
+
+.phone-desktop-scrim {
+  z-index: 0;
+  background:
+    linear-gradient(180deg, rgba(0, 0, 0, 0.18), transparent 22%, transparent 62%, rgba(0, 0, 0, 0.34)),
+    radial-gradient(circle at 50% 12%, rgba(255, 255, 255, 0.12), transparent 28%);
+  pointer-events: none;
+}
+
+.phone-desktop-scrim::before {
+  position: absolute;
+  top: 13px;
+  left: 18px;
+  z-index: 2;
+  color: rgba(255, 255, 255, 0.92);
+  content: "9:41";
+  font-size: 13px;
+  font-weight: 800;
+  line-height: 1;
+  text-shadow: 0 1px 8px rgba(0, 0, 0, 0.5);
+}
+
+.phone-desktop-scrim::after {
+  position: absolute;
+  top: 13px;
+  right: 18px;
+  z-index: 2;
+  color: rgba(255, 255, 255, 0.92);
+  content: "5G  100%";
+  font-size: 11px;
+  font-weight: 800;
+  line-height: 1;
+  text-shadow: 0 1px 8px rgba(0, 0, 0, 0.5);
+}
+
+.phone-desktop::before {
+  top: 10px;
+  z-index: 3;
+  width: 92px;
+  height: 28px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 999px;
+  background:
+    radial-gradient(circle at 72% 50%, rgba(55, 64, 84, 0.94) 0 5px, transparent 5.5px),
+    linear-gradient(180deg, rgba(13, 15, 22, 0.98), rgba(0, 0, 0, 0.96));
+  box-shadow: 0 5px 18px rgba(0, 0, 0, 0.45);
+}
+
+.phone-desktop::after {
+  right: 20px;
+  bottom: 20px;
+  left: 20px;
+  z-index: 1;
+  height: 88px;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  border-radius: 30px;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.24), rgba(255, 255, 255, 0.08)),
+    rgba(20, 24, 36, 0.46);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.22),
+    0 18px 42px rgba(0, 0, 0, 0.28);
+}
+
+.phone-clock-widget {
+  z-index: 2;
+  align-items: flex-start;
+  justify-content: flex-start;
+  min-height: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  color: rgba(255, 255, 255, 0.96);
+  background: transparent;
+  box-shadow: none;
+  text-align: left;
+}
+
+.phone-clock-widget strong {
+  font-size: clamp(40px, 42cqmin, 76px);
+  font-weight: 760;
+  letter-spacing: 0;
+  line-height: 0.9;
+  text-shadow: 0 3px 22px rgba(0, 0, 0, 0.68);
+}
+
+.phone-clock-widget > span {
+  margin-top: 8px;
+  font-size: clamp(12px, 10cqmin, 17px);
+  font-weight: 760;
+  letter-spacing: 0;
+  text-shadow: 0 2px 14px rgba(0, 0, 0, 0.62);
+}
+
+.phone-clock-resize-handle {
+  right: -6px;
+  bottom: -8px;
+  background: rgba(255, 255, 255, 0.18);
+}
+
+.phone-desktop-app {
+  z-index: 2;
+  gap: 6px;
+  color: rgba(255, 255, 255, 0.96);
+  font-size: 11px;
+  font-weight: 760;
+  letter-spacing: 0;
+  text-shadow: 0 1px 8px rgba(0, 0, 0, 0.58);
+}
+
+.phone-desktop-app > span:last-child {
+  max-width: calc(var(--phone-icon) + 18px);
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.phone-whatsup-icon,
+.phone-gallery-icon,
+.phone-camera-icon,
+.phone-banking-icon,
+.phone-fotogram-icon,
+.phone-onlyfriends-icon,
+.phone-notes-icon,
+.phone-chatgpd-icon {
+  width: var(--phone-icon);
+  height: var(--phone-icon);
+  border: 0;
+  border-radius: 15px;
+  box-shadow:
+    inset 0 1px 1px rgba(255, 255, 255, 0.34),
+    inset 0 -1px 2px rgba(0, 0, 0, 0.2),
+    0 10px 26px rgba(0, 0, 0, 0.34);
+}
+
+.phone-gallery-icon svg,
+.phone-camera-icon svg,
+.phone-banking-icon svg,
+.phone-fotogram-icon svg,
+.phone-onlyfriends-icon svg,
+.phone-notes-icon svg {
+  width: 48%;
+  height: 48%;
+}
+
+.phone-whatsup-icon svg {
+  width: 55%;
+  height: 55%;
+}
+
+.phone-desktop-settings {
+  right: 28px;
+  bottom: 41px;
+  z-index: 4;
+}
+
+.phone-desktop-settings-button {
+  width: 46px;
+  height: 46px;
+  border-color: rgba(255, 255, 255, 0.2);
+  background: rgba(255, 255, 255, 0.13);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.2),
+    0 10px 26px rgba(0, 0, 0, 0.32);
+}
+
+.phone-desktop-settings-button:hover {
+  background: rgba(255, 255, 255, 0.22);
+  transform: scale(1.04);
+}
+
 .phone-surface {
   display: grid;
   grid-template-columns: minmax(138px, 40%) minmax(0, 1fr);
