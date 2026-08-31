@@ -1277,6 +1277,445 @@ input[type="radio"]:focus-visible {
   content: ">";
 }
 
+.studio[data-studio-theme] {
+  --theme-app-bg: #070912;
+  --theme-shell-bg: #070912;
+  --theme-header-bg: #0b0e1a;
+  --theme-rail-bg: #080b16;
+  --theme-content-bg: #090b15;
+  --theme-panel-bg: #101421;
+  --theme-card-bg: #121523;
+  --theme-card-strong-bg: #1a1e33;
+  --theme-input-bg: #060913;
+  --theme-user-bg: #14052a;
+  --theme-user-border: rgba(164, 82, 255, 0.86);
+  --theme-border: rgba(77, 96, 138, 0.72);
+  --theme-border-soft: rgba(77, 96, 138, 0.42);
+  --theme-text: #f4f7ff;
+  --theme-muted: #8fa1d1;
+  --theme-accent: #79d8ef;
+  --theme-accent-text: #051018;
+  --theme-rail: #9fb0df;
+  --theme-social: #f15bb5;
+  --theme-complete: #68e08e;
+  --theme-phone-glass: rgba(20, 24, 36, 0.46);
+  --theme-radius: 8px;
+  --theme-font-weight: 850;
+}
+
+.studio[data-studio-theme="iphone-noir"] {
+  --theme-app-bg: #02030a;
+  --theme-shell-bg: #05060d;
+  --theme-header-bg: #070812;
+  --theme-rail-bg: #050713;
+  --theme-content-bg: #050713;
+  --theme-panel-bg: #0c0f19;
+  --theme-card-bg: #111522;
+  --theme-card-strong-bg: #171c2b;
+  --theme-input-bg: #02030a;
+  --theme-user-bg: #071223;
+  --theme-user-border: rgba(132, 212, 255, 0.82);
+  --theme-border: rgba(160, 174, 205, 0.34);
+  --theme-border-soft: rgba(160, 174, 205, 0.2);
+  --theme-text: #fbfdff;
+  --theme-muted: #a7b1c8;
+  --theme-accent: #8edfff;
+  --theme-accent-text: #02030a;
+  --theme-rail: #bac5dd;
+  --theme-phone-glass: rgba(255, 255, 255, 0.13);
+  --theme-radius: 12px;
+}
+
+.studio[data-studio-theme="neon-social"] {
+  --theme-app-bg: #09030f;
+  --theme-shell-bg: #0b0313;
+  --theme-header-bg: #12051d;
+  --theme-rail-bg: #0d0418;
+  --theme-content-bg: #0c0416;
+  --theme-panel-bg: #180b27;
+  --theme-card-bg: #1d1032;
+  --theme-card-strong-bg: #25133d;
+  --theme-input-bg: #09030f;
+  --theme-user-bg: #25063b;
+  --theme-user-border: rgba(255, 82, 204, 0.88);
+  --theme-border: rgba(195, 94, 255, 0.48);
+  --theme-border-soft: rgba(195, 94, 255, 0.28);
+  --theme-text: #fff5ff;
+  --theme-muted: #c49bdf;
+  --theme-accent: #33f1ff;
+  --theme-accent-text: #06020c;
+  --theme-rail: #dda8ff;
+  --theme-social: #ff49c8;
+  --theme-complete: #7dffbf;
+  --theme-phone-glass: rgba(60, 12, 82, 0.46);
+  --theme-radius: 9px;
+}
+
+.studio[data-studio-theme="rainy-window"] {
+  --theme-app-bg: #0a1017;
+  --theme-shell-bg: #0c121a;
+  --theme-header-bg: #111a24;
+  --theme-rail-bg: #0f1721;
+  --theme-content-bg: #0c121a;
+  --theme-panel-bg: #151f2a;
+  --theme-card-bg: #182433;
+  --theme-card-strong-bg: #1f2d3d;
+  --theme-input-bg: #081019;
+  --theme-user-bg: #142136;
+  --theme-user-border: rgba(128, 172, 219, 0.78);
+  --theme-border: rgba(117, 145, 176, 0.5);
+  --theme-border-soft: rgba(117, 145, 176, 0.3);
+  --theme-text: #eef6ff;
+  --theme-muted: #9bb0c7;
+  --theme-accent: #9bd1f5;
+  --theme-accent-text: #081019;
+  --theme-rail: #b1c2d8;
+  --theme-phone-glass: rgba(30, 43, 58, 0.52);
+  --theme-radius: 7px;
+}
+
+.studio[data-studio-theme="kawaii-dream"] {
+  --theme-app-bg: #211326;
+  --theme-shell-bg: #2a1831;
+  --theme-header-bg: #3a2144;
+  --theme-rail-bg: #301b38;
+  --theme-content-bg: #241529;
+  --theme-panel-bg: #3a2443;
+  --theme-card-bg: #442b4f;
+  --theme-card-strong-bg: #51305d;
+  --theme-input-bg: #1b1020;
+  --theme-user-bg: #4f235f;
+  --theme-user-border: rgba(255, 174, 226, 0.9);
+  --theme-border: rgba(255, 190, 239, 0.48);
+  --theme-border-soft: rgba(255, 190, 239, 0.28);
+  --theme-text: #fff7fd;
+  --theme-muted: #e7b8dc;
+  --theme-accent: #ffb7e8;
+  --theme-accent-text: #241026;
+  --theme-rail: #ffd2f2;
+  --theme-social: #ff76cf;
+  --theme-complete: #9ef5d4;
+  --theme-phone-glass: rgba(255, 210, 242, 0.22);
+  --theme-radius: 14px;
+}
+
+.studio[data-studio-theme="terminal-green"] {
+  --theme-app-bg: #010604;
+  --theme-shell-bg: #020a06;
+  --theme-header-bg: #04110a;
+  --theme-rail-bg: #020c07;
+  --theme-content-bg: #020906;
+  --theme-panel-bg: #06140d;
+  --theme-card-bg: #081a10;
+  --theme-card-strong-bg: #0a2215;
+  --theme-input-bg: #010604;
+  --theme-user-bg: #071a10;
+  --theme-user-border: rgba(94, 255, 154, 0.74);
+  --theme-border: rgba(87, 201, 128, 0.46);
+  --theme-border-soft: rgba(87, 201, 128, 0.26);
+  --theme-text: #e9ffef;
+  --theme-muted: #8ac79d;
+  --theme-accent: #63ff95;
+  --theme-accent-text: #001b0a;
+  --theme-rail: #9cf0b4;
+  --theme-social: #7fffbf;
+  --theme-complete: #b0ff6a;
+  --theme-phone-glass: rgba(10, 42, 21, 0.5);
+  --theme-radius: 4px;
+}
+
+.studio[data-studio-theme="cute-girly"] {
+  --theme-app-bg: #2b1824;
+  --theme-shell-bg: #341d2c;
+  --theme-header-bg: #4a263d;
+  --theme-rail-bg: #3b2133;
+  --theme-content-bg: #2c1926;
+  --theme-panel-bg: #432638;
+  --theme-card-bg: #502d43;
+  --theme-card-strong-bg: #5e3450;
+  --theme-input-bg: #21131d;
+  --theme-user-bg: #5a2851;
+  --theme-user-border: rgba(255, 154, 205, 0.92);
+  --theme-border: rgba(255, 179, 216, 0.48);
+  --theme-border-soft: rgba(255, 179, 216, 0.28);
+  --theme-text: #fff8fb;
+  --theme-muted: #efbad0;
+  --theme-accent: #ff8cc6;
+  --theme-accent-text: #2a1020;
+  --theme-rail: #ffd1e3;
+  --theme-social: #ff62ae;
+  --theme-complete: #b8f4c2;
+  --theme-phone-glass: rgba(255, 190, 218, 0.2);
+  --theme-radius: 16px;
+}
+
+.studio[data-studio-theme="goth"] {
+  --theme-app-bg: #050305;
+  --theme-shell-bg: #080508;
+  --theme-header-bg: #120a11;
+  --theme-rail-bg: #0d070d;
+  --theme-content-bg: #090609;
+  --theme-panel-bg: #160d16;
+  --theme-card-bg: #1d101d;
+  --theme-card-strong-bg: #251425;
+  --theme-input-bg: #050305;
+  --theme-user-bg: #1e0712;
+  --theme-user-border: rgba(178, 48, 95, 0.78);
+  --theme-border: rgba(151, 129, 154, 0.42);
+  --theme-border-soft: rgba(151, 129, 154, 0.24);
+  --theme-text: #f7eef7;
+  --theme-muted: #b8a4ba;
+  --theme-accent: #d6c7df;
+  --theme-accent-text: #0b050b;
+  --theme-rail: #cbb9d0;
+  --theme-social: #ba1f5d;
+  --theme-complete: #9bb99f;
+  --theme-phone-glass: rgba(20, 10, 20, 0.58);
+  --theme-radius: 6px;
+}
+
+.studio[data-studio-theme="hardcore"] {
+  --theme-app-bg: #090808;
+  --theme-shell-bg: #0b0909;
+  --theme-header-bg: #170b0c;
+  --theme-rail-bg: #10090a;
+  --theme-content-bg: #0a0808;
+  --theme-panel-bg: #1a1010;
+  --theme-card-bg: #221313;
+  --theme-card-strong-bg: #2c1717;
+  --theme-input-bg: #050404;
+  --theme-user-bg: #23090b;
+  --theme-user-border: rgba(255, 61, 80, 0.86);
+  --theme-border: rgba(151, 60, 68, 0.55);
+  --theme-border-soft: rgba(151, 60, 68, 0.32);
+  --theme-text: #fff3f3;
+  --theme-muted: #c29c9f;
+  --theme-accent: #ff4055;
+  --theme-accent-text: #120305;
+  --theme-rail: #d6b3b6;
+  --theme-social: #ff4055;
+  --theme-complete: #d8ff57;
+  --theme-phone-glass: rgba(45, 10, 12, 0.55);
+  --theme-radius: 2px;
+}
+
+.studio[data-studio-theme="normal-guy"] {
+  --theme-app-bg: #0d1117;
+  --theme-shell-bg: #10151c;
+  --theme-header-bg: #151b24;
+  --theme-rail-bg: #111720;
+  --theme-content-bg: #0f141b;
+  --theme-panel-bg: #18202b;
+  --theme-card-bg: #1d2632;
+  --theme-card-strong-bg: #232d3a;
+  --theme-input-bg: #0b1017;
+  --theme-user-bg: #13233a;
+  --theme-user-border: rgba(90, 143, 203, 0.78);
+  --theme-border: rgba(91, 105, 124, 0.55);
+  --theme-border-soft: rgba(91, 105, 124, 0.32);
+  --theme-text: #eef2f6;
+  --theme-muted: #a0abb8;
+  --theme-accent: #75a7dc;
+  --theme-accent-text: #07111d;
+  --theme-rail: #b4bfcc;
+  --theme-social: #7aa8d8;
+  --theme-complete: #8fca97;
+  --theme-phone-glass: rgba(26, 34, 45, 0.52);
+  --theme-radius: 8px;
+}
+
+.studio-mode-play[data-studio-theme] .workspace,
+.studio[data-studio-theme] .studio-shell-play,
+.studio[data-studio-theme] .studio-play-main {
+  background: var(--theme-shell-bg);
+}
+
+.studio[data-studio-theme] .studio-shell-play {
+  border-color: var(--theme-border);
+}
+
+.studio[data-studio-theme] .studio-play-header {
+  border-bottom-color: var(--theme-border);
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.035), transparent),
+    var(--theme-header-bg);
+}
+
+.studio[data-studio-theme] .studio-play-logo,
+.studio[data-studio-theme] .studio-mode-button,
+.studio[data-studio-theme] .studio-shell-play .auto-turn-button,
+.studio[data-studio-theme] .studio-shell-play .composer button[type="submit"] {
+  color: var(--theme-accent-text);
+  background: var(--theme-accent);
+}
+
+.studio[data-studio-theme] .studio-play-brand strong,
+.studio[data-studio-theme] .studio-play-scene strong,
+.studio[data-studio-theme] .studio-story-state header,
+.studio[data-studio-theme] .studio-story-state section strong {
+  color: var(--theme-text);
+}
+
+.studio[data-studio-theme] .studio-play-scene span,
+.studio[data-studio-theme] .studio-story-state section p,
+.studio[data-studio-theme] .studio-character-tabs span {
+  color: var(--theme-muted);
+}
+
+.studio[data-studio-theme] .studio-theme-picker {
+  display: flex;
+  height: 33px;
+  align-items: center;
+  gap: 7px;
+  padding: 0 9px;
+  border: 1px solid var(--theme-border);
+  border-radius: var(--theme-radius);
+  color: var(--theme-text);
+  background: var(--theme-panel-bg);
+  font-size: 11px;
+  font-weight: 850;
+}
+
+.studio[data-studio-theme] .studio-theme-picker span {
+  color: var(--theme-muted);
+}
+
+.studio[data-studio-theme] .studio-theme-picker select {
+  max-width: 132px;
+  padding: 0;
+  border: 0;
+  color: var(--theme-text);
+  background: transparent;
+  font-size: 11px;
+  font-weight: 900;
+  outline: none;
+}
+
+.studio[data-studio-theme] .studio-theme-picker option {
+  color: #edf1ff;
+  background: #101421;
+}
+
+.studio[data-studio-theme] .studio-play-command-group .connection-button,
+.studio[data-studio-theme] .studio-shell-play .attach-image-button,
+.studio[data-studio-theme] .studio-shell-play .composer .composer-icon-button,
+.studio[data-studio-theme] .studio-shell-play .switch-player-button,
+.studio[data-studio-theme] .studio-shell-play .turn-controls button,
+.studio[data-studio-theme] .studio-story-state-toggle {
+  border-color: var(--theme-border);
+  border-radius: var(--theme-radius);
+  color: var(--theme-text);
+  background: var(--theme-panel-bg);
+}
+
+.studio[data-studio-theme] .studio-activity-rail {
+  border-bottom-color: var(--theme-border-soft);
+  background: var(--theme-rail-bg);
+}
+
+.studio[data-studio-theme] .studio-rail-button {
+  border-radius: var(--theme-radius);
+  color: var(--theme-rail);
+}
+
+.studio[data-studio-theme] .studio-rail-button.active {
+  border-color: var(--theme-accent);
+  color: var(--theme-accent);
+  background: color-mix(in srgb, var(--theme-accent) 13%, transparent);
+}
+
+.studio[data-studio-theme] .studio-play-content,
+.studio[data-studio-theme] .studio-story-state {
+  background: var(--theme-content-bg);
+}
+
+.studio[data-studio-theme] .studio-character-tabs {
+  border-bottom-color: var(--theme-border-soft);
+  background: var(--theme-content-bg);
+}
+
+.studio[data-studio-theme] .studio-character-tabs button {
+  border-color: var(--theme-border-soft);
+  border-radius: var(--theme-radius) var(--theme-radius) 0 0;
+  background: var(--theme-panel-bg);
+}
+
+.studio[data-studio-theme] .studio-character-tabs button.active {
+  border-color: var(--theme-accent);
+  background: var(--theme-card-bg);
+}
+
+.studio[data-studio-theme] .chat-lockable,
+.studio[data-studio-theme] .studio-shell-play .composer {
+  border-color: var(--theme-border);
+  border-radius: calc(var(--theme-radius) + 2px);
+  background: var(--theme-panel-bg);
+}
+
+.studio[data-studio-theme] .studio-shell-play .messages {
+  background: var(--theme-panel-bg);
+}
+
+.studio[data-studio-theme] .studio-shell-play .message-text-stack > p,
+.studio[data-studio-theme] .studio-shell-play .message.user p {
+  color: var(--theme-text);
+  background: var(--theme-card-strong-bg);
+}
+
+.studio[data-studio-theme] .studio-shell-play .message.user .message-text-stack > p,
+.studio[data-studio-theme] .studio-shell-play .message.user p {
+  border-color: var(--theme-user-border);
+  background: var(--theme-user-bg);
+}
+
+.studio[data-studio-theme] .studio-shell-play .composer .command-composer-input {
+  border-color: var(--theme-border-soft);
+  background: var(--theme-input-bg);
+}
+
+.studio[data-studio-theme] .studio-story-state {
+  border-top-color: var(--theme-border-soft);
+}
+
+.studio[data-studio-theme] .studio-story-state section {
+  border-color: var(--theme-border);
+  border-radius: var(--theme-radius);
+  background: var(--theme-card-bg);
+}
+
+.studio[data-studio-theme] .phone-desktop::after {
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.24), rgba(255, 255, 255, 0.08)),
+    var(--theme-phone-glass);
+}
+
+.studio[data-studio-theme="terminal-green"] .studio-shell-play {
+  font-family: Consolas, "Courier New", monospace;
+}
+
+.studio[data-studio-theme="terminal-green"] .studio-shell-play .message-text-stack > p,
+.studio[data-studio-theme="terminal-green"] .studio-shell-play .message.user p {
+  text-shadow: 0 0 10px color-mix(in srgb, var(--theme-accent) 28%, transparent);
+}
+
+.studio[data-studio-theme="kawaii-dream"] .studio-shell-play .message.user .message-text-stack > p,
+.studio[data-studio-theme="kawaii-dream"] .studio-shell-play .message.user p,
+.studio[data-studio-theme="cute-girly"] .studio-shell-play .message.user .message-text-stack > p,
+.studio[data-studio-theme="cute-girly"] .studio-shell-play .message.user p {
+  border-radius: 20px;
+}
+
+.studio[data-studio-theme="goth"] .studio-play-header {
+  background:
+    linear-gradient(90deg, rgba(128, 24, 62, 0.18), transparent 45%),
+    var(--theme-header-bg);
+}
+
+.studio[data-studio-theme="hardcore"] .studio-rail-button.active,
+.studio[data-studio-theme="hardcore"] .studio-mode-button {
+  text-transform: uppercase;
+}
+
 .studio-shell-play .attach-image-button,
 .studio-shell-play .composer .composer-icon-button,
 .studio-shell-play .switch-player-button,

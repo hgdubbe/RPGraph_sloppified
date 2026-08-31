@@ -52,6 +52,17 @@ test('collapses Story State without hiding turn controls', async () => {
   await expect(page.getByText(/Turn 0/i)).toBeVisible();
 });
 
+test('switches Play Mode themes from the header selector', async () => {
+  app = await launchAppWithWorkflow(outdatedLlmWorkflow());
+  const { page } = app;
+
+  await page.getByLabel(/Theme/i).selectOption('goth');
+  await expect(page.locator('.studio')).toHaveAttribute('data-studio-theme', 'goth');
+
+  await page.getByLabel(/Theme/i).selectOption('cute-girly');
+  await expect(page.locator('.studio')).toHaveAttribute('data-studio-theme', 'cute-girly');
+});
+
 test('keeps Phone and Events reachable from Play Mode', async () => {
   app = await launchAppWithWorkflow(outdatedLlmWorkflow());
   const { page } = app;
