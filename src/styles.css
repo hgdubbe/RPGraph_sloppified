@@ -26228,24 +26228,27 @@ textarea.storybook-inline-edit-control {
 
 /* RP Storybook Editor — workbench remake */
 .storybook-workbench-dialog {
-  --storybook-bg: #090b12;
-  --storybook-panel: #151c2b;
+  --storybook-bg: #07090f;
+  --storybook-panel: #111625;
   --storybook-passive: #111625;
-  --storybook-line: #3a4560;
-  --storybook-line-soft: rgba(130, 148, 190, 0.25);
-  --storybook-text: #f5f8ff;
-  --storybook-muted: #a7b4d4;
-  --storybook-cyan: #7bd9ef;
-  --storybook-cyan-soft: rgba(123, 217, 239, 0.14);
-  --storybook-violet: #ab88ff;
-  --storybook-lime: #a7eb72;
+  --storybook-line: #303852;
+  --storybook-line-soft: rgba(124, 140, 180, 0.24);
+  --storybook-text: #f2f6ff;
+  --storybook-muted: #9aa8cc;
+  --storybook-faint: #667293;
+  --storybook-cyan: #79d7ef;
+  --storybook-cyan-soft: rgba(121, 215, 239, 0.13);
+  --storybook-violet: #a277ff;
+  --storybook-violet-soft: rgba(162, 119, 255, 0.13);
+  --storybook-pink: #f16ac4;
+  --storybook-lime: #a4ec68;
   display: grid;
   grid-template-rows: 56px minmax(0, 1fr) 48px;
   padding: 0;
   border-radius: 12px;
   background:
-    radial-gradient(circle at 17% 0%, rgba(123, 217, 239, 0.12), transparent 32rem),
-    radial-gradient(circle at 86% 0%, rgba(240, 112, 200, 0.1), transparent 28rem),
+    radial-gradient(circle at 17% 0%, rgba(121, 215, 239, 0.08), transparent 32rem),
+    radial-gradient(circle at 86% 0%, rgba(241, 106, 196, 0.08), transparent 28rem),
     var(--storybook-bg);
 }
 
@@ -26339,19 +26342,27 @@ textarea.storybook-inline-edit-control {
 }
 
 .storybook-workbench-search:focus {
-  border-color: rgba(123, 217, 239, 0.68);
-  box-shadow: 0 0 0 3px rgba(123, 217, 239, 0.1);
+  border-color: rgba(121, 215, 239, 0.65);
+  box-shadow: 0 0 0 3px rgba(121, 215, 239, 0.1);
 }
 
 .storybook-workbench-primary-button {
   min-height: 36px;
-  border: 1px solid rgba(123, 217, 239, 0.62);
+  border: 1px solid #394563;
   border-radius: 8px;
-  color: #051019;
-  background: var(--storybook-cyan);
+  color: #dce8ff;
+  background: #131a2d;
   font-size: 12px;
   font-weight: 900;
   cursor: pointer;
+}
+
+.storybook-workbench-primary-button:hover,
+.storybook-workbench-primary-button:focus-visible {
+  border-color: rgba(162, 119, 255, 0.62);
+  color: #f2f6ff;
+  background: rgba(162, 119, 255, 0.18);
+  outline: none;
 }
 
 .storybook-workbench-nav {
@@ -26369,7 +26380,7 @@ textarea.storybook-inline-edit-control {
 .storybook-workbench-nav-group h3 {
   margin: 0;
   padding: 0 10px 5px;
-  color: #ddfbff;
+  color: #dffbff;
   font-size: 11px;
   font-weight: 900;
   letter-spacing: 0.1em;
@@ -26395,31 +26406,31 @@ textarea.storybook-inline-edit-control {
 .storybook-workbench-nav-item:hover,
 .storybook-workbench-nav-item:focus-visible {
   outline: none;
-  border-color: rgba(123, 217, 239, 0.28);
-  background: rgba(123, 217, 239, 0.07);
+  border-color: rgba(162, 119, 255, 0.32);
+  background: rgba(162, 119, 255, 0.08);
 }
 
 .storybook-workbench-nav-item.active {
-  border-color: rgba(123, 217, 239, 0.52);
+  border-color: rgba(121, 215, 239, 0.52);
   background: var(--storybook-cyan-soft);
 }
 
 .storybook-workbench-nav-item.selected-character {
-  border-color: rgba(240, 112, 200, 0.44);
+  border-color: rgba(241, 106, 196, 0.44);
   background:
-    linear-gradient(90deg, rgba(240, 112, 200, 0.12), rgba(123, 217, 239, 0.06)),
+    linear-gradient(90deg, rgba(241, 106, 196, 0.12), rgba(162, 119, 255, 0.08)),
     rgba(18, 23, 38, 0.92);
 }
 
 .storybook-workbench-nav-item.selected-character .storybook-workbench-nav-icon {
-  border-color: rgba(240, 112, 200, 0.58);
+  border-color: rgba(241, 106, 196, 0.58);
   color: #ffd8f4;
 }
 
 .storybook-workbench-nav-item.selected-character.active {
-  border-color: rgba(123, 217, 239, 0.7);
+  border-color: rgba(121, 215, 239, 0.6);
   background:
-    linear-gradient(90deg, rgba(123, 217, 239, 0.18), rgba(240, 112, 200, 0.12)),
+    linear-gradient(90deg, rgba(121, 215, 239, 0.12), rgba(241, 106, 196, 0.12)),
     rgba(18, 25, 39, 0.96);
 }
 
@@ -26532,10 +26543,10 @@ textarea.storybook-inline-edit-control {
   min-height: 23px;
   align-items: center;
   padding: 0 9px;
-  border: 1px solid rgba(240, 112, 200, 0.42);
+  border: 1px solid rgba(241, 106, 196, 0.42);
   border-radius: 999px;
   color: #ffd8f4;
-  background: rgba(240, 112, 200, 0.1);
+  background: rgba(241, 106, 196, 0.1);
   font-size: 11px;
   font-weight: 850;
 }
@@ -26619,10 +26630,9 @@ textarea.storybook-inline-edit-control {
   gap: 8px;
   min-width: 0;
   padding: 12px;
-  border: 1px solid rgba(123, 217, 239, 0.42);
-  border-left-width: 4px;
+  border: 1px solid var(--storybook-line);
   border-radius: 8px;
-  background: rgba(8, 17, 28, 0.96);
+  background: rgba(17, 22, 37, 0.88);
 }
 
 .storybook-workbench-field.wide {
@@ -26645,7 +26655,7 @@ textarea.storybook-inline-edit-control {
 }
 
 .storybook-workbench-field small {
-  color: var(--storybook-cyan);
+  color: var(--storybook-faint);
   font-size: 11px;
   font-weight: 760;
 }
@@ -26653,10 +26663,10 @@ textarea.storybook-inline-edit-control {
 .storybook-workbench-field input,
 .storybook-workbench-field textarea {
   width: 100%;
-  border: 1px solid #455370;
+  border: 1px solid #33405f;
   border-radius: 7px;
   color: var(--storybook-text);
-  background: #050a12;
+  background: #080d18;
   outline: none;
   padding: 10px;
   font-size: 13px;
@@ -26677,7 +26687,7 @@ textarea.storybook-inline-edit-control {
 }
 
 .storybook-workbench-field .field-label {
-  color: #e7fbff;
+  color: #dbe7ff;
   font-size: 11px;
   font-weight: 900;
   letter-spacing: 0.08em;
@@ -26685,8 +26695,8 @@ textarea.storybook-inline-edit-control {
 }
 
 .storybook-workbench-field .storybook-inline-edit-control {
-  border-color: rgba(123, 217, 239, 0.38);
-  background: rgba(5, 10, 18, 0.96);
+  border-color: #33405f;
+  background: #080d18;
 }
 
 .storybook-workbench-field:has(textarea) {
@@ -26710,8 +26720,8 @@ textarea.storybook-inline-edit-control {
 
 .storybook-workbench-field input:focus,
 .storybook-workbench-field textarea:focus {
-  border-color: rgba(123, 217, 239, 0.82);
-  box-shadow: 0 0 0 3px rgba(123, 217, 239, 0.13);
+  border-color: rgba(121, 215, 239, 0.65);
+  box-shadow: 0 0 0 3px rgba(121, 215, 239, 0.1);
 }
 
 .storybook-workbench-character-grid {
@@ -26735,8 +26745,8 @@ textarea.storybook-inline-edit-control {
 }
 
 .storybook-workbench-character-card.active {
-  border-color: rgba(123, 217, 239, 0.62);
-  background: linear-gradient(180deg, rgba(123, 217, 239, 0.12), rgba(21, 28, 43, 0.88));
+  border-color: rgba(162, 119, 255, 0.56);
+  background: linear-gradient(180deg, rgba(162, 119, 255, 0.12), rgba(17, 22, 37, 0.88));
 }
 
 .storybook-workbench-avatar {
@@ -26744,7 +26754,7 @@ textarea.storybook-inline-edit-control {
   width: 42px;
   height: 42px;
   place-items: center;
-  border: 1px solid rgba(123, 217, 239, 0.42);
+  border: 1px solid #424c68;
   border-radius: 12px;
   background:
     radial-gradient(circle at 35% 25%, rgba(255, 255, 255, 0.34), transparent 16px),
@@ -26798,7 +26808,7 @@ textarea.storybook-inline-edit-control {
 .storybook-workbench-mini-gallery img {
   width: 100%;
   aspect-ratio: 1;
-  border: 1px solid rgba(123, 217, 239, 0.25);
+  border: 1px solid var(--storybook-line-soft);
   border-radius: 7px;
   object-fit: cover;
 }
@@ -26988,9 +26998,9 @@ textarea.storybook-inline-edit-control {
 }
 
 .storybook-workbench-primary {
-  border-color: rgba(123, 217, 239, 0.7) !important;
-  color: #061018 !important;
-  background: var(--storybook-cyan) !important;
+  border-color: rgba(162, 119, 255, 0.7) !important;
+  color: #f2f6ff !important;
+  background: rgba(162, 119, 255, 0.22) !important;
 }
 
 @media (max-width: 1180px) {
