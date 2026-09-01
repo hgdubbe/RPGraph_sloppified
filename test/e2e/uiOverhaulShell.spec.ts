@@ -33,6 +33,7 @@ test('starts in Play Mode and preserves access to the full graph editor', async 
   await expect(page.getByRole('button', { name: /Play Mode/i })).toBeVisible();
   await expect(page.getByRole('region', { name: /Workflow Graph/i })).toBeVisible();
   await expect(page.getByRole('complementary', { name: /Available nodes/i })).toBeVisible();
+  await expect(page.getByRole('complementary', { name: /Node Inspector/i })).toBeVisible();
   await graphCanvasVisible(page);
 
   await enterPlayMode(page);
@@ -106,4 +107,19 @@ test('keeps the Add Nodes sidebar open and anchored on the left in Graph Mode', 
   const afterHoverBox = await palette.boundingBox();
   expect(afterHoverBox?.x).toBeLessThan(40);
   expect(afterHoverBox?.width).toBeGreaterThan(240);
+
+  const canvasBox = await page.getByRole('region', { name: /Workflow Graph/i }).boundingBox();
+  expect(canvasBox).not.toBeNull();
+  expect(canvasBox?.x).toBeGreaterThan((afterHoverBox?.x ?? 0) + (afterHoverBox?.width ?? 0) - 1);
+});
+
+test('filters Add Nodes from the persistent palette search', async () => {
+  app = await launchAppWithWorkflow(outdatedLlmWorkflow());
+  const { page } = app;
+
+  await enterGraphMode(page);
+  await page.getByRole('searchbox', { name: /Search nodes/i }).fill('preview');
+
+  await expect(page.getByText('Text Preview')).toBeVisible();
+  await expect(page.getByText('User Input', { exact: true })).toBeHidden();
 });

@@ -1627,6 +1627,23 @@ function App() {
     createId: uniqueId,
     notifySystem,
   });
+  const [nodePaletteSearch, setNodePaletteSearch] = useState('');
+  const visibleGroupedNodePaletteItems = useMemo(() => {
+    const query = nodePaletteSearch.trim().toLowerCase();
+    if (!query) {
+      return groupedNodePaletteItems;
+    }
+    return groupedNodePaletteItems
+      .map((group) => ({
+        ...group,
+        items: group.items.filter((item) =>
+          item.label.toLowerCase().includes(query) ||
+          item.description.toLowerCase().includes(query) ||
+          item.type.toLowerCase().includes(query)
+        ),
+      }))
+      .filter((group) => group.items.length > 0);
+  }, [groupedNodePaletteItems, nodePaletteSearch]);
   const {
     nodeContextMenu,
     closeNodeContextMenu,
@@ -4840,6 +4857,27 @@ function App() {
     audioGenerationActive:
       voiceGenerationActive || apiNarratorGenerationActive || readAloudActive,
   });
+  const selectedGraphNodes = useMemo(
+    () => nodes.filter((node) => node.selected),
+    [nodes],
+  );
+  const selectedGraphNode = selectedGraphNodes[0];
+  const selectedGraphDefinition = selectedGraphNode
+    ? getRegisteredCoreNode(selectedGraphNode.data.nodeType)
+    : undefined;
+  const selectedGraphPorts = useMemo(() => {
+    if (!selectedGraphNode) {
+      return [];
+    }
+    if (selectedGraphNode.data.portsSnapshot?.length) {
+      return selectedGraphNode.data.portsSnapshot;
+    }
+    try {
+      return selectedGraphDefinition?.ports(selectedGraphNode.data) ?? [];
+    } catch {
+      return [];
+    }
+  }, [selectedGraphDefinition, selectedGraphNode]);
 
   const playHeaderControls = (
     <div className="studio-play-command-group">
@@ -4974,8 +5012,42 @@ function App() {
 
   const graphToolbar = (
     <div className="graph-toolbar">
-      <div className="panel-label">
-        <span>GRAPH</span>
+      <div className="graph-context">
+        <span>{nodes.length} nodes</span>
+        <span>{displayedWorkflowNameFormatted}</span>
+        <span>{displayedStorybookNameFormatted}</span>
+      </div>
+      <div className="graph-actions">
+        <span className="graph-ready-chip">
+          <span aria-hidden="true" />
+          Ready
+        </span>
+        <button
+          className="runtime-summary-button"
+          type="button"
+          onClick={() => setShowRunLlmReport(true)}
+          disabled={!runLlmReport}
+          title="Show LLM calls for the current or last run"
+        >
+          Runtime <LiveRunClock isRunning={isRunning} startTimeMs={runStartTimeMs} finalMs={runDurationMs} /> s
+        </button>
+        <button className="graph-reset" type="button" onClick={() => void saveCurrentWorkflow()}>
+          Save Workflow
+        </button>
+        <button className="graph-reset graph-secondary-action" type="button" onClick={() => void saveCurrentSession()}>
+          Save RP
+        </button>
+        <button
+          className="graph-reset graph-secondary-action"
+          type="button"
+          onClick={() => void resetWorkflow()}
+          disabled={!!activeSessionFileName}
+          title={activeSessionFileName
+            ? 'Workflow reset is unavailable while an RP save is active.'
+            : 'Reset workflow'}
+        >
+          Reset
+        </button>
         <PromptPresetOverview
           nodes={nodeViewNodes}
           connections={connections}
@@ -4991,32 +5063,6 @@ function App() {
           setPromptTextCustomPresets={setPromptTextCustomPresets}
           updateNodeData={updateRuntimeNode}
         />
-        <button
-          className="graph-reset"
-          type="button"
-          onClick={() => void resetWorkflow()}
-          disabled={!!activeSessionFileName}
-          title={activeSessionFileName
-            ? 'Workflow reset is unavailable while an RP save is active.'
-            : 'Reset workflow'}
-        >
-          Reset Workflow
-        </button>
-        <button className="graph-reset" type="button" onClick={() => void saveCurrentWorkflow()}>
-          Save Workflow
-        </button>
-        <button className="graph-reset" type="button" onClick={() => void saveCurrentSession()}>
-          Save RP
-        </button>
-        <button
-          className="runtime-summary-button"
-          type="button"
-          onClick={() => setShowRunLlmReport(true)}
-          disabled={!runLlmReport}
-          title="Show LLM calls for the current or last run"
-        >
-          Runtime: <LiveRunClock isRunning={isRunning} startTimeMs={runStartTimeMs} finalMs={runDurationMs} /> s
-        </button>
         <WorkflowCapabilityStrip indicators={workflowCapabilityIndicators} />
         {visibleLogEntry && (
           <div
@@ -5119,18 +5165,121 @@ function App() {
     </NodeActionsContext.Provider>
   );
 
+  const graphCanvasHud = (
+    <>
+      <div className="graph-canvas-hud-group">
+        <span className="graph-hud-pill">
+          <strong>Zoom</strong> {flowInstance ? `${Math.round(flowInstance.getZoom() * 100)}%` : '100%'}
+        </span>
+        <span className="graph-hud-pill">
+          <strong>Selected</strong> {selectedGraphNodes.length > 1
+            ? `${selectedGraphNodes.length} nodes`
+            : selectedGraphNode?.data.label ?? 'None'}
+        </span>
+      </div>
+      <div className="graph-canvas-hud-group">
+        <span className="graph-hud-pill">Run Trace</span>
+      </div>
+    </>
+  );
+
+  const graphInspector = (
+    <aside className="graph-inspector" aria-label="Node Inspector">
+      <header className="graph-inspector-header">
+        <div>
+          <strong>Inspector</strong>
+          <small>{selectedGraphNode ? 'Selected node' : 'Graph summary'}</small>
+        </div>
+      </header>
+      {selectedGraphNode ? (
+        <>
+          <section className="graph-inspector-summary">
+            <h2>{selectedGraphNode.data.label}</h2>
+            <p>{selectedGraphNode.data.description}</p>
+            <div className="graph-inspector-tags">
+              <span className={`graph-inspector-tag${selectedGraphNode.data.runActive ? ' active' : ''}`}>
+                {selectedGraphNode.data.runActive ? 'Running' : 'Ready'}
+              </span>
+              <span className="graph-inspector-tag">{selectedGraphNode.data.nodeType}</span>
+              <span className="graph-inspector-tag">
+                v{selectedGraphNode.data.currentNodeVersion ?? selectedGraphNode.data.nodeDataVersion ?? selectedGraphDefinition?.dataVersion ?? 'unknown'}
+              </span>
+            </div>
+          </section>
+          <section className="graph-inspector-section">
+            <h3>Preview</h3>
+            <p className="graph-inspector-preview">{selectedGraphNode.data.preview}</p>
+          </section>
+          <section className="graph-inspector-section">
+            <h3>Ports</h3>
+            {selectedGraphPorts.length > 0 ? selectedGraphPorts.map((port) => (
+              <div className="graph-inspector-port" key={`${port.direction}-${port.id}`}>
+                <span className={`graph-inspector-port-dot ${port.direction}`} aria-hidden="true" />
+                <span>{port.label}</span>
+                <small>{port.direction}</small>
+              </div>
+            )) : (
+              <p className="graph-inspector-muted">No exposed ports.</p>
+            )}
+          </section>
+          <section className="graph-inspector-section">
+            <div className="graph-inspector-collapsed">
+              <span>Why This Ran</span>
+              <small>collapsed</small>
+            </div>
+          </section>
+          <section className="graph-inspector-section">
+            <h3>Validation</h3>
+            <div className="graph-inspector-tags">
+              <span className="graph-inspector-tag active">No errors</span>
+              <span className="graph-inspector-tag">{selectedGraphPorts.filter((port) => port.direction === 'input').length} inputs</span>
+              <span className="graph-inspector-tag">{selectedGraphPorts.filter((port) => port.direction === 'output').length} outputs</span>
+            </div>
+          </section>
+        </>
+      ) : (
+        <>
+          <section className="graph-inspector-summary">
+            <h2>Workflow</h2>
+            <p>Select a node to inspect its ports, preview, version, and run state.</p>
+            <div className="graph-inspector-tags">
+              <span className="graph-inspector-tag active">Ready</span>
+              <span className="graph-inspector-tag">{nodes.length} nodes</span>
+              <span className="graph-inspector-tag">{edges.length} edges</span>
+            </div>
+          </section>
+          <section className="graph-inspector-section">
+            <h3>Context</h3>
+            <p className="graph-inspector-muted">{displayedWorkflowNameFormatted}</p>
+            <p className="graph-inspector-muted">{displayedStorybookNameFormatted}</p>
+          </section>
+        </>
+      )}
+    </aside>
+  );
+
   const graphNodePalette = (
     <aside className="node-palette" aria-label="Available nodes">
-      <div className="node-palette-handle" aria-hidden="true">
-        NODES
-      </div>
       <div className="node-palette-drawer">
         <header>
-          <strong>Add Node</strong>
-          <small>Drag onto graph</small>
+          <div>
+            <strong>Add Nodes</strong>
+            <small>Drag onto graph</small>
+          </div>
+          <input
+            className="node-palette-search"
+            type="search"
+            value={nodePaletteSearch}
+            onChange={(event) => setNodePaletteSearch(event.target.value)}
+            placeholder="Search nodes"
+            aria-label="Search nodes"
+          />
         </header>
         <div className="node-palette-items">
-          {groupedNodePaletteItems.map((group) => (
+          {visibleGroupedNodePaletteItems.length === 0 && (
+            <p className="node-menu-empty">No nodes match this search.</p>
+          )}
+          {visibleGroupedNodePaletteItems.map((group) => (
             <section className="node-palette-group" key={group.title}>
               <div className="node-palette-group-header">
                 <strong>{group.title}</strong>
@@ -5139,7 +5288,10 @@ function App() {
                 const unavailable = nodeTypeUnavailable(item.type);
                 const favorite = favoriteNodeTypeSet.has(item.type);
                 return (
-                  <div className={`node-palette-item-row${favorite ? ' favorite' : ''}`} key={item.type}>
+                  <div
+                    className={`node-palette-item-row${favorite ? ' favorite' : ''}${unavailable ? ' unavailable' : ''}`}
+                    key={item.type}
+                  >
                     <button
                       className="node-favorite-button"
                       type="button"
@@ -5159,7 +5311,6 @@ function App() {
                     >
                       <span className="node-menu-item-label">
                         <span>{item.label}</span>
-                        <small className="node-menu-item-version">v{item.version}</small>
                       </span>
                       <small>{unavailable ? 'Already in graph' : item.description}</small>
                     </button>
@@ -5373,7 +5524,9 @@ function App() {
           <GraphStudioShell
             toolbar={graphToolbar}
             canvas={graphCanvas}
+            canvasHud={graphCanvasHud}
             nodePalette={graphNodePalette}
+            inspector={graphInspector}
             overlays={graphOverlays}
             onOpenPlayMode={() => setStudioMode('play')}
           />
