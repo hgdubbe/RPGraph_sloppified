@@ -47,6 +47,32 @@ function storybookEditorWorkflow() {
   };
 }
 
+function rpStorybookWorkflow() {
+  return {
+    format: 'rpgraph-workflow' as const,
+    formatVersion: '1.2' as const,
+    savedAt: '2026-08-30T00:00:00.000Z',
+    viewport: { x: 0, y: 0, zoom: 1 },
+    edges: [],
+    nodes: [
+      {
+        id: 'rp-storybook-under-test',
+        type: 'workflow',
+        position: { x: 80, y: 80 },
+        data: {
+          nodeType: 'rp-storybook',
+          nodeDataVersion: currentCoreNodeVersions['rp-storybook'],
+          label: 'RP Storybook V2',
+          description: 'Complete roleplay storybook',
+          preview: 'Starter story',
+          storybookJson: rpStorybookJsonText(starterRpStorybook),
+          storybookStatus: 'Ready',
+        },
+      },
+    ],
+  };
+}
+
 test('starts in Play Mode and preserves access to the full graph editor', async () => {
   app = await launchAppWithWorkflow(outdatedLlmWorkflow());
   const { page } = app;
@@ -169,4 +195,19 @@ test('opens the Storybook Editor as a workbench with assistant and clear editing
   await page.getByRole('button', { name: /Raw JSON/i }).click({ force: true });
   await expect(page.getByText(/Advanced JSON Editor/i)).toBeVisible();
   await expect(page.getByRole('textbox', { name: /Storybook raw JSON/i })).toBeVisible();
+});
+
+test('opens Edit Storybook on the RP Storybook node as the same workbench contract', async () => {
+  app = await launchAppWithWorkflow(rpStorybookWorkflow());
+  const { page } = app;
+
+  await enterGraphMode(page);
+  await page.getByRole('button', { name: /Edit Storybook/i }).click({ force: true });
+
+  await expect(page.getByRole('dialog', { name: /RP Storybook Creator/i })).toBeVisible();
+  await expect(page.getByRole('navigation', { name: /Storybook sections/i })).toBeVisible();
+  await expect(page.getByRole('region', { name: /Focused storybook editor/i })).toBeVisible();
+  await expect(page.getByRole('complementary', { name: /Storybook assistant/i })).toBeVisible();
+  await expect(page.getByRole('button', { name: /Scenario/i })).toBeVisible();
+  await expect(page.getByText(/Editable fields are marked cyan/i)).toBeVisible();
 });
