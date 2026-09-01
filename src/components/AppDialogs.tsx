@@ -1141,6 +1141,7 @@ type StorybookCreatorSection =
 
 type InlineStorybookTextFieldProps = {
   label: string;
+  hint?: string;
   value: string;
   placeholder: string;
   multiline?: boolean;
@@ -1177,6 +1178,7 @@ function storybookCreatorSectionDescription(section: StorybookCreatorSection) {
 
 function InlineStorybookTextField({
   label,
+  hint,
   value,
   placeholder,
   multiline = true,
@@ -1184,7 +1186,10 @@ function InlineStorybookTextField({
 }: InlineStorybookTextFieldProps) {
   return (
     <label className="character-field storybook-inline-edit-field storybook-workbench-field">
-      <span className="field-label">{label}</span>
+      <span className="storybook-workbench-field-head">
+        <span className="field-label">{label}</span>
+        {hint ? <span className="storybook-workbench-field-hint">{hint}</span> : null}
+      </span>
       {multiline ? (
         <textarea
           className="storybook-inline-edit-control nodrag"
@@ -3669,6 +3674,7 @@ export function StorybookCreatorDialog({
                       <div className="storybook-workbench-field-grid">
                         <InlineStorybookTextField
                           label="Title"
+                          hint="Shown in the node, files, and storybook headers."
                           value={storybook.title}
                           placeholder="Untitled RP Storybook"
                           multiline={false}
@@ -3676,6 +3682,7 @@ export function StorybookCreatorDialog({
                         />
                         <InlineStorybookTextField
                           label="Introduction"
+                          hint="Short player-facing premise: what this storybook is about."
                           value={storybook.introduction}
                           placeholder="No introduction defined."
                           onChange={(value) => updateStorybookTextField('introduction', value)}
@@ -3711,6 +3718,7 @@ export function StorybookCreatorDialog({
                       <div className="storybook-workbench-field-grid">
                         <InlineStorybookTextField
                           label="Title"
+                          hint="Shown in the node, files, and storybook headers."
                           value={storybook.title}
                           placeholder="Untitled RP Storybook"
                           multiline={false}
@@ -3718,24 +3726,28 @@ export function StorybookCreatorDialog({
                         />
                         <InlineStorybookTextField
                           label="Introduction"
+                          hint="Short player-facing premise: what this storybook is about."
                           value={storybook.introduction}
                           placeholder="No introduction defined."
                           onChange={(value) => updateStorybookTextField('introduction', value)}
                         />
                         <InlineStorybookTextField
                           label="Scenario Summary"
+                          hint="Stable backdrop: genre, place, premise, relationships, and ongoing stakes."
                           value={storybook.scenario.summary}
                           placeholder="No scenario summary defined."
                           onChange={(value) => updateStorybookTextField('scenario.summary', value)}
                         />
                         <InlineStorybookTextField
                           label="Opening Situation"
+                          hint="Starting moment for a fresh run: where everyone is and what just begins."
                           value={storybook.scenario.openingSituation}
                           placeholder="No opening situation defined."
                           onChange={(value) => updateStorybookTextField('scenario.openingSituation', value)}
                         />
                         <InlineStorybookTextField
                           label="Current Situation"
+                          hint="Latest story state after play has moved on; update when the scene changes."
                           value={storybook.scenario.currentSituation}
                           placeholder="No current situation defined."
                           onChange={(value) => updateStorybookTextField('scenario.currentSituation', value)}
@@ -3868,6 +3880,7 @@ export function StorybookCreatorDialog({
                                 <div className="character-card-title-side">
                                   <InlineStorybookTextField
                                     label="Name"
+                                    hint="Display name used in chat, phone apps, and prompt references."
                                     value={character.name}
                                     placeholder={character.id || 'Character name'}
                                     multiline={false}
@@ -3875,6 +3888,7 @@ export function StorybookCreatorDialog({
                                   />
                                   <InlineStorybookTextField
                                     label="Role"
+                                    hint="Quick story function: player, companion, rival, contact, narrator."
                                     value={character.role}
                                     placeholder="Character role"
                                     multiline={false}
@@ -3886,24 +3900,28 @@ export function StorybookCreatorDialog({
                               <div className="character-fields">
                                 <InlineStorybookTextField
                                   label="Description"
+                                  hint="External facts and readable profile: who they are in the story."
                                   value={character.description}
                                   placeholder="Character description"
                                   onChange={(value) => updateCharacterTextField(character.id, 'description', value)}
                                 />
                                 <InlineStorybookTextField
                                   label="Personality"
+                                  hint="Inner behavior: motives, temperament, boundaries, habits."
                                   value={character.personality}
                                   placeholder="Character personality"
                                   onChange={(value) => updateCharacterTextField(character.id, 'personality', value)}
                                 />
                                 <InlineStorybookTextField
                                   label="Speech Style"
+                                  hint="How their messages sound: wording, rhythm, formality, quirks."
                                   value={character.speechStyle}
                                   placeholder="How this character speaks"
                                   onChange={(value) => updateCharacterTextField(character.id, 'speechStyle', value)}
                                 />
                                 <InlineStorybookTextField
                                   label="Appearance"
+                                  hint="Visual prompt material for character image generation."
                                   value={character.comfyConfig?.appearance ?? ''}
                                   placeholder="Visual appearance for image generation"
                                   onChange={(value) => updateCharacterTextField(character.id, 'appearance', value)}
@@ -4053,6 +4071,7 @@ export function StorybookCreatorDialog({
                         <div className="storybook-workbench-field-grid">
                           <label className="character-field storybook-inline-edit-field storybook-workbench-field">
                             <span className="field-label">Fotogram Username</span>
+                            <span className="storybook-workbench-field-hint">Public Instagram-like handle shown in posts, likes, and DMs.</span>
                             <input
                               className="storybook-inline-edit-control nodrag"
                               type="text"
@@ -4073,6 +4092,7 @@ export function StorybookCreatorDialog({
                           </label>
                           <label className="character-field storybook-inline-edit-field storybook-workbench-field">
                             <span className="field-label">OnlyFriends Username</span>
+                            <span className="storybook-workbench-field-hint">Private creator account handle; leave empty if the character has no account.</span>
                             <input
                               className="storybook-inline-edit-control nodrag"
                               type="text"
@@ -4113,6 +4133,7 @@ export function StorybookCreatorDialog({
                         <div className="storybook-workbench-field-grid">
                           <label className="character-field storybook-inline-edit-field storybook-workbench-field">
                             <span className="field-label">Starting Balance</span>
+                            <span className="storybook-workbench-field-hint">Initial money available when the banking app starts a new RP session.</span>
                             <input
                               className="storybook-inline-edit-control nodrag"
                               type="number"

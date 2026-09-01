@@ -211,6 +211,8 @@ test('opens Edit Storybook on the RP Storybook node as the same workbench contra
   await expect(page.getByRole('button', { name: /Scenario/i })).toBeVisible();
   await expect(page.getByText(/Primary Story Fields/i)).toBeVisible();
   await expect(page.getByText(/Cast Overview/i)).toBeVisible();
+  await expect(page.getByText(/Stable backdrop: genre, place, premise/i)).toBeVisible();
+  await expect(page.getByText(/Starting moment for a fresh run/i)).toBeVisible();
   await expect(page.getByRole('button', { name: /G Gallery image libraries/i })).toBeVisible();
   await expect(page.getByRole('button', { name: /S Social Fotogram/i })).toBeVisible();
   await expect(page.getByRole('button', { name: /B Bank balances/i })).toBeVisible();
