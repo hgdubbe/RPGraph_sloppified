@@ -12,6 +12,7 @@ files:
   - electron/**/*
   - workflow.default*.json
   - comfy-workflows/api-workflows-with-variables/**/*
+  - comfy-workflows/normal-comfyui-workflows/**/*
   - src/assets/app-icons/rpgraph.png
   - src/session/formatVersions.json
   - src/storybook/formatVersions.json
@@ -30,3 +31,16 @@ linux:
   executableName: rpgraph-studio
   icon: src/assets/app-icons/rpgraph-512.png
   syncDesktopName: true
+
+win:
+  target:
+    - target: nsis
+      arch:
+        - x64
+  icon: src/assets/app-icons/rpgraph.ico
+  requestedExecutionLevel: asInvoker
+
+nsis:
+  oneClick: false
+  perMachine: false
+  allowToChangeInstallationDirectory: true

@@ -34,6 +34,8 @@ import { CombinerNodeCard } from './combiner/Card';
 import { executeCombinerNode } from './combiner/execute';
 import { TextReplaceNodeCard } from './text-replace/Card';
 import { executeTextReplaceNode } from './text-replace/execute';
+import { FormatRepairNodeCard } from './format-repair/Card';
+import { executeFormatRepairNode } from './format-repair/execute';
 import { ContextCompressionNodeCard } from './context-compression/Card';
 import { runContextCompressionNode } from './context-compression/run';
 import { ContextBuilderNodeCard } from './context-builder/Card';
@@ -115,6 +117,7 @@ export const coreNodeLayout = {
   characterStatsWidth: 430,
   textCombinerWidth: 365,
   textReplaceWidth: 430,
+  formatRepairWidth: 390,
   llmPromptWidth: 548,
   llmPromptHeight: 1140,
   loadTextWidth: 380,
@@ -633,6 +636,36 @@ const coreNodeCreationDefinitions: Array<Omit<CoreNodeCreationDefinition, 'saveD
         preview: 'No replacements configured',
         nodeType: 'text-replace',
         textReplaceEntries: [{ id: 'text-replace-0', source: '', replacement: '' }],
+      },
+    }),
+  },
+  {
+    type: 'format-repair',
+    dataVersion: currentCoreNodeVersions['format-repair'],
+    label: 'Format Repair',
+    description: 'Clean common LLM wrapper and JSON formatting mistakes',
+    menuDescription: 'Repair fenced text, wrapper prose, and JSON-ish output',
+    origin: 'core',
+    ports: () => [
+      input('default', 'mixed', 'Text / JSON Input'),
+      output('text', 'text', 'Text'),
+      output('json', 'json', 'JSON'),
+    ],
+    Component: FormatRepairNodeCard,
+    execute: executeFormatRepairNode,
+    create: ({ position, createId }) => ({
+      id: createId('format-repair'),
+      type: 'workflow',
+      position,
+      style: { width: coreNodeLayout.formatRepairWidth },
+      data: {
+        label: 'Format Repair',
+        description: 'Clean common LLM wrapper and JSON formatting mistakes',
+        preview: 'Waiting for text ...',
+        nodeType: 'format-repair',
+        formatRepairMode: 'json',
+        formatRepairValidJson: undefined,
+        formatRepairLastRepairs: [],
       },
     }),
   },

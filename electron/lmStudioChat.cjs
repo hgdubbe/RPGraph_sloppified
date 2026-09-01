@@ -102,12 +102,19 @@ function lmStudioChatBody(request, stream = false, reasoningProfile) {
   return body;
 }
 
-function lmStudioResponseText(result) {
+function lmStudioResponseText(result, options = {}) {
   if (!result || typeof result !== 'object' || !Array.isArray(result.output)) {
     return '';
   }
-  return result.output
+  const messageText = result.output
     .filter((item) => item && item.type === 'message' && typeof item.content === 'string')
+    .map((item) => item.content)
+    .join('');
+  if (messageText || !options.allowReasoningFallback) {
+    return messageText;
+  }
+  return result.output
+    .filter((item) => item && item.type === 'reasoning' && typeof item.content === 'string')
     .map((item) => item.content)
     .join('');
 }

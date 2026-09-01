@@ -1,6 +1,7 @@
 import type {
   AppSettings,
   ChatImageAttachment,
+  CompositeModelInfo,
   ConnectionPreset,
   GeminiModelInfo,
   LmStudioModelInfo,
@@ -8,6 +9,7 @@ import type {
   LlmCompletionResult,
   OllamaModelInfo,
   OpenRouterModelInfo,
+  VeniceModelInfo,
   SavedFileSummary,
   WorkflowFile,
 } from './types';
@@ -35,6 +37,7 @@ declare global {
       isLlamaCppModelLoaded: (connection: ConnectionPreset) => Promise<{ loaded: boolean; status: LlamaCppModelInfo['status'] }>;
       unloadLlamaCppModels: (connection: ConnectionPreset) => Promise<{ unloadedCount: number; models: string[] }>;
       listOpenRouterModels: (connection: ConnectionPreset) => Promise<OpenRouterModelInfo[]>;
+      listCompositeModels: (connection: ConnectionPreset) => Promise<CompositeModelInfo[]>;
       generateOpenRouterSpeech: (request: {
         connection: ConnectionPreset;
         input: string;
@@ -44,6 +47,17 @@ declare global {
         input: string;
       }, onChunk?: (base64PcmChunk: string) => void) => Promise<{ dataUrl: string; filename: string }>;
       listGeminiModels: (connection: ConnectionPreset) => Promise<GeminiModelInfo[]>;
+      listVeniceModels: (connection: ConnectionPreset) => Promise<VeniceModelInfo[]>;
+      generateVeniceSpeech: (request: {
+        connection: ConnectionPreset;
+        input: string;
+      }) => Promise<{ dataUrl: string; filename: string }>;
+      generateVeniceImages: (request: {
+        connection: ConnectionPreset;
+        prompt: string;
+        width: number;
+        height: number;
+      }) => Promise<{ images: string[] }>;
       loadLmStudioModel: (connection: ConnectionPreset) => Promise<{
         loadedModel: string;
         method?: 'rest' | 'cli' | 'already-loaded';

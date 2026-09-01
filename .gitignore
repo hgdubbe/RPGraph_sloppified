@@ -54,3 +54,6 @@ user_data/
 
 # spec driven dev docs and tooling
 openspec/
+
+# Local linked git worktrees
+.worktrees/

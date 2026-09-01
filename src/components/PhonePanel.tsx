@@ -177,6 +177,7 @@ type PhonePanelProps = {
     postId: string;
   };
   socialDirectMessageOpenRequest?: SocialDirectMessageOpenRequest;
+  phoneGalleryOpenRequestId: number;
   phoneImages: ChatImageAttachment[];
   phoneGalleryImages: ChatImageAttachment[];
   phoneDraft: string;
@@ -350,6 +351,7 @@ export function PhonePanel({
   phoneAppOpenRequest,
   socialPostOpenRequest,
   socialDirectMessageOpenRequest,
+  phoneGalleryOpenRequestId,
   phoneImages,
   phoneGalleryImages,
   phoneDraft,
@@ -507,6 +509,13 @@ export function PhonePanel({
       setScreen(socialDirectMessageOpenRequest.app);
     }
   }
+  const [seenPhoneGalleryOpenRequestId, setSeenPhoneGalleryOpenRequestId] = useState(phoneGalleryOpenRequestId);
+  if (seenPhoneGalleryOpenRequestId !== phoneGalleryOpenRequestId) {
+    setSeenPhoneGalleryOpenRequestId(phoneGalleryOpenRequestId);
+    if (screen !== 'gallery') {
+      setScreen('gallery');
+    }
+  }
   const unreadWhatsUpCount = phoneContacts.reduce(
     (count, contact) => count + contact.unreadCount,
     0,
@@ -628,6 +637,50 @@ export function PhonePanel({
     selectedPhoneConversation,
     selectedPhoneDividerAfterId,
   ]);
+  const galleryOwnerId = selectedCharacter?.id ?? '';
+  const [, setKnownGalleryImageIdsByOwner] = useState<Record<string, string[]>>({});
+  const [newGalleryImageIdsByOwner, setNewGalleryImageIdsByOwner] = useState<Record<string, string[]>>({});
+  useEffect(() => {
+    if (!galleryOwnerId) {
+      return;
+    }
+    const imageIds = phoneGalleryImages.map((image) => image.id);
+    setKnownGalleryImageIdsByOwner((current) => {
+      const knownIds = current[galleryOwnerId];
+      if (!knownIds) {
+        return { ...current, [galleryOwnerId]: imageIds };
+      }
+      const knownSet = new Set(knownIds);
+      const addedIds = imageIds.filter((imageId) => !knownSet.has(imageId));
+      if (addedIds.length > 0) {
+        setNewGalleryImageIdsByOwner((newCurrent) => ({
+          ...newCurrent,
+          [galleryOwnerId]: [
+            ...(newCurrent[galleryOwnerId] ?? []).filter((imageId) => imageIds.includes(imageId)),
+            ...addedIds,
+          ],
+        }));
+      }
+      const changed =
+        knownIds.length !== imageIds.length ||
+        knownIds.some((imageId, index) => imageId !== imageIds[index]);
+      return changed ? { ...current, [galleryOwnerId]: imageIds } : current;
+    });
+  }, [galleryOwnerId, phoneGalleryImages]);
+  const newGalleryImageIds = useMemo(
+    () => new Set(newGalleryImageIdsByOwner[galleryOwnerId] ?? []),
+    [galleryOwnerId, newGalleryImageIdsByOwner],
+  );
+
+  function markGalleryImageSeen(imageId: string) {
+    if (!galleryOwnerId) {
+      return;
+    }
+    setNewGalleryImageIdsByOwner((current) => ({
+      ...current,
+      [galleryOwnerId]: (current[galleryOwnerId] ?? []).filter((entry) => entry !== imageId),
+    }));
+  }
 
   function desktopGridPoint(clientX: number, clientY: number) {
     const bounds = desktopRef.current?.getBoundingClientRect();
@@ -773,8 +826,10 @@ export function PhonePanel({
         images={phoneGalleryImages}
         action={wallpaperMode ? 'wallpaper' : 'select'}
         selectedWallpaperId={wallpaperMode ? wallpaperImageId : undefined}
+        newImageIds={wallpaperMode ? undefined : newGalleryImageIds}
         onBack={() => setScreen(wallpaperMode ? 'desktop' : 'whatsup')}
         onSelectImage={(image) => {
+          markGalleryImageSeen(image.id);
           if (wallpaperMode) {
             selectWallpaper(image);
             setScreen('desktop');

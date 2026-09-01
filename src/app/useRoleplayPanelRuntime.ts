@@ -86,8 +86,16 @@ import type {
   WorkflowNodeData,
 } from '../types';
 import type { PhoneAppOpenRequest } from '../components/PhonePanel';
+import type { RoleplayActivityShortcutId } from './roleplayActivityShortcuts';
 
 export type ChatPanelView = 'chat' | 'phone' | 'events';
+export type RoleplayActivityShortcut = {
+  id: RoleplayActivityShortcutId;
+  label: string;
+  badge?: number;
+  title: string;
+  onOpen: () => void;
+};
 
 const phoneAuthorBadgesStorageKey = 'rpgraph-phone-author-badges-enabled';
 const chatReadsPhoneAppsStorageKey = 'rpgraph-chat-reads-phone-apps-enabled';
@@ -152,6 +160,7 @@ export function useRoleplayPanelRuntime({
   }>();
   const [socialDirectMessageOpenRequest, setSocialDirectMessageOpenRequest] =
     useState<SocialDirectMessageOpenRequest>();
+  const [phoneGalleryOpenRequestId, setPhoneGalleryOpenRequestId] = useState(0);
   const [phoneDividerAfterByConversation, setPhoneDividerAfterByConversation] = useState<Record<string, number>>({});
   const [recentlyUsedEmojis, setRecentlyUsedEmojis] = useState<string[]>([]);
   const [recentChatCharacterIds, setRecentChatCharacterIds] = useState<string[]>([]);
@@ -884,6 +893,23 @@ export function useRoleplayPanelRuntime({
     setChatPanelView('phone');
   }
 
+  function openPhoneGalleryForCharacter(characterId: string) {
+    const character = storyCharacters.find((entry) => entry.id === characterId);
+    if (!character) {
+      notifySystem('warning', 'Could not find the gallery owner.');
+      return;
+    }
+    setSelectedCharacterId(character.id);
+    setViewedPhoneCharacterId(character.id);
+    rememberChatCharacter(character.id);
+    setSelectedPhoneCharacterId('');
+    setHighlightedPhoneMessage(undefined);
+    setSocialPostOpenRequest(undefined);
+    setSocialDirectMessageOpenRequest(undefined);
+    setPhoneGalleryOpenRequestId((current) => current + 1);
+    setChatPanelView('phone');
+  }
+
   const newEventIds = useMemo(
     () => upcomingEvents.flatMap((event) => (seenEventIds.has(event.id) ? [] : [event.id])),
     [seenEventIds, upcomingEvents],
@@ -1312,6 +1338,108 @@ export function useRoleplayPanelRuntime({
     }
   }, [chatPanelView, messages, scrollChatThreadToBottomIfFollowing]);
 
+  const roleplayShortcuts = useMemo<RoleplayActivityShortcut[]>(() => {
+    let latestChatMessage: MessageRecord | undefined;
+    let latestPhoneMessage: MessageRecord | undefined;
+    let latestPost: SocialPostRecord | undefined;
+    for (let index = messages.length - 1; index >= 0; index -= 1) {
+      const message = messages[index];
+      if (
+        !latestChatMessage &&
+        message.role === 'output' &&
+        message.channel !== 'phone' &&
+        !message.isOpening &&
+        !openingMessageIds.has(message.id) &&
+        !socialMessageHiddenFromChat(message) &&
+        message.includeInHistory !== false
+      ) {
+        latestChatMessage = message;
+      }
+      if (
+        !latestPhoneMessage &&
+        (message.channel === 'phone' || message.phoneMessage) &&
+        !!message.phoneFrom?.trim() &&
+        !!message.phoneTo?.trim()
+      ) {
+        latestPhoneMessage = message;
+      }
+      if (!latestPost && message.socialPost) {
+        latestPost = message.socialPost;
+      }
+      if (latestChatMessage && latestPhoneMessage && latestPost) {
+        break;
+      }
+    }
+    let latestPicture: { character: StorybookCharacter } | undefined;
+    storyCharacters.forEach((character) => {
+      const storybook = storybooksByNodeId.get(character.storybookNodeId);
+      const owner = storybook?.characters.find((entry) => entry.id === character.sourceId);
+      if (owner?.images.length) {
+        latestPicture = { character };
+      }
+    });
+
+    const shortcuts: RoleplayActivityShortcut[] = [];
+    if (latestChatMessage) {
+      shortcuts.push({
+            id: 'last-chat' as const,
+            label: 'Last Chat',
+            badge: unreadChatCount || undefined,
+            title: 'Jump to the latest chat output',
+            onOpen: () => {
+              setChatPanelView('chat');
+              setLastSeenMessageRecordId(latestMessageRecordId);
+              scrollChatThreadToBottom('smooth');
+            },
+      });
+    }
+    if (latestPhoneMessage && latestPhoneMessage.phoneFrom && latestPhoneMessage.phoneTo) {
+      shortcuts.push({
+            id: 'last-message' as const,
+            label: 'Last Message',
+            badge: unreadPhoneCount || undefined,
+            title: `Open the latest phone message from ${latestPhoneMessage.phoneFrom}`,
+            onOpen: () => openEmbeddedPhoneMessage({
+              phoneMessageId: latestPhoneMessage.id,
+              from: latestPhoneMessage.phoneFrom ?? '',
+              to: latestPhoneMessage.phoneTo ?? '',
+              message: latestPhoneMessage.originalText ?? '',
+              translatedMessage: latestPhoneMessage.translatedText,
+              previewImageAttachments: latestPhoneMessage.imageAttachments,
+            }),
+      });
+    }
+    if (latestPost) {
+      shortcuts.push({
+            id: 'last-post' as const,
+            label: 'Last Post',
+            badge: unreadPhoneAppCount || undefined,
+            title: `Open the latest ${latestPost.app} post`,
+            onOpen: () => openSocialPost(latestPost),
+      });
+    }
+    if (latestPicture) {
+      const picture = latestPicture;
+      shortcuts.push({
+            id: 'last-picture' as const,
+            label: 'Last Picture',
+            title: `Open ${picture.character.name}'s latest gallery picture`,
+            onOpen: () => openPhoneGalleryForCharacter(picture.character.id),
+      });
+    }
+    return shortcuts;
+  }, [
+    latestMessageRecordId,
+    messages,
+    openingMessageIds,
+    scrollChatThreadToBottom,
+    storyCharacters,
+    storybooksByNodeId,
+    unreadChatCount,
+    unreadPhoneAppCount,
+    unreadPhoneCount,
+  ]);
+
   function selectPhoneReplyFromComposer(message: MessageRecord) {
     selectPhoneReply(message);
   }
@@ -1345,6 +1473,8 @@ export function useRoleplayPanelRuntime({
     characterColors,
     viewedPhoneCharacter,
     phoneGalleryImages,
+    phoneGalleryOpenRequestId,
+    roleplayShortcuts,
     selectChatCharacter,
     rememberChatCharacter,
     phoneConversationInfo,

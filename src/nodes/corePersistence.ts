@@ -251,6 +251,20 @@ export const corePersistence: Record<CoreNodeType, CorePersistence> = {
       textReplaceEntries: textReplaceEntries(data),
     }),
   },
+  'format-repair': {
+    saveData: (data) => preservedData(data, 'Waiting for text ...', {
+      formatRepairMode: data.formatRepairMode === 'json' ? 'json' : 'text',
+      fullText: '',
+      formatRepairValidJson: undefined,
+      formatRepairLastRepairs: [],
+    }),
+    hydrateData: (data) => preservedData(data, 'Waiting for text ...', {
+      formatRepairMode: data.formatRepairMode === 'json' ? 'json' : 'text',
+      fullText: '',
+      formatRepairValidJson: undefined,
+      formatRepairLastRepairs: [],
+    }),
+  },
   'load-text': {
     saveData: (data) => preservedData(data, data.preview, {
       loadedText: data.loadedText ?? '',

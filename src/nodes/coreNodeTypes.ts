@@ -23,6 +23,7 @@ export const coreNodeTypes = [
   'llm-prompt',
   'combiner',
   'text-replace',
+  'format-repair',
   'character-stats',
   'output',
   'rp-storybook',

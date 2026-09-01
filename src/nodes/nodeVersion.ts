@@ -26,6 +26,7 @@ export const currentCoreNodeVersions: Record<CoreNodeType, NodeVersion> = {
   'llm-prompt': '1.2.1',
   combiner: '1.0.0',
   'text-replace': '1.0.0',
+  'format-repair': '1.0.0',
   'load-text': '1.0.1',
   'write-text': '1.0.0',
   'text-preview': '1.1.0',

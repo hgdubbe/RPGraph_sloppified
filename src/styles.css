@@ -6907,9 +6907,39 @@ input[type="number"]::-webkit-outer-spin-button {
   position: relative;
   display: flex;
   flex-direction: column;
+  width: 100%;
+  height: 100%;
   min-height: 0;
   background: #131b28;
   overflow: hidden;
+}
+
+.roleplay-panel-shell {
+  display: grid;
+  min-width: 0;
+  min-height: 0;
+  grid-template-columns: 82px minmax(0, 1fr);
+  grid-template-rows: minmax(0, 1fr);
+  background: var(--surface-soft);
+}
+
+.roleplay-popout-body {
+  margin: 0;
+  width: 100vw;
+  height: 100vh;
+  overflow: hidden;
+  background: #131b28;
+}
+
+#roleplay-popout-root {
+  width: 100%;
+  height: 100%;
+}
+
+#roleplay-popout-root .chat-panel,
+#roleplay-popout-root .roleplay-panel-shell {
+  width: 100%;
+  height: 100%;
 }
 
 .chat-header {
@@ -6922,6 +6952,41 @@ input[type="number"]::-webkit-outer-spin-button {
   align-items: center;
   gap: 12px;
   background: #141c29;
+}
+
+.roleplay-side-rail {
+  display: grid;
+  min-height: 0;
+  grid-template-rows: 54px auto minmax(0, 1fr);
+  border-right: 1px solid #243149;
+  background: #101827;
+}
+
+.roleplay-rail-brand {
+  display: grid;
+  place-items: center;
+  border-bottom: 1px solid #243149;
+  color: var(--accent-light);
+  font-size: 11px;
+  font-weight: 850;
+  letter-spacing: 0.08em;
+}
+
+.roleplay-main-pane {
+  display: flex;
+  min-width: 0;
+  min-height: 0;
+  flex-direction: column;
+}
+
+.chat-header.roleplay-top-bar {
+  height: 54px;
+  min-height: 54px;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: stretch;
+  gap: 0;
+  padding: 0;
 }
 
 .chat-header h2 {
@@ -6951,6 +7016,19 @@ input[type="number"]::-webkit-outer-spin-button {
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
 }
 
+.roleplay-side-rail .chat-panel-tabs {
+  display: flex;
+  flex: none;
+  flex-direction: column;
+  gap: 4px;
+  padding: 8px 7px;
+  border: 0;
+  border-bottom: 1px solid #243149;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
 .chat-panel-tabs button {
   position: relative;
   min-width: 58px;
@@ -6964,6 +7042,80 @@ input[type="number"]::-webkit-outer-spin-button {
   font-weight: 750;
   z-index: 1;
   transition: all 0.2s;
+}
+
+.roleplay-side-rail .chat-panel-tabs button {
+  min-height: 54px;
+  width: 100%;
+  min-width: 0;
+  padding: 0 8px;
+  border: 1px solid transparent;
+  border-radius: 7px;
+  color: #9aa6bc;
+  font-size: 11px;
+  font-weight: 850;
+}
+
+.roleplay-character-tabs {
+  display: flex;
+  min-width: 0;
+  align-items: flex-end;
+  gap: 4px;
+  overflow: hidden;
+  padding: 9px 10px 0;
+  scrollbar-width: none;
+  mask-image: linear-gradient(90deg, #000 0%, #000 calc(100% - 24px), transparent 100%);
+}
+
+.roleplay-character-tabs::-webkit-scrollbar {
+  display: none;
+}
+
+.roleplay-character-tabs button {
+  position: relative;
+  min-width: 118px;
+  max-width: 148px;
+  height: 45px;
+  flex: 0 0 auto;
+  padding: 8px 12px 7px;
+  overflow: hidden;
+  border: 1px solid #2b374d;
+  border-bottom: 0;
+  border-radius: 8px 8px 0 0;
+  background: #101827;
+  color: #b8c3d6;
+  font-size: 12px;
+  font-weight: 850;
+  text-align: left;
+  cursor: pointer;
+}
+
+.roleplay-character-tabs button span,
+.roleplay-character-tabs button small {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.roleplay-character-tabs button small {
+  margin-top: 2px;
+  color: #7f8ba4;
+  font-size: 9px;
+  font-weight: 750;
+}
+
+.roleplay-character-tabs button:hover,
+.roleplay-character-tabs button:focus-visible,
+.roleplay-character-tabs button.active {
+  border-color: #60749b;
+  background: var(--surface-soft);
+  color: var(--soft-white);
+}
+
+.roleplay-character-tabs button.active {
+  height: 49px;
+  margin-bottom: -1px;
 }
 
 .chat-panel-tabs button:hover {
@@ -7217,6 +7369,11 @@ input[type="number"]::-webkit-outer-spin-button {
   gap: 4px;
 }
 
+.roleplay-top-controls .turn-controls {
+  padding-right: 4px;
+  border-right: 1px solid #2b374d;
+}
+
 .turn-counter {
   color: #64748b;
   font-size: 11px;
@@ -7253,6 +7410,33 @@ input[type="number"]::-webkit-outer-spin-button {
 .turn-controls button:disabled {
   opacity: 0.4;
   cursor: default;
+}
+
+.roleplay-top-controls .turn-controls .roleplay-icon-button {
+  width: 32px;
+  height: 31px;
+  border-radius: 7px;
+  backdrop-filter: none;
+}
+
+.roleplay-top-controls .auto-turn-button {
+  height: 31px;
+  padding: 0 11px;
+  border: 1px solid rgba(138, 115, 201, 0.72);
+  border-radius: 7px;
+  color: var(--soft-white);
+  background: linear-gradient(180deg, #584a88, #3b315f);
+  backdrop-filter: none;
+  font-size: 11px;
+  font-weight: 800;
+}
+
+.roleplay-top-controls .auto-turn-button:hover:not(:disabled),
+.roleplay-top-controls .auto-turn-button:focus-visible:not(:disabled) {
+  border-color: var(--accent-light);
+  color: var(--soft-white);
+  background: linear-gradient(180deg, #66559f, #493977);
+  box-shadow: 0 0 12px rgba(138, 115, 201, 0.24);
 }
 
 .messages {
@@ -10322,6 +10506,13 @@ input[type="number"]::-webkit-outer-spin-button {
   box-shadow: 0 0 0 2px rgba(134, 239, 172, 0.24), 0 12px 32px rgba(0, 0, 0, 0.35);
 }
 
+.phone-gallery-tile.new {
+  border-color: #7dd3fc;
+  box-shadow:
+    0 0 0 1px rgba(125, 211, 252, 0.38),
+    0 14px 34px rgba(14, 165, 233, 0.25);
+}
+
 .phone-gallery-image-preview {
   position: relative;
   width: 100%;
@@ -10333,6 +10524,23 @@ input[type="number"]::-webkit-outer-spin-button {
   width: 100%;
   height: auto;
   object-fit: contain;
+}
+
+.phone-gallery-new-badge {
+  position: absolute;
+  top: 6px;
+  left: 6px;
+  z-index: 3;
+  padding: 3px 6px;
+  border: 1px solid rgba(186, 230, 253, 0.45);
+  border-radius: 4px;
+  background: rgba(8, 47, 73, 0.88);
+  color: #e0f2fe;
+  font-size: 8px;
+  font-weight: 800;
+  letter-spacing: 0;
+  text-transform: uppercase;
+  pointer-events: none;
 }
 
 .phone-gallery-received-badge {
@@ -10350,6 +10558,10 @@ input[type="number"]::-webkit-outer-spin-button {
   text-transform: uppercase;
   letter-spacing: 0.04em;
   pointer-events: none;
+}
+
+.phone-gallery-tile.new .phone-gallery-received-badge {
+  top: 28px;
 }
 
 .phone-gallery-image-caption {
@@ -16297,6 +16509,49 @@ button.message-timeline-row.phone:focus-visible {
   display: flex;
   flex-direction: column;
   gap: 10px;
+}
+
+.storybook-inline-edit-field {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.book-details .storybook-inline-edit-field {
+  margin: 0;
+}
+
+.storybook-inline-edit-control {
+  width: 100%;
+  min-width: 0;
+  border: 1px solid #2f3d55;
+  border-radius: 7px;
+  background: #101827;
+  color: #edf1ff;
+  font: inherit;
+  line-height: 1.45;
+  resize: vertical;
+}
+
+input.storybook-inline-edit-control {
+  min-height: 30px;
+  padding: 5px 8px;
+}
+
+textarea.storybook-inline-edit-control {
+  min-height: 70px;
+  padding: 7px 8px;
+}
+
+.storybook-inline-edit-control::placeholder {
+  color: #68758c;
+}
+
+.storybook-inline-edit-control:focus {
+  border-color: #7eb9c5;
+  outline: none;
+  box-shadow: 0 0 0 2px rgba(126, 185, 197, 0.18);
 }
 
 .character-field {

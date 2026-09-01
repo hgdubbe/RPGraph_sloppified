@@ -1,12 +1,15 @@
 import {
+  isCompositeConnection,
   isGeminiConnection,
   isLmStudioConnection,
   isLlamaCppConnection,
   isOllamaConnection,
   isOpenRouterConnection,
+  isVeniceConnection,
 } from '../llm/providerKind';
 import type {
   ConnectionPreset,
+  CompositeModelInfo,
   GeminiModelInfo,
   LmStudioModelInfo,
   LlamaCppModelInfo,
@@ -14,6 +17,7 @@ import type {
   OpenRouterModelInfo,
   ProviderConnectionCapabilities,
   ProviderConnectionHealth,
+  VeniceModelInfo,
 } from '../types';
 
 type ModelCapabilityInfo = {
@@ -55,7 +59,9 @@ function selectedCapabilityModel<T extends ModelCapabilityInfo>(
 }
 
 const selectedOpenRouterModel = selectedCapabilityModel<OpenRouterModelInfo>;
+const selectedCompositeModel = selectedCapabilityModel<CompositeModelInfo>;
 const selectedGeminiModel = selectedCapabilityModel<GeminiModelInfo>;
+const selectedVeniceModel = selectedCapabilityModel<VeniceModelInfo>;
 
 function selectedOllamaModel(
   connection: ConnectionPreset,
@@ -106,6 +112,21 @@ export function openRouterCapabilitiesForConnection(
   };
 }
 
+export function compositeCapabilitiesForConnection(
+  connection: ConnectionPreset,
+  models: CompositeModelInfo[],
+): ProviderConnectionCapabilities {
+  const model = selectedCompositeModel(connection, models);
+  const inputModalities = model?.inputModalities ?? [];
+  const outputModalities = model?.outputModalities ?? [];
+  return {
+    text: model ? model.text === true || outputModalities.includes('text') : models.length > 0,
+    vision: model?.vision === true || inputModalities.includes('image'),
+    image: model?.image === true || outputModalities.includes('image'),
+    voice: model?.voice === true || outputModalities.includes('audio') || outputModalities.includes('speech'),
+  };
+}
+
 export function geminiCapabilitiesForConnection(
   connection: ConnectionPreset,
   models: GeminiModelInfo[],
@@ -118,6 +139,22 @@ export function geminiCapabilitiesForConnection(
     vision: model?.vision === true || inputModalities.includes('image'),
     image: model?.image === true || outputModalities.includes('image'),
     voice: model?.voice === true || outputModalities.includes('audio') || outputModalities.includes('speech'),
+  };
+}
+
+export function veniceCapabilitiesForConnection(
+  connection: ConnectionPreset,
+  models: VeniceModelInfo[],
+): ProviderConnectionCapabilities {
+  const model = selectedVeniceModel(connection, models);
+  const inputModalities = model?.inputModalities ?? [];
+  const outputModalities = model?.outputModalities ?? [];
+  return {
+    text: model ? model.text === true || outputModalities.includes('text') : models.length > 0,
+    vision: model?.vision === true || inputModalities.includes('image'),
+    image: model?.image === true || outputModalities.includes('image'),
+    voice: model?.voice === true || outputModalities.includes('audio') || outputModalities.includes('speech'),
+    tools: model?.supportedParameters?.includes('tools') === true,
   };
 }
 
@@ -168,6 +205,20 @@ export function connectionWithOpenRouterCapabilities(
   };
 }
 
+export function connectionWithCompositeCapabilities(
+  connection: ConnectionPreset,
+  models: CompositeModelInfo[],
+): ConnectionPreset {
+  if (!isCompositeConnection(connection)) {
+    return connection;
+  }
+  const capabilities = compositeCapabilitiesForConnection(connection, models);
+  return {
+    ...connection,
+    vision: capabilities.vision === true,
+  };
+}
+
 export function connectionWithGeminiCapabilities(
   connection: ConnectionPreset,
   models: GeminiModelInfo[],
@@ -177,6 +228,27 @@ export function connectionWithGeminiCapabilities(
   }
   const capabilities = geminiCapabilitiesForConnection(connection, models);
   const model = selectedGeminiModel(connection, models);
+  const supportedVoices = model?.supportedVoices ?? [];
+  return {
+    ...connection,
+    vision: capabilities.vision === true,
+    ttsVoice: capabilities.voice === true && capabilities.text !== true && supportedVoices.length > 0
+      ? supportedVoices.includes(connection.ttsVoice ?? '')
+        ? connection.ttsVoice
+        : supportedVoices[0]
+      : connection.ttsVoice,
+  };
+}
+
+export function connectionWithVeniceCapabilities(
+  connection: ConnectionPreset,
+  models: VeniceModelInfo[],
+): ConnectionPreset {
+  if (!isVeniceConnection(connection)) {
+    return connection;
+  }
+  const capabilities = veniceCapabilitiesForConnection(connection, models);
+  const model = selectedVeniceModel(connection, models);
   const supportedVoices = model?.supportedVoices ?? [];
   return {
     ...connection,

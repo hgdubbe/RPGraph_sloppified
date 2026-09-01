@@ -6,6 +6,8 @@ const llmProviderKinds = [
   'ollama',
   'openrouter',
   'gemini',
+  'composite',
+  'venice',
 ] as const satisfies readonly LlmProviderKind[];
 
 export function validLlmProviderKind(value: unknown): LlmProviderKind | undefined {
@@ -59,6 +61,12 @@ export function inferredProviderKind(connection: ConnectionPreset): LlmProviderK
   if (baseUrl.includes('generativelanguage.googleapis.com')) {
     return 'gemini';
   }
+  if (label.includes('composite') || hostname === 'composite.lucidity.sh' || baseUrl.includes('composite.lucidity.sh')) {
+    return 'composite';
+  }
+  if (label.includes('venice') || hostname === 'api.venice.ai' || baseUrl.includes('venice.ai')) {
+    return 'venice';
+  }
   return 'lm-studio';
 }
 
@@ -87,4 +95,22 @@ export function isOpenRouterConnection(connection: ConnectionPreset): boolean {
 
 export function isGeminiConnection(connection: ConnectionPreset): boolean {
   return llmProviderKind(connection) === 'gemini';
+}
+
+export function isCompositeConnection(connection: ConnectionPreset): boolean {
+  return llmProviderKind(connection) === 'composite';
+}
+
+export function isVeniceConnection(connection: ConnectionPreset): boolean {
+  return llmProviderKind(connection) === 'venice';
+}
+
+export function shouldBackgroundPollProviderConnection(connection: ConnectionPreset): boolean {
+  if (!isLocalProviderConnection(connection)) {
+    return false;
+  }
+  return isLmStudioConnection(connection) ||
+    isOllamaConnection(connection) ||
+    isLlamaCppConnection(connection) ||
+    connection.kind === 'comfyui';
 }

@@ -281,8 +281,8 @@ const discoveredVoiceWorkflowPaths = Object.keys(
 
 function sortComfyWorkflowPaths(paths: string[]) {
   return [...paths].sort((left, right) => {
-    const leftDefault = left.includes('/higgs_audio_v3-tts.json') || left.includes('/Krea2.json');
-    const rightDefault = right.includes('/higgs_audio_v3-tts.json') || right.includes('/Krea2.json');
+    const leftDefault = left.includes('/higgs_audio_v3-tts.json') || left.includes('/Flux2-Klein-9B.json');
+    const rightDefault = right.includes('/higgs_audio_v3-tts.json') || right.includes('/Flux2-Klein-9B.json');
     if (leftDefault !== rightDefault) {
       return leftDefault ? -1 : 1;
     }
@@ -304,15 +304,21 @@ function workflowFileLabel(path: string) {
 
 function comfyWorkflowFromPath(path: string, role: 'image' | 'voice'): BundledComfyWorkflow {
   const label = workflowFileLabel(path);
+  const fileName = path.split('/').pop();
+  const isFlux2KleinImage = role === 'image' && fileName === 'Flux2-Klein-9B.json';
   return {
-    id: `${role}-${path.split('/').pop()?.replace(/\.json$/i, '').toLocaleLowerCase() ?? label.toLocaleLowerCase()}`,
+    id: `${role}-${fileName?.replace(/\.json$/i, '').toLocaleLowerCase() ?? label.toLocaleLowerCase()}`,
     label: role === 'image' && label === 'Krea2' ? 'Krea2 Image Workflow' : label,
     role,
     apiWorkflowPath: path,
-    setupWorkflowPath: `comfy-workflows/normal-comfyui-workflows/${role}`,
+    setupWorkflowPath: role === 'image' && fileName
+      ? `comfy-workflows/normal-comfyui-workflows/${role}/${fileName}`
+      : `comfy-workflows/normal-comfyui-workflows/${role}`,
     description: role === 'voice'
       ? 'Voice workflow with text and voice-sample variables.'
-      : 'Image generation workflow with RPGraph variables.',
+      : isFlux2KleinImage
+        ? 'Flux 2 Klein image workflow for the installed diffusion model, Qwen text encoder, and Flux VAE.'
+        : 'Image generation workflow with RPGraph variables.',
   };
 }
 
@@ -338,12 +344,12 @@ export function bundledComfyWorkflowPathForRole(path: string | undefined, role: 
     : defaultComfyWorkflowPathForRole(role);
 }
 export const defaultComfyWidth = 832;
-export const defaultComfyHeight = 1216;
-export const defaultComfyPrompt = '';
+export const defaultComfyHeight = 832;
+export const defaultComfyPrompt = 'A cinematic character portrait for RPGraph, natural skin texture, expressive face, detailed clothing, coherent background, soft dramatic light.';
 export const defaultComfyCheckpointName = '';
-export const defaultComfyDiffusionModelName = '';
-export const defaultComfyVaeName = '';
-export const defaultComfyTextEncoderName = '';
+export const defaultComfyDiffusionModelName = 'darkBeastKLEINNvfp4_v10.safetensors';
+export const defaultComfyVaeName = 'flux2-vae.safetensors';
+export const defaultComfyTextEncoderName = 'qwen_3_8b_fp8mixed.safetensors';
 export const comfyCharacterLoraName = 'Character LoRA';
 export const defaultComfyLoraSlots: ComfyLoraSlot[] = [
   { name: comfyCharacterLoraName, strength: 1 },
@@ -498,13 +504,24 @@ export function characterComfyLoraSlots(value: unknown, loraName: string): Comfy
   ));
 }
 
-function normalizedConnectionPreset(connection: ConnectionPreset): ConnectionPreset {
+export function normalizedConnectionPreset(connection: ConnectionPreset): ConnectionPreset {
   const kind = connection.kind === 'comfyui' ? 'comfyui' : 'llm';
   // Stored ComfyUI presets without a role predate voice support and were image presets.
   const comfyRole = kind === 'comfyui'
     ? (connection.comfyRole === 'voice' ? 'voice' as const : 'image' as const)
     : undefined;
   const isComfyImage = comfyRole === 'image';
+  const comfyWorkflowPath = kind === 'comfyui'
+    ? bundledComfyWorkflowPathForRole(connection.comfyWorkflowPath, comfyRole ?? null)
+    : undefined;
+  const upgradeLegacyKreaImage = isComfyImage &&
+    comfyWorkflowPath?.endsWith('/Krea2.json') &&
+    missingComfySetupFields({
+      comfyCheckpointName: connection.comfyCheckpointName,
+      comfyDiffusionModelName: connection.comfyDiffusionModelName,
+      comfyVaeName: connection.comfyVaeName,
+      comfyTextEncoderName: connection.comfyTextEncoderName,
+    }).length > 0;
   return {
     ...connection,
     kind,
@@ -526,7 +543,7 @@ function normalizedConnectionPreset(connection: ConnectionPreset): ConnectionPre
     ttsAccent: kind === 'comfyui' ? undefined : connection.ttsAccent?.trim() || undefined,
     ttsPace: kind === 'comfyui' ? undefined : connection.ttsPace?.trim() || undefined,
     comfyWorkflowPath: kind === 'comfyui'
-      ? bundledComfyWorkflowPathForRole(connection.comfyWorkflowPath, comfyRole ?? null)
+      ? upgradeLegacyKreaImage ? defaultComfyWorkflowPath : comfyWorkflowPath
       : undefined,
     comfyWorkflowSetupConfirmed: kind === 'comfyui'
       ? connection.comfyWorkflowSetupConfirmed === true
@@ -544,22 +561,22 @@ function normalizedConnectionPreset(connection: ConnectionPreset): ConnectionPre
       ? validComfyDimension(connection.comfyWidth, defaultComfyWidth)
       : undefined,
     comfyHeight: isComfyImage
-      ? validComfyDimension(connection.comfyHeight, defaultComfyHeight)
+      ? upgradeLegacyKreaImage ? defaultComfyHeight : validComfyDimension(connection.comfyHeight, defaultComfyHeight)
       : undefined,
     comfyPrompt: isComfyImage
-      ? validCurrentComfyPrompt(connection.comfyPrompt)
+      ? upgradeLegacyKreaImage ? defaultComfyPrompt : validCurrentComfyPrompt(connection.comfyPrompt)
       : undefined,
     comfyCheckpointName: isComfyImage
-      ? validComfyModelName(connection.comfyCheckpointName, defaultComfyCheckpointName)
+      ? upgradeLegacyKreaImage ? defaultComfyCheckpointName : validComfyModelName(connection.comfyCheckpointName, defaultComfyCheckpointName)
       : undefined,
     comfyDiffusionModelName: isComfyImage
-      ? validComfyModelName(connection.comfyDiffusionModelName, defaultComfyDiffusionModelName)
+      ? upgradeLegacyKreaImage ? defaultComfyDiffusionModelName : validComfyModelName(connection.comfyDiffusionModelName, defaultComfyDiffusionModelName)
       : undefined,
     comfyVaeName: isComfyImage
-      ? validComfyModelName(connection.comfyVaeName, defaultComfyVaeName)
+      ? upgradeLegacyKreaImage ? defaultComfyVaeName : validComfyModelName(connection.comfyVaeName, defaultComfyVaeName)
       : undefined,
     comfyTextEncoderName: isComfyImage
-      ? validComfyModelName(connection.comfyTextEncoderName, defaultComfyTextEncoderName)
+      ? upgradeLegacyKreaImage ? defaultComfyTextEncoderName : validComfyModelName(connection.comfyTextEncoderName, defaultComfyTextEncoderName)
       : undefined,
     comfyLoraSlots: isComfyImage
       ? validComfyLoraSlots(connection.comfyLoraSlots)

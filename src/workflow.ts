@@ -2,6 +2,7 @@ export * from './workflow/defaults';
 export * from './workflow/variables';
 export * from './workflow/migrations';
 export * from './workflow/nodeHelpers';
+export * from './workflow/formatRepair';
 export * from './workflow/persistence';
 export * from './workflow/textHelpers';
 export * from './workflow/validation';

@@ -3,11 +3,14 @@ import type { Dispatch, SetStateAction } from 'react';
 import type { ComfyGeneratedImage } from '../comfy/api';
 import type { ComfyWorkflowInspection } from '../comfy/workflowCompatibility';
 import {
+  compositeCapabilitiesForConnection,
+  connectionWithCompositeCapabilities as connectionWithCompositeCapabilitiesForModels,
   connectionWithGeminiCapabilities as connectionWithGeminiCapabilitiesForModels,
   connectionWithLmStudioCapabilities as connectionWithLmStudioCapabilitiesForModels,
   connectionWithLlamaCppCapabilities as connectionWithLlamaCppCapabilitiesForModels,
   connectionWithOllamaCapabilities as connectionWithOllamaCapabilitiesForModels,
   connectionWithOpenRouterCapabilities as connectionWithOpenRouterCapabilitiesForModels,
+  connectionWithVeniceCapabilities as connectionWithVeniceCapabilitiesForModels,
   createProviderConnectionId,
   geminiCapabilitiesForConnection,
   lmStudioCapabilitiesForConnection,
@@ -19,9 +22,11 @@ import {
   providerCheckConnectionStatus,
   providerErrorMessage,
   providerModelCountDetail,
+  veniceCapabilitiesForConnection,
 } from './providerCapabilities';
 import {
   inferredProviderKind,
+  isCompositeConnection,
   isLmStudioConnection,
   isLlamaCppConnection,
   isLocalProviderConnection,
@@ -29,6 +34,8 @@ import {
   isOpenRouterConnection,
   isGeminiConnection,
   llmProviderKind,
+  isVeniceConnection,
+  shouldBackgroundPollProviderConnection,
 } from '../llm/providerKind';
 import {
   comfyConnectionRole,
@@ -62,6 +69,7 @@ import {
 } from '../settings';
 import type {
   ComfyConnectionRole,
+  CompositeModelInfo,
   ConnectionPreset,
   GeminiModelInfo,
   LmStudioModelInfo,
@@ -70,6 +78,7 @@ import type {
   OpenRouterModelInfo,
   ProviderConnectionCapabilities,
   ProviderConnectionHealth,
+  VeniceModelInfo,
   WorkflowNode,
   WorkflowNodeData,
 } from '../types';
@@ -179,8 +188,12 @@ export function useProviderConnections({
   const lmStudioModelsByConnectionIdRef = useRef<Record<string, LmStudioModelInfo[]>>({});
   const [openRouterModelsByConnectionId, setOpenRouterModelsByConnectionId] = useState<Record<string, OpenRouterModelInfo[]>>({});
   const openRouterModelsByConnectionIdRef = useRef<Record<string, OpenRouterModelInfo[]>>({});
+  const [compositeModelsByConnectionId, setCompositeModelsByConnectionId] = useState<Record<string, CompositeModelInfo[]>>({});
+  const compositeModelsByConnectionIdRef = useRef<Record<string, CompositeModelInfo[]>>({});
   const [geminiModelsByConnectionId, setGeminiModelsByConnectionId] = useState<Record<string, GeminiModelInfo[]>>({});
   const geminiModelsByConnectionIdRef = useRef<Record<string, GeminiModelInfo[]>>({});
+  const [veniceModelsByConnectionId, setVeniceModelsByConnectionId] = useState<Record<string, VeniceModelInfo[]>>({});
+  const veniceModelsByConnectionIdRef = useRef<Record<string, VeniceModelInfo[]>>({});
   const [ollamaModelsByConnectionId, setOllamaModelsByConnectionId] = useState<Record<string, OllamaModelInfo[]>>({});
   const ollamaModelsByConnectionIdRef = useRef<Record<string, OllamaModelInfo[]>>({});
   const [llamaCppModelsByConnectionId, setLlamaCppModelsByConnectionId] = useState<Record<string, LlamaCppModelInfo[]>>({});
@@ -217,8 +230,14 @@ export function useProviderConnections({
     openRouterModelsByConnectionIdRef.current = openRouterModelsByConnectionId;
   }, [openRouterModelsByConnectionId]);
   useEffect(() => {
+    compositeModelsByConnectionIdRef.current = compositeModelsByConnectionId;
+  }, [compositeModelsByConnectionId]);
+  useEffect(() => {
     geminiModelsByConnectionIdRef.current = geminiModelsByConnectionId;
   }, [geminiModelsByConnectionId]);
+  useEffect(() => {
+    veniceModelsByConnectionIdRef.current = veniceModelsByConnectionId;
+  }, [veniceModelsByConnectionId]);
   useEffect(() => {
     ollamaModelsByConnectionIdRef.current = ollamaModelsByConnectionId;
   }, [ollamaModelsByConnectionId]);
@@ -599,12 +618,28 @@ export function useProviderConnections({
     setOpenRouterModelsByConnectionId(openRouterModelsByConnectionIdRef.current);
   }
 
+  function updateCompositeModelCache(connectionId: string, models: CompositeModelInfo[]) {
+    compositeModelsByConnectionIdRef.current = {
+      ...compositeModelsByConnectionIdRef.current,
+      [connectionId]: models,
+    };
+    setCompositeModelsByConnectionId(compositeModelsByConnectionIdRef.current);
+  }
+
   function updateGeminiModelCache(connectionId: string, models: GeminiModelInfo[]) {
     geminiModelsByConnectionIdRef.current = {
       ...geminiModelsByConnectionIdRef.current,
       [connectionId]: models,
     };
     setGeminiModelsByConnectionId(geminiModelsByConnectionIdRef.current);
+  }
+
+  function updateVeniceModelCache(connectionId: string, models: VeniceModelInfo[]) {
+    veniceModelsByConnectionIdRef.current = {
+      ...veniceModelsByConnectionIdRef.current,
+      [connectionId]: models,
+    };
+    setVeniceModelsByConnectionId(veniceModelsByConnectionIdRef.current);
   }
 
   function updateOllamaModelCache(connectionId: string, models: OllamaModelInfo[]) {
@@ -634,11 +669,25 @@ export function useProviderConnections({
     return connectionWithOpenRouterCapabilitiesForModels(connection, models);
   }
 
+  function connectionWithCompositeCapabilities(
+    connection: ConnectionPreset,
+    models = compositeModelsByConnectionIdRef.current[connection.id] ?? [],
+  ): ConnectionPreset {
+    return connectionWithCompositeCapabilitiesForModels(connection, models);
+  }
+
   function connectionWithGeminiCapabilities(
     connection: ConnectionPreset,
     models = geminiModelsByConnectionIdRef.current[connection.id] ?? [],
   ): ConnectionPreset {
     return connectionWithGeminiCapabilitiesForModels(connection, models);
+  }
+
+  function connectionWithVeniceCapabilities(
+    connection: ConnectionPreset,
+    models = veniceModelsByConnectionIdRef.current[connection.id] ?? [],
+  ): ConnectionPreset {
+    return connectionWithVeniceCapabilitiesForModels(connection, models);
   }
 
   function connectionWithOllamaCapabilities(
@@ -664,7 +713,9 @@ export function useProviderConnections({
       !isLlamaCppConnection(connection) &&
       !isOllamaConnection(connection) &&
       !isOpenRouterConnection(connection) &&
-      !isGeminiConnection(connection)
+      !isCompositeConnection(connection) &&
+      !isGeminiConnection(connection) &&
+      !isVeniceConnection(connection)
     ) {
       return;
     }
@@ -679,7 +730,11 @@ export function useProviderConnections({
             ? connectionWithOllamaCapabilities(current)
             : isOpenRouterConnection(current)
               ? connectionWithOpenRouterCapabilities(current)
-              : connectionWithGeminiCapabilities(current)
+            : isCompositeConnection(current)
+              ? connectionWithCompositeCapabilities(current)
+            : isGeminiConnection(current)
+              ? connectionWithGeminiCapabilities(current)
+              : connectionWithVeniceCapabilities(current)
         : current,
     );
     setConnections((current) =>
@@ -688,8 +743,12 @@ export function useProviderConnections({
           ? entry
           : isOpenRouterConnection(entry)
             ? connectionWithOpenRouterCapabilities(entry)
+            : isCompositeConnection(entry)
+              ? connectionWithCompositeCapabilities(entry)
             : isGeminiConnection(entry)
               ? connectionWithGeminiCapabilities(entry)
+            : isVeniceConnection(entry)
+              ? connectionWithVeniceCapabilities(entry)
             : entry.vision !== vision
               ? { ...entry, vision }
               : entry,
@@ -893,6 +952,47 @@ export function useProviderConnections({
           capabilities,
           checkedAt: providerCheckedAt(),
         };
+      } else if (isCompositeConnection(connection)) {
+        const modelDetails = await window.rpgraph.listCompositeModels(connection);
+        updateCompositeModelCache(connection.id, modelDetails);
+        const models = modelDetails.map((model) => model.id);
+        const fallbackModel = models.includes(connection.model)
+          ? connection.model
+          : options.selectFallbackModel
+            ? models.find((model) => model.includes('composite')) ?? models[0] ?? connection.model
+            : connection.model;
+        const detectedConnection = connectionWithCompositeCapabilities(
+          { ...connection, model: fallbackModel },
+          modelDetails,
+        );
+        if (options.selectFallbackModel && detectedConnection.model !== connection.model) {
+          setEditingConnection(detectedConnection);
+          setConnections((current) =>
+            current.map((entry) => (entry.id === detectedConnection.id ? detectedConnection : entry)),
+          );
+        } else {
+          applyDetectedConnectionCapabilities(
+            detectedConnection,
+            compositeCapabilitiesForConnection(detectedConnection, modelDetails),
+          );
+        }
+        if (editingConnection.id === connection.id) {
+          setAvailableConnectionModels(models);
+        }
+        const capabilities = compositeCapabilitiesForConnection(detectedConnection, modelDetails);
+        const missingApiKey = connection.apiKey.trim().length === 0;
+        health = {
+          status: missingApiKey
+            ? 'warning'
+            : models.length > 0 ? 'online' : 'offline',
+          detail: missingApiKey
+            ? 'No API key set. Add your Composite API key.'
+            : models.length > 0
+              ? providerModelCountDetail(models.length)
+              : 'Connection succeeded, but no Composite models were returned.',
+          capabilities,
+          checkedAt: providerCheckedAt(),
+        };
       } else if (isGeminiConnection(connection)) {
         const modelDetails = await window.rpgraph.listGeminiModels(connection);
         updateGeminiModelCache(connection.id, modelDetails);
@@ -926,6 +1026,42 @@ export function useProviderConnections({
           detail: models.length > 0
             ? providerModelCountDetail(models.length)
             : 'Connection succeeded, but no models were returned.',
+          capabilities,
+          checkedAt: providerCheckedAt(),
+        };
+      } else if (isVeniceConnection(connection)) {
+        const modelDetails = await window.rpgraph.listVeniceModels(connection);
+        updateVeniceModelCache(connection.id, modelDetails);
+        const models = modelDetails.map((model) => model.id);
+        const fallbackModel = models.includes(connection.model)
+          ? connection.model
+          : options.selectFallbackModel
+            ? models.find((model) => model.includes('venice')) ?? models[0] ?? connection.model
+            : connection.model;
+        const detectedConnection = connectionWithVeniceCapabilities(
+          { ...connection, model: fallbackModel },
+          modelDetails,
+        );
+        if (options.selectFallbackModel && detectedConnection.model !== connection.model) {
+          setEditingConnection(detectedConnection);
+          setConnections((current) =>
+            current.map((entry) => (entry.id === detectedConnection.id ? detectedConnection : entry)),
+          );
+        } else {
+          applyDetectedConnectionCapabilities(
+            detectedConnection,
+            veniceCapabilitiesForConnection(detectedConnection, modelDetails),
+          );
+        }
+        if (editingConnection.id === connection.id) {
+          setAvailableConnectionModels(models);
+        }
+        const capabilities = veniceCapabilitiesForConnection(detectedConnection, modelDetails);
+        health = {
+          status: models.length > 0 ? 'online' : 'offline',
+          detail: models.length > 0
+            ? providerModelCountDetail(models.length)
+            : 'Connection succeeded, but no Venice models were returned.',
           capabilities,
           checkedAt: providerCheckedAt(),
         };
@@ -1056,7 +1192,7 @@ export function useProviderConnections({
       if (localProviderPollActiveRef.current) {
         return;
       }
-      const localConnections = connections.filter(isLocalProviderConnection);
+      const localConnections = connections.filter(shouldBackgroundPollProviderConnection);
       if (!localConnections.length) {
         return;
       }
@@ -1221,11 +1357,23 @@ export function useProviderConnections({
       if (openRouterModels) {
         updateOpenRouterModelCache(editingConnection.id, openRouterModels);
       }
-      const geminiModels = !lmStudioModels && !ollamaModels && !llamaCppModels && !openRouterModels && isGeminiConnection(editingConnection)
+      const compositeModels = !lmStudioModels && !ollamaModels && !llamaCppModels && !openRouterModels && isCompositeConnection(editingConnection)
+        ? await window.rpgraph.listCompositeModels(editingConnection)
+        : null;
+      if (compositeModels) {
+        updateCompositeModelCache(editingConnection.id, compositeModels);
+      }
+      const geminiModels = !lmStudioModels && !ollamaModels && !llamaCppModels && !openRouterModels && !compositeModels && isGeminiConnection(editingConnection)
         ? await window.rpgraph.listGeminiModels(editingConnection)
         : null;
       if (geminiModels) {
         updateGeminiModelCache(editingConnection.id, geminiModels);
+      }
+      const veniceModels = !lmStudioModels && !ollamaModels && !llamaCppModels && !openRouterModels && !geminiModels && isVeniceConnection(editingConnection)
+        ? await window.rpgraph.listVeniceModels(editingConnection)
+        : null;
+      if (veniceModels) {
+        updateVeniceModelCache(editingConnection.id, veniceModels);
       }
       const models = lmStudioModels
         ? lmStudioModels.map((model) => model.id)
@@ -1235,8 +1383,12 @@ export function useProviderConnections({
           ? llamaCppModels.map((model) => model.id)
         : openRouterModels
           ? openRouterModels.map((model) => model.id)
+        : compositeModels
+          ? compositeModels.map((model) => model.id)
         : geminiModels
           ? geminiModels.map((model) => model.id)
+        : veniceModels
+          ? veniceModels.map((model) => model.id)
         : await window.rpgraph.listModels(editingConnection);
       if (models.length === 0) {
         setAvailableConnectionModels([]);
@@ -1249,7 +1401,11 @@ export function useProviderConnections({
             ? { text: false, vision: false, tools: false }
             : openRouterModels
               ? { text: false, vision: false, image: false, voice: false }
+            : compositeModels
+              ? { text: false, vision: false, image: false, voice: false }
               : geminiModels
+              ? { text: false, vision: false, image: false, voice: false }
+              : veniceModels
                 ? { text: false, vision: false, image: false, voice: false }
               : undefined,
           checkedAt: providerCheckedAt(),
@@ -1283,8 +1439,21 @@ export function useProviderConnections({
               : selectedModel.supportedVoices[0],
           };
         }
+      } else if (compositeModels) {
+        connection = connectionWithCompositeCapabilities(connection, compositeModels);
       } else if (geminiModels) {
         connection = connectionWithGeminiCapabilities(connection, geminiModels);
+      } else if (veniceModels) {
+        connection = connectionWithVeniceCapabilities(connection, veniceModels);
+        const selectedModel = veniceModels.find((model) => model.id === connection.model);
+        if (selectedModel?.supportedVoices.length) {
+          connection = {
+            ...connection,
+            ttsVoice: selectedModel.supportedVoices.includes(connection.ttsVoice ?? '')
+              ? connection.ttsVoice
+              : selectedModel.supportedVoices[0],
+          };
+        }
       }
       const capabilities = lmStudioModels
         ? lmStudioCapabilitiesForConnection(connection, lmStudioModels)
@@ -1294,8 +1463,12 @@ export function useProviderConnections({
           ? llamaCppCapabilitiesForConnection(connection, llamaCppModels)
         : openRouterModels
           ? openRouterCapabilitiesForConnection(connection, openRouterModels)
+        : compositeModels
+          ? compositeCapabilitiesForConnection(connection, compositeModels)
         : geminiModels
           ? geminiCapabilitiesForConnection(connection, geminiModels)
+        : veniceModels
+          ? veniceCapabilitiesForConnection(connection, veniceModels)
         : { text: true };
       setAvailableConnectionModels(models);
       setEditingConnection(connection);
@@ -1303,10 +1476,14 @@ export function useProviderConnections({
       // loads without an API key, but generation would fail with 401.
       const missingOpenRouterApiKey =
         !!openRouterModels && connection.apiKey.trim().length === 0;
+      const missingCompositeApiKey =
+        !!compositeModels && connection.apiKey.trim().length === 0;
       updateProviderHealth(connection.id, {
-        status: missingOpenRouterApiKey ? 'warning' : 'online',
+        status: missingOpenRouterApiKey || missingCompositeApiKey ? 'warning' : 'online',
         detail: missingOpenRouterApiKey
           ? 'No API key set. Add your OpenRouter API key.'
+          : missingCompositeApiKey
+            ? 'No API key set. Add your Composite API key.'
           : providerModelCountDetail(models.length),
         capabilities,
         checkedAt: providerCheckedAt(),
@@ -1810,10 +1987,11 @@ export function useProviderConnections({
     settings: { width: number; height: number; characterLora: string };
   }) {
     const connection = connections.find(
-      (entry) => entry.id === request.providerId && isComfyImageConnection(entry),
+      (entry) => entry.id === request.providerId &&
+        (isComfyImageConnection(entry) || isVeniceConnection(entry)),
     );
     if (!connection) {
-      throw new Error('Choose a ComfyUI image provider first.');
+      throw new Error('Choose an image provider first.');
     }
     const health = providerHealthByIdRef.current[connection.id];
     if (health?.status === 'offline') {
@@ -1822,48 +2000,64 @@ export function useProviderConnections({
     if (health?.status === 'warning') {
       throw new Error(`${connection.label} is not fully set up${health.detail ? `: ${health.detail}` : '.'}`);
     }
-    const missingFields = missingComfySetupFields(connection);
-    if (missingFields.length > 0) {
-      const message = comfySetupRequiredMessage(missingFields);
-      updateProviderHealth(connection.id, comfySetupHealth(connection, message));
-      throw new Error(message);
+    if (isComfyImageConnection(connection)) {
+      const missingFields = missingComfySetupFields(connection);
+      if (missingFields.length > 0) {
+        const message = comfySetupRequiredMessage(missingFields);
+        updateProviderHealth(connection.id, comfySetupHealth(connection, message));
+        throw new Error(message);
+      }
+    } else if (health?.capabilities?.image !== true) {
+      throw new Error(`${connection.label} does not report image generation support for the selected model.`);
     }
 
     setComfyProviderActionActive('generate');
     setImageAssistantModelState(connection.id, 'loading');
     try {
-      const unloadFailures = await unloadLocalLlmModelsForComfy('Local LLM unload before image generation failed');
-      if (unloadFailures.length > 0) {
-        throw new Error(`Could not unload local LLM models: ${unloadFailures.join('; ')}`);
-      }
-      const result = await window.rpgraph.runComfyWorkflowPath({
-        baseUrl: connection.baseUrl,
-        workflowPath: comfyWorkflowPathForConnection(connection),
-        width: validComfyDimension(request.settings.width, connection.comfyWidth ?? defaultComfyWidth),
-        height: validComfyDimension(request.settings.height, connection.comfyHeight ?? defaultComfyHeight),
-        prompt: request.prompt.trim(),
-        checkpointName: connection.comfyCheckpointName ?? defaultComfyCheckpointName,
-        diffusionModelName: connection.comfyDiffusionModelName ?? defaultComfyDiffusionModelName,
-        vaeName: connection.comfyVaeName ?? defaultComfyVaeName,
-        textEncoderName: connection.comfyTextEncoderName ?? defaultComfyTextEncoderName,
-        loraSlots: characterComfyLoraSlots(
-          connection.comfyLoraSlots ?? defaultComfyLoraSlots,
-          request.settings.characterLora,
-        ),
-        deleteOutputs: connection.comfyDeleteImageOutputs !== false,
-        timeoutMs: 180000,
-      });
-      if (result.images.length === 0) {
-        throw new Error('ComfyUI finished without returning an image.');
+      let images: string[];
+      if (isComfyImageConnection(connection)) {
+        const unloadFailures = await unloadLocalLlmModelsForComfy('Local LLM unload before image generation failed');
+        if (unloadFailures.length > 0) {
+          throw new Error(`Could not unload local LLM models: ${unloadFailures.join('; ')}`);
+        }
+        const result = await window.rpgraph.runComfyWorkflowPath({
+          baseUrl: connection.baseUrl,
+          workflowPath: comfyWorkflowPathForConnection(connection),
+          width: validComfyDimension(request.settings.width, connection.comfyWidth ?? defaultComfyWidth),
+          height: validComfyDimension(request.settings.height, connection.comfyHeight ?? defaultComfyHeight),
+          prompt: request.prompt.trim(),
+          checkpointName: connection.comfyCheckpointName ?? defaultComfyCheckpointName,
+          diffusionModelName: connection.comfyDiffusionModelName ?? defaultComfyDiffusionModelName,
+          vaeName: connection.comfyVaeName ?? defaultComfyVaeName,
+          textEncoderName: connection.comfyTextEncoderName ?? defaultComfyTextEncoderName,
+          loraSlots: characterComfyLoraSlots(
+            connection.comfyLoraSlots ?? defaultComfyLoraSlots,
+            request.settings.characterLora,
+          ),
+          deleteOutputs: connection.comfyDeleteImageOutputs !== false,
+          timeoutMs: 180000,
+        });
+        if (result.images.length === 0) {
+          throw new Error('ComfyUI finished without returning an image.');
+        }
+        images = result.images.map((image) => image.dataUrl);
+      } else {
+        const result = await window.rpgraph.generateVeniceImages({
+          connection,
+          prompt: request.prompt.trim(),
+          width: validComfyDimension(request.settings.width, defaultComfyWidth),
+          height: validComfyDimension(request.settings.height, defaultComfyHeight),
+        });
+        images = result.images;
       }
       updateProviderHealth(connection.id, {
         status: 'online',
-        detail: `Generated ${result.images.length} image${result.images.length === 1 ? '' : 's'}.`,
+        detail: `Generated ${images.length} image${images.length === 1 ? '' : 's'}.`,
         capabilities: { image: true },
         checkedAt: providerCheckedAt(),
       });
       setImageAssistantModelState(connection.id, 'loaded');
-      return result.images.map((image) => image.dataUrl);
+      return images;
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
       updateProviderHealth(connection.id, {
@@ -2372,12 +2566,32 @@ export function useProviderConnections({
         ...(providerHealthByIdRef.current[nextConnection.id] ?? { status: 'unknown' as const }),
         capabilities: openRouterCapabilitiesForConnection(nextConnection, modelDetails),
       });
+    } else if (field === 'model' && isCompositeConnection(nextConnection)) {
+      const modelDetails = compositeModelsByConnectionIdRef.current[nextConnection.id] ?? [];
+      nextConnection = connectionWithCompositeCapabilities(nextConnection, modelDetails);
+      updateProviderHealth(nextConnection.id, {
+        ...(providerHealthByIdRef.current[nextConnection.id] ?? { status: 'unknown' as const }),
+        capabilities: compositeCapabilitiesForConnection(nextConnection, modelDetails),
+      });
     } else if (field === 'model' && isGeminiConnection(nextConnection)) {
       const modelDetails = geminiModelsByConnectionIdRef.current[nextConnection.id] ?? [];
       nextConnection = connectionWithGeminiCapabilities(nextConnection, modelDetails);
       updateProviderHealth(nextConnection.id, {
         ...(providerHealthByIdRef.current[nextConnection.id] ?? { status: 'unknown' as const }),
         capabilities: geminiCapabilitiesForConnection(nextConnection, modelDetails),
+      });
+    } else if (field === 'model' && isVeniceConnection(nextConnection)) {
+      const modelDetails = veniceModelsByConnectionIdRef.current[nextConnection.id] ?? [];
+      nextConnection = connectionWithVeniceCapabilities(nextConnection, modelDetails);
+      const selectedModel = modelDetails.find((model) => model.id === nextConnection.model);
+      nextConnection.ttsVoice = selectedModel?.supportedVoices.length
+        ? selectedModel.supportedVoices.includes(nextConnection.ttsVoice ?? '')
+          ? nextConnection.ttsVoice
+          : selectedModel.supportedVoices[0]
+        : undefined;
+      updateProviderHealth(nextConnection.id, {
+        ...(providerHealthByIdRef.current[nextConnection.id] ?? { status: 'unknown' as const }),
+        capabilities: veniceCapabilitiesForConnection(nextConnection, modelDetails),
       });
     } else if (
       nextConnection.kind === 'comfyui' &&
@@ -2424,8 +2638,12 @@ export function useProviderConnections({
       ? ollamaCapabilitiesForConnection(editingConnection, ollamaModelsByConnectionId[editingConnection.id] ?? [])
       : isOpenRouterConnection(editingConnection)
         ? openRouterCapabilitiesForConnection(editingConnection, openRouterModelsByConnectionId[editingConnection.id] ?? [])
+      : isCompositeConnection(editingConnection)
+        ? compositeCapabilitiesForConnection(editingConnection, compositeModelsByConnectionId[editingConnection.id] ?? [])
         : isGeminiConnection(editingConnection)
           ? geminiCapabilitiesForConnection(editingConnection, geminiModelsByConnectionId[editingConnection.id] ?? [])
+        : isVeniceConnection(editingConnection)
+          ? veniceCapabilitiesForConnection(editingConnection, veniceModelsByConnectionId[editingConnection.id] ?? [])
         : providerHealthById[editingConnection.id]?.capabilities;
   const editingConnectionArchitecture = isLmStudioConnection(editingConnection)
     ? lmStudioModelsByConnectionId[editingConnection.id]
@@ -2434,8 +2652,12 @@ export function useProviderConnections({
     : undefined;
   const editingConnectionVoiceModels = isOpenRouterConnection(editingConnection)
     ? openRouterModelsByConnectionId[editingConnection.id]
+    : isCompositeConnection(editingConnection)
+      ? compositeModelsByConnectionId[editingConnection.id]
     : isGeminiConnection(editingConnection)
       ? geminiModelsByConnectionId[editingConnection.id]
+    : isVeniceConnection(editingConnection)
+      ? veniceModelsByConnectionId[editingConnection.id]
       : undefined;
   const editingConnectionSupportedVoices = editingConnectionVoiceModels
         ?.find((model) => model.id === editingConnection.model)
@@ -2456,8 +2678,12 @@ export function useProviderConnections({
       ? 'Ollama'
       : isOpenRouterConnection(editingConnection)
         ? 'OpenRouter'
+      : isCompositeConnection(editingConnection)
+        ? 'Composite'
         : isGeminiConnection(editingConnection)
           ? 'Google Gemini'
+        : isVeniceConnection(editingConnection)
+          ? 'Venice AI'
           : undefined;
 
   return {
@@ -2478,6 +2704,8 @@ export function useProviderConnections({
     lmStudioModelsByConnectionId,
     openRouterModelsByConnectionId,
     geminiModelsByConnectionId,
+    compositeModelsByConnectionId,
+    veniceModelsByConnectionId,
     ollamaModelsByConnectionId,
     llamaCppModelsByConnectionId,
     comfyProviderActionActive,

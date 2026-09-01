@@ -33,7 +33,9 @@ export type LlmProviderKind =
   | 'llama-cpp'
   | 'ollama'
   | 'openrouter'
-  | 'gemini';
+  | 'gemini'
+  | 'composite'
+  | 'venice';
 
 export type ComfyConnectionRole = 'image' | 'voice';
 
@@ -139,6 +141,12 @@ export type OpenRouterModelInfo = {
 
 export type GeminiModelInfo = OpenRouterModelInfo & {
   supportedGenerationMethods: string[];
+};
+
+export type CompositeModelInfo = OpenRouterModelInfo;
+
+export type VeniceModelInfo = OpenRouterModelInfo & {
+  type?: string;
 };
 
 export type ComfyLoraSlot = {
@@ -354,6 +362,9 @@ type WorkflowNodeCommonFields = {
   combinerPrefixes?: string[];
   combinerInputPreviews?: string[];
   textReplaceEntries?: TextReplaceEntry[];
+  formatRepairMode?: 'text' | 'json';
+  formatRepairValidJson?: boolean;
+  formatRepairLastRepairs?: string[];
   characterStatDefinitions?: CharacterStatDefinition[];
   characterStatsState?: CharacterStatsState;
   characterStatsBaselineState?: CharacterStatsState;
@@ -500,6 +511,12 @@ type LlmDecisionNodeData = CoreWorkflowNodeCommonFields & { nodeType: 'llm-decis
 type LlmPromptNodeData = CoreWorkflowNodeCommonFields & { nodeType: 'llm-prompt' };
 type CombinerNodeData = CoreWorkflowNodeCommonFields & { nodeType: 'combiner' };
 type TextReplaceNodeData = CoreWorkflowNodeCommonFields & { nodeType: 'text-replace' };
+type FormatRepairNodeData = CoreWorkflowNodeCommonFields & {
+  nodeType: 'format-repair';
+  formatRepairMode?: 'text' | 'json';
+  formatRepairValidJson?: boolean;
+  formatRepairLastRepairs?: string[];
+};
 type CharacterStatsNodeData = CoreWorkflowNodeCommonFields & { nodeType: 'character-stats' };
 type OutputNodeData = CoreWorkflowNodeCommonFields & { nodeType: 'output' };
 type RpStorybookNodeData = CoreWorkflowNodeCommonFields & { nodeType: 'rp-storybook' };
@@ -531,6 +548,7 @@ type ConcreteCoreWorkflowNodeData =
   | LlmPromptNodeData
   | CombinerNodeData
   | TextReplaceNodeData
+  | FormatRepairNodeData
   | CharacterStatsNodeData
   | OutputNodeData
   | RpStorybookNodeData

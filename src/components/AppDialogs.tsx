@@ -76,6 +76,12 @@ import type {
 } from '../types';
 import { storybookImageById } from '../storybook/imageLibrary';
 import {
+  withStorybookCharacterTextField,
+  withStorybookTextField,
+  type StorybookCharacterTextField,
+  type StorybookTextField,
+} from '../storybook/inlineEdits';
+import {
   StorybookConversionAssistantReport,
   StorybookConversionPanel,
 } from '../storybook/StorybookConversionPanel';
@@ -1123,6 +1129,54 @@ const storybookFormattedTextSettingControls: Array<{
 
 type StorybookImageOwner = { kind: 'character'; characterId: string };
 type CharacterImagesDialogMode = 'images' | 'profile';
+
+type InlineStorybookTextFieldProps = {
+  label: string;
+  value: string;
+  placeholder: string;
+  multiline?: boolean;
+  onChange: (value: string) => void;
+};
+
+function stopGraphEditingKeys(event: Pick<KeyboardEvent, 'key' | 'stopPropagation'>) {
+  if (event.key === 'Backspace' || event.key === 'Delete') {
+    event.stopPropagation();
+  }
+}
+
+function InlineStorybookTextField({
+  label,
+  value,
+  placeholder,
+  multiline = true,
+  onChange,
+}: InlineStorybookTextFieldProps) {
+  return (
+    <label className="character-field storybook-inline-edit-field">
+      <span className="field-label">{label}</span>
+      {multiline ? (
+        <textarea
+          className="storybook-inline-edit-control nodrag"
+          value={value}
+          placeholder={placeholder}
+          spellCheck={false}
+          onKeyDown={stopGraphEditingKeys}
+          onChange={(event) => onChange(event.currentTarget.value)}
+        />
+      ) : (
+        <input
+          className="storybook-inline-edit-control nodrag"
+          type="text"
+          value={value}
+          placeholder={placeholder}
+          spellCheck={false}
+          onKeyDown={stopGraphEditingKeys}
+          onChange={(event) => onChange(event.currentTarget.value)}
+        />
+      )}
+    </label>
+  );
+}
 type ProfileCrop = RpStorybookCharacterProfileImage['crop'];
 
 function storybookImageOwnerKey(owner: StorybookImageOwner) {
@@ -3067,6 +3121,7 @@ export function StorybookCreatorDialog({
     | null
   >(null);
   const backdropDismiss = useBackdropDismiss<HTMLDivElement>(onClose);
+  const creatorDialogRef = useRef<HTMLElement | null>(null);
   const storybook = useMemo(() => {
     try {
       return node.data.storybookJson ? parseRpStorybookJson(node.data.storybookJson) : emptyRpStorybook;
@@ -3120,6 +3175,20 @@ export function StorybookCreatorDialog({
     document.addEventListener('pointerdown', closeOutputSettingsOutside);
     return () => document.removeEventListener('pointerdown', closeOutputSettingsOutside);
   }, [outputSettingsOpen]);
+
+  useEffect(() => {
+    const stopCanvasDeleteKeys = (event: KeyboardEvent) => {
+      if (event.key !== 'Backspace' && event.key !== 'Delete') {
+        return;
+      }
+      if (event.target instanceof Node && creatorDialogRef.current?.contains(event.target)) {
+        event.stopPropagation();
+        event.stopImmediatePropagation();
+      }
+    };
+    window.addEventListener('keydown', stopCanvasDeleteKeys, true);
+    return () => window.removeEventListener('keydown', stopCanvasDeleteKeys, true);
+  }, []);
 
   function submit(event: FormEvent) {
     event.preventDefault();
@@ -3180,13 +3249,34 @@ export function StorybookCreatorDialog({
     pending.action();
   }
 
+  function updateStorybookTextField(field: StorybookTextField, value: string) {
+    onUpdateStorybook(withStorybookTextField(storybook, field, value), 'Updated storybook field.');
+  }
+
+  function updateCharacterTextField(
+    characterId: string,
+    field: StorybookCharacterTextField,
+    value: string,
+  ) {
+    onUpdateStorybook(
+      withStorybookCharacterTextField(storybook, characterId, field, value),
+      'Updated character field.',
+    );
+  }
+
   return (
     <div
       className="dialog-backdrop"
       role="presentation"
       {...backdropDismiss}
     >
-      <section className="storybook-creator-dialog" role="dialog" aria-modal="true" aria-label="RP Storybook Creator">
+      <section
+        ref={creatorDialogRef}
+        className="storybook-creator-dialog"
+        role="dialog"
+        aria-modal="true"
+        aria-label="RP Storybook Creator"
+      >
         <div className="dialog-header storybook-creator-header">
           <div className="storybook-title-row">
             <h2>{node.data.label}</h2>
@@ -3395,10 +3485,19 @@ export function StorybookCreatorDialog({
                       <div className="storybook-ui-cover-art">
                         <div className="book-spine"></div>
                         <div className="book-details">
-                          <h3>{storybook.title || 'Untitled RP Storybook'}</h3>
-                          <p className="storybook-intro">
-                            {storybook.introduction || 'No introduction defined.'}
-                          </p>
+                          <InlineStorybookTextField
+                            label="Title"
+                            value={storybook.title}
+                            placeholder="Untitled RP Storybook"
+                            multiline={false}
+                            onChange={(value) => updateStorybookTextField('title', value)}
+                          />
+                          <InlineStorybookTextField
+                            label="Introduction"
+                            value={storybook.introduction}
+                            placeholder="No introduction defined."
+                            onChange={(value) => updateStorybookTextField('introduction', value)}
+                          />
                         </div>
                       </div>
                     </div>
@@ -3409,19 +3508,25 @@ export function StorybookCreatorDialog({
                         <h4>Scenario</h4>
                       </div>
                       <div className="section-content">
-                        <div className="scenario-field">
-                          <span className="field-label">Summary</span>
-                          <p>{storybook.scenario.summary || 'No scenario summary defined.'}</p>
-                        </div>
+                        <InlineStorybookTextField
+                          label="Summary"
+                          value={storybook.scenario.summary}
+                          placeholder="No scenario summary defined."
+                          onChange={(value) => updateStorybookTextField('scenario.summary', value)}
+                        />
                         <div className="scenario-grid">
-                          <div className="scenario-field">
-                            <span className="field-label">Opening Situation</span>
-                            <p>{storybook.scenario.openingSituation || 'No opening situation defined.'}</p>
-                          </div>
-                          <div className="scenario-field">
-                            <span className="field-label">Current Situation</span>
-                            <p>{storybook.scenario.currentSituation || 'No current situation defined.'}</p>
-                          </div>
+                          <InlineStorybookTextField
+                            label="Opening Situation"
+                            value={storybook.scenario.openingSituation}
+                            placeholder="No opening situation defined."
+                            onChange={(value) => updateStorybookTextField('scenario.openingSituation', value)}
+                          />
+                          <InlineStorybookTextField
+                            label="Current Situation"
+                            value={storybook.scenario.currentSituation}
+                            placeholder="No current situation defined."
+                            onChange={(value) => updateStorybookTextField('scenario.currentSituation', value)}
+                          />
                         </div>
                       </div>
                     </section>
@@ -3482,30 +3587,48 @@ export function StorybookCreatorDialog({
                                   />
                                 </button>
                                 <div className="character-card-title-side">
-                                  <h5 className="character-name">{character.name || character.id}</h5>
-                                  {character.role && <p className="character-subrole">{character.role}</p>}
+                                  <InlineStorybookTextField
+                                    label="Name"
+                                    value={character.name}
+                                    placeholder={character.id || 'Character name'}
+                                    multiline={false}
+                                    onChange={(value) => updateCharacterTextField(character.id, 'name', value)}
+                                  />
+                                  <InlineStorybookTextField
+                                    label="Role"
+                                    value={character.role}
+                                    placeholder="Character role"
+                                    multiline={false}
+                                    onChange={(value) => updateCharacterTextField(character.id, 'role', value)}
+                                  />
                                 </div>
                               </div>
                               
                               <div className="character-fields">
-                                {character.description && (
-                                  <div className="character-field">
-                                    <span className="field-label">Description</span>
-                                    <p>{character.description}</p>
-                                  </div>
-                                )}
-                                {character.personality && (
-                                  <div className="character-field">
-                                    <span className="field-label">Personality</span>
-                                    <p>{character.personality}</p>
-                                  </div>
-                                )}
-                                {character.speechStyle && (
-                                  <div className="character-field">
-                                    <span className="field-label">Speech Style</span>
-                                    <p>{character.speechStyle}</p>
-                                  </div>
-                                )}
+                                <InlineStorybookTextField
+                                  label="Description"
+                                  value={character.description}
+                                  placeholder="Character description"
+                                  onChange={(value) => updateCharacterTextField(character.id, 'description', value)}
+                                />
+                                <InlineStorybookTextField
+                                  label="Personality"
+                                  value={character.personality}
+                                  placeholder="Character personality"
+                                  onChange={(value) => updateCharacterTextField(character.id, 'personality', value)}
+                                />
+                                <InlineStorybookTextField
+                                  label="Speech Style"
+                                  value={character.speechStyle}
+                                  placeholder="How this character speaks"
+                                  onChange={(value) => updateCharacterTextField(character.id, 'speechStyle', value)}
+                                />
+                                <InlineStorybookTextField
+                                  label="Appearance"
+                                  value={character.comfyConfig?.appearance ?? ''}
+                                  placeholder="Visual appearance for image generation"
+                                  onChange={(value) => updateCharacterTextField(character.id, 'appearance', value)}
+                                />
                                 <div className="character-field">
                                   <span className="field-label">Phone Apps</span>
                                   <p>{characterPhoneSummaryText(character)}</p>

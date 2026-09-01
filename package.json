@@ -17,6 +17,7 @@
     "dev": "vite",
     "build": "tsc -b && vite build",
     "package:linux": "npm run build && electron-builder --linux AppImage --x64",
+    "package:windows": "npm run build && electron-builder --win nsis --x64",
     "lint": "eslint .",
     "check:unused": "knip",
     "test": "vitest run",

@@ -1,7 +1,10 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import type { WorkflowNode } from '../types';
 import {
   defaultRpStorybookCharacterComfyConfig,
+  defaultRpStorybookCharacterBanking,
+  defaultRpStorybookCharacterPhoneSettings,
+  defaultRpStorybookCharacterSocial,
   emptyRpStorybook,
   parseRpStorybookJson,
   type RpStorybook,
@@ -132,6 +135,17 @@ function StorybookFieldsEditor({ draft, onChange }: FieldsEditorProps) {
       ),
     });
   };
+  const setImagePrompt = (customText: string) => {
+    onChange({
+      ...draft,
+      imageDescriptionPrompt: customText.trim()
+        ? { mode: 'custom', customText }
+        : { mode: 'default' },
+    });
+  };
+  const imagePromptText = draft.imageDescriptionPrompt.mode === 'custom'
+    ? draft.imageDescriptionPrompt.customText ?? ''
+    : '';
 
   return (
     <div className="storybook-editor-fields">
@@ -186,9 +200,51 @@ function StorybookFieldsEditor({ draft, onChange }: FieldsEditorProps) {
         </label>
       </fieldset>
 
+      <fieldset className="storybook-editor-fieldset">
+        <legend>Images</legend>
+        <label className="storybook-editor-field">
+          <span className="field-label">Image Description Prompt</span>
+          <textarea
+            value={imagePromptText}
+            placeholder="Default prompt"
+            spellCheck={false}
+            onChange={(event) => setImagePrompt(event.currentTarget.value)}
+          />
+        </label>
+      </fieldset>
+
+      <fieldset className="storybook-editor-fieldset">
+        <legend>Opening History</legend>
+        <label className="storybook-editor-field">
+          <span className="field-label">Summary</span>
+          <textarea
+            value={draft.openingHistory.summary}
+            spellCheck={false}
+            onChange={(event) =>
+              onChange({
+                ...draft,
+                openingHistory: { ...draft.openingHistory, summary: event.currentTarget.value },
+              })
+            }
+          />
+        </label>
+      </fieldset>
+
       {draft.characters.map((character, index) => (
         <fieldset className="storybook-editor-fieldset" key={character.id}>
           <legend>{character.name || character.id}</legend>
+          <label className="storybook-editor-field">
+            <span className="field-label">Name</span>
+            <input
+              type="text"
+              value={character.name}
+              onChange={(event) => setCharacter(index, { name: event.currentTarget.value })}
+            />
+          </label>
+          <label className="storybook-editor-field">
+            <span className="field-label">ID</span>
+            <input type="text" value={character.id} readOnly />
+          </label>
           <label className="storybook-editor-field">
             <span className="field-label">Role</span>
             <input
@@ -236,6 +292,101 @@ function StorybookFieldsEditor({ draft, onChange }: FieldsEditorProps) {
               }
             />
           </label>
+          {character.images.map((image, imageIndex) => (
+            <fieldset className="storybook-editor-fieldset storybook-editor-nested-fieldset" key={image.id}>
+              <legend>{image.name || image.id}</legend>
+              <label className="storybook-editor-field">
+                <span className="field-label">Image Name</span>
+                <input
+                  type="text"
+                  value={image.name}
+                  onChange={(event) =>
+                    setCharacter(index, {
+                      images: character.images.map((entry, i) =>
+                        i === imageIndex ? { ...entry, name: event.currentTarget.value } : entry,
+                      ),
+                    })
+                  }
+                />
+              </label>
+              <label className="storybook-editor-field">
+                <span className="field-label">Image Description</span>
+                <textarea
+                  value={image.description}
+                  spellCheck={false}
+                  onChange={(event) =>
+                    setCharacter(index, {
+                      images: character.images.map((entry, i) =>
+                        i === imageIndex ? { ...entry, description: event.currentTarget.value } : entry,
+                      ),
+                    })
+                  }
+                />
+              </label>
+            </fieldset>
+          ))}
+          <label className="storybook-editor-field">
+            <span className="field-label">Phone Wallpaper ID</span>
+            <input
+              type="text"
+              value={(character.phoneSettings ?? defaultRpStorybookCharacterPhoneSettings()).wallpaperId}
+              onChange={(event) =>
+                setCharacter(index, {
+                  phoneSettings: {
+                    ...(character.phoneSettings ?? defaultRpStorybookCharacterPhoneSettings()),
+                    wallpaperId: event.currentTarget.value,
+                  },
+                })
+              }
+            />
+          </label>
+          <label className="storybook-editor-field">
+            <span className="field-label">Fotogram Username</span>
+            <input
+              type="text"
+              value={(character.social ?? defaultRpStorybookCharacterSocial()).fotogramUsername}
+              onChange={(event) =>
+                setCharacter(index, {
+                  social: {
+                    ...(character.social ?? defaultRpStorybookCharacterSocial()),
+                    fotogramUsername: event.currentTarget.value,
+                  },
+                })
+              }
+            />
+          </label>
+          <label className="storybook-editor-field">
+            <span className="field-label">OnlyFriends Username</span>
+            <input
+              type="text"
+              value={(character.social ?? defaultRpStorybookCharacterSocial()).onlyfriendsUsername}
+              onChange={(event) =>
+                setCharacter(index, {
+                  social: {
+                    ...(character.social ?? defaultRpStorybookCharacterSocial()),
+                    onlyfriendsUsername: event.currentTarget.value,
+                  },
+                })
+              }
+            />
+          </label>
+          <label className="storybook-editor-field">
+            <span className="field-label">Starting Balance</span>
+            <input
+              type="number"
+              value={(character.banking ?? defaultRpStorybookCharacterBanking()).startBalance}
+              onChange={(event) =>
+                setCharacter(index, {
+                  banking: {
+                    ...(character.banking ?? defaultRpStorybookCharacterBanking()),
+                    startBalance: Number.isFinite(event.currentTarget.valueAsNumber)
+                      ? event.currentTarget.valueAsNumber
+                      : defaultRpStorybookCharacterBanking().startBalance,
+                  },
+                })
+              }
+            />
+          </label>
         </fieldset>
       ))}
       {draft.characters.length === 0 && (
@@ -247,6 +398,7 @@ function StorybookFieldsEditor({ draft, onChange }: FieldsEditorProps) {
 
 export function StorybookEditorDialog({ node, onCommit, onClose }: StorybookEditorDialogProps) {
   const backdropDismiss = useBackdropDismiss<HTMLDivElement>(onClose);
+  const dialogRef = useRef<HTMLElement | null>(null);
   // Track parse validity so an Apply can't overwrite unparseable stored JSON
   // with empty/edited content (the fallback would otherwise be silent).
   const parsed = useMemo(() => {
@@ -266,6 +418,20 @@ export function StorybookEditorDialog({ node, onCommit, onClose }: StorybookEdit
   const [fieldsDraft, setFieldsDraft] = useState<RpStorybook>(() => structuredClone(storybook));
   const [status, setStatus] = useState('');
   const [seededFromJson, setSeededFromJson] = useState(node.data.storybookJson);
+
+  useEffect(() => {
+    const stopGraphDeleteKeys = (event: KeyboardEvent) => {
+      if (event.key !== 'Backspace' && event.key !== 'Delete') {
+        return;
+      }
+      const target = event.target;
+      if (target instanceof Node && dialogRef.current?.contains(target)) {
+        event.stopPropagation();
+      }
+    };
+    window.addEventListener('keydown', stopGraphDeleteKeys, true);
+    return () => window.removeEventListener('keydown', stopGraphDeleteKeys, true);
+  }, []);
 
   // Reseed drafts when the node's stored storybook changes (render-time reset).
   if (node.data.storybookJson !== seededFromJson) {
@@ -324,6 +490,7 @@ export function StorybookEditorDialog({ node, onCommit, onClose }: StorybookEdit
   return (
     <div className="dialog-backdrop" role="presentation" {...backdropDismiss}>
       <section
+        ref={dialogRef}
         className="storybook-creator-dialog"
         role="dialog"
         aria-modal="true"

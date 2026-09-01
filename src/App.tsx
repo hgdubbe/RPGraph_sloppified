@@ -220,6 +220,7 @@ import {
   isOllamaConnection,
   isLlamaCppConnection,
   isOpenRouterConnection,
+  isVeniceConnection,
 } from './llm/providerKind';
 import { TextMetricsApi } from './llm/tokenMetrics';
 import { encodedDataUrlBytes, normalizeImageAttachment } from './utils/imageNormalization';
@@ -963,7 +964,6 @@ function App() {
     phoneContacts,
     selectedPhoneContact,
     openPhoneContact,
-    switchActivePlayer,
     selectedPhoneConversation,
     selectedPhoneDividerAfterId,
     eventManagerAvailable,
@@ -1018,6 +1018,7 @@ function App() {
     changeChatReadsPhoneAppsEnabled,
     autoTurnDisabled,
     autoTurnTitle,
+    switchActivePlayer,
     switchPlayerDisabled,
     switchPlayerTitle,
     highlightedPhoneMessage,
@@ -1031,6 +1032,7 @@ function App() {
     markSelectedPhoneConversationSeen,
     phoneHomeRequestId,
     phoneAppOpenRequest,
+    phoneGalleryOpenRequestId,
     phoneDividerAfterByConversation,
     setPhoneDividerAfterByConversation,
     openedPhoneConversationKey,
@@ -1206,7 +1208,7 @@ function App() {
     }
     const capabilities = providerHealthById[connection.id]?.capabilities;
     if (
-      (isOpenRouterConnection(connection) || isGeminiConnection(connection)) &&
+      (isOpenRouterConnection(connection) || isGeminiConnection(connection) || isVeniceConnection(connection)) &&
       capabilities?.voice === true &&
       capabilities.text !== true &&
       connection.ttsVoice
@@ -1272,6 +1274,8 @@ function App() {
     generateApiNarratorClip: (connection, input, onChunk) =>
       isGeminiConnection(connection)
         ? window.rpgraph.generateGeminiSpeech({ connection, input }, onChunk)
+        : isVeniceConnection(connection)
+          ? window.rpgraph.generateVeniceSpeech({ connection, input })
         : window.rpgraph.generateOpenRouterSpeech({ connection, input }, onChunk),
     unloadVoiceModels: unloadCharacterComfyModels,
     onVoiceClipGenerated: storeMessageVoiceClip,
@@ -5625,6 +5629,7 @@ function App() {
               phoneAppOpenRequest={phoneAppOpenRequest}
               socialPostOpenRequest={socialPostOpenRequest}
               socialDirectMessageOpenRequest={socialDirectMessageOpenRequest}
+              phoneGalleryOpenRequestId={phoneGalleryOpenRequestId}
               phoneImages={phoneImages}
               phoneGalleryImages={phoneGalleryImages}
               phoneDraft={phoneDraft}
@@ -6358,3 +6363,4 @@ function App() {
 }
 
 export default App;
+

@@ -70,6 +70,8 @@ contextBridge.exposeInMainWorld('rpgraph', {
     ipcRenderer.invoke('llamacpp:unload-models', { connection }),
   listOpenRouterModels: (connection) =>
     ipcRenderer.invoke('openrouter:list-models', { connection }),
+  listCompositeModels: (connection) =>
+    ipcRenderer.invoke('composite:list-models', { connection }),
   generateOpenRouterSpeech: (request, onChunk) => {
     const requestId = nextLlmRequestId();
     const channel = `openrouter:speech-chunk:${requestId}`;
@@ -90,6 +92,12 @@ contextBridge.exposeInMainWorld('rpgraph', {
   },
   listGeminiModels: (connection) =>
     ipcRenderer.invoke('gemini:list-models', { connection }),
+  listVeniceModels: (connection) =>
+    ipcRenderer.invoke('venice:list-models', { connection }),
+  generateVeniceSpeech: (request) =>
+    ipcRenderer.invoke('venice:generate-speech', request),
+  generateVeniceImages: (request) =>
+    ipcRenderer.invoke('venice:generate-images', request),
   loadLmStudioModel: (connection) =>
     ipcRenderer.invoke('lmstudio:load-model', { connection }),
   isLmStudioModelLoaded: (connection) =>
