@@ -3317,7 +3317,7 @@ export function StorybookCreatorDialog({
     );
   }
 
-  function selectWorkbenchSection(section: StorybookCreatorSection, characterId = activeCharacter?.id) {
+  function selectWorkbenchSection(section: StorybookCreatorSection, characterId?: string) {
     setActiveSection(section);
     setViewMode('ui');
     if (characterId) {
@@ -3501,7 +3501,7 @@ export function StorybookCreatorDialog({
                   {storybook.characters.length ? storybook.characters.map((character) => (
                     <button
                       type="button"
-                      className={`storybook-workbench-nav-item${activeSection === 'character' && activeCharacter?.id === character.id && viewMode === 'ui' ? ' active' : ''}`}
+                      className={`storybook-workbench-nav-item${activeCharacter?.id === character.id && viewMode === 'ui' ? ' selected-character' : ''}${activeSection === 'character' && activeCharacter?.id === character.id && viewMode === 'ui' ? ' active' : ''}`}
                       key={character.id}
                       onClick={() => selectWorkbenchSection('character', character.id)}
                     >
@@ -3541,10 +3541,6 @@ export function StorybookCreatorDialog({
                   ))}
                 </section>
               </nav>
-              <div className="storybook-workbench-rail-foot">
-                <strong>Safe edits</strong>
-                <span>Editable fields are marked cyan. Passive info stays in the assistant panel.</span>
-              </div>
             </aside>
 
             <section className="storybook-document-panel storybook-workbench-editor" aria-label="Focused storybook editor">
@@ -3560,21 +3556,28 @@ export function StorybookCreatorDialog({
                           : activeSection === 'character'
                             ? activeCharacter?.name || 'Character'
                             : activeSection === 'gallery'
-                              ? 'Gallery Libraries'
+                              ? `Gallery Libraries${activeCharacter ? ` - ${activeCharacter.name || activeCharacter.id}` : ''}`
                               : activeSection === 'social'
-                                ? 'Social Accounts'
+                                ? `Social Accounts${activeCharacter ? ` - ${activeCharacter.name || activeCharacter.id}` : ''}`
                                 : activeSection === 'bank'
-                                  ? 'Banking'
+                                  ? `Banking${activeCharacter ? ` - ${activeCharacter.name || activeCharacter.id}` : ''}`
                             : activeSection === 'phone'
-                              ? 'Phone Contacts'
+                              ? `Phone Contacts${activeCharacter ? ` - ${activeCharacter.name || activeCharacter.id}` : ''}`
                               : activeSection === 'history'
                                 ? 'Opening History'
                                 : 'Scenario'}
                   </span>
                   <p>{viewMode === 'ui' ? storybookCreatorSectionDescription(activeSection) : 'Read-only output views for checking what the node emits.'}</p>
-                  <span className="storybook-panel-token-estimate">
-                    ~{estimatedPromptTokens.toLocaleString('en-US')} tokens (images excluded)
-                  </span>
+                  <div className="storybook-workbench-editor-meta">
+                    {viewMode === 'ui' && activeCharacter && activeSection !== 'scenario' && activeSection !== 'intro' && activeSection !== 'history' ? (
+                      <span className="storybook-workbench-editing-chip">
+                        Editing {activeCharacter.name || activeCharacter.id}
+                      </span>
+                    ) : null}
+                    <span className="storybook-panel-token-estimate">
+                      ~{estimatedPromptTokens.toLocaleString('en-US')} tokens (images excluded)
+                    </span>
+                  </div>
                 </div>
                 <div className="storybook-tabs storybook-workbench-mode-switch">
                   <button
@@ -3656,26 +3659,39 @@ export function StorybookCreatorDialog({
                 {viewMode === 'ui' && !pendingConversion && (
                   <div className="storybook-ui-view">
                     {/* Header: Title and Introduction */}
-                    {activeSection === 'intro' && <div className="storybook-ui-header">
-                      <div className="storybook-ui-cover-art">
-                        <div className="book-spine"></div>
-                        <div className="book-details">
-                          <InlineStorybookTextField
-                            label="Title"
-                            value={storybook.title}
-                            placeholder="Untitled RP Storybook"
-                            multiline={false}
-                            onChange={(value) => updateStorybookTextField('title', value)}
-                          />
-                          <InlineStorybookTextField
-                            label="Introduction"
-                            value={storybook.introduction}
-                            placeholder="No introduction defined."
-                            onChange={(value) => updateStorybookTextField('introduction', value)}
-                          />
+                    {activeSection === 'intro' && <section className="storybook-workbench-story-section">
+                      <div className="storybook-workbench-section-toolbar">
+                        <div>
+                          <h4>Intro</h4>
+                          <p>The opening label and player-facing premise for this storybook.</p>
                         </div>
                       </div>
-                    </div>}
+                      <div className="storybook-workbench-field-grid">
+                        <InlineStorybookTextField
+                          label="Title"
+                          value={storybook.title}
+                          placeholder="Untitled RP Storybook"
+                          multiline={false}
+                          onChange={(value) => updateStorybookTextField('title', value)}
+                        />
+                        <InlineStorybookTextField
+                          label="Introduction"
+                          value={storybook.introduction}
+                          placeholder="No introduction defined."
+                          onChange={(value) => updateStorybookTextField('introduction', value)}
+                        />
+                        <article className="storybook-workbench-passive-card storybook-workbench-readonly-field">
+                          <strong>Image Description Prompt</strong>
+                          <textarea
+                            className="storybook-inline-edit-control nodrag"
+                            value={rpStorybookImageDescriptionPromptText(storybook.imageDescriptionPrompt)}
+                            readOnly
+                            spellCheck={false}
+                            onKeyDown={stopGraphEditingKeys}
+                          />
+                        </article>
+                      </div>
+                    </section>}
 
                     {/* Section: Scenario */}
                     {activeSection === 'scenario' && <section className="storybook-workbench-story-section">
@@ -3792,9 +3808,12 @@ export function StorybookCreatorDialog({
                     </section>}
 
                     {/* Section: Character */}
-                    {activeSection === 'character' && <section className="storybook-section actors-section">
-                      <div className="section-header">
-                        <h4>Character Detail</h4>
+                    {activeSection === 'character' && <section className="storybook-workbench-story-section actors-section">
+                      <div className="storybook-workbench-section-toolbar">
+                        <div>
+                          <h4>Character Detail</h4>
+                          <p>Edit the selected character without losing access to phone and app setup.</p>
+                        </div>
                         <div className="storybook-section-header-actions">
                           <button
                             type="button"
@@ -3974,34 +3993,47 @@ export function StorybookCreatorDialog({
                           </button>
                         )}
                       </div>
-                      {storybook.characters.length ? (
+                      {activeCharacter ? (
                         <div className="storybook-workbench-gallery-list">
-                          {storybook.characters.map((character) => (
-                            <article className="storybook-workbench-image-editor" key={character.id}>
+                          <article className="storybook-workbench-image-editor">
+                            <button
+                              type="button"
+                              className="storybook-workbench-image-preview nodrag"
+                              onClick={() => {
+                                setImageDialogMode('images');
+                                setImageOwner({ kind: 'character', characterId: activeCharacter.id });
+                              }}
+                            >
+                              {activeCharacter.images[0] ? (
+                                <img src={activeCharacter.images[0].dataUrl} alt={activeCharacter.images[0].name || activeCharacter.images[0].id} />
+                              ) : (
+                                <span>No image</span>
+                              )}
+                            </button>
+                            <div>
+                              <strong>{activeCharacter.name || activeCharacter.id || 'Unnamed'}</strong>
+                              <p>{imageStatusText(activeCharacter.images)}</p>
+                              <p>{activeCharacter.images[0]?.description || 'Add image references for this character.'}</p>
+                            </div>
+                          </article>
+                          <div className="storybook-workbench-mini-gallery storybook-workbench-focused-gallery">
+                            {activeCharacter.images.map((image) => (
                               <button
                                 type="button"
-                                className="storybook-workbench-image-preview nodrag"
+                                className="nodrag"
+                                key={image.id}
                                 onClick={() => {
                                   setImageDialogMode('images');
-                                  setImageOwner({ kind: 'character', characterId: character.id });
+                                  setImageOwner({ kind: 'character', characterId: activeCharacter.id });
                                 }}
                               >
-                                {character.images[0] ? (
-                                  <img src={character.images[0].dataUrl} alt={character.images[0].name || character.images[0].id} />
-                                ) : (
-                                  <span>No image</span>
-                                )}
+                                <img src={image.dataUrl} alt={image.name || image.id} />
                               </button>
-                              <div>
-                                <strong>{character.name || character.id || 'Unnamed'}</strong>
-                                <p>{imageStatusText(character.images)}</p>
-                                <p>{character.images[0]?.description || 'Add image references for this character.'}</p>
-                              </div>
-                            </article>
-                          ))}
+                            ))}
+                          </div>
                         </div>
                       ) : (
-                        <p className="no-data-msg">No characters defined yet.</p>
+                        <p className="no-data-msg">No character selected.</p>
                       )}
                     </section>}
 
@@ -4114,8 +4146,8 @@ export function StorybookCreatorDialog({
                       )}
                     </section>}
 
-                    {activeSection === 'phone' && <section className="storybook-section phone-contacts-section">
-                      <div className="section-header">
+                    {activeSection === 'phone' && <section className="storybook-workbench-story-section phone-contacts-section">
+                      <div className="storybook-workbench-section-toolbar">
                         <div className="section-title-with-help">
                           <h4>Phone + Fotogram Contacts</h4>
                           <button
@@ -4127,6 +4159,11 @@ export function StorybookCreatorDialog({
                             ?
                           </button>
                         </div>
+                        {activeCharacter && (
+                          <button type="button" className="contextual-action-button nodrag" onClick={() => setComfyConfigCharacterId(activeCharacter.id)}>
+                            Character Setup
+                          </button>
+                        )}
                       </div>
                       {phoneContactCharacters.length >= 2 ? (
                         <div className="phone-contact-matrix-wrap">
@@ -4195,9 +4232,12 @@ export function StorybookCreatorDialog({
                     </section>}
 
                     {/* Section: Opening History */}
-                    {activeSection === 'history' && <section className="storybook-section history-section">
-                      <div className="section-header">
-                        <h4>Opening History</h4>
+                    {activeSection === 'history' && <section className="storybook-workbench-story-section history-section">
+                      <div className="storybook-workbench-section-toolbar">
+                        <div>
+                          <h4>Opening History</h4>
+                          <p>Imported chat, phone, event, and app state used to start future runs.</p>
+                        </div>
                         <div className="header-actions">
                           <button
                             type="button"

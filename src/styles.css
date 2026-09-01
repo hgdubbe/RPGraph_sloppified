@@ -26295,7 +26295,7 @@ textarea.storybook-inline-edit-control {
 }
 
 .storybook-workbench-rail {
-  grid-template-rows: auto minmax(0, 1fr) auto;
+  grid-template-rows: auto minmax(0, 1fr);
   border-right: 1px solid var(--storybook-line);
 }
 
@@ -26404,6 +26404,25 @@ textarea.storybook-inline-edit-control {
   background: var(--storybook-cyan-soft);
 }
 
+.storybook-workbench-nav-item.selected-character {
+  border-color: rgba(240, 112, 200, 0.44);
+  background:
+    linear-gradient(90deg, rgba(240, 112, 200, 0.12), rgba(123, 217, 239, 0.06)),
+    rgba(18, 23, 38, 0.92);
+}
+
+.storybook-workbench-nav-item.selected-character .storybook-workbench-nav-icon {
+  border-color: rgba(240, 112, 200, 0.58);
+  color: #ffd8f4;
+}
+
+.storybook-workbench-nav-item.selected-character.active {
+  border-color: rgba(123, 217, 239, 0.7);
+  background:
+    linear-gradient(90deg, rgba(123, 217, 239, 0.18), rgba(240, 112, 200, 0.12)),
+    rgba(18, 25, 39, 0.96);
+}
+
 .storybook-workbench-nav-icon {
   display: grid;
   width: 26px;
@@ -26465,27 +26484,6 @@ textarea.storybook-inline-edit-control {
   line-height: 1.4;
 }
 
-.storybook-workbench-rail-foot {
-  display: grid;
-  gap: 4px;
-  margin: 12px;
-  padding: 10px;
-  border: 1px solid rgba(123, 217, 239, 0.28);
-  border-radius: 8px;
-  background: rgba(123, 217, 239, 0.08);
-}
-
-.storybook-workbench-rail-foot strong {
-  color: #e6fcff;
-  font-size: 12px;
-}
-
-.storybook-workbench-rail-foot span {
-  color: var(--storybook-muted);
-  font-size: 11px;
-  line-height: 1.4;
-}
-
 .storybook-workbench-editor {
   display: grid;
   min-width: 0;
@@ -26520,6 +26518,26 @@ textarea.storybook-inline-edit-control {
   color: var(--storybook-muted);
   font-size: 12px;
   line-height: 1.45;
+}
+
+.storybook-workbench-editor-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.storybook-workbench-editing-chip {
+  display: inline-flex;
+  min-height: 23px;
+  align-items: center;
+  padding: 0 9px;
+  border: 1px solid rgba(240, 112, 200, 0.42);
+  border-radius: 999px;
+  color: #ffd8f4;
+  background: rgba(240, 112, 200, 0.1);
+  font-size: 11px;
+  font-weight: 850;
 }
 
 .storybook-workbench-mode-switch {
@@ -26646,12 +26664,16 @@ textarea.storybook-inline-edit-control {
 }
 
 .storybook-workbench-field textarea {
-  min-height: 112px;
+  min-height: 168px;
   resize: vertical;
 }
 
+.storybook-workbench-field input {
+  min-height: 42px;
+}
+
 .storybook-workbench-field textarea.tall {
-  min-height: 178px;
+  min-height: 228px;
 }
 
 .storybook-workbench-field .field-label {
@@ -26669,6 +26691,21 @@ textarea.storybook-inline-edit-control {
 
 .storybook-workbench-field:has(textarea) {
   grid-column: 1 / -1;
+}
+
+.storybook-workbench-readonly-field {
+  grid-column: 1 / -1;
+}
+
+.storybook-workbench-readonly-field textarea {
+  width: 100%;
+  min-height: 168px;
+  border: 1px solid rgba(130, 148, 190, 0.22);
+  border-radius: 7px;
+  color: #b9c7e4;
+  background: rgba(5, 8, 14, 0.72);
+  padding: 10px;
+  resize: vertical;
 }
 
 .storybook-workbench-field input:focus,
@@ -26728,6 +26765,29 @@ textarea.storybook-inline-edit-control {
   max-width: 1020px;
 }
 
+.storybook-workbench-editor .storybook-actor-grid {
+  grid-template-columns: 1fr;
+  max-width: 1120px;
+}
+
+.storybook-workbench-editor .storybook-actor-card {
+  min-height: calc(100vh - 290px);
+}
+
+.storybook-workbench-editor .character-fields {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.storybook-workbench-editor .character-fields .storybook-workbench-field {
+  min-height: 0;
+}
+
+.storybook-workbench-editor .character-fields .storybook-workbench-field:has(textarea) {
+  grid-column: auto;
+}
+
 .storybook-workbench-mini-gallery {
   display: grid;
   grid-template-columns: repeat(6, minmax(0, 1fr));
@@ -26741,6 +26801,19 @@ textarea.storybook-inline-edit-control {
   border: 1px solid rgba(123, 217, 239, 0.25);
   border-radius: 7px;
   object-fit: cover;
+}
+
+.storybook-workbench-focused-gallery {
+  grid-template-columns: repeat(auto-fill, minmax(96px, 1fr));
+}
+
+.storybook-workbench-focused-gallery button {
+  display: grid;
+  padding: 0;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  cursor: pointer;
 }
 
 .storybook-workbench-chip-row {
