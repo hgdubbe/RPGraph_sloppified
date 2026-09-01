@@ -209,5 +209,19 @@ test('opens Edit Storybook on the RP Storybook node as the same workbench contra
   await expect(page.getByRole('region', { name: /Focused storybook editor/i })).toBeVisible();
   await expect(page.getByRole('complementary', { name: /Storybook assistant/i })).toBeVisible();
   await expect(page.getByRole('button', { name: /Scenario/i })).toBeVisible();
+  await expect(page.getByText(/Primary Story Fields/i)).toBeVisible();
+  await expect(page.getByText(/Cast Overview/i)).toBeVisible();
+  await expect(page.getByRole('button', { name: /G Gallery image libraries/i })).toBeVisible();
+  await expect(page.getByRole('button', { name: /S Social Fotogram/i })).toBeVisible();
+  await expect(page.getByRole('button', { name: /B Bank balances/i })).toBeVisible();
   await expect(page.getByText(/Editable fields are marked cyan/i)).toBeVisible();
+
+  await page.getByRole('button', { name: /G Gallery image libraries/i }).click({ force: true });
+  await expect(page.getByText(/Character-owned image libraries/i)).toBeVisible();
+
+  await page.getByRole('button', { name: /S Social Fotogram/i }).click({ force: true });
+  await expect(page.getByText(/Fotogram maps to Instagram/i)).toBeVisible();
+
+  await page.getByRole('button', { name: /B Bank balances/i }).click({ force: true });
+  await expect(page.getByText(/Starting balance and fixed costs/i)).toBeVisible();
 });

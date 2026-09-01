@@ -26343,6 +26343,17 @@ textarea.storybook-inline-edit-control {
   box-shadow: 0 0 0 3px rgba(123, 217, 239, 0.1);
 }
 
+.storybook-workbench-primary-button {
+  min-height: 36px;
+  border: 1px solid rgba(123, 217, 239, 0.62);
+  border-radius: 8px;
+  color: #051019;
+  background: var(--storybook-cyan);
+  font-size: 12px;
+  font-weight: 900;
+  cursor: pointer;
+}
+
 .storybook-workbench-nav {
   min-height: 0;
   overflow: auto;
@@ -26447,6 +26458,13 @@ textarea.storybook-inline-edit-control {
   font-weight: 850;
 }
 
+.storybook-workbench-empty-note {
+  padding: 0 10px;
+  color: var(--storybook-muted);
+  font-size: 11px;
+  line-height: 1.4;
+}
+
 .storybook-workbench-rail-foot {
   display: grid;
   gap: 4px;
@@ -26546,6 +26564,38 @@ textarea.storybook-inline-edit-control {
   grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 
+.storybook-workbench-story-section,
+.storybook-workbench-gallery-list {
+  display: grid;
+  align-content: start;
+  gap: 14px;
+  max-width: 1120px;
+}
+
+.storybook-workbench-section-toolbar {
+  display: flex;
+  align-items: end;
+  justify-content: space-between;
+  gap: 16px;
+  margin-top: 2px;
+}
+
+.storybook-workbench-section-toolbar h4 {
+  margin: 0;
+  color: #f1f7ff;
+  font-size: 13px;
+  font-weight: 930;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.storybook-workbench-section-toolbar p {
+  margin: 4px 0 0;
+  color: var(--storybook-muted);
+  font-size: 11px;
+  line-height: 1.4;
+}
+
 .storybook-workbench-field {
   display: grid;
   gap: 8px;
@@ -26604,6 +26654,23 @@ textarea.storybook-inline-edit-control {
   min-height: 178px;
 }
 
+.storybook-workbench-field .field-label {
+  color: #e7fbff;
+  font-size: 11px;
+  font-weight: 900;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.storybook-workbench-field .storybook-inline-edit-control {
+  border-color: rgba(123, 217, 239, 0.38);
+  background: rgba(5, 10, 18, 0.96);
+}
+
+.storybook-workbench-field:has(textarea) {
+  grid-column: 1 / -1;
+}
+
 .storybook-workbench-field input:focus,
 .storybook-workbench-field textarea:focus {
   border-color: rgba(123, 217, 239, 0.82);
@@ -26652,6 +26719,28 @@ textarea.storybook-inline-edit-control {
 
 .storybook-workbench-character-card > .storybook-workbench-chip-row {
   grid-column: 1 / -1;
+}
+
+.storybook-workbench-media-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+  max-width: 1020px;
+}
+
+.storybook-workbench-mini-gallery {
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: 6px;
+  min-height: 48px;
+}
+
+.storybook-workbench-mini-gallery img {
+  width: 100%;
+  aspect-ratio: 1;
+  border: 1px solid rgba(123, 217, 239, 0.25);
+  border-radius: 7px;
+  object-fit: cover;
 }
 
 .storybook-workbench-chip-row {
