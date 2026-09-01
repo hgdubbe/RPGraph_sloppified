@@ -1,4 +1,6 @@
 import { expect, test, type Page } from '@playwright/test';
+import { currentCoreNodeVersions } from '../../src/nodes/nodeVersion';
+import { rpStorybookJsonText, starterRpStorybook } from '../../src/nodes/rp-storybook/model';
 import {
   cleanup,
   enterGraphMode,
@@ -17,6 +19,32 @@ test.afterEach(async () => {
 
 async function graphCanvasVisible(page: Page) {
   await expect(page.locator('.react-flow').first()).toBeVisible();
+}
+
+function storybookEditorWorkflow() {
+  return {
+    format: 'rpgraph-workflow' as const,
+    formatVersion: '1.2' as const,
+    savedAt: '2026-08-30T00:00:00.000Z',
+    viewport: { x: 0, y: 0, zoom: 1 },
+    edges: [],
+    nodes: [
+      {
+        id: 'storybook-editor-under-test',
+        type: 'workflow',
+        position: { x: 80, y: 80 },
+        data: {
+          nodeType: 'rp-storybook-editor',
+          nodeDataVersion: currentCoreNodeVersions['rp-storybook-editor'],
+          label: 'RP Storybook Editor',
+          description: 'Edit storybook text and JSON',
+          preview: 'Starter story',
+          storybookJson: rpStorybookJsonText(starterRpStorybook),
+          storybookStatus: 'Ready',
+        },
+      },
+    ],
+  };
 }
 
 test('starts in Play Mode and preserves access to the full graph editor', async () => {
@@ -122,4 +150,23 @@ test('filters Add Nodes from the persistent palette search', async () => {
 
   await expect(page.getByText('Text Preview')).toBeVisible();
   await expect(page.getByText('User Input', { exact: true })).toBeHidden();
+});
+
+test('opens the Storybook Editor as a workbench with assistant and clear editing zones', async () => {
+  app = await launchAppWithWorkflow(storybookEditorWorkflow());
+  const { page } = app;
+
+  await enterGraphMode(page);
+  await page.getByRole('button', { name: /Open Editor/i }).click({ force: true });
+
+  await expect(page.getByRole('dialog', { name: /RP Storybook Editor/i })).toBeVisible();
+  await expect(page.getByRole('navigation', { name: /Storybook sections/i })).toBeVisible();
+  await expect(page.getByRole('region', { name: /Focused storybook editor/i })).toBeVisible();
+  await expect(page.getByRole('complementary', { name: /Storybook assistant/i })).toBeVisible();
+  await expect(page.getByRole('textbox', { name: /Title/i })).toBeVisible();
+  await expect(page.getByText(/Read-only fields are shown in the side panel/i)).toBeVisible();
+
+  await page.getByRole('button', { name: /Raw JSON/i }).click({ force: true });
+  await expect(page.getByText(/Advanced JSON Editor/i)).toBeVisible();
+  await expect(page.getByRole('textbox', { name: /Storybook raw JSON/i })).toBeVisible();
 });
