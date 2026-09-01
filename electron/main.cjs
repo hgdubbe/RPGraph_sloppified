@@ -4010,8 +4010,9 @@ ipcMain.handle('gemini:list-models', async (_event, request) => {
   }
 });
 
-// The renderer polls local providers every 2 seconds; without this cache each
-// poll would issue one /api/show request per installed Ollama model.
+// Keep the per-model capability cache even though model checks are on-demand:
+// one Ollama model-list request can still issue one /api/show request per
+// installed model.
 const ollamaCapabilitiesByModelDigest = new Map();
 
 ipcMain.handle('ollama:list-models', async (_event, request) => {

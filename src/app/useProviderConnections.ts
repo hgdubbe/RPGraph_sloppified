@@ -35,7 +35,6 @@ import {
   isGeminiConnection,
   llmProviderKind,
   isVeniceConnection,
-  shouldBackgroundPollProviderConnection,
 } from '../llm/providerKind';
 import {
   comfyConnectionRole,
@@ -138,10 +137,6 @@ type UseProviderConnectionsOptions = {
   defaultConnectionId: string;
   setDefaultConnectionId: (connectionId: string) => void;
   settingsLoadComplete: boolean;
-  // Whether a run/turn is currently active. The background health poll pauses
-  // while true and the connections dialog is closed (providers do not change
-  // mid-run).
-  isRunning: boolean;
   nodesRef: { current: WorkflowNode[] };
   setNodes: Dispatch<SetStateAction<WorkflowNode[]>>;
   notifySystem: (level: 'info' | 'warning' | 'error', text: string) => void;
@@ -153,7 +148,6 @@ export function useProviderConnections({
   defaultConnectionId,
   setDefaultConnectionId,
   settingsLoadComplete,
-  isRunning,
   nodesRef,
   setNodes,
   notifySystem,
@@ -199,7 +193,6 @@ export function useProviderConnections({
   const [llamaCppModelsByConnectionId, setLlamaCppModelsByConnectionId] = useState<Record<string, LlamaCppModelInfo[]>>({});
   const llamaCppModelsByConnectionIdRef = useRef<Record<string, LlamaCppModelInfo[]>>({});
   const startupProviderCheckCompleteRef = useRef(false);
-  const localProviderPollActiveRef = useRef(false);
   const characterComfyLoraCacheRef = useRef<Record<string, string[] | Promise<string[]>>>({});
   const [lmStudioModelActionActive, setLmStudioModelActionActive] = useState<'load' | 'unload' | null>(null);
   const [ollamaModelActionActive, setOllamaModelActionActive] = useState<'load' | 'unload' | null>(null);
@@ -1157,15 +1150,11 @@ export function useProviderConnections({
   const checkProviderConnectionsRef = useRef(checkProviderConnections);
   const inspectComfyWorkflowRef = useRef(inspectComfyWorkflow);
   const editingConnectionRef = useRef(editingConnection);
-  const isRunningRef = useRef(isRunning);
-  const showConnectionsRef = useRef(showConnections);
   useEffect(() => {
     checkProviderConnectionByIdRef.current = checkProviderConnectionById;
     checkProviderConnectionsRef.current = checkProviderConnections;
     inspectComfyWorkflowRef.current = inspectComfyWorkflow;
     editingConnectionRef.current = editingConnection;
-    isRunningRef.current = isRunning;
-    showConnectionsRef.current = showConnections;
   });
 
   useEffect(() => {
@@ -1174,39 +1163,6 @@ export function useProviderConnections({
     }
     startupProviderCheckCompleteRef.current = true;
     void checkProviderConnectionsRef.current(connections);
-  }, [connections, settingsLoadComplete]);
-
-  useEffect(() => {
-    if (!settingsLoadComplete) {
-      return;
-    }
-    const checkLocalProviders = async () => {
-      // Skip the background health poll while a turn is running AND the
-      // connections dialog is closed — providers do not change mid-run, so this
-      // avoids redundant check-connection round-trips (and the list-models +
-      // settings-save churn they cascade into) during generation. When the dialog
-      // is open the user may be tuning a provider, so keep polling to reflect it.
-      if (isRunningRef.current && !showConnectionsRef.current) {
-        return;
-      }
-      if (localProviderPollActiveRef.current) {
-        return;
-      }
-      const localConnections = connections.filter(shouldBackgroundPollProviderConnection);
-      if (!localConnections.length) {
-        return;
-      }
-      localProviderPollActiveRef.current = true;
-      try {
-        await checkProviderConnectionsRef.current(localConnections, { markChecking: false });
-      } finally {
-        localProviderPollActiveRef.current = false;
-      }
-    };
-    const intervalId = window.setInterval(() => {
-      void checkLocalProviders();
-    }, 2000);
-    return () => window.clearInterval(intervalId);
   }, [connections, settingsLoadComplete]);
 
   useEffect(() => {

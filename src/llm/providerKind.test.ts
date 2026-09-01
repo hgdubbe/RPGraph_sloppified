@@ -36,11 +36,31 @@ describe('provider kind detection', () => {
     }))).toBe('composite');
   });
 
-  it('background-polls only local model manager providers', () => {
+  it('does not background-poll provider model endpoints', () => {
     expect(shouldBackgroundPollProviderConnection(llmConnection({
       providerKind: 'lm-studio',
       baseUrl: 'http://localhost:1234/v1',
-    }))).toBe(true);
+    }))).toBe(false);
+
+    expect(shouldBackgroundPollProviderConnection(llmConnection({
+      providerKind: 'ollama',
+      label: 'Ollama',
+      baseUrl: 'http://localhost:11434/v1',
+    }))).toBe(false);
+
+    expect(shouldBackgroundPollProviderConnection(llmConnection({
+      providerKind: 'llama-cpp',
+      label: 'llama.cpp',
+      baseUrl: 'http://localhost:8080/v1',
+    }))).toBe(false);
+
+    expect(shouldBackgroundPollProviderConnection({
+      ...llmConnection({
+        label: 'ComfyUI',
+        baseUrl: 'http://127.0.0.1:8188',
+      }),
+      kind: 'comfyui',
+    })).toBe(false);
 
     expect(shouldBackgroundPollProviderConnection(llmConnection({
       providerKind: 'openrouter',

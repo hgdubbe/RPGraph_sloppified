@@ -106,11 +106,6 @@ export function isVeniceConnection(connection: ConnectionPreset): boolean {
 }
 
 export function shouldBackgroundPollProviderConnection(connection: ConnectionPreset): boolean {
-  if (!isLocalProviderConnection(connection)) {
-    return false;
-  }
-  return isLmStudioConnection(connection) ||
-    isOllamaConnection(connection) ||
-    isLlamaCppConnection(connection) ||
-    connection.kind === 'comfyui';
+  void connection;
+  return false;
 }

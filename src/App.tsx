@@ -1196,7 +1196,6 @@ function App() {
     defaultConnectionId,
     setDefaultConnectionId,
     settingsLoadComplete,
-    isRunning,
     nodesRef,
     setNodes,
     notifySystem,
