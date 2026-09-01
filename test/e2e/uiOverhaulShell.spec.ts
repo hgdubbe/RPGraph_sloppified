@@ -85,3 +85,25 @@ test('keeps Phone and Events reachable from Play Mode', async () => {
   await page.getByRole('button', { name: /Events/i }).click({ force: true });
   await expect(page.getByRole('button', { name: /Events/i })).toHaveAttribute('aria-current', 'page');
 });
+
+test('keeps the Add Nodes sidebar open and anchored on the left in Graph Mode', async () => {
+  app = await launchAppWithWorkflow(outdatedLlmWorkflow());
+  const { page } = app;
+
+  await enterGraphMode(page);
+
+  const palette = page.getByRole('complementary', { name: /Available nodes/i });
+  await expect(palette).toBeVisible();
+
+  const box = await palette.boundingBox();
+  expect(box).not.toBeNull();
+  expect(box?.x).toBeLessThan(40);
+  expect(box?.width).toBeGreaterThan(240);
+
+  await page.mouse.move((box?.x ?? 0) + 120, (box?.y ?? 0) + 220);
+  await expect(palette).toBeVisible();
+
+  const afterHoverBox = await palette.boundingBox();
+  expect(afterHoverBox?.x).toBeLessThan(40);
+  expect(afterHoverBox?.width).toBeGreaterThan(240);
+});
