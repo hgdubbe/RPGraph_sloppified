@@ -302,6 +302,7 @@ import {
   createInitialNodes,
   formatChatHistory,
   formatLastMessageForContext,
+  isWorkflowFile,
   persistentNodeData,
   validEstimatedTokenBytesPerToken,
 } from './workflow';
@@ -5006,6 +5007,71 @@ function App() {
       value: exportedNode,
     });
   }, [selectedGraphNode]);
+  const importGraphNodeJson = useCallback(async () => {
+    const result = await window.rpgraph.loadJsonFile({ title: 'Import Node JSON' });
+    if (result.canceled || !result.contents) {
+      return;
+    }
+
+    let parsed: unknown;
+    try {
+      parsed = JSON.parse(result.contents);
+    } catch (error) {
+      setFileStorageStatus(`Could not import node JSON: ${error instanceof Error ? error.message : 'invalid JSON'}`);
+      return;
+    }
+
+    const candidate = parsed && typeof parsed === 'object' && 'node' in parsed
+      ? (parsed as { node?: unknown }).node
+      : parsed;
+    const workflowCandidate: WorkflowFile = {
+      format: 'rpgraph-workflow',
+      formatVersion: currentWorkflowFormatVersion,
+      savedAt: new Date().toISOString(),
+      viewport: { x: 0, y: 0, zoom: 1 },
+      nodes: [candidate as WorkflowNode],
+      edges: [],
+    };
+
+    if (!isWorkflowFile(workflowCandidate)) {
+      setFileStorageStatus('Could not import node JSON: file is not an exported RPGraph node.');
+      return;
+    }
+
+    let hydratedNode: WorkflowNode;
+    try {
+      const hydrated = prepareLoadedWorkflow(workflowCandidate, false);
+      [hydratedNode] = hydrated.nodes;
+    } catch (error) {
+      setFileStorageStatus(`Could not import node JSON: ${error instanceof Error ? error.message : 'incompatible node'}`);
+      return;
+    }
+
+    const importedId = `${hydratedNode.data.nodeType}-${crypto.randomUUID()}`;
+    const existingPositions = nodesRef.current.map((node) => node.position);
+    const fallbackPosition = existingPositions.length
+      ? {
+        x: Math.max(...existingPositions.map((position) => position.x)) + 80,
+        y: Math.min(...existingPositions.map((position) => position.y)),
+      }
+      : { x: 120, y: 120 };
+    const nextNode: WorkflowNode = {
+      ...hydratedNode,
+      id: importedId,
+      selected: true,
+      dragging: false,
+      position: selectedGraphNode
+        ? { x: selectedGraphNode.position.x + 80, y: selectedGraphNode.position.y + 80 }
+        : fallbackPosition,
+      data: structuredClone(persistentNodeData(hydratedNode.data)),
+    };
+
+    commitNodes([
+      ...nodesRef.current.map((node) => ({ ...node, selected: false })),
+      nextNode,
+    ]);
+    setFileStorageStatus(`Imported node: ${nextNode.data.label}`);
+  }, [commitNodes, prepareLoadedWorkflow, selectedGraphNode, setFileStorageStatus]);
 
   const playHeaderControls = (
     <div className="studio-play-command-group">
@@ -5368,6 +5434,9 @@ function App() {
               <button type="button" onClick={() => void exportSelectedGraphNodeJson()}>
                 Export JSON
               </button>
+              <button type="button" onClick={() => void importGraphNodeJson()}>
+                Import JSON
+              </button>
               {selectedGraphProvider && (
                 <button type="button" onClick={() => void checkProviderConnectionById(selectedGraphProvider.id)}>
                   Check Provider
@@ -5527,6 +5596,9 @@ function App() {
               </button>
               <button type="button" onClick={() => void saveCurrentSession()}>
                 Save RP
+              </button>
+              <button type="button" onClick={() => void importGraphNodeJson()}>
+                Import Node JSON
               </button>
               <button
                 type="button"
