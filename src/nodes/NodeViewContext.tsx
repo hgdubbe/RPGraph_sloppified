@@ -10,3 +10,7 @@ export function useNodeView() {
   }
   return values;
 }
+
+export function useOptionalNodeView() {
+  return useContext(NodeViewContext);
+}

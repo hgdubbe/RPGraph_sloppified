@@ -81,3 +81,30 @@ test('connecting prompt-after overrides only that field and preserves the author
   await expect(app.page.locator('#llm-under-test-before')).toHaveValue('AUTHORED BEFORE TEXT');
   await expect(app.page.locator('#llm-under-test-after')).toHaveValue('AUTHORED AFTER TEXT');
 });
+
+test('graph inspector shows useful node context and prompt fields can open in a large editor', async () => {
+  app = await launchAppWithWorkflow(llmPromptOverrideWorkflow());
+  const { page } = app;
+  await enterGraphMode(page);
+
+  const card = llmCard(page);
+  await card.click({ force: true });
+
+  const inspector = page.getByRole('complementary', { name: /Node Inspector/i });
+  await expect(inspector).toContainText('Run Signal');
+  await expect(inspector).toContainText('LLM / Provider');
+  await expect(inspector).toContainText('Route');
+  await expect(inspector).toContainText('Editable Text');
+  await expect(inspector).toContainText('Prompt before input');
+
+  await card.getByRole('button', { name: /Open large text editor/i }).first().click({ force: true });
+  const dialog = page.getByRole('dialog', { name: /Large node text editor/i });
+  await expect(dialog).toBeVisible();
+  await expect(dialog.getByRole('textbox')).toHaveValue('AUTHORED BEFORE TEXT');
+
+  await dialog.getByRole('textbox').fill('EXPANDED EDITOR TEXT');
+  await dialog.getByRole('button', { name: 'Apply' }).click({ force: true });
+
+  await expect(dialog).toBeHidden();
+  await expect(page.locator('#llm-under-test-before')).toHaveValue('EXPANDED EDITOR TEXT');
+});

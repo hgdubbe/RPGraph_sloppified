@@ -15,6 +15,7 @@ import React, {
 } from 'react';
 import type { SettingsValueDefinition } from '../../types';
 import { defaultWorkflowVariableValue, variableAliases } from '../../workflow';
+import { useOptionalNodeView } from '../NodeViewContext';
 import { defaultPromptActionTitle, promptActionKey } from './promptActions';
 import { promptCommandTokenPattern } from './promptCommands';
 import { promptStepMarkerPattern, stepOutputTokenPattern } from './promptSteps';
@@ -622,6 +623,7 @@ export function JsonSyntaxTextarea({
 }: JsonSyntaxTextareaProps) {
   const generatedId = useId();
   const textareaId = id ?? generatedId;
+  const nodeView = useOptionalNodeView();
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const highlightRef = useRef<HTMLPreElement>(null);
   const rememberSelection = usePreservedTextSelection(textareaRef, value);
@@ -681,6 +683,7 @@ export function JsonSyntaxTextarea({
     [value],
   );
   const highlightActive = highlightPlainText || jsonHighlightActive || workflowVariableHighlightActive || promptActionHighlightActive || templateVariableHighlightActive || stepHighlightActive;
+  const canOpenLargeEditor = !!nodeView?.openTextEditor && !!onChange && !readOnly && !disabled;
 
   const tokenClassName = (token: HighlightToken) => {
     if (
@@ -951,7 +954,32 @@ export function JsonSyntaxTextarea({
   };
 
   return (
-    <div className={`json-syntax-textarea${highlightActive ? ' active' : ''}`}>
+    <div className={[
+      'json-syntax-textarea',
+      highlightActive ? 'active' : '',
+      canOpenLargeEditor ? 'has-large-editor' : '',
+    ].filter(Boolean).join(' ')}
+    >
+      {canOpenLargeEditor && (
+        <button
+          className="node-text-large-editor-button nodrag nowheel"
+          type="button"
+          aria-label="Open large text editor"
+          title="Open large text editor"
+          onClick={(event) => {
+            event.preventDefault();
+            event.stopPropagation();
+            nodeView.openTextEditor?.({
+              title: placeholder || 'Node text',
+              value,
+              language: jsonHighlightActive ? 'json' : 'text',
+              onApply: onChange,
+            });
+          }}
+        >
+          ⤢
+        </button>
+      )}
       <textarea
         className={className}
         id={textareaId}

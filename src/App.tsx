@@ -17,6 +17,7 @@ import {
   SystemLogDialog,
 } from './components/AppDialogs';
 import { StorybookEditorDialog } from './components/StorybookEditorDialog';
+import { NodeTextEditorDialog } from './components/NodeTextEditorDialog';
 import {
   AssistantDialog,
   type AssistantMessage as AssistantChatMessage,
@@ -229,7 +230,7 @@ import type { OutputFormatHelpKind } from './nodes/output/formatHelp';
 import type { ExecuteTraceFormatResult } from './nodes/types';
 import { getRegisteredCoreNode } from './nodes/registry';
 import { buildUpgradedNode, storybookOrSingletonUpgradeConflict } from './nodes/nodeUpgrade';
-import type { NodeViewValues } from './nodes/types';
+import type { NodeTextEditorRequest, NodeViewValues } from './nodes/types';
 import { NodeViewContext } from './nodes/NodeViewContext';
 import { WorkflowNodeRenderer } from './nodes/WorkflowNodeRenderer';
 import { resetCharacterStatsRuntimeData } from './nodes/character-stats/runtime';
@@ -606,6 +607,7 @@ type PreviewImageState = {
 function App() {
   const [nodes, setNodes, onNodesChange] = useNodesState<WorkflowNode>(createInitialNodes());
   const [edges, setEdges, onEdgesChange] = useEdgesState(createInitialEdges());
+  const [nodeTextEditorRequest, setNodeTextEditorRequest] = useState<NodeTextEditorRequest | null>(null);
   const [studioMode, setStudioModeState] = useState<StudioMode>(() => {
     if (typeof window === 'undefined') {
       return 'play';
@@ -4840,6 +4842,7 @@ function App() {
     onCheckProviderConnection: (connectionId) => {
       void checkProviderConnectionById(connectionId);
     },
+    openTextEditor: setNodeTextEditorRequest,
     estimatedTokenBytesPerToken: activeTokenEstimateBytesPerToken,
     settingsValueDefinitions,
     settingsValues: resolvedWorkflowSettingsValues,
@@ -4906,6 +4909,74 @@ function App() {
       return [];
     }
   }, [selectedGraphDefinition, selectedGraphNode]);
+  const selectedGraphIncomingEdges = selectedGraphNode
+    ? edges.filter((edge) => edge.target === selectedGraphNode.id)
+    : [];
+  const selectedGraphOutgoingEdges = selectedGraphNode
+    ? edges.filter((edge) => edge.source === selectedGraphNode.id)
+    : [];
+  const selectedGraphProvider = selectedGraphNode?.data.connectionId
+    ? connections.find((connection) => connection.id === selectedGraphNode.data.connectionId)
+    : selectedGraphDefinition?.usesLlm
+      ? connections.find((connection) => connection.id === defaultConnectionId)
+      : undefined;
+  const selectedGraphProviderHealth = selectedGraphProvider
+    ? providerHealthById[selectedGraphProvider.id]
+    : undefined;
+  const selectedGraphPromptTexts = selectedGraphNode ? [
+    { label: 'Prompt before input', value: selectedGraphNode.data.llmPromptBefore },
+    { label: 'Prompt after input', value: selectedGraphNode.data.llmPromptAfter },
+    { label: 'History prompt', value: selectedGraphNode.data.historyLastPrompt },
+    { label: 'Event prompt', value: selectedGraphNode.data.eventLastPrompt },
+    { label: 'Character stats prompt', value: selectedGraphNode.data.characterStatsLastPrompt },
+    { label: 'Speaker prompt', value: selectedGraphNode.data.outputSpeakerPrompt?.customText },
+    { label: 'Memory text', value: selectedGraphNode.data.memorySlotText },
+    { label: 'Loaded text', value: selectedGraphNode.data.loadedText },
+    { label: 'Note', value: selectedGraphNode.data.noteText },
+    { label: 'Written text', value: selectedGraphNode.data.writeTextValue },
+  ].filter((entry): entry is { label: string; value: string } => typeof entry.value === 'string' && entry.value.length > 0) : [];
+  const selectedGraphRuntimeTexts = selectedGraphNode ? [
+    { label: 'Preview', value: selectedGraphNode.data.preview },
+    { label: 'Generated text', value: selectedGraphNode.data.generatedText },
+    { label: 'Compressed text', value: selectedGraphNode.data.compressedText },
+    { label: 'Raw history', value: selectedGraphNode.data.rawHistory },
+    { label: 'Last response', value: selectedGraphNode.data.historyLastResponse ?? selectedGraphNode.data.eventLastResponse ?? selectedGraphNode.data.characterStatsLastResponse },
+  ].filter((entry): entry is { label: string; value: string } => typeof entry.value === 'string' && entry.value.length > 0) : [];
+  const selectedGraphLlmCallStats = selectedGraphNode?.data.llmCallStats ?? [];
+  const selectedGraphLastLlmCall = selectedGraphLlmCallStats[selectedGraphLlmCallStats.length - 1];
+  const selectedGraphRunState = selectedGraphNode?.data.runError
+    ? 'Error'
+    : selectedGraphNode?.data.runActive
+      ? 'Running'
+      : selectedGraphNode?.data.runCompleted
+        ? 'Completed'
+        : selectedGraphNode?.data.runPrepared
+          ? 'Prepared'
+          : 'Idle';
+  const graphLlmNodeCount = nodeViewNodes.filter((node) => getRegisteredCoreNode(node.data.nodeType)?.usesLlm).length;
+  const graphRunErrorCount = nodeViewNodes.filter((node) => node.data.runError).length;
+  const graphUnwiredNodeCount = nodeViewNodes.filter((node) =>
+    !edges.some((edge) => edge.source === node.id || edge.target === node.id),
+  ).length;
+  const graphOnlineProviderCount = connections.filter((connection) => providerHealthById[connection.id]?.status === 'online').length;
+  const graphNodeLabel = (nodeId: string) =>
+    nodeViewNodes.find((node) => node.id === nodeId)?.data.label ?? nodeId;
+  const graphPortLabel = (node: WorkflowNode | undefined, handleId: string | null | undefined) => {
+    if (!node || !handleId) {
+      return handleId ?? 'port';
+    }
+    try {
+      const definition = getRegisteredCoreNode(node.data.nodeType);
+      return (node.data.portsSnapshot?.length ? node.data.portsSnapshot : definition?.ports(node.data) ?? [])
+        .find((port) => port.id === handleId)?.label ?? handleId;
+    } catch {
+      return handleId;
+    }
+  };
+  const graphTextStat = (value: string) => ({
+    chars: value.length,
+    tokens: Math.ceil(value.length / Math.max(1, activeTokenEstimateBytesPerToken)),
+  });
 
   const playHeaderControls = (
     <div className="studio-play-command-group">
@@ -5216,7 +5287,7 @@ function App() {
       <header className="graph-inspector-header">
         <div>
           <strong>Inspector</strong>
-          <small>{selectedGraphNode ? 'Selected node' : 'Graph summary'}</small>
+          <small>{selectedGraphNode ? 'Runtime, wiring, and editable payloads' : 'Workflow health and actions'}</small>
         </div>
       </header>
       {selectedGraphNode ? (
@@ -5225,8 +5296,13 @@ function App() {
             <h2>{selectedGraphNode.data.label}</h2>
             <p>{selectedGraphNode.data.description}</p>
             <div className="graph-inspector-tags">
-              <span className={`graph-inspector-tag${selectedGraphNode.data.runActive ? ' active' : ''}`}>
-                {selectedGraphNode.data.runActive ? 'Running' : 'Ready'}
+              <span className={[
+                'graph-inspector-tag',
+                selectedGraphNode.data.runActive || selectedGraphNode.data.runCompleted ? 'active' : '',
+                selectedGraphNode.data.runError ? 'error' : '',
+              ].filter(Boolean).join(' ')}
+              >
+                {selectedGraphRunState}
               </span>
               <span className="graph-inspector-tag">{selectedGraphNode.data.nodeType}</span>
               <span className="graph-inspector-tag">
@@ -5235,45 +5311,183 @@ function App() {
             </div>
           </section>
           <section className="graph-inspector-section">
-            <h3>Preview</h3>
-            <p className="graph-inspector-preview">{selectedGraphNode.data.preview}</p>
+            <h3>Actions</h3>
+            <div className="graph-inspector-actions">
+              <button type="button" onClick={() => setNodeAssistantNodeId(selectedGraphNode.id)}>
+                Ask Assistant
+              </button>
+              <button type="button" onClick={() => setShowRunLlmReport(true)} disabled={!runLlmReport}>
+                Run Report
+              </button>
+              {selectedGraphProvider && (
+                <button type="button" onClick={() => void checkProviderConnectionById(selectedGraphProvider.id)}>
+                  Check Provider
+                </button>
+              )}
+            </div>
           </section>
           <section className="graph-inspector-section">
-            <h3>Ports</h3>
-            {selectedGraphPorts.length > 0 ? selectedGraphPorts.map((port) => (
-              <div className="graph-inspector-port" key={`${port.direction}-${port.id}`}>
-                <span className={`graph-inspector-port-dot ${port.direction}`} aria-hidden="true" />
-                <span>{port.label}</span>
-                <small>{port.direction}</small>
+            <h3>Run Signal</h3>
+            <div className="graph-inspector-stat-grid">
+              <div className="graph-inspector-stat">
+                <span>Inputs</span>
+                <strong>{selectedGraphIncomingEdges.length}</strong>
               </div>
-            )) : (
-              <p className="graph-inspector-muted">No exposed ports.</p>
+              <div className="graph-inspector-stat">
+                <span>Outputs</span>
+                <strong>{selectedGraphOutgoingEdges.length}</strong>
+              </div>
+              <div className="graph-inspector-stat">
+                <span>Ports</span>
+                <strong>{selectedGraphPorts.length}</strong>
+              </div>
+              <div className="graph-inspector-stat">
+                <span>Runtime Values</span>
+                <strong>{Object.keys(selectedGraphNode.data.runtimePortValues ?? {}).length}</strong>
+              </div>
+            </div>
+            {selectedGraphNode.data.runError && (
+              <p className="graph-inspector-callout error">{selectedGraphNode.data.runError}</p>
             )}
           </section>
+          {(selectedGraphDefinition?.usesLlm || selectedGraphProvider || selectedGraphLastLlmCall) && (
+            <section className="graph-inspector-section">
+              <h3>LLM / Provider</h3>
+              <div className="graph-inspector-facts">
+                <div>
+                  <span>Connection</span>
+                  <strong>{selectedGraphProvider?.label ?? selectedGraphProvider?.id ?? 'Default not set'}</strong>
+                </div>
+                <div>
+                  <span>Status</span>
+                  <strong>{selectedGraphProviderHealth?.status ?? 'unknown'}</strong>
+                </div>
+                {selectedGraphLastLlmCall && (
+                  <>
+                    <div>
+                      <span>Last Call</span>
+                      <strong>{selectedGraphLastLlmCall.label}</strong>
+                    </div>
+                    <div>
+                      <span>Tokens</span>
+                      <strong>{selectedGraphLastLlmCall.totalTokens ?? 'n/a'}</strong>
+                    </div>
+                    <div>
+                      <span>Duration</span>
+                      <strong>{(selectedGraphLastLlmCall.durationMs / 1000).toFixed(1)}s</strong>
+                    </div>
+                  </>
+                )}
+              </div>
+              {selectedGraphProviderHealth?.detail && (
+                <p className="graph-inspector-muted">{selectedGraphProviderHealth.detail}</p>
+              )}
+            </section>
+          )}
           <section className="graph-inspector-section">
-            <div className="graph-inspector-collapsed">
-              <span>Why This Ran</span>
-              <small>collapsed</small>
-            </div>
+            <h3>Route</h3>
+            {selectedGraphIncomingEdges.length || selectedGraphOutgoingEdges.length ? (
+              <div className="graph-inspector-routes">
+                {selectedGraphIncomingEdges.slice(0, 4).map((edge) => {
+                  const sourceNode = nodeViewNodes.find((node) => node.id === edge.source);
+                  return (
+                    <div className="graph-inspector-route" key={edge.id}>
+                      <span>In</span>
+                      <strong>{graphNodeLabel(edge.source)}</strong>
+                      <small>{graphPortLabel(sourceNode, edge.sourceHandle)} → {graphPortLabel(selectedGraphNode, edge.targetHandle)}</small>
+                    </div>
+                  );
+                })}
+                {selectedGraphOutgoingEdges.slice(0, 4).map((edge) => {
+                  const targetNode = nodeViewNodes.find((node) => node.id === edge.target);
+                  return (
+                    <div className="graph-inspector-route" key={edge.id}>
+                      <span>Out</span>
+                      <strong>{graphNodeLabel(edge.target)}</strong>
+                      <small>{graphPortLabel(selectedGraphNode, edge.sourceHandle)} → {graphPortLabel(targetNode, edge.targetHandle)}</small>
+                    </div>
+                  );
+                })}
+              </div>
+            ) : (
+              <p className="graph-inspector-muted">This node is not wired into the workflow.</p>
+            )}
           </section>
-          <section className="graph-inspector-section">
-            <h3>Validation</h3>
-            <div className="graph-inspector-tags">
-              <span className="graph-inspector-tag active">No errors</span>
-              <span className="graph-inspector-tag">{selectedGraphPorts.filter((port) => port.direction === 'input').length} inputs</span>
-              <span className="graph-inspector-tag">{selectedGraphPorts.filter((port) => port.direction === 'output').length} outputs</span>
-            </div>
-          </section>
+          {selectedGraphPromptTexts.length > 0 && (
+            <section className="graph-inspector-section">
+              <h3>Editable Text</h3>
+              <div className="graph-inspector-text-list">
+                {selectedGraphPromptTexts.slice(0, 5).map((entry) => {
+                  const stat = graphTextStat(entry.value);
+                  return (
+                    <div className="graph-inspector-text-row" key={entry.label}>
+                      <strong>{entry.label}</strong>
+                      <span>{stat.chars.toLocaleString()} chars · ~{stat.tokens.toLocaleString()} tokens</span>
+                    </div>
+                  );
+                })}
+              </div>
+            </section>
+          )}
+          {selectedGraphRuntimeTexts.length > 0 && (
+            <section className="graph-inspector-section">
+              <h3>Runtime Payload</h3>
+              <p className="graph-inspector-preview">{selectedGraphRuntimeTexts[0].value}</p>
+            </section>
+          )}
         </>
       ) : (
         <>
           <section className="graph-inspector-summary">
             <h2>Workflow</h2>
-            <p>Select a node to inspect its ports, preview, version, and run state.</p>
+            <p>Select a node to inspect provider state, prompt size, route wiring, runtime payloads, and errors.</p>
             <div className="graph-inspector-tags">
-              <span className="graph-inspector-tag active">Ready</span>
+              <span className={`graph-inspector-tag${graphRunErrorCount ? ' error' : ' active'}`}>
+                {graphRunErrorCount ? `${graphRunErrorCount} errors` : 'Ready'}
+              </span>
               <span className="graph-inspector-tag">{nodes.length} nodes</span>
               <span className="graph-inspector-tag">{edges.length} edges</span>
+            </div>
+          </section>
+          <section className="graph-inspector-section">
+            <h3>Health</h3>
+            <div className="graph-inspector-stat-grid">
+              <div className="graph-inspector-stat">
+                <span>LLM Nodes</span>
+                <strong>{graphLlmNodeCount}</strong>
+              </div>
+              <div className="graph-inspector-stat">
+                <span>Providers Online</span>
+                <strong>{graphOnlineProviderCount}/{connections.length}</strong>
+              </div>
+              <div className="graph-inspector-stat">
+                <span>Unwired</span>
+                <strong>{graphUnwiredNodeCount}</strong>
+              </div>
+              <div className="graph-inspector-stat">
+                <span>Capabilities</span>
+                <strong>{workflowCapabilityIndicators.length}</strong>
+              </div>
+            </div>
+          </section>
+          <section className="graph-inspector-section">
+            <h3>Actions</h3>
+            <div className="graph-inspector-actions">
+              <button type="button" onClick={() => void saveCurrentWorkflow()}>
+                Save Workflow
+              </button>
+              <button type="button" onClick={() => void saveCurrentSession()}>
+                Save RP
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setNodeAssistantNodeId(null);
+                  setWorkflowAssistantOpen(true);
+                }}
+              >
+                Assistant
+              </button>
             </div>
           </section>
           <section className="graph-inspector-section">
@@ -5427,6 +5641,12 @@ function App() {
           isRunning={isRunning && activeRunId === runLlmReport.runId}
           runStartTimeMs={runStartTimeMs}
           onClose={() => setShowRunLlmReport(false)}
+        />
+      )}
+      {nodeTextEditorRequest && (
+        <NodeTextEditorDialog
+          request={nodeTextEditorRequest}
+          onClose={() => setNodeTextEditorRequest(null)}
         />
       )}
       <header className="topbar">
