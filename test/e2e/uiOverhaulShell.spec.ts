@@ -80,7 +80,7 @@ test('starts in Play Mode and preserves access to the full graph editor', async 
   await expect(page.getByRole('button', { name: /Graph Mode/i })).toBeVisible();
   await expect(page.getByRole('navigation', { name: /Story surfaces/i })).toBeVisible();
   await expect(page.getByRole('tablist', { name: /Playable characters/i })).toBeVisible();
-  await expect(page.getByRole('complementary', { name: /Story State/i })).toBeVisible();
+  await expect(page.getByRole('complementary', { name: /Story State/i })).toBeHidden();
 
   await enterGraphMode(page);
 
@@ -96,13 +96,16 @@ test('starts in Play Mode and preserves access to the full graph editor', async 
   await expect(page.getByRole('button', { name: 'Chat', exact: true })).toBeVisible();
 });
 
-test('collapses Story State without hiding turn controls', async () => {
+test('removes Story State while keeping turn controls', async () => {
   app = await launchAppWithWorkflow(outdatedLlmWorkflow());
   const { page } = app;
 
-  await page.getByRole('button', { name: /Collapse Story State/i }).click({ force: true });
-
+  await expect(page.getByRole('complementary', { name: /Story State/i })).toBeHidden();
+  await expect(page.getByRole('button', { name: /Collapse Story State/i })).toBeHidden();
   await expect(page.getByText('Character-owned surfaces')).toBeHidden();
+  await expect(page.getByText('Graph recedes')).toBeHidden();
+  await expect(page.getByText('No orange system')).toBeHidden();
+
   await expect(page.getByRole('button', { name: /AutoTurn/i })).toBeVisible();
   await expect(page.getByText(/Turn 0/i)).toBeVisible();
 });

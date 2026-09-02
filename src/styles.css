@@ -817,7 +817,7 @@ input[type="radio"]:focus-visible {
 .studio-activity-rail,
 .studio-character-strip,
 .studio-play-content,
-.studio-story-state {
+.studio-play-footer {
   -webkit-app-region: no-drag;
 }
 
@@ -887,20 +887,6 @@ input[type="radio"]:focus-visible {
   align-items: center;
   justify-content: flex-end;
   gap: 8px;
-}
-
-.studio-play-command-group .connection-button {
-  min-width: 78px;
-  height: 33px;
-  border-color: rgba(93, 112, 158, 0.76);
-  border-radius: 8px;
-  color: #f2f6ff;
-  background: #0d1120;
-  box-shadow: none;
-}
-
-.studio-play-log-button:not(.has-log) {
-  display: none;
 }
 
 .studio-activity-rail {
@@ -1047,80 +1033,28 @@ input[type="radio"]:focus-visible {
   background: #090b15;
 }
 
-.studio-story-state {
-  display: grid;
-  gap: 10px;
-  padding: 14px;
-  border-top: 1px solid rgba(77, 96, 138, 0.42);
-  background: #090b15;
-}
-
-.studio-story-state header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  color: #f2f6ff;
-  font-size: 12px;
-  font-weight: 950;
-  text-transform: uppercase;
-}
-
-.studio-story-state-toggle {
-  display: grid;
-  width: 32px;
-  height: 32px;
-  place-items: center;
-  padding: 0;
-  border: 1px solid rgba(77, 96, 138, 0.78);
-  border-radius: 7px;
-  color: #a8b9eb;
-  background: #101421;
-  font: inherit;
-  cursor: pointer;
-}
-
-.studio-story-state-toggle:hover {
-  border-color: #79d8ef;
-  color: #79d8ef;
-}
-
-.studio-story-state-body {
-  display: grid;
-  gap: 10px;
-}
-
-.studio-story-state.collapsed .studio-story-state-body {
-  display: none;
-}
-
-.studio-story-state section {
-  padding: 10px 12px;
-  border: 1px solid rgba(77, 96, 138, 0.72);
-  border-radius: 8px;
-  background: #121523;
-}
-
-.studio-story-state section strong {
-  display: block;
-  margin-bottom: 3px;
-  color: #f7f9ff;
-  font-size: 12px;
-  font-weight: 900;
-}
-
-.studio-story-state section p {
-  margin: 0;
-  color: #8fa1d1;
-  font-size: 11px;
-  font-weight: 650;
-  line-height: 1.35;
-}
-
 .studio-play-footer {
   display: flex;
   align-items: center;
   justify-content: flex-end;
   gap: 8px;
+  padding: 10px 14px;
+  border-top: 1px solid rgba(77, 96, 138, 0.42);
+  background: #090b15;
+}
+
+.studio-play-command-group .connection-button {
+  min-width: 78px;
+  height: 33px;
+  border-color: rgba(93, 112, 158, 0.76);
+  border-radius: 8px;
+  color: #f2f6ff;
+  background: #0d1120;
+  box-shadow: none;
+}
+
+.studio-play-log-button:not(.has-log) {
+  display: none;
 }
 
 .studio-shell-play .chat-lockable {
@@ -1550,14 +1484,11 @@ input[type="radio"]:focus-visible {
 }
 
 .studio[data-studio-theme] .studio-play-brand strong,
-.studio[data-studio-theme] .studio-play-scene strong,
-.studio[data-studio-theme] .studio-story-state header,
-.studio[data-studio-theme] .studio-story-state section strong {
+.studio[data-studio-theme] .studio-play-scene strong {
   color: var(--theme-text);
 }
 
 .studio[data-studio-theme] .studio-play-scene span,
-.studio[data-studio-theme] .studio-story-state section p,
 .studio[data-studio-theme] .studio-character-tabs span {
   color: var(--theme-muted);
 }
@@ -1600,8 +1531,7 @@ input[type="radio"]:focus-visible {
 .studio[data-studio-theme] .studio-shell-play .attach-image-button,
 .studio[data-studio-theme] .studio-shell-play .composer .composer-icon-button,
 .studio[data-studio-theme] .studio-shell-play .switch-player-button,
-.studio[data-studio-theme] .studio-shell-play .turn-controls button,
-.studio[data-studio-theme] .studio-story-state-toggle {
+.studio[data-studio-theme] .studio-shell-play .turn-controls button {
   border-color: var(--theme-border);
   border-radius: var(--theme-radius);
   color: var(--theme-text);
@@ -1625,7 +1555,7 @@ input[type="radio"]:focus-visible {
 }
 
 .studio[data-studio-theme] .studio-play-content,
-.studio[data-studio-theme] .studio-story-state {
+.studio[data-studio-theme] .studio-play-footer {
   background: var(--theme-content-bg);
 }
 
@@ -1673,14 +1603,8 @@ input[type="radio"]:focus-visible {
   background: var(--theme-input-bg);
 }
 
-.studio[data-studio-theme] .studio-story-state {
+.studio[data-studio-theme] .studio-play-footer {
   border-top-color: var(--theme-border-soft);
-}
-
-.studio[data-studio-theme] .studio-story-state section {
-  border-color: var(--theme-border);
-  border-radius: var(--theme-radius);
-  background: var(--theme-card-bg);
 }
 
 .studio[data-studio-theme] .phone-desktop::after {
