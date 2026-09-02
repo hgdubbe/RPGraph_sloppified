@@ -196,6 +196,19 @@ test('keeps the Add Nodes sidebar open and anchored on the left in Graph Mode', 
   const canvasBox = await page.getByRole('region', { name: /Workflow Graph/i }).boundingBox();
   expect(canvasBox).not.toBeNull();
   expect(canvasBox?.x).toBeGreaterThan((afterHoverBox?.x ?? 0) + (afterHoverBox?.width ?? 0) - 1);
+
+  await palette.getByRole('button', { name: /Hide Add Nodes/i }).click({ force: true });
+  await expect(palette).toHaveClass(/collapsed/);
+  await expect(palette.getByText('Add Nodes')).toBeVisible();
+
+  const collapsedBox = await palette.boundingBox();
+  expect(collapsedBox).not.toBeNull();
+  expect(collapsedBox?.x).toBeLessThan(40);
+  expect(collapsedBox?.width).toBeLessThan(70);
+
+  await palette.getByRole('button', { name: /Show Add Nodes/i }).click({ force: true });
+  await expect(palette).not.toHaveClass(/collapsed/);
+  await expect(page.getByRole('searchbox', { name: /Search nodes/i })).toBeVisible();
 });
 
 test('filters Add Nodes from the persistent palette search', async () => {

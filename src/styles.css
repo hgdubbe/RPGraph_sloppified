@@ -2358,8 +2358,16 @@ input[type="radio"]:focus-visible {
   overflow: hidden;
 }
 
+.studio-graph-workbench.palette-collapsed {
+  grid-template-columns: 42px minmax(480px, 1fr) 300px;
+}
+
 .studio-graph-workbench.inspector-collapsed {
   grid-template-columns: 306px minmax(480px, 1fr) 42px;
+}
+
+.studio-graph-workbench.palette-collapsed.inspector-collapsed {
+  grid-template-columns: 42px minmax(480px, 1fr) 42px;
 }
 
 .studio-graph-canvas {
@@ -7418,6 +7426,55 @@ input[type="number"]::-webkit-outer-spin-button {
   min-height: 0;
 }
 
+.node-palette.collapsed {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(9, 11, 20, 0.72);
+}
+
+.node-palette-tab {
+  position: absolute;
+  z-index: 6;
+  top: 14px;
+  right: 8px;
+  display: inline-flex;
+  width: 24px;
+  height: 34px;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid rgba(125, 211, 252, 0.35);
+  border-radius: 8px;
+  color: #dff8ff;
+  background: rgba(12, 16, 29, 0.96);
+  font-size: 16px;
+  font-weight: 900;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.node-palette.collapsed .node-palette-tab {
+  right: 9px;
+}
+
+.node-palette-tab:hover,
+.node-palette-tab:focus-visible {
+  border-color: rgba(125, 211, 252, 0.72);
+  color: #85d8f0;
+  outline: none;
+}
+
+.node-palette-collapsed-label {
+  display: block;
+  transform: rotate(-90deg);
+  color: var(--graph-muted);
+  font-size: 11px;
+  font-weight: 900;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
 .node-palette:hover,
 .node-palette:focus-within {
   transform: none;
@@ -7443,7 +7500,7 @@ input[type="number"]::-webkit-outer-spin-button {
   display: grid;
   flex: none;
   gap: 10px;
-  padding: 14px;
+  padding: 14px 46px 14px 14px;
   border-bottom: 1px solid rgba(119, 134, 176, 0.2);
 }
 
@@ -7649,19 +7706,20 @@ input[type="number"]::-webkit-outer-spin-button {
 .graph-inspector-tab {
   position: absolute;
   z-index: 6;
-  top: 12px;
+  top: 14px;
   left: 8px;
   display: inline-flex;
-  width: 28px;
-  height: 48px;
+  width: 24px;
+  height: 34px;
   align-items: center;
   justify-content: center;
   border: 1px solid rgba(125, 211, 252, 0.35);
   border-radius: 8px;
   color: #dff8ff;
   background: rgba(12, 16, 29, 0.96);
-  font-size: 18px;
+  font-size: 16px;
   font-weight: 900;
+  line-height: 1;
   cursor: pointer;
 }
 

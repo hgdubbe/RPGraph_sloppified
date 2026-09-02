@@ -608,6 +608,7 @@ function App() {
   const [nodes, setNodes, onNodesChange] = useNodesState<WorkflowNode>(createInitialNodes());
   const [edges, setEdges, onEdgesChange] = useEdgesState(createInitialEdges());
   const [nodeTextEditorRequest, setNodeTextEditorRequest] = useState<NodeTextEditorRequest | null>(null);
+  const [graphPaletteCollapsed, setGraphPaletteCollapsed] = useState(false);
   const [graphInspectorCollapsed, setGraphInspectorCollapsed] = useState(false);
   const [studioMode, setStudioModeState] = useState<StudioMode>(() => {
     if (typeof window === 'undefined') {
@@ -5551,8 +5552,24 @@ function App() {
   );
 
   const graphNodePalette = (
-    <aside className="node-palette" aria-label="Available nodes">
-      <div className="node-palette-drawer">
+    <aside className={`node-palette${graphPaletteCollapsed ? ' collapsed' : ''}`} aria-label="Available nodes">
+      <button
+        className="node-palette-tab"
+        type="button"
+        aria-label={graphPaletteCollapsed ? 'Show Add Nodes' : 'Hide Add Nodes'}
+        title={graphPaletteCollapsed ? 'Show Add Nodes' : 'Hide Add Nodes'}
+        onPointerDown={(event) => {
+          event.preventDefault();
+          event.stopPropagation();
+          setGraphPaletteCollapsed((collapsed) => !collapsed);
+        }}
+      >
+        {graphPaletteCollapsed ? '›' : '‹'}
+      </button>
+      {graphPaletteCollapsed ? (
+        <span className="node-palette-collapsed-label">Add Nodes</span>
+      ) : (
+        <div className="node-palette-drawer">
         <header>
           <div>
             <strong>Add Nodes</strong>
@@ -5613,6 +5630,7 @@ function App() {
           ))}
         </div>
       </div>
+      )}
     </aside>
   );
 
@@ -5872,6 +5890,7 @@ function App() {
             nodePalette={graphNodePalette}
             inspector={graphInspector}
             overlays={graphOverlays}
+            paletteCollapsed={graphPaletteCollapsed}
             inspectorCollapsed={graphInspectorCollapsed}
             onOpenPlayMode={() => setStudioMode('play')}
           />
