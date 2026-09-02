@@ -208,6 +208,15 @@ declare global {
         fileName?: string;
         contents?: string;
       }>;
+      saveJsonFileToPath: (request: {
+        title?: string;
+        defaultFileName?: string;
+        value: unknown;
+      }) => Promise<{
+        canceled: boolean;
+        filePath?: string;
+        fileName?: string;
+      }>;
       loadDefaultWorkflow: () => Promise<{
         filePath: string;
         fileName?: string;

@@ -7,6 +7,7 @@ export type GraphStudioShellProps = {
   nodePalette: ReactNode;
   inspector: ReactNode;
   overlays: ReactNode;
+  inspectorCollapsed?: boolean;
   onOpenPlayMode: () => void;
 };
 
@@ -17,6 +18,7 @@ export function GraphStudioShell({
   nodePalette,
   inspector,
   overlays,
+  inspectorCollapsed = false,
   onOpenPlayMode,
 }: GraphStudioShellProps) {
   return (
@@ -30,7 +32,7 @@ export function GraphStudioShell({
         </div>
         <div className="studio-graph-toolbar-slot">{toolbar}</div>
       </header>
-      <section className="studio-graph-workbench">
+      <section className={`studio-graph-workbench${inspectorCollapsed ? ' inspector-collapsed' : ''}`}>
         <div className="studio-graph-palette-slot">{nodePalette}</div>
         <section className="studio-graph-canvas" aria-label="Workflow Graph">
           <div className="studio-graph-canvas-hud">{canvasHud}</div>

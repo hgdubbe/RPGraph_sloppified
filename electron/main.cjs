@@ -5149,6 +5149,27 @@ ipcMain.handle('file:save-to-path', async (_event, request) => {
   };
 });
 
+ipcMain.handle('json-file:save-to-path', async (_event, request) => {
+  const defaultFileName = safeWorkflowBaseName(request?.defaultFileName ?? 'rpgraph-export');
+  const result = await dialog.showSaveDialog({
+    title: String(request?.title || 'Export JSON'),
+    defaultPath: `${defaultFileName}${jsonFileExtension}`,
+    filters: [{ name: 'JSON', extensions: ['json'] }],
+  });
+  if (result.canceled || !result.filePath) {
+    return { canceled: true };
+  }
+  const filePath = normalizedFilePath(result.filePath);
+  await fs.mkdir(path.dirname(filePath), { recursive: true });
+  await writeTextFileAtomically(filePath, `${JSON.stringify(request?.value ?? null, null, 2)}\n`);
+  approveFilePath(filePath);
+  return {
+    canceled: false,
+    fileName: path.basename(filePath),
+    filePath,
+  };
+});
+
 ipcMain.handle('text-file:load', async () => {
   const result = await dialog.showOpenDialog({
     title: 'Load Text File',

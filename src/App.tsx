@@ -608,6 +608,7 @@ function App() {
   const [nodes, setNodes, onNodesChange] = useNodesState<WorkflowNode>(createInitialNodes());
   const [edges, setEdges, onEdgesChange] = useEdgesState(createInitialEdges());
   const [nodeTextEditorRequest, setNodeTextEditorRequest] = useState<NodeTextEditorRequest | null>(null);
+  const [graphInspectorCollapsed, setGraphInspectorCollapsed] = useState(false);
   const [studioMode, setStudioModeState] = useState<StudioMode>(() => {
     if (typeof window === 'undefined') {
       return 'play';
@@ -4977,6 +4978,33 @@ function App() {
     chars: value.length,
     tokens: Math.ceil(value.length / Math.max(1, activeTokenEstimateBytesPerToken)),
   });
+  const exportSelectedGraphNodeJson = useCallback(async () => {
+    if (!selectedGraphNode) {
+      return;
+    }
+    const exportedNode = {
+      format: 'rpgraph-node',
+      formatVersion: '1.0',
+      exportedAt: new Date().toISOString(),
+      node: {
+        id: selectedGraphNode.id,
+        type: selectedGraphNode.type,
+        position: selectedGraphNode.position,
+        width: selectedGraphNode.width,
+        height: selectedGraphNode.height,
+        data: selectedGraphNode.data,
+      },
+    };
+    const safeLabel = selectedGraphNode.data.label
+      .toLocaleLowerCase()
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/^-+|-+$/g, '') || 'node';
+    await window.rpgraph.saveJsonFileToPath({
+      title: 'Export Node JSON',
+      defaultFileName: `${safeLabel}-${selectedGraphNode.id}`,
+      value: exportedNode,
+    });
+  }, [selectedGraphNode]);
 
   const playHeaderControls = (
     <div className="studio-play-command-group">
@@ -5283,7 +5311,24 @@ function App() {
   );
 
   const graphInspector = (
-    <aside className="graph-inspector" aria-label="Node Inspector">
+    <aside className={`graph-inspector${graphInspectorCollapsed ? ' collapsed' : ''}`} aria-label="Node Inspector">
+      <button
+        className="graph-inspector-tab"
+        type="button"
+        aria-label={graphInspectorCollapsed ? 'Show Node Inspector' : 'Hide Node Inspector'}
+        title={graphInspectorCollapsed ? 'Show inspector' : 'Hide inspector'}
+        onPointerDown={(event) => {
+          event.preventDefault();
+          event.stopPropagation();
+          setGraphInspectorCollapsed((collapsed) => !collapsed);
+        }}
+      >
+        {graphInspectorCollapsed ? '‹' : '›'}
+      </button>
+      {graphInspectorCollapsed ? (
+        <span className="graph-inspector-collapsed-label">Inspector</span>
+      ) : (
+        <>
       <header className="graph-inspector-header">
         <div>
           <strong>Inspector</strong>
@@ -5318,6 +5363,9 @@ function App() {
               </button>
               <button type="button" onClick={() => setShowRunLlmReport(true)} disabled={!runLlmReport}>
                 Run Report
+              </button>
+              <button type="button" onClick={() => void exportSelectedGraphNodeJson()}>
+                Export JSON
               </button>
               {selectedGraphProvider && (
                 <button type="button" onClick={() => void checkProviderConnectionById(selectedGraphProvider.id)}>
@@ -5495,6 +5543,8 @@ function App() {
             <p className="graph-inspector-muted">{displayedWorkflowNameFormatted}</p>
             <p className="graph-inspector-muted">{displayedStorybookNameFormatted}</p>
           </section>
+        </>
+      )}
         </>
       )}
     </aside>
@@ -5822,6 +5872,7 @@ function App() {
             nodePalette={graphNodePalette}
             inspector={graphInspector}
             overlays={graphOverlays}
+            inspectorCollapsed={graphInspectorCollapsed}
             onOpenPlayMode={() => setStudioMode('play')}
           />
         </ErrorBoundary>

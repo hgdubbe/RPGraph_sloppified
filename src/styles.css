@@ -2358,6 +2358,10 @@ input[type="radio"]:focus-visible {
   overflow: hidden;
 }
 
+.studio-graph-workbench.inspector-collapsed {
+  grid-template-columns: 306px minmax(480px, 1fr) 42px;
+}
+
 .studio-graph-canvas {
   position: relative;
   height: 100%;
@@ -2430,6 +2434,7 @@ input[type="radio"]:focus-visible {
 }
 
 .studio-graph-inspector-slot {
+  position: relative;
   min-height: 0;
   min-width: 0;
   border-left: 1px solid var(--graph-line);
@@ -7627,6 +7632,7 @@ input[type="number"]::-webkit-outer-spin-button {
 }
 
 .graph-inspector {
+  position: relative;
   display: flex;
   height: 100%;
   min-height: 0;
@@ -7634,11 +7640,59 @@ input[type="number"]::-webkit-outer-spin-button {
   overflow: hidden;
 }
 
+.graph-inspector.collapsed {
+  align-items: center;
+  justify-content: center;
+  background: rgba(9, 11, 20, 0.72);
+}
+
+.graph-inspector-tab {
+  position: absolute;
+  z-index: 6;
+  top: 12px;
+  left: 8px;
+  display: inline-flex;
+  width: 28px;
+  height: 48px;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid rgba(125, 211, 252, 0.35);
+  border-radius: 8px;
+  color: #dff8ff;
+  background: rgba(12, 16, 29, 0.96);
+  font-size: 18px;
+  font-weight: 900;
+  cursor: pointer;
+}
+
+.graph-inspector.collapsed .graph-inspector-tab {
+  left: 7px;
+  border-radius: 8px;
+}
+
+.graph-inspector-tab:hover,
+.graph-inspector-tab:focus-visible {
+  border-color: rgba(125, 211, 252, 0.72);
+  color: #85d8f0;
+  outline: none;
+}
+
+.graph-inspector-collapsed-label {
+  display: block;
+  transform: rotate(90deg);
+  color: var(--graph-muted);
+  font-size: 11px;
+  font-weight: 900;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
 .graph-inspector-header {
   display: grid;
   flex: none;
   gap: 10px;
-  padding: 14px;
+  padding: 14px 14px 14px 46px;
   border-bottom: 1px solid rgba(119, 134, 176, 0.2);
 }
 
@@ -7911,10 +7965,15 @@ input[type="number"]::-webkit-outer-spin-button {
 }
 
 .node-text-editor-overlay {
+  position: fixed;
+  inset: 0;
   z-index: 190;
+  display: flex;
   align-items: center;
   justify-content: center;
   padding: 28px;
+  background: rgba(3, 5, 12, 0.68);
+  backdrop-filter: blur(3px);
 }
 
 .node-text-editor-dialog {
@@ -8002,6 +8061,20 @@ input[type="number"]::-webkit-outer-spin-button {
 
 .node-text-editor-field::selection {
   background: rgba(125, 211, 252, 0.28);
+}
+
+.node-text-editor-dialog .json-syntax-textarea {
+  height: 100%;
+  min-height: 0;
+}
+
+.node-text-editor-dialog .json-syntax-highlight {
+  padding: 18px;
+  border: 0;
+  border-radius: 0;
+  font: 13px/1.58 "SFMono-Regular", Consolas, "Liberation Mono", monospace;
+  white-space: pre-wrap;
+  word-wrap: break-word;
 }
 
 .panel-resizer::after {

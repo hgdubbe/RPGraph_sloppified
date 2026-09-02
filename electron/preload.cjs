@@ -168,6 +168,7 @@ contextBridge.exposeInMainWorld('rpgraph', {
     ipcRenderer.invoke('file:delete', { fileName, storage }),
   loadTextFile: () => ipcRenderer.invoke('text-file:load'),
   loadJsonFile: (options) => ipcRenderer.invoke('json-file:load', options),
+  saveJsonFileToPath: (request) => ipcRenderer.invoke('json-file:save-to-path', request),
   loadDefaultWorkflow: () => ipcRenderer.invoke('workflow:load-default'),
   loadStartupWorkflow: () => ipcRenderer.invoke('workflow:load-startup'),
   resolveProjectPath: (relativePath) => ipcRenderer.invoke('app:resolve-project-path', relativePath),

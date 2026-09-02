@@ -96,6 +96,7 @@ test('graph inspector shows useful node context and prompt fields can open in a 
   await expect(inspector).toContainText('Route');
   await expect(inspector).toContainText('Editable Text');
   await expect(inspector).toContainText('Prompt before input');
+  await expect(inspector.getByRole('button', { name: /Export JSON/i })).toBeVisible();
 
   await card.getByRole('button', { name: /Open large text editor/i }).first().click({ force: true });
   const dialog = page.getByRole('dialog', { name: /Large node text editor/i });
@@ -107,4 +108,10 @@ test('graph inspector shows useful node context and prompt fields can open in a 
 
   await expect(dialog).toBeHidden();
   await expect(page.locator('#llm-under-test-before')).toHaveValue('EXPANDED EDITOR TEXT');
+
+  await inspector.getByRole('button', { name: /Hide Node Inspector/i }).click({ force: true });
+  await expect(inspector).toHaveClass(/collapsed/);
+  await expect(inspector.getByText('Inspector')).toBeVisible();
+  await inspector.getByRole('button', { name: /Show Node Inspector/i }).click({ force: true });
+  await expect(inspector).not.toHaveClass(/collapsed/);
 });

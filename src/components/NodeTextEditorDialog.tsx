@@ -4,6 +4,7 @@ import {
   useState,
 } from 'react';
 import type { NodeTextEditorRequest } from '../nodes/types';
+import { JsonSyntaxTextarea } from '../nodes/shared/JsonSyntaxTextarea';
 
 type NodeTextEditorDialogProps = {
   request: NodeTextEditorRequest;
@@ -38,12 +39,12 @@ export function NodeTextEditorDialog({ request, onClose }: NodeTextEditorDialogP
             Cancel
           </button>
         </header>
-        <textarea
+        <JsonSyntaxTextarea
           ref={textareaRef}
           className="node-text-editor-field"
           value={draft}
-          spellCheck={false}
-          onChange={(event) => setDraft(event.currentTarget.value)}
+          onChange={setDraft}
+          highlightPlainText
         />
         <footer className="node-text-editor-footer">
           <span>{draft.length.toLocaleString()} characters</span>
