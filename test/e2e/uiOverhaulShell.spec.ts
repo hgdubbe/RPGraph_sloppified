@@ -110,6 +110,34 @@ test('removes Story State while keeping turn controls', async () => {
   await expect(page.getByText(/Turn 0/i)).toBeVisible();
 });
 
+test('moves global app actions into the topbar menu', async () => {
+  app = await launchAppWithWorkflow(outdatedLlmWorkflow());
+  const { page } = app;
+
+  await enterGraphMode(page);
+
+  const topbar = page.locator('header.topbar');
+  const brand = topbar.locator('.brand');
+  await expect(brand.locator('h1')).toContainText('RPgraph Studio');
+  await expect(brand.locator('.header-brand-actions')).toBeVisible();
+  await expect(brand.getByRole('button', { name: /Open main menu/i })).toBeVisible();
+  await expect(topbar.getByRole('button', { name: 'Options', exact: true })).toBeHidden();
+
+  await brand.getByRole('button', { name: /Open main menu/i }).click({ force: true });
+  const menu = page.getByRole('menu', { name: /Main menu/i });
+  await expect(menu).toBeVisible();
+  await expect(menu.getByRole('menuitem', { name: 'Welcome' })).toBeVisible();
+  await expect(menu.getByRole('menuitem', { name: 'Options' })).toBeVisible();
+  await expect(menu.getByRole('menuitem', { name: 'Providers' })).toBeVisible();
+  await expect(menu.getByRole('menuitem', { name: 'Assistant' })).toBeVisible();
+  await expect(menu.getByRole('menuitem', { name: 'Log' })).toBeVisible();
+  await expect(menu.getByRole('menuitem', { name: 'Files' })).toBeVisible();
+
+  await menu.getByRole('menuitem', { name: 'Options' }).click({ force: true });
+  await expect(page.getByRole('dialog', { name: /Options/i })).toBeVisible();
+  await expect(menu).toBeHidden();
+});
+
 test('switches Play Mode themes from the header selector', async () => {
   app = await launchAppWithWorkflow(outdatedLlmWorkflow());
   const { page } = app;

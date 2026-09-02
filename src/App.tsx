@@ -844,6 +844,8 @@ function App() {
     },
   });
   const [showOptions, setShowOptions] = useState(false);
+  const [topbarMenuOpen, setTopbarMenuOpen] = useState(false);
+  const topbarMenuRef = useRef<HTMLDivElement | null>(null);
   const [textDialogNodeId, setTextDialogNodeId] = useState<string | null>(null);
   const [textDialogView, setTextDialogView] =
     useState<
@@ -876,6 +878,32 @@ function App() {
   const [flowInstance, setFlowInstance] = useState<ReactFlowInstance<WorkflowNode> | null>(null);
   const flowInstanceRef = useRef<ReactFlowInstance<WorkflowNode> | null>(null);
   const imageInputRef = useRef<HTMLInputElement | null>(null);
+  useEffect(() => {
+    if (!topbarMenuOpen) {
+      return undefined;
+    }
+
+    function handlePointerDown(event: PointerEvent) {
+      const target = event.target;
+      if (target instanceof Node && topbarMenuRef.current?.contains(target)) {
+        return;
+      }
+      setTopbarMenuOpen(false);
+    }
+
+    function handleKeyDown(event: KeyboardEvent) {
+      if (event.key === 'Escape') {
+        setTopbarMenuOpen(false);
+      }
+    }
+
+    document.addEventListener('pointerdown', handlePointerDown);
+    document.addEventListener('keydown', handleKeyDown);
+    return () => {
+      document.removeEventListener('pointerdown', handlePointerDown);
+      document.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [topbarMenuOpen]);
   const {
     messages,
     setMessages,
@@ -5403,49 +5431,95 @@ function App() {
       )}
       <header className="topbar">
         <div className="brand">
+          <div className="header-brand-actions" ref={topbarMenuRef}>
+            <button
+              className={`topbar-menu-button${topbarMenuOpen ? ' active' : ''}${systemLogBadgeCount ? ' has-log' : ''}`}
+              type="button"
+              aria-label="Open main menu"
+              aria-expanded={topbarMenuOpen}
+              aria-haspopup="menu"
+              title="Main menu"
+              onClick={() => setTopbarMenuOpen((open) => !open)}
+            >
+              <span className="topbar-menu-icon" aria-hidden="true">
+                <span />
+                <span />
+                <span />
+              </span>
+              {systemLogBadgeCount > 0 && <span className="topbar-menu-badge">{systemLogBadgeCount}</span>}
+            </button>
+            {topbarMenuOpen && (
+              <div className="topbar-menu" role="menu" aria-label="Main menu">
+                <button
+                  type="button"
+                  role="menuitem"
+                  onClick={() => {
+                    setTopbarMenuOpen(false);
+                    setShowWelcome(true);
+                  }}
+                >
+                  Welcome
+                </button>
+                <button
+                  type="button"
+                  role="menuitem"
+                  onClick={() => {
+                    setTopbarMenuOpen(false);
+                    setShowOptions(true);
+                  }}
+                >
+                  Options
+                </button>
+                <button
+                  type="button"
+                  role="menuitem"
+                  onClick={() => {
+                    setTopbarMenuOpen(false);
+                    openConnectionManager();
+                  }}
+                >
+                  Providers
+                </button>
+                <button
+                  type="button"
+                  role="menuitem"
+                  onClick={() => {
+                    setTopbarMenuOpen(false);
+                    setNodeAssistantNodeId(null);
+                    setWorkflowAssistantOpen(true);
+                  }}
+                >
+                  Assistant
+                </button>
+                <button
+                  className={systemLogBadgeCount ? 'has-log' : ''}
+                  type="button"
+                  role="menuitem"
+                  onClick={() => {
+                    setTopbarMenuOpen(false);
+                    setShowSystemLog(true);
+                  }}
+                >
+                  <span>Log</span>
+                  {systemLogBadgeCount > 0 && <span className="topbar-menu-item-badge">{systemLogBadgeCount}</span>}
+                </button>
+                <button
+                  type="button"
+                  role="menuitem"
+                  onClick={() => {
+                    setTopbarMenuOpen(false);
+                    void openFiles();
+                  }}
+                >
+                  Files
+                </button>
+              </div>
+            )}
+          </div>
           <h1>
             <span className="brand-name"><span className="brand-name-rp">RP</span>graph Studio</span>
             <span className="app-version">v{packageMetadata.version} Beta</span>
           </h1>
-          <div className="header-brand-actions">
-            <button
-              className="connection-button"
-              type="button"
-              onClick={() => setShowWelcome(true)}
-              title="Show first-run welcome and onboarding guide"
-            >
-              Welcome
-            </button>
-            <button className="connection-button" type="button" onClick={() => setShowOptions(true)}>
-              Options
-            </button>
-            <button className="connection-button" type="button" onClick={openConnectionManager}>
-              Providers
-            </button>
-            <button
-              className="connection-button"
-              type="button"
-              onClick={() => {
-                setNodeAssistantNodeId(null);
-                setWorkflowAssistantOpen(true);
-              }}
-              title="Open workflow assistant. You can also press F1, or select a node and press F1 for node-specific help."
-            >
-              Assistant
-            </button>
-            <button
-              className={`connection-button log-button ${systemLogBadgeCount ? 'has-log' : ''}`}
-              type="button"
-              onClick={() => setShowSystemLog(true)}
-              title="Open system log"
-            >
-              Log
-              {systemLogBadgeCount > 0 && <span key={systemLogBadgeCount}>{systemLogBadgeCount}</span>}
-            </button>
-            <button className="connection-button" type="button" onClick={() => void openFiles()}>
-              Files
-            </button>
-          </div>
         </div>
         <div className="header-actions">
           {settingsStatus && <span className="workflow-status">{settingsStatus}</span>}

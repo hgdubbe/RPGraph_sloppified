@@ -250,9 +250,121 @@ input[type="radio"]:focus-visible {
 }
 
 .header-brand-actions {
+  -webkit-app-region: no-drag;
+  position: relative;
   display: flex;
+  flex: none;
   align-items: center;
   gap: 6px;
+}
+
+.topbar-menu-button {
+  -webkit-app-region: no-drag;
+  position: relative;
+  display: grid;
+  width: 36px;
+  height: 34px;
+  flex: 0 0 36px;
+  place-items: center;
+  padding: 0;
+  border: 1px solid #2f3d55;
+  border-radius: 8px;
+  color: #d8e0f2;
+  background: #10131f;
+  cursor: pointer;
+}
+
+.topbar-menu-button:hover,
+.topbar-menu-button.active {
+  border-color: #79d8ef;
+  color: #79d8ef;
+  background: rgba(121, 216, 239, 0.12);
+}
+
+.topbar-menu-icon {
+  display: grid;
+  gap: 4px;
+  width: 16px;
+}
+
+.topbar-menu-icon span {
+  display: block;
+  height: 2px;
+  border-radius: 999px;
+  background: currentColor;
+}
+
+.topbar-menu-badge,
+.topbar-menu-item-badge {
+  display: grid;
+  min-width: 17px;
+  height: 17px;
+  place-items: center;
+  padding: 0 5px;
+  border-radius: 999px;
+  color: #051018;
+  background: #fb7185;
+  font-size: 10px;
+  font-weight: 950;
+  line-height: 1;
+}
+
+.topbar-menu-badge {
+  position: absolute;
+  top: -5px;
+  right: -6px;
+}
+
+.topbar-menu {
+  position: absolute;
+  z-index: 80;
+  top: calc(100% + 8px);
+  left: 0;
+  display: grid;
+  width: 190px;
+  gap: 4px;
+  padding: 6px;
+  border: 1px solid rgba(77, 96, 138, 0.72);
+  border-radius: 8px;
+  background: #090b15;
+}
+
+.topbar-menu::before {
+  content: "";
+  position: absolute;
+  top: -5px;
+  left: 13px;
+  width: 8px;
+  height: 8px;
+  transform: rotate(45deg);
+  border-top: 1px solid rgba(77, 96, 138, 0.72);
+  border-left: 1px solid rgba(77, 96, 138, 0.72);
+  background: #090b15;
+}
+
+.topbar-menu button {
+  display: flex;
+  min-height: 34px;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 0 10px;
+  border: 1px solid transparent;
+  border-radius: 7px;
+  color: #f4f7ff;
+  background: transparent;
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 850;
+  text-align: left;
+}
+
+.topbar-menu button:hover,
+.topbar-menu button:focus-visible {
+  border-color: rgba(121, 216, 239, 0.74);
+  color: #79d8ef;
+  background: rgba(121, 216, 239, 0.12);
+  outline: none;
 }
 
 .brand h1 {
