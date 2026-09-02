@@ -1211,6 +1211,484 @@ input[type="radio"]:focus-visible {
   content: ">";
 }
 
+/* UI V2: shared shell and dialog language, based on the implemented Play Mode. */
+:root {
+  --uiv2-bg: #070912;
+  --uiv2-bg-2: #090b15;
+  --uiv2-header: #0b0e1a;
+  --uiv2-panel: #10131f;
+  --uiv2-card: #121523;
+  --uiv2-card-strong: #1a1e33;
+  --uiv2-input: #050712;
+  --uiv2-border: rgba(77, 96, 138, 0.72);
+  --uiv2-border-soft: rgba(77, 96, 138, 0.42);
+  --uiv2-text: #f4f7ff;
+  --uiv2-muted: #8fa1d1;
+  --uiv2-muted-2: #62739e;
+  --uiv2-cyan: #79d8ef;
+  --uiv2-cyan-soft: rgba(121, 216, 239, 0.12);
+  --uiv2-violet: #a277ff;
+  --uiv2-violet-soft: rgba(162, 119, 255, 0.18);
+  --uiv2-lime: #76e581;
+  --uiv2-pink: #f15bb5;
+  --uiv2-danger: #fb7185;
+  --uiv2-radius: 8px;
+}
+
+.studio {
+  color: var(--uiv2-text);
+  background:
+    radial-gradient(circle at 0 0, rgba(121, 216, 239, 0.08), transparent 27%),
+    radial-gradient(circle at 75% 0, rgba(162, 119, 255, 0.08), transparent 31%),
+    var(--uiv2-bg);
+}
+
+.topbar {
+  min-height: 46px;
+  gap: 12px;
+  border-bottom-color: var(--uiv2-border-soft);
+  background: var(--uiv2-header);
+  box-shadow: none;
+}
+
+.brand h1 {
+  color: var(--uiv2-text);
+  font-size: 18px;
+  font-weight: 900;
+}
+
+.brand-name-rp,
+.brand .app-version {
+  color: var(--uiv2-cyan);
+  text-shadow: none;
+}
+
+.session-label,
+.session-file,
+.workflow-status {
+  color: var(--uiv2-muted);
+}
+
+.session-turn {
+  border-color: var(--uiv2-border-soft);
+  border-radius: 6px;
+  color: var(--uiv2-cyan);
+  background: var(--uiv2-card);
+}
+
+.window-controls {
+  border-color: var(--uiv2-border-soft);
+  border-radius: var(--uiv2-radius);
+  background: var(--uiv2-panel);
+}
+
+.window-control {
+  color: var(--uiv2-muted);
+  transition: background-color 0.16s ease, color 0.16s ease;
+}
+
+.window-control:hover {
+  color: var(--uiv2-cyan);
+  background: var(--uiv2-cyan-soft);
+}
+
+.connection-button,
+.dialog-actions button,
+.close-button,
+.connection-inline-button,
+.workflow-variable-action-button,
+.voice-playback-dialog-header > button,
+.llama-router-notice button {
+  min-height: 33px;
+  border-color: var(--uiv2-border);
+  border-radius: var(--uiv2-radius);
+  color: var(--uiv2-text);
+  background: var(--uiv2-panel);
+  box-shadow: none;
+  font-weight: 850;
+  transition: border-color 0.16s ease, color 0.16s ease, background-color 0.16s ease;
+}
+
+.connection-button:hover:not(:disabled),
+.dialog-actions button:hover:not(:disabled),
+.close-button:hover:not(:disabled),
+.connection-inline-button:hover:not(:disabled),
+.workflow-variable-action-button:hover:not(:disabled),
+.voice-playback-dialog-header > button:hover,
+.llama-router-notice button:hover {
+  border-color: var(--uiv2-cyan);
+  color: var(--uiv2-cyan);
+  background: var(--uiv2-cyan-soft);
+}
+
+.topbar .connection-button {
+  height: 34px;
+  min-width: 78px;
+  border-color: var(--uiv2-border);
+  color: var(--uiv2-text);
+  background: var(--uiv2-panel);
+  box-shadow: none;
+}
+
+.topbar .connection-button:hover {
+  border-color: var(--uiv2-cyan);
+  color: var(--uiv2-cyan);
+  background: var(--uiv2-cyan-soft);
+  box-shadow: none;
+}
+
+.topbar .connection-button.active,
+.topbar .connection-button[aria-pressed="true"],
+.dialog-actions .primary,
+.system-log-actions .primary {
+  border-color: var(--uiv2-cyan);
+  color: #051018;
+  background: var(--uiv2-cyan);
+}
+
+.dialog-backdrop {
+  background:
+    radial-gradient(circle at 50% 0, rgba(121, 216, 239, 0.08), transparent 34%),
+    rgba(3, 5, 10, 0.82);
+  backdrop-filter: blur(8px);
+}
+
+.connection-dialog,
+.options-dialog,
+.chat-files-dialog,
+.chat-password-dialog,
+.system-log-dialog,
+.run-llm-report-dialog,
+.comfy-image-dialog,
+.comfy-result-dialog,
+.text-dialog,
+.voice-playback-dialog,
+.welcome-dialog,
+.node-assistant-dialog,
+.assistant-dialog,
+.custom-node-assistant-dialog,
+.image-generation-assistant-dialog,
+.turn-trace-dialog,
+.prompt-action-modal,
+.prompt-preview-modal {
+  border: 1px solid var(--uiv2-border);
+  border-radius: var(--uiv2-radius);
+  color: var(--uiv2-text);
+  background: var(--uiv2-bg-2);
+  box-shadow: none;
+}
+
+.dialog-header,
+.connection-dialog .dialog-header,
+.options-dialog .dialog-header,
+.voice-playback-dialog-header,
+.node-assistant-header,
+.assistant-dialog-header,
+.turn-trace-header,
+.storybook-creator-header {
+  border-bottom: 1px solid var(--uiv2-border-soft);
+  background: var(--uiv2-header);
+}
+
+.dialog-header h2,
+.connection-dialog .dialog-header h2,
+.options-dialog .dialog-header h2,
+.voice-playback-dialog-header h2,
+.node-assistant-title-row h2,
+.assistant-dialog-header h2,
+.welcome-header h2,
+.turn-trace-header h2 {
+  color: var(--uiv2-text);
+  font-size: 18px;
+  font-weight: 950;
+  letter-spacing: 0;
+}
+
+.dialog-header p,
+.connection-dialog .dialog-header p,
+.options-dialog .dialog-header p,
+.voice-playback-dialog-header p,
+.node-assistant-subtitle,
+.assistant-dialog-header p,
+.welcome-header p,
+.turn-trace-header p {
+  color: var(--uiv2-muted);
+  font-weight: 700;
+}
+
+.options-layout,
+.connection-dialog-grid,
+.chat-files-body,
+.system-log-list,
+.node-assistant-body,
+.assistant-dialog-body,
+.voice-playback-dialog-body,
+.turn-trace-body,
+.prompt-action-modal-grid,
+.text-form {
+  background: var(--uiv2-bg-2);
+}
+
+.options-sidebar,
+.connection-dialog-right,
+.system-log-actions,
+.chat-files-sidebar,
+.node-assistant-context-meter,
+.assistant-context-panel,
+.turn-trace-sidebar,
+.prompt-action-modal-section,
+.voice-playback-setup-panel {
+  border-color: var(--uiv2-border-soft);
+  background: var(--uiv2-panel);
+}
+
+.options-tab-btn,
+.preset-tabs button,
+.provider-presets button,
+.comfy-role-options button,
+.voice-playback-mode-card,
+.workflow-variable-field,
+.option-info,
+.connection-sampling-section,
+.connection-tts-section,
+.connection-provider-tools,
+.connection-detected-capabilities,
+.connection-draft-placeholder,
+.comfy-workflow-onboarding,
+.comfy-workflow-compatibility,
+.system-log-entry,
+.run-llm-card,
+.welcome-assistant-card,
+.welcome-storybook-card,
+.mini-graph-container,
+.node-assistant-body .chat-message-bubble,
+.node-assistant-empty-state,
+.node-assistant-empty-state .prompt-suggestions button,
+.assistant-message,
+.assistant-context-card,
+.turn-trace-card,
+.prompt-template-card {
+  border-color: var(--uiv2-border-soft);
+  border-radius: var(--uiv2-radius);
+  color: var(--uiv2-text);
+  background: var(--uiv2-card);
+  box-shadow: none;
+}
+
+.options-tab-btn:hover,
+.options-tab-btn:focus-visible,
+.preset-tabs button:hover,
+.provider-presets button:hover,
+.comfy-role-options button:hover,
+.voice-playback-mode-card:hover:not(:disabled),
+.voice-playback-mode-card:focus-visible {
+  border-color: var(--uiv2-cyan);
+  color: var(--uiv2-cyan);
+  background: var(--uiv2-cyan-soft);
+  outline: none;
+}
+
+.node-assistant-empty-state .prompt-suggestions button:hover,
+.node-assistant-empty-state .prompt-suggestions button:focus-visible,
+.node-assistant-edit-actions button:hover:not(:disabled),
+.node-assistant-form .send-message-button:hover:not(:disabled) {
+  border-color: var(--uiv2-cyan);
+  color: var(--uiv2-cyan);
+  background: var(--uiv2-cyan-soft);
+  outline: none;
+}
+
+.options-tab-btn.active,
+.preset-tabs button.active,
+.provider-presets button.active,
+.voice-playback-mode-card.active {
+  border-color: var(--uiv2-cyan);
+  color: var(--uiv2-text);
+  background: color-mix(in srgb, var(--uiv2-cyan) 14%, var(--uiv2-card));
+}
+
+.option-field input,
+.option-field select,
+.connection-field input,
+.connection-field select,
+.connection-field textarea,
+.node-field-input,
+.node-field-textarea,
+.model-id-input-row input,
+.node-custom-select,
+.workflow-variable-name-input,
+.text-form textarea,
+.prompt-action-modal input,
+.prompt-action-modal textarea,
+.prompt-action-modal select,
+.assistant-dialog textarea,
+.assistant-dialog select,
+.node-assistant-provider-selector .node-custom-select-button,
+.node-assistant-form textarea,
+.node-assistant-edit-form textarea,
+.chat-password-dialog input {
+  border: 1px solid var(--uiv2-border-soft) !important;
+  border-radius: var(--uiv2-radius) !important;
+  color: var(--uiv2-text) !important;
+  background: var(--uiv2-input) !important;
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.015) !important;
+}
+
+.option-field input:focus,
+.option-field select:focus,
+.connection-field input:focus,
+.connection-field select:focus,
+.connection-field textarea:focus,
+.node-field-input:focus,
+.node-field-textarea:focus,
+.model-id-input-row input:focus,
+.node-custom-select:focus-within,
+.workflow-variable-name-input:focus,
+.text-form textarea:focus,
+.prompt-action-modal input:focus,
+.prompt-action-modal textarea:focus,
+.prompt-action-modal select:focus,
+.assistant-dialog textarea:focus,
+.assistant-dialog select:focus,
+.node-assistant-provider-selector .node-custom-select-button:focus,
+.node-assistant-form textarea:focus,
+.node-assistant-edit-form textarea:focus,
+.chat-password-dialog input:focus {
+  border-color: var(--uiv2-cyan) !important;
+  outline: none !important;
+  box-shadow: 0 0 0 2px rgba(121, 216, 239, 0.14) !important;
+}
+
+.option-field,
+.connection-field,
+.node-field-label,
+.voice-playback-setup-section label {
+  color: var(--uiv2-muted);
+  letter-spacing: 0.04em;
+}
+
+.option-label-row small,
+.options-note,
+.connection-field-hint,
+.provider-presets span,
+.presets-sidebar-hint,
+.connection-draft-placeholder span,
+.voice-playback-mode-card small,
+.voice-playback-setup-section p,
+.voice-playback-setup-section li,
+.system-log-entry p,
+.system-log-entry time,
+.welcome-storybook-card p,
+.welcome-assistant-card p,
+.node-assistant-empty-state .empty-description,
+.node-assistant-context-meter span,
+.node-assistant-body .chat-message-bubble p {
+  color: var(--uiv2-muted);
+}
+
+.node-assistant-form,
+.node-assistant-edit-form {
+  border-color: var(--uiv2-border-soft);
+  background: var(--uiv2-panel);
+}
+
+.node-assistant-form .send-message-button,
+.node-assistant-edit-actions button,
+.node-assistant-edit-button {
+  border-color: var(--uiv2-border);
+  border-radius: var(--uiv2-radius);
+  color: var(--uiv2-text);
+  background: var(--uiv2-panel);
+  box-shadow: none;
+}
+
+.node-assistant-form .send-message-button:not(.cancel) {
+  color: #051018;
+  border-color: var(--uiv2-cyan);
+  background: var(--uiv2-cyan);
+}
+
+.node-assistant-body .chat-message-row.user .chat-message-bubble {
+  border-color: rgba(162, 119, 255, 0.68);
+  background: rgba(42, 16, 83, 0.72);
+}
+
+.node-assistant-body .chat-message-row.assistant .chat-message-bubble,
+.node-assistant-body .chat-message-row.context .chat-message-bubble {
+  border-color: var(--uiv2-border-soft);
+  background: var(--uiv2-card-strong);
+}
+
+.provider-health.online,
+.workflow-variable-field.used {
+  border-color: rgba(118, 229, 129, 0.42);
+  color: var(--uiv2-lime);
+  background: rgba(118, 229, 129, 0.1);
+}
+
+.provider-health.offline,
+.workflow-variable-field.invalid,
+.field-warning,
+.node-number-input.invalid {
+  border-color: rgba(251, 113, 133, 0.48);
+  color: var(--uiv2-danger);
+}
+
+.provider-health.checking,
+.provider-health.warning,
+.comfy-workflow-memory-note,
+.comfy-workflow-compatibility.ready {
+  border-color: rgba(162, 119, 255, 0.45);
+  color: #d7c8ff;
+  background: var(--uiv2-violet-soft);
+}
+
+.log-button span,
+.studio-play-log-button.has-log span {
+  color: #051018;
+  background: var(--uiv2-danger);
+  box-shadow: none;
+}
+
+.system-toast,
+.graph-system-toast {
+  border-color: var(--uiv2-border);
+  border-radius: var(--uiv2-radius);
+  background: var(--uiv2-panel);
+  box-shadow: none;
+}
+
+.mini-graph-container,
+.mini-graph-canvas {
+  background-color: var(--uiv2-input);
+}
+
+.mini-node {
+  border-color: var(--uiv2-border-soft);
+  border-radius: var(--uiv2-radius);
+  background: var(--uiv2-card-strong);
+  box-shadow: none;
+}
+
+.active-node,
+.mini-node:hover {
+  border-color: var(--uiv2-cyan);
+  box-shadow: none;
+}
+
+@media (max-width: 768px) {
+  .connection-dialog,
+  .options-dialog,
+  .chat-files-dialog,
+  .system-log-dialog,
+  .assistant-dialog,
+  .welcome-dialog {
+    width: calc(100vw - 16px);
+    height: calc(100vh - 16px);
+    max-height: calc(100vh - 16px);
+  }
+}
+
 .studio[data-studio-theme] {
   --theme-app-bg: #070912;
   --theme-shell-bg: #070912;
