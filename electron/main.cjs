@@ -37,6 +37,9 @@ const {
   roleplayWindowOpenHandlerResponse,
 } = require('./windowOpenPolicy.cjs');
 const {
+  registerCrashDiagnostics,
+} = require('./ipc/crashDiagnostics.cjs');
+const {
   characterCardMetadata,
   characterCardVersionStatus,
   currentCharacterCardFormatVersion,
@@ -5764,6 +5767,8 @@ async function createWindow() {
       preload: path.join(__dirname, 'preload.cjs'),
     },
   });
+
+  registerCrashDiagnostics(app, window);
 
   window.webContents.setWindowOpenHandler(roleplayWindowOpenHandlerResponse);
   window.webContents.on('will-navigate', (event, url) => {
