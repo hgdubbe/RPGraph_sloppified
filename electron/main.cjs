@@ -73,6 +73,7 @@ const {
   veniceNormalizedModel,
   veniceResponseText,
 } = require('./veniceApi.cjs');
+const lmStudioAdapter = require('./providers/lmStudioAdapter.cjs');
 
 const developmentUrl = 'http://localhost:5173';
 const projectRootPath = path.join(__dirname, '..');
@@ -4315,7 +4316,7 @@ ipcMain.handle('llm:chat-completion', async (_event, rawRequest) => {
     }
 
     if (isLmStudioProviderConnection(request.connection)) {
-      const result = await requestLmStudioChat(request, abort);
+      const result = await lmStudioAdapter.chat(request, { requestLmStudioChat }, abort);
       return {
         text: result.text,
         stats: llmStatsFromUsage(result.usage, Math.round(performance.now() - startedAt)),
