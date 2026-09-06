@@ -472,6 +472,32 @@ declare global {
       closeWindow: () => Promise<void>;
       onWindowCleanupBeforeClose: (callback: () => void | Promise<void>) => () => void;
       finishWindowCloseCleanup: () => Promise<void>;
+      api: {
+        llm: {
+          chatCompletion: Window['rpgraph']['chatCompletion'];
+          streamChatCompletion: Window['rpgraph']['streamChatCompletion'];
+          listModels: Window['rpgraph']['listModels'];
+        };
+        files: {
+          list: Window['rpgraph']['listFiles'];
+          load: Window['rpgraph']['loadFile'];
+          loadPath: Window['rpgraph']['loadFilePath'];
+          saveToPath: Window['rpgraph']['saveRpgraphFileToPath'];
+        };
+        settings: {
+          load: Window['rpgraph']['loadSettings'];
+          save: Window['rpgraph']['saveSettings'];
+        };
+        comfy: {
+          runWorkflow: Window['rpgraph']['runComfyWorkflow'];
+          inspectWorkflow: Window['rpgraph']['inspectComfyWorkflow'];
+        };
+        window: {
+          minimize: Window['rpgraph']['minimizeWindow'];
+          toggleMaximize: Window['rpgraph']['toggleMaximizeWindow'];
+          close: Window['rpgraph']['closeWindow'];
+        };
+      };
       setZoomFactor: (zoomFactor: number) => void;
     };
   }

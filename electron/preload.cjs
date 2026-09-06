@@ -56,7 +56,7 @@ function abortableLlmInvoke(channel, request, onAbort) {
   ]);
 }
 
-contextBridge.exposeInMainWorld('rpgraph', {
+const rpgraphApi = {
   listModels: (connection, onAbort) =>
     abortableLlmInvoke('llm:list-models', { connection }, onAbort),
   listLmStudioModels: (connection) =>
@@ -220,4 +220,33 @@ contextBridge.exposeInMainWorld('rpgraph', {
       : 1;
     webFrame.setZoomFactor(safeZoomFactor);
   },
-});
+};
+
+rpgraphApi.api = {
+  llm: {
+    listModels: rpgraphApi.listModels,
+    chatCompletion: rpgraphApi.chatCompletion,
+    streamChatCompletion: rpgraphApi.streamChatCompletion,
+  },
+  files: {
+    list: rpgraphApi.listFiles,
+    load: rpgraphApi.loadFile,
+    loadPath: rpgraphApi.loadFilePath,
+    saveToPath: rpgraphApi.saveRpgraphFileToPath,
+  },
+  settings: {
+    load: rpgraphApi.loadSettings,
+    save: rpgraphApi.saveSettings,
+  },
+  comfy: {
+    runWorkflow: rpgraphApi.runComfyWorkflow,
+    inspectWorkflow: rpgraphApi.inspectComfyWorkflow,
+  },
+  window: {
+    minimize: rpgraphApi.minimizeWindow,
+    toggleMaximize: rpgraphApi.toggleMaximizeWindow,
+    close: rpgraphApi.closeWindow,
+  },
+};
+
+contextBridge.exposeInMainWorld('rpgraph', rpgraphApi);
