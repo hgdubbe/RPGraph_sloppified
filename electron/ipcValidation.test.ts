@@ -17,6 +17,16 @@ describe('IPC validation', () => {
     expect(validation.assertChatCompletionRequest(request)).toBe(request);
   });
 
+  it('accepts optional chat image arrays and max token numbers without requiring them', () => {
+    const request = {
+      connection: { provider: 'openrouter', baseUrl: 'https://openrouter.ai/api/v1', model: 'model' },
+      prompt: 'Describe this',
+      images: [],
+      maxTokens: 400,
+    };
+    expect(validation.assertChatCompletionRequest(request)).toBe(request);
+  });
+
   it('rejects settings payloads without the RPGraph settings marker', () => {
     expect(() => validation.assertSettingsPayload({})).toThrow('settings');
     expect(() => validation.assertSettingsPayload({ format: 'rpgraph-settings', version: 1 })).not.toThrow();

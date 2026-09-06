@@ -40,6 +40,10 @@ const {
   registerCrashDiagnostics,
 } = require('./ipc/crashDiagnostics.cjs');
 const {
+  assertChatCompletionRequest,
+  assertSettingsPayload,
+} = require('./ipc/validation.cjs');
+const {
   characterCardMetadata,
   characterCardVersionStatus,
   currentCharacterCardFormatVersion,
@@ -4279,7 +4283,8 @@ ipcMain.handle('llm:list-models', async (_event, request) => {
   }
 });
 
-ipcMain.handle('llm:chat-completion', async (_event, request) => {
+ipcMain.handle('llm:chat-completion', async (_event, rawRequest) => {
+  const request = assertChatCompletionRequest(rawRequest);
   const startedAt = performance.now();
   const abort = createLlmAbortController(request);
   try {
@@ -4416,7 +4421,8 @@ ipcMain.handle('llm:chat-completion', async (_event, request) => {
   }
 });
 
-ipcMain.handle('llm:chat-completion-stream', async (event, request) => {
+ipcMain.handle('llm:chat-completion-stream', async (event, rawRequest) => {
+  const request = assertChatCompletionRequest(rawRequest);
   const startedAt = performance.now();
   const abort = createLlmAbortController(request);
   try {
@@ -5413,7 +5419,8 @@ ipcMain.handle('settings:load', async () => {
   }
 });
 
-ipcMain.handle('settings:save', async (_event, settings) => {
+ipcMain.handle('settings:save', async (_event, rawSettings) => {
+  const settings = assertSettingsPayload(rawSettings);
   const filePath = settingsFilePath();
   settingsWriteQueue = settingsWriteQueue.catch(() => {}).then(async () => {
     await fs.mkdir(path.dirname(filePath), { recursive: true });
