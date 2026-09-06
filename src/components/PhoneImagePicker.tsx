@@ -200,6 +200,7 @@ export function PhoneImagePicker({
 
       {generationAssistantOpen && (
         <ImageGenerationAssistantDialog
+          embedded={hideLauncher}
           connections={connections}
           providerHealthById={providerHealthById}
           availableCharacterLoras={availableCharacterLoras}

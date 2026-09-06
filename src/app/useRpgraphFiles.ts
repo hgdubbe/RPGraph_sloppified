@@ -30,6 +30,10 @@ type LoadedRpgraphFile = {
   value: unknown;
 };
 
+type StartupWorkflowLoadOptions = {
+  preferTurnAutosave?: boolean;
+};
+
 type UseRpgraphFilesOptions = {
   currentWorkflowForSave: (includeStorybook?: boolean) => Promise<WorkflowFile>;
   currentSession: (name: string) => Promise<RpgraphSessionV2>;
@@ -863,8 +867,24 @@ export function useRpgraphFiles({
     }
   }
 
-  async function loadStartupWorkflow() {
+  async function loadStartupWorkflow(options: StartupWorkflowLoadOptions = {}) {
     try {
+      if (options.preferTurnAutosave) {
+        const autosave = await window.rpgraph.loadTurnAutosave();
+        if (autosave) {
+          applyLoadedRpgraphFile(autosave);
+          setSelectedFile(autosave.fileName);
+          setSessionName(autosave.name);
+          setSessionPassword('');
+          setSessionOverwritePending(false);
+          const savedAt = autosave.savedAt
+            ? new Date(autosave.savedAt).toLocaleString()
+            : 'the latest turn';
+          setFileStorageStatus(`Loaded turn autosave from ${savedAt}.`);
+          await refreshFiles(autosave.fileName);
+          return;
+        }
+      }
       const result = await window.rpgraph.loadStartupWorkflow();
       if (result.requiresPassword) {
         clearWorkspaceForLockedStartup();

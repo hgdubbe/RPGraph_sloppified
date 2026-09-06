@@ -18,7 +18,7 @@ import { JsonSyntaxTextarea } from '../nodes/shared/JsonSyntaxTextarea';
 import { useBackdropDismiss } from './useBackdropDismiss';
 
 type ViewMode = 'fields' | 'preview' | 'json';
-type StorybookSection = 'scenario' | 'intro' | 'history' | 'characters' | 'phone' | 'gallery' | 'social' | 'bank';
+type StorybookSection = 'intro' | 'scenario' | 'history' | 'characters' | 'phone' | 'gallery' | 'social' | 'bank';
 
 type StorybookEditorDialogProps = {
   node: WorkflowNode;
@@ -90,11 +90,86 @@ function StorybookEditableField({
   );
 }
 
+type BufferedTextControlProps = {
+  value: string;
+  onCommit: (value: string) => void;
+  className?: string;
+  disabled?: boolean;
+  placeholder?: string;
+  spellCheck?: boolean;
+};
+
+function BufferedTextInput({
+  value,
+  onCommit,
+  className,
+  disabled,
+  placeholder,
+  spellCheck,
+}: BufferedTextControlProps) {
+  const [draft, setDraft] = useState(value);
+  const latestDraftRef = useRef(draft);
+
+  useEffect(() => {
+    setDraft(value);
+    latestDraftRef.current = value;
+  }, [value]);
+
+  return (
+    <input
+      type="text"
+      className={className}
+      value={draft}
+      disabled={disabled}
+      placeholder={placeholder}
+      spellCheck={spellCheck}
+      onChange={(event) => {
+        latestDraftRef.current = event.currentTarget.value;
+        setDraft(event.currentTarget.value);
+        onCommit(event.currentTarget.value);
+      }}
+    />
+  );
+}
+
+function BufferedTextarea({
+  value,
+  onCommit,
+  className,
+  disabled,
+  placeholder,
+  spellCheck,
+}: BufferedTextControlProps) {
+  const [draft, setDraft] = useState(value);
+  const latestDraftRef = useRef(draft);
+
+  useEffect(() => {
+    setDraft(value);
+    latestDraftRef.current = value;
+  }, [value]);
+
+  return (
+    <textarea
+      className={className}
+      value={draft}
+      disabled={disabled}
+      placeholder={placeholder}
+      spellCheck={spellCheck}
+      onChange={(event) => {
+        latestDraftRef.current = event.currentTarget.value;
+        setDraft(event.currentTarget.value);
+        onCommit(event.currentTarget.value);
+      }}
+    />
+  );
+}
+
 type DraftEditorProps = {
   section: StorybookSection;
   draft: RpStorybook;
   selectedCharacterId: string | null;
   onSelectCharacter: (characterId: string) => void;
+  getDraft: () => RpStorybook;
   onChange: (next: RpStorybook) => void;
 };
 
@@ -137,32 +212,39 @@ function StorybookDraftEditor({
   draft,
   selectedCharacterId,
   onSelectCharacter,
+  getDraft,
   onChange,
 }: DraftEditorProps) {
   const character = selectedCharacter(draft, selectedCharacterId);
-  const characterIndex = character
-    ? draft.characters.findIndex((entry) => entry.id === character.id)
-    : -1;
 
   const setCharacter = (patch: Partial<RpStorybook['characters'][number]>) => {
-    if (!character || characterIndex < 0) {
+    const currentDraft = getDraft();
+    const currentCharacter = selectedCharacter(currentDraft, selectedCharacterId);
+    const currentCharacterIndex = currentCharacter
+      ? currentDraft.characters.findIndex((entry) => entry.id === currentCharacter.id)
+      : -1;
+    if (!currentCharacter || currentCharacterIndex < 0) {
       return;
     }
     onChange({
-      ...draft,
-      characters: draft.characters.map((entry, index) =>
-        index === characterIndex ? { ...entry, ...patch } : entry,
+      ...currentDraft,
+      characters: currentDraft.characters.map((entry, index) =>
+        index === currentCharacterIndex ? { ...entry, ...patch } : entry,
       ),
     });
   };
 
   const setImagePrompt = (customText: string) => {
+    const currentDraft = getDraft();
     onChange({
-      ...draft,
+      ...currentDraft,
       imageDescriptionPrompt: customText.trim()
         ? { mode: 'custom', customText }
         : { mode: 'default' },
     });
+  };
+  const updateDraft = (updater: (currentDraft: RpStorybook) => RpStorybook) => {
+    onChange(updater(getDraft()));
   };
   const imagePromptText = draft.imageDescriptionPrompt.mode === 'custom'
     ? draft.imageDescriptionPrompt.customText ?? ''
@@ -172,25 +254,24 @@ function StorybookDraftEditor({
     return (
       <div className="storybook-workbench-field-grid">
         <StorybookEditableField label="Title" hint="shown in Play Mode header" wide>
-          <input
-            type="text"
+          <BufferedTextInput
             value={draft.title}
-            onChange={(event) => onChange({ ...draft, title: event.currentTarget.value })}
+            onCommit={(value) => updateDraft((currentDraft) => ({ ...currentDraft, title: value }))}
           />
         </StorybookEditableField>
         <StorybookEditableField label="Introduction" hint="storybook premise" wide>
-          <textarea
+          <BufferedTextarea
             value={draft.introduction}
             spellCheck={false}
-            onChange={(event) => onChange({ ...draft, introduction: event.currentTarget.value })}
+            onCommit={(value) => updateDraft((currentDraft) => ({ ...currentDraft, introduction: value }))}
           />
         </StorybookEditableField>
         <StorybookEditableField label="Image Description Prompt" hint="blank uses default prompt" wide>
-          <textarea
+          <BufferedTextarea
             value={imagePromptText}
             placeholder="Default prompt"
             spellCheck={false}
-            onChange={(event) => setImagePrompt(event.currentTarget.value)}
+            onCommit={setImagePrompt}
           />
         </StorybookEditableField>
       </div>
@@ -201,15 +282,13 @@ function StorybookDraftEditor({
     return (
       <div className="storybook-workbench-field-grid">
         <StorybookEditableField label="Opening History Summary" hint="editable imported memory summary" wide>
-          <textarea
+          <BufferedTextarea
             value={draft.openingHistory.summary}
             spellCheck={false}
-            onChange={(event) =>
-              onChange({
-                ...draft,
-                openingHistory: { ...draft.openingHistory, summary: event.currentTarget.value },
-              })
-            }
+            onCommit={(value) => updateDraft((currentDraft) => ({
+              ...currentDraft,
+              openingHistory: { ...currentDraft.openingHistory, summary: value },
+            }))}
           />
         </StorybookEditableField>
       </div>
@@ -227,29 +306,29 @@ function StorybookDraftEditor({
         {character ? (
           <div className="storybook-workbench-field-grid">
             <StorybookEditableField label="Name" hint="display name">
-              <input type="text" value={character.name} onChange={(event) => setCharacter({ name: event.currentTarget.value })} />
+              <BufferedTextInput value={character.name} onCommit={(value) => setCharacter({ name: value })} />
             </StorybookEditableField>
             <StorybookEditableField label="Role" hint="player, NPC, contact">
-              <input type="text" value={character.role} onChange={(event) => setCharacter({ role: event.currentTarget.value })} />
+              <BufferedTextInput value={character.role} onCommit={(value) => setCharacter({ role: value })} />
             </StorybookEditableField>
             <StorybookEditableField label="Description" hint="identity and background" wide>
-              <textarea value={character.description} spellCheck={false} onChange={(event) => setCharacter({ description: event.currentTarget.value })} />
+              <BufferedTextarea value={character.description} spellCheck={false} onCommit={(value) => setCharacter({ description: value })} />
             </StorybookEditableField>
             <StorybookEditableField label="Personality" hint="behavior pattern">
-              <textarea value={character.personality} spellCheck={false} onChange={(event) => setCharacter({ personality: event.currentTarget.value })} />
+              <BufferedTextarea value={character.personality} spellCheck={false} onCommit={(value) => setCharacter({ personality: value })} />
             </StorybookEditableField>
             <StorybookEditableField label="Speech Style" hint="dialogue voice">
-              <textarea value={character.speechStyle} spellCheck={false} onChange={(event) => setCharacter({ speechStyle: event.currentTarget.value })} />
+              <BufferedTextarea value={character.speechStyle} spellCheck={false} onCommit={(value) => setCharacter({ speechStyle: value })} />
             </StorybookEditableField>
             <StorybookEditableField label="Appearance" hint="image generation context" wide>
-              <textarea
+              <BufferedTextarea
                 value={character.comfyConfig?.appearance ?? ''}
                 spellCheck={false}
-                onChange={(event) =>
+                onCommit={(value) =>
                   setCharacter({
                     comfyConfig: {
                       ...(character.comfyConfig ?? defaultRpStorybookCharacterComfyConfig()),
-                      appearance: event.currentTarget.value,
+                      appearance: value,
                     },
                   })
                 }
@@ -271,14 +350,13 @@ function StorybookDraftEditor({
         <StorybookCharacterCards draft={draft} selectedCharacterId={character.id} onSelectCharacter={onSelectCharacter} />
         <div className="storybook-workbench-field-grid">
           <StorybookEditableField label="Phone Wallpaper ID" hint="active phone home background" wide>
-            <input
-              type="text"
+            <BufferedTextInput
               value={(character.phoneSettings ?? defaultRpStorybookCharacterPhoneSettings()).wallpaperId}
-              onChange={(event) =>
+              onCommit={(value) =>
                 setCharacter({
                   phoneSettings: {
                     ...(character.phoneSettings ?? defaultRpStorybookCharacterPhoneSettings()),
-                    wallpaperId: event.currentTarget.value,
+                    wallpaperId: value,
                   },
                 })
               }
@@ -301,26 +379,25 @@ function StorybookDraftEditor({
             </div>
             <div className="storybook-workbench-field-grid">
               <StorybookEditableField label="Image Name" hint={image.id} wide>
-                <input
-                  type="text"
+                <BufferedTextInput
                   value={image.name}
-                  onChange={(event) =>
+                  onCommit={(value) =>
                     setCharacter({
-                      images: character.images.map((entry, index) =>
-                        index === imageIndex ? { ...entry, name: event.currentTarget.value } : entry,
+                      images: (selectedCharacter(getDraft(), selectedCharacterId)?.images ?? character.images).map((entry, index) =>
+                        index === imageIndex ? { ...entry, name: value } : entry,
                       ),
                     })
                   }
                 />
               </StorybookEditableField>
               <StorybookEditableField label="Image Description" hint="used for matching attachments" wide>
-                <textarea
+                <BufferedTextarea
                   value={image.description}
                   spellCheck={false}
-                  onChange={(event) =>
+                  onCommit={(value) =>
                     setCharacter({
-                      images: character.images.map((entry, index) =>
-                        index === imageIndex ? { ...entry, description: event.currentTarget.value } : entry,
+                      images: (selectedCharacter(getDraft(), selectedCharacterId)?.images ?? character.images).map((entry, index) =>
+                        index === imageIndex ? { ...entry, description: value } : entry,
                       ),
                     })
                   }
@@ -339,28 +416,26 @@ function StorybookDraftEditor({
         <StorybookCharacterCards draft={draft} selectedCharacterId={character.id} onSelectCharacter={onSelectCharacter} />
         <div className="storybook-workbench-field-grid">
           <StorybookEditableField label="Fotogram Username" hint="public social account">
-            <input
-              type="text"
+            <BufferedTextInput
               value={(character.social ?? defaultRpStorybookCharacterSocial()).fotogramUsername}
-              onChange={(event) =>
+              onCommit={(value) =>
                 setCharacter({
                   social: {
                     ...(character.social ?? defaultRpStorybookCharacterSocial()),
-                    fotogramUsername: event.currentTarget.value,
+                    fotogramUsername: value,
                   },
                 })
               }
             />
           </StorybookEditableField>
           <StorybookEditableField label="OnlyFriends Username" hint="private social account">
-            <input
-              type="text"
+            <BufferedTextInput
               value={(character.social ?? defaultRpStorybookCharacterSocial()).onlyfriendsUsername}
-              onChange={(event) =>
+              onCommit={(value) =>
                 setCharacter({
                   social: {
                     ...(character.social ?? defaultRpStorybookCharacterSocial()),
-                    onlyfriendsUsername: event.currentTarget.value,
+                    onlyfriendsUsername: value,
                   },
                 })
               }
@@ -399,46 +474,35 @@ function StorybookDraftEditor({
 
   return (
     <div className="storybook-workbench-field-grid">
-      <StorybookEditableField label="Title" hint="shown in Play Mode header" wide>
-        <input
-          type="text"
-          value={draft.title}
-          onChange={(event) => onChange({ ...draft, title: event.currentTarget.value })}
-        />
-      </StorybookEditableField>
-      <StorybookEditableField label="Introduction" hint="storybook premise" wide>
-        <textarea
-          value={draft.introduction}
-          spellCheck={false}
-          onChange={(event) => onChange({ ...draft, introduction: event.currentTarget.value })}
-        />
-      </StorybookEditableField>
       <StorybookEditableField label="Scenario Summary" hint="always included in context" wide>
-        <textarea
+        <BufferedTextarea
           className="tall"
           value={draft.scenario.summary}
           spellCheck={false}
-          onChange={(event) =>
-            onChange({ ...draft, scenario: { ...draft.scenario, summary: event.currentTarget.value } })
-          }
+          onCommit={(value) => updateDraft((currentDraft) => ({
+            ...currentDraft,
+            scenario: { ...currentDraft.scenario, summary: value },
+          }))}
         />
       </StorybookEditableField>
       <StorybookEditableField label="Opening Situation" hint="first scene seed">
-        <textarea
+        <BufferedTextarea
           value={draft.scenario.openingSituation}
           spellCheck={false}
-          onChange={(event) =>
-            onChange({ ...draft, scenario: { ...draft.scenario, openingSituation: event.currentTarget.value } })
-          }
+          onCommit={(value) => updateDraft((currentDraft) => ({
+            ...currentDraft,
+            scenario: { ...currentDraft.scenario, openingSituation: value },
+          }))}
         />
       </StorybookEditableField>
       <StorybookEditableField label="Current Situation" hint="updated as story moves">
-        <textarea
+        <BufferedTextarea
           value={draft.scenario.currentSituation}
           spellCheck={false}
-          onChange={(event) =>
-            onChange({ ...draft, scenario: { ...draft.scenario, currentSituation: event.currentTarget.value } })
-          }
+          onCommit={(value) => updateDraft((currentDraft) => ({
+            ...currentDraft,
+            scenario: { ...currentDraft.scenario, currentSituation: value },
+          }))}
         />
       </StorybookEditableField>
     </div>
@@ -552,10 +616,11 @@ export function StorybookEditorDialog({ node, onCommit, onClose }: StorybookEdit
   const storybook = parsed.storybook;
 
   const [viewMode, setViewMode] = useState<ViewMode>('fields');
-  const [activeSection, setActiveSection] = useState<StorybookSection>('scenario');
+  const [activeSection, setActiveSection] = useState<StorybookSection>('intro');
   const [selectedCharacterId, setSelectedCharacterId] = useState<string | null>(() => storybook.characters[0]?.id ?? null);
   const [jsonDraft, setJsonDraft] = useState(() => rpStorybookEditorJsonView(storybook));
   const [fieldsDraft, setFieldsDraft] = useState<RpStorybook>(() => structuredClone(storybook));
+  const fieldsDraftRef = useRef<RpStorybook>(fieldsDraft);
   const [assistantDraft, setAssistantDraft] = useState('');
   const [status, setStatus] = useState('');
   const [seededFromJson, setSeededFromJson] = useState(node.data.storybookJson);
@@ -576,13 +641,21 @@ export function StorybookEditorDialog({ node, onCommit, onClose }: StorybookEdit
 
   // Reseed drafts when the node's stored storybook changes (render-time reset).
   if (node.data.storybookJson !== seededFromJson) {
+    const nextDraft = structuredClone(storybook);
     setSeededFromJson(node.data.storybookJson);
     setJsonDraft(rpStorybookEditorJsonView(storybook));
-    setFieldsDraft(structuredClone(storybook));
+    fieldsDraftRef.current = nextDraft;
+    setFieldsDraft(nextDraft);
     setSelectedCharacterId(storybook.characters[0]?.id ?? null);
   }
 
   const selectedDraftCharacter = selectedCharacter(fieldsDraft, selectedCharacterId);
+  const updateFieldsDraftInMemory = (next: RpStorybook) => {
+    fieldsDraftRef.current = next;
+  };
+  const refreshFieldsDraftSnapshot = () => {
+    setFieldsDraft(structuredClone(fieldsDraftRef.current));
+  };
   const jsonValidity = useMemo(() => {
     try {
       JSON.parse(jsonDraft);
@@ -648,12 +721,27 @@ export function StorybookEditorDialog({ node, onCommit, onClose }: StorybookEdit
   }
 
   function applyFields() {
-    commit(fieldsDraft, 'Applied field edits.');
+    const nextDraft = structuredClone(fieldsDraftRef.current);
+    setFieldsDraft(nextDraft);
+    commit(nextDraft, 'Applied field edits.');
   }
 
   function selectSection(section: StorybookSection) {
+    refreshFieldsDraftSnapshot();
     setActiveSection(section);
     setViewMode('fields');
+  }
+
+  function selectViewMode(nextViewMode: ViewMode) {
+    if (nextViewMode !== 'json') {
+      refreshFieldsDraftSnapshot();
+    }
+    setViewMode(nextViewMode);
+  }
+
+  function selectCharacterForEditing(characterId: string) {
+    refreshFieldsDraftSnapshot();
+    setSelectedCharacterId(characterId);
   }
 
   const sections: Array<{
@@ -663,8 +751,8 @@ export function StorybookEditorDialog({ node, onCommit, onClose }: StorybookEdit
     detail: string;
     count?: number;
   }> = [
-    { id: 'scenario', group: 'Story', label: 'Scenario', detail: 'summary, opening, current', count: 3 },
     { id: 'intro', group: 'Story', label: 'Intro', detail: 'title, premise, image prompt' },
+    { id: 'scenario', group: 'Story', label: 'Scenario', detail: 'summary, opening, current', count: 3 },
     { id: 'history', group: 'Story', label: 'Opening History', detail: 'summary and protected memory', count: fieldsDraft.openingHistory.turns.length },
     { id: 'characters', group: 'Characters', label: 'Characters', detail: 'identity, voice, appearance', count: fieldsDraft.characters.length },
     { id: 'phone', group: 'Surfaces', label: 'Phone', detail: 'wallpaper and contacts' },
@@ -755,13 +843,13 @@ export function StorybookEditorDialog({ node, onCommit, onClose }: StorybookEdit
                 <p>{viewMode === 'fields' ? sectionDescription(activeSection) : 'Switch back to Fields for normal editing.'}</p>
               </div>
               <div className="storybook-workbench-mode-switch" aria-label="Editor mode">
-                <button type="button" className={viewMode === 'fields' ? 'active' : ''} onClick={() => setViewMode('fields')}>
+                <button type="button" className={viewMode === 'fields' ? 'active' : ''} onClick={() => selectViewMode('fields')}>
                   Fields
                 </button>
-                <button type="button" className={viewMode === 'preview' ? 'active' : ''} onClick={() => setViewMode('preview')}>
+                <button type="button" className={viewMode === 'preview' ? 'active' : ''} onClick={() => selectViewMode('preview')}>
                   Preview
                 </button>
-                <button type="button" className={viewMode === 'json' ? 'active' : ''} onClick={() => setViewMode('json')}>
+                <button type="button" className={viewMode === 'json' ? 'active' : ''} onClick={() => selectViewMode('json')}>
                   Raw JSON
                 </button>
               </div>
@@ -773,8 +861,9 @@ export function StorybookEditorDialog({ node, onCommit, onClose }: StorybookEdit
                   section={activeSection}
                   draft={fieldsDraft}
                   selectedCharacterId={selectedCharacterId}
-                  onSelectCharacter={setSelectedCharacterId}
-                  onChange={setFieldsDraft}
+                  onSelectCharacter={selectCharacterForEditing}
+                  getDraft={() => fieldsDraftRef.current}
+                  onChange={updateFieldsDraftInMemory}
                 />
               )}
 
@@ -894,7 +983,11 @@ export function StorybookEditorDialog({ node, onCommit, onClose }: StorybookEdit
             <span>{status || 'Draft ready. Apply writes the storybook back to the node.'}</span>
           </div>
           <div className="storybook-header-actions">
-            <button type="button" className="inspect-button nodrag" onClick={() => setFieldsDraft(structuredClone(storybook))}>
+            <button type="button" className="inspect-button nodrag" onClick={() => {
+              const nextDraft = structuredClone(storybook);
+              fieldsDraftRef.current = nextDraft;
+              setFieldsDraft(nextDraft);
+            }}>
               Revert All
             </button>
             <button type="button" className="inspect-button nodrag storybook-workbench-primary" disabled={!parsed.ok} onClick={applyFields}>

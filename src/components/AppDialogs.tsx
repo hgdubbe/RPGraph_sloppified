@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState, type FormEvent, type PointerEvent as ReactPointerEvent } from 'react';
+import { useEffect, useId, useMemo, useRef, useState, type FormEvent, type PointerEvent as ReactPointerEvent } from 'react';
 import { DarkAudioPlayer } from './DarkAudioPlayer';
 import { LiveRunClock } from './LiveRunClock';
 import { outputFormatHelp, type OutputFormatHelpKind } from '../nodes/output/formatHelp';
@@ -27,6 +27,7 @@ import {
   rpStorybookFormattedTextSettings,
   rpStorybookImageDescriptionPromptSettings,
   rpStorybookImageDescriptionPromptText,
+  rpStorybookJsonText,
   rpStorybookLogicCheckInstruction,
   estimatedRpStorybookPromptTokens,
   rpStorybookPhoneContactAllowed,
@@ -1130,8 +1131,8 @@ const storybookFormattedTextSettingControls: Array<{
 type StorybookImageOwner = { kind: 'character'; characterId: string };
 type CharacterImagesDialogMode = 'images' | 'profile';
 type StorybookCreatorSection =
-  | 'scenario'
   | 'intro'
+  | 'scenario'
   | 'history'
   | 'character'
   | 'phone'
@@ -1140,11 +1141,15 @@ type StorybookCreatorSection =
   | 'bank';
 
 type InlineStorybookTextFieldProps = {
+  fieldId: string;
   label: string;
   hint?: string;
   value: string;
   placeholder: string;
   multiline?: boolean;
+  pending?: boolean;
+  applied?: boolean;
+  onApply?: (fieldId: string) => void;
   onChange: (value: string) => void;
 };
 
@@ -1177,40 +1182,87 @@ function storybookCreatorSectionDescription(section: StorybookCreatorSection) {
 }
 
 function InlineStorybookTextField({
+  fieldId,
   label,
   hint,
   value,
   placeholder,
   multiline = true,
+  pending = false,
+  applied = false,
+  onApply,
   onChange,
 }: InlineStorybookTextFieldProps) {
+  const controlId = useId();
+  const [draftValue, setDraftValue] = useState(value);
+  const [localPending, setLocalPending] = useState(false);
+  const [localApplied, setLocalApplied] = useState(false);
+  const showPending = pending || localPending;
+  const showApplied = !showPending && (applied || localApplied);
+
+  useEffect(() => {
+    setDraftValue(value);
+    setLocalPending(false);
+  }, [value]);
+
   return (
-    <label className="character-field storybook-inline-edit-field storybook-workbench-field">
+    <div className="character-field storybook-inline-edit-field storybook-workbench-field">
       <span className="storybook-workbench-field-head">
-        <span className="field-label">{label}</span>
-        {hint ? <span className="storybook-workbench-field-hint">{hint}</span> : null}
+        <span>
+          <label className="field-label" htmlFor={controlId}>{label}</label>
+          {hint ? <span className="storybook-workbench-field-hint">{hint}</span> : null}
+        </span>
+        {showPending ? (
+          <button
+            className="storybook-field-apply-button nodrag"
+            type="button"
+            onClick={(event) => {
+              event.preventDefault();
+              onApply?.(fieldId);
+              setLocalPending(false);
+              setLocalApplied(true);
+              window.setTimeout(() => setLocalApplied(false), 1400);
+            }}
+          >
+            Apply
+          </button>
+        ) : showApplied ? (
+          <span className="storybook-field-applied-check" aria-label="Applied">✓</span>
+        ) : null}
       </span>
       {multiline ? (
         <textarea
+          id={controlId}
           className="storybook-inline-edit-control nodrag"
-          value={value}
+          value={draftValue}
           placeholder={placeholder}
           spellCheck={false}
           onKeyDown={stopGraphEditingKeys}
-          onChange={(event) => onChange(event.currentTarget.value)}
+          onChange={(event) => {
+            setDraftValue(event.currentTarget.value);
+            setLocalPending(true);
+            setLocalApplied(false);
+            onChange(event.currentTarget.value);
+          }}
         />
       ) : (
         <input
+          id={controlId}
           className="storybook-inline-edit-control nodrag"
           type="text"
-          value={value}
+          value={draftValue}
           placeholder={placeholder}
           spellCheck={false}
           onKeyDown={stopGraphEditingKeys}
-          onChange={(event) => onChange(event.currentTarget.value)}
+          onChange={(event) => {
+            setDraftValue(event.currentTarget.value);
+            setLocalPending(true);
+            setLocalApplied(false);
+            onChange(event.currentTarget.value);
+          }}
         />
       )}
-    </label>
+    </div>
   );
 }
 type ProfileCrop = RpStorybookCharacterProfileImage['crop'];
@@ -3138,7 +3190,7 @@ export function StorybookCreatorDialog({
 }: StorybookCreatorDialogProps) {
   const [draft, setDraft] = useState('');
   const [viewMode, setViewMode] = useState<'ui' | 'json' | 'text'>('ui');
-  const [activeSection, setActiveSection] = useState<StorybookCreatorSection>('scenario');
+  const [activeSection, setActiveSection] = useState<StorybookCreatorSection>('intro');
   const [activeCharacterId, setActiveCharacterId] = useState<string | null>(null);
   const [historyExpanded, setHistoryExpanded] = useState(false);
   const [fileActionStatus, setFileActionStatus] = useState('');
@@ -3167,16 +3219,29 @@ export function StorybookCreatorDialog({
       return emptyRpStorybook;
     }
   }, [node.data.storybookJson]);
+  const [draftStorybookSnapshot, setDraftStorybookSnapshot] = useState<RpStorybook>(() => structuredClone(storybook));
+  const draftStorybookRef = useRef<RpStorybook>(draftStorybookSnapshot);
+  const [draftStorybookDirty, setDraftStorybookDirty] = useState(false);
+  const [pendingStorybookFieldIds, setPendingStorybookFieldIds] = useState<Set<string>>(() => new Set());
+  const [appliedStorybookFieldId, setAppliedStorybookFieldId] = useState<string | null>(null);
+  const [draftSourceJson, setDraftSourceJson] = useState(node.data.storybookJson);
+  if (node.data.storybookJson !== draftSourceJson && !draftStorybookDirty) {
+    const nextDraft = structuredClone(storybook);
+    draftStorybookRef.current = nextDraft;
+    setDraftStorybookSnapshot(nextDraft);
+    setDraftSourceJson(node.data.storybookJson);
+  }
+  const storybookView = draftStorybookDirty ? draftStorybookSnapshot : storybook;
   const activeCharacter =
-    storybook.characters.find((character) => character.id === activeCharacterId) ??
-    storybook.characters[0] ??
+    storybookView.characters.find((character) => character.id === activeCharacterId) ??
+    storybookView.characters[0] ??
     null;
   const estimatedPromptTokens = useMemo(
-    () => estimatedRpStorybookPromptTokens(pendingConversion?.result.storybook ?? storybook),
-    [pendingConversion, storybook],
+    () => estimatedRpStorybookPromptTokens(pendingConversion?.result.storybook ?? storybookView),
+    [pendingConversion, storybookView],
   );
   const formattedTextSettings = rpStorybookFormattedTextSettings(node.data.storybookFormattedTextSettings);
-  const phoneContactCharacters = useMemo(() => rpStorybookPhoneContactCharacters(storybook), [storybook]);
+  const phoneContactCharacters = useMemo(() => rpStorybookPhoneContactCharacters(storybookView), [storybookView]);
   const createImageActions = useMemo(() => usedCreateImagePromptActions(workflowNodes, promptActionSettings), [workflowNodes, promptActionSettings]);
   const openingHistoryMessages = useMemo(
     () => {
@@ -3192,17 +3257,17 @@ export function StorybookCreatorDialog({
             if (image.dataUrl) {
               return [image];
             }
-            const stored = storybookImageById([storybook], image.id);
+            const stored = storybookImageById([storybookView], image.id);
             return stored ? [{ ...image, dataUrl: stored.dataUrl }] : [];
           }),
         };
       };
-      return storybook.openingHistory.turns.flatMap((turn) => [
+      return storybookView.openingHistory.turns.flatMap((turn) => [
         ...turn.input.messages.map((message) => ({ message: rehydrated(message), turnNumber: turn.number })),
         ...turn.output.messages.map((message) => ({ message: rehydrated(message), turnNumber: turn.number })),
       ]);
     },
-    [storybook],
+    [storybookView],
   );
 
   useEffect(() => {
@@ -3277,6 +3342,53 @@ export function StorybookCreatorDialog({
     });
   }
 
+  function updateDraftStorybook(nextStorybook: RpStorybook) {
+    draftStorybookRef.current = nextStorybook;
+    if (!draftStorybookDirty) {
+      setDraftStorybookDirty(true);
+    }
+  }
+
+  function markDraftFieldPending(fieldId: string) {
+    setAppliedStorybookFieldId(null);
+    setPendingStorybookFieldIds((current) => {
+      const next = new Set(current);
+      next.add(fieldId);
+      return next;
+    });
+  }
+
+  function refreshDraftStorybookSnapshot() {
+    setDraftStorybookSnapshot(structuredClone(draftStorybookRef.current));
+  }
+
+  function applyDraftStorybook(status = 'Applied storybook edits.', fieldId?: string) {
+    const nextStorybook = structuredClone(draftStorybookRef.current);
+    draftStorybookRef.current = nextStorybook;
+    setDraftStorybookSnapshot(nextStorybook);
+    setDraftStorybookDirty(false);
+    setPendingStorybookFieldIds(new Set());
+    setAppliedStorybookFieldId(fieldId ?? null);
+    setDraftSourceJson(rpStorybookJsonText(nextStorybook));
+    onUpdateStorybook(nextStorybook, status);
+    if (fieldId) {
+      window.setTimeout(() => {
+        setAppliedStorybookFieldId((current) => current === fieldId ? null : current);
+      }, 1400);
+    }
+  }
+
+  function revertDraftStorybook() {
+    const nextStorybook = structuredClone(storybook);
+    draftStorybookRef.current = nextStorybook;
+    setDraftStorybookSnapshot(nextStorybook);
+    setDraftStorybookDirty(false);
+    setPendingStorybookFieldIds(new Set());
+    setAppliedStorybookFieldId(null);
+    setDraftSourceJson(node.data.storybookJson);
+    setFileActionStatus('Reverted unsaved storybook edits.');
+  }
+
   function askConfirm(action: NonNullable<typeof confirmAction>) {
     setMoreOpen(false);
     setConfirmAction(action);
@@ -3292,7 +3404,8 @@ export function StorybookCreatorDialog({
   }
 
   function updateStorybookTextField(field: StorybookTextField, value: string) {
-    onUpdateStorybook(withStorybookTextField(storybook, field, value), 'Updated storybook field.');
+    markDraftFieldPending(field);
+    updateDraftStorybook(withStorybookTextField(draftStorybookRef.current, field, value));
   }
 
   function updateCharacterTextField(
@@ -3300,10 +3413,8 @@ export function StorybookCreatorDialog({
     field: StorybookCharacterTextField,
     value: string,
   ) {
-    onUpdateStorybook(
-      withStorybookCharacterTextField(storybook, characterId, field, value),
-      'Updated character field.',
-    );
+    markDraftFieldPending(`${characterId}.${field}`);
+    updateDraftStorybook(withStorybookCharacterTextField(draftStorybookRef.current, characterId, field, value));
   }
 
   function updateCharacterPatch(
@@ -3311,24 +3422,43 @@ export function StorybookCreatorDialog({
     patch: (character: RpStorybookCharacter) => RpStorybookCharacter,
     status = 'Updated character field.',
   ) {
-    onUpdateStorybook(
-      {
-        ...storybook,
-        characters: storybook.characters.map((character) =>
-          character.id === characterId ? patch(character) : character,
-        ),
-      },
-      status,
-    );
+    void status;
+    markDraftFieldPending(`${characterId}.settings`);
+    const currentDraft = draftStorybookRef.current;
+    updateDraftStorybook({
+      ...currentDraft,
+      characters: currentDraft.characters.map((character) =>
+        character.id === characterId ? patch(character) : character,
+      ),
+    });
   }
 
   function selectWorkbenchSection(section: StorybookCreatorSection, characterId?: string) {
+    refreshDraftStorybookSnapshot();
     setActiveSection(section);
     setViewMode('ui');
     if (characterId) {
       setActiveCharacterId(characterId);
     }
   }
+
+  function selectCreatorViewMode(mode: 'ui' | 'json' | 'text') {
+    if (mode !== 'ui') {
+      refreshDraftStorybookSnapshot();
+    }
+    setViewMode(mode);
+  }
+
+  function applyStorybookField(fieldId: string) {
+    applyDraftStorybook('Applied storybook field.', fieldId);
+  }
+
+  const storybookFieldApplyProps = (fieldId: string) => ({
+    fieldId,
+    pending: pendingStorybookFieldIds.has(fieldId),
+    applied: appliedStorybookFieldId === fieldId,
+    onApply: applyStorybookField,
+  });
 
   return (
     <div
@@ -3347,8 +3477,8 @@ export function StorybookCreatorDialog({
           <div className="storybook-workbench-title-main">
             <span className="storybook-workbench-mark">SB</span>
             <div className="storybook-title-row">
-              <h2>{storybook.title || node.data.label}</h2>
-              <p>{node.data.storybookStatus ?? 'Ready'}</p>
+              <h2>{storybookView.title || node.data.label}</h2>
+              <p>{draftStorybookDirty ? 'Unapplied changes' : node.data.storybookStatus ?? 'Ready'}</p>
             </div>
           </div>
           <div className="storybook-header-actions">
@@ -3387,6 +3517,14 @@ export function StorybookCreatorDialog({
             </div>
             <button className="inspect-button nodrag" type="button" onClick={onSaveStorybook}>
               Save
+            </button>
+            <button
+              className="inspect-button nodrag"
+              type="button"
+              disabled={!draftStorybookDirty}
+              onClick={revertDraftStorybook}
+            >
+              Revert
             </button>
             <button className="inspect-button nodrag" type="button" onClick={() => void loadStorybook()}>
               Load
@@ -3480,9 +3618,9 @@ export function StorybookCreatorDialog({
                 <section className="storybook-workbench-nav-group">
                   <h3>Story</h3>
                   {([
-                    ['scenario', 'Scenario', 'summary, opening, current', 3],
                     ['intro', 'Intro', 'title and premise', undefined],
-                    ['history', 'Opening History', 'imported session memory', storybook.openingHistory.turns.length],
+                    ['scenario', 'Scenario', 'summary, opening, current', 3],
+                    ['history', 'Opening History', 'imported session memory', storybookView.openingHistory.turns.length],
                   ] as const).map(([id, label, detail, count]) => (
                     <button
                       type="button"
@@ -3503,7 +3641,7 @@ export function StorybookCreatorDialog({
                 </section>
                 <section className="storybook-workbench-nav-group">
                   <h3>Characters</h3>
-                  {storybook.characters.length ? storybook.characters.map((character) => (
+                  {storybookView.characters.length ? storybookView.characters.map((character) => (
                     <button
                       type="button"
                       className={`storybook-workbench-nav-item${activeCharacter?.id === character.id && viewMode === 'ui' ? ' selected-character' : ''}${activeSection === 'character' && activeCharacter?.id === character.id && viewMode === 'ui' ? ' active' : ''}`}
@@ -3588,21 +3726,21 @@ export function StorybookCreatorDialog({
                   <button
                     type="button"
                     className={`tab-button ${viewMode === 'ui' ? 'active' : ''}`}
-                    onClick={() => setViewMode('ui')}
+                    onClick={() => selectCreatorViewMode('ui')}
                   >
                     Fields
                   </button>
                   <button
                     type="button"
                     className={`tab-button ${viewMode === 'text' ? 'active' : ''}`}
-                    onClick={() => setViewMode('text')}
+                    onClick={() => selectCreatorViewMode('text')}
                   >
                     Text
                   </button>
                   <button
                     type="button"
                     className={`tab-button ${viewMode === 'json' ? 'active' : ''}`}
-                    onClick={() => setViewMode('json')}
+                    onClick={() => selectCreatorViewMode('json')}
                   >
                     Raw JSON
                   </button>
@@ -3621,7 +3759,7 @@ export function StorybookCreatorDialog({
                             ? pendingConversion.phase === 'review'
                               ? pendingConversion.result.storybook
                               : pendingConversion.sourceValue
-                            : storybook,
+                          : storybookView,
                         ),
                         null,
                         2,
@@ -3643,7 +3781,7 @@ export function StorybookCreatorDialog({
                               node.data.storybookFormattedTextSettings,
                             )
                           : `Storybook Format ${pendingConversion.result.sourceVersion} is not compatible with this build. Convert it in the UI Preview tab first.`
-                        : rpStorybookFormattedText(storybook, node.data.storybookFormattedTextSettings)}
+                        : rpStorybookFormattedText(storybookView, node.data.storybookFormattedTextSettings)}
                     />
                   </div>
                 )}
@@ -3673,17 +3811,19 @@ export function StorybookCreatorDialog({
                       </div>
                       <div className="storybook-workbench-field-grid">
                         <InlineStorybookTextField
+                          {...storybookFieldApplyProps('title')}
                           label="Title"
                           hint="Shown in the node, files, and storybook headers."
-                          value={storybook.title}
+                          value={storybookView.title}
                           placeholder="Untitled RP Storybook"
                           multiline={false}
                           onChange={(value) => updateStorybookTextField('title', value)}
                         />
                         <InlineStorybookTextField
+                          {...storybookFieldApplyProps('introduction')}
                           label="Introduction"
                           hint="Short player-facing premise: what this storybook is about."
-                          value={storybook.introduction}
+                          value={storybookView.introduction}
                           placeholder="No introduction defined."
                           onChange={(value) => updateStorybookTextField('introduction', value)}
                         />
@@ -3691,7 +3831,7 @@ export function StorybookCreatorDialog({
                           <strong>Image Description Prompt</strong>
                           <textarea
                             className="storybook-inline-edit-control nodrag"
-                            value={rpStorybookImageDescriptionPromptText(storybook.imageDescriptionPrompt)}
+                            value={rpStorybookImageDescriptionPromptText(storybookView.imageDescriptionPrompt)}
                             readOnly
                             spellCheck={false}
                             onKeyDown={stopGraphEditingKeys}
@@ -3704,8 +3844,8 @@ export function StorybookCreatorDialog({
                     {activeSection === 'scenario' && <section className="storybook-workbench-story-section">
                       <div className="storybook-workbench-section-toolbar">
                         <div>
-                          <h4>Primary Story Fields</h4>
-                          <p>Editable cyan fields define the default play setup.</p>
+                          <h4>Scenario Setup</h4>
+                          <p>Define the backdrop, opening scene, and current story state.</p>
                         </div>
                         <button
                           type="button"
@@ -3717,105 +3857,29 @@ export function StorybookCreatorDialog({
                       </div>
                       <div className="storybook-workbench-field-grid">
                         <InlineStorybookTextField
-                          label="Title"
-                          hint="Shown in the node, files, and storybook headers."
-                          value={storybook.title}
-                          placeholder="Untitled RP Storybook"
-                          multiline={false}
-                          onChange={(value) => updateStorybookTextField('title', value)}
-                        />
-                        <InlineStorybookTextField
-                          label="Introduction"
-                          hint="Short player-facing premise: what this storybook is about."
-                          value={storybook.introduction}
-                          placeholder="No introduction defined."
-                          onChange={(value) => updateStorybookTextField('introduction', value)}
-                        />
-                        <InlineStorybookTextField
+                          {...storybookFieldApplyProps('scenario.summary')}
                           label="Scenario Summary"
                           hint="Stable backdrop: genre, place, premise, relationships, and ongoing stakes."
-                          value={storybook.scenario.summary}
+                          value={storybookView.scenario.summary}
                           placeholder="No scenario summary defined."
                           onChange={(value) => updateStorybookTextField('scenario.summary', value)}
                         />
                         <InlineStorybookTextField
+                          {...storybookFieldApplyProps('scenario.openingSituation')}
                           label="Opening Situation"
                           hint="Starting moment for a fresh run: where everyone is and what just begins."
-                          value={storybook.scenario.openingSituation}
+                          value={storybookView.scenario.openingSituation}
                           placeholder="No opening situation defined."
                           onChange={(value) => updateStorybookTextField('scenario.openingSituation', value)}
                         />
                         <InlineStorybookTextField
+                          {...storybookFieldApplyProps('scenario.currentSituation')}
                           label="Current Situation"
                           hint="Latest story state after play has moved on; update when the scene changes."
-                          value={storybook.scenario.currentSituation}
+                          value={storybookView.scenario.currentSituation}
                           placeholder="No current situation defined."
                           onChange={(value) => updateStorybookTextField('scenario.currentSituation', value)}
                         />
-                      </div>
-
-                      <div className="storybook-workbench-section-toolbar">
-                        <div>
-                          <h4>Cast Overview</h4>
-                          <p>Open a card for full character editing.</p>
-                        </div>
-                        <button type="button" className="contextual-action-button nodrag" onClick={onImportCharacterCard}>
-                          Add Character
-                        </button>
-                      </div>
-                      {storybook.characters.length ? (
-                        <div className="storybook-workbench-character-grid">
-                          {storybook.characters.map((character) => (
-                            <button
-                              type="button"
-                              className={`storybook-workbench-character-card nodrag${activeCharacter?.id === character.id ? ' active' : ''}`}
-                              key={character.id}
-                              onClick={() => selectWorkbenchSection('character', character.id)}
-                            >
-                              <CharacterAvatar
-                                className="storybook-workbench-avatar"
-                                name={character.name || character.id}
-                                fallback={(character.name || character.id || '?').slice(0, 2).toUpperCase()}
-                                profileImageDataUrl={character.profileImage?.dataUrl}
-                              />
-                              <span className="storybook-workbench-character-copy">
-                                <strong>{character.name || character.id || 'Unnamed'}</strong>
-                                <small>{character.role || 'No role set'}</small>
-                              </span>
-                              <span className="storybook-workbench-chip-row">
-                                <span>{character.images.length} images</span>
-                                <span>{characterPhoneSummaryText(character)}</span>
-                              </span>
-                            </button>
-                          ))}
-                        </div>
-                      ) : (
-                        <p className="no-data-msg">No characters defined yet. Add a character or ask the assistant to create the cast.</p>
-                      )}
-
-                      <div className="storybook-workbench-media-grid">
-                        <article className="storybook-workbench-passive-card">
-                          <strong>Gallery Libraries</strong>
-                          <p>
-                            {storybook.characters.reduce((sum, character) => sum + character.images.length, 0)} stored character images across {storybook.characters.length} characters.
-                          </p>
-                          <div className="storybook-workbench-mini-gallery">
-                            {storybook.characters.flatMap((character) => character.images.slice(0, 2)).slice(0, 6).map((image) => (
-                              <img key={image.id} src={image.dataUrl} alt={image.name || image.id} />
-                            ))}
-                          </div>
-                        </article>
-                        <article className="storybook-workbench-passive-card">
-                          <strong>Phone Impact</strong>
-                          <p>{phoneContactCharacters.length} phone identities, {storybook.phoneContacts.blocked.length} hidden contact pairs, app accounts from character setup.</p>
-                          <button
-                            type="button"
-                            className="contextual-action-button nodrag"
-                            onClick={() => selectWorkbenchSection('phone')}
-                          >
-                            Open Phone Surface
-                          </button>
-                        </article>
                       </div>
                     </section>}
 
@@ -3879,6 +3943,7 @@ export function StorybookCreatorDialog({
                                 </button>
                                 <div className="character-card-title-side">
                                   <InlineStorybookTextField
+                                    {...storybookFieldApplyProps(`${character.id}.name`)}
                                     label="Name"
                                     hint="Display name used in chat, phone apps, and prompt references."
                                     value={character.name}
@@ -3887,6 +3952,7 @@ export function StorybookCreatorDialog({
                                     onChange={(value) => updateCharacterTextField(character.id, 'name', value)}
                                   />
                                   <InlineStorybookTextField
+                                    {...storybookFieldApplyProps(`${character.id}.role`)}
                                     label="Role"
                                     hint="Quick story function: player, companion, rival, contact, narrator."
                                     value={character.role}
@@ -3899,6 +3965,7 @@ export function StorybookCreatorDialog({
                               
                               <div className="character-fields">
                                 <InlineStorybookTextField
+                                  {...storybookFieldApplyProps(`${character.id}.description`)}
                                   label="Description"
                                   hint="External facts and readable profile: who they are in the story."
                                   value={character.description}
@@ -3906,6 +3973,7 @@ export function StorybookCreatorDialog({
                                   onChange={(value) => updateCharacterTextField(character.id, 'description', value)}
                                 />
                                 <InlineStorybookTextField
+                                  {...storybookFieldApplyProps(`${character.id}.personality`)}
                                   label="Personality"
                                   hint="Inner behavior: motives, temperament, boundaries, habits."
                                   value={character.personality}
@@ -3913,6 +3981,7 @@ export function StorybookCreatorDialog({
                                   onChange={(value) => updateCharacterTextField(character.id, 'personality', value)}
                                 />
                                 <InlineStorybookTextField
+                                  {...storybookFieldApplyProps(`${character.id}.speechStyle`)}
                                   label="Speech Style"
                                   hint="How their messages sound: wording, rhythm, formality, quirks."
                                   value={character.speechStyle}
@@ -3920,6 +3989,7 @@ export function StorybookCreatorDialog({
                                   onChange={(value) => updateCharacterTextField(character.id, 'speechStyle', value)}
                                 />
                                 <InlineStorybookTextField
+                                  {...storybookFieldApplyProps(`${character.id}.appearance`)}
                                   label="Appearance"
                                   hint="Visual prompt material for character image generation."
                                   value={character.comfyConfig?.appearance ?? ''}
@@ -4268,7 +4338,7 @@ export function StorybookCreatorDialog({
                           >
                             Import Current Session
                           </button>
-                          {storybook.openingHistory.turns.length > 0 && (
+                          {storybookView.openingHistory.turns.length > 0 && (
                             <button
                               type="button"
                               className="contextual-action-button danger nodrag"
@@ -4288,13 +4358,13 @@ export function StorybookCreatorDialog({
                       </div>
                       <div className="history-summary-box">
                         <p className="history-summary-text">
-                          {storybook.openingHistory.summary || 'No opening history summary defined.'}
+                          {storybookView.openingHistory.summary || 'No opening history summary defined.'}
                         </p>
                         <div className="history-status-row">
                           <span className="message-count-badge">
-                            {storybook.openingHistory.turns.length} turns / {openingHistoryMessages.length} messages imported
+                            {storybookView.openingHistory.turns.length} turns / {openingHistoryMessages.length} messages imported
                           </span>
-                          {storybook.openingHistory.turns.length > 0 && (
+                          {storybookView.openingHistory.turns.length > 0 && (
                             <button
                               type="button"
                               className="toggle-messages-button nodrag"

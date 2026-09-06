@@ -108,7 +108,6 @@ type UseRoleplayPanelRuntimeOptions = {
   turns: TurnRecord[];
   storybooksByNodeId: Map<string, RpStorybook>;
   characterStorybookNodeCount: number;
-  imageUploadVisionEnabled: boolean;
   englishProcessingEnabled: boolean;
   smoothChatAutoScrollEnabled: boolean;
   smoothChatAutoScrollMinSpeed: number;
@@ -124,7 +123,6 @@ export function useRoleplayPanelRuntime({
   turns,
   storybooksByNodeId,
   characterStorybookNodeCount,
-  imageUploadVisionEnabled,
   englishProcessingEnabled,
   smoothChatAutoScrollEnabled,
   smoothChatAutoScrollMinSpeed,
@@ -133,6 +131,7 @@ export function useRoleplayPanelRuntime({
   notifySystem,
 }: UseRoleplayPanelRuntimeOptions) {
   const [chatPanelView, setChatPanelView] = useState<ChatPanelView>('chat');
+  const chatVisible = chatPanelView !== 'events';
   const [selectedCharacterId, setSelectedCharacterId] = useState('');
   const [viewedPhoneCharacterId, setViewedPhoneCharacterId] = useState('');
   const [selectedPhoneCharacterId, setSelectedPhoneCharacterId] = useState('');
@@ -187,6 +186,8 @@ export function useRoleplayPanelRuntime({
   const [seenEventIds, setSeenEventIds] = useState<Set<string>>(() => new Set());
   const [highlightedEventIds, setHighlightedEventIds] = useState<Set<string>>(() => new Set());
   const [phoneDraft, setPhoneDraft] = useState('');
+  const [phoneDraftContextComment, setPhoneDraftContextComment] = useState('');
+  const [phoneMoodStatus, setPhoneMoodStatus] = useState('online');
   const [phoneDraftCommands, setPhoneDraftCommands] = useState<CommandInputCommand[]>([]);
   const [phoneImages, setPhoneImages] = useState<ChatImageAttachment[]>([]);
   const [showPhoneEmojiPicker, setShowPhoneEmojiPicker] = useState(false);
@@ -433,11 +434,8 @@ export function useRoleplayPanelRuntime({
     const imageOwner = storybook?.characters.find(
       (entry) => entry.id === viewedPhoneCharacter?.sourceId,
     );
-    const images = imageOwner?.images.map(chatAttachmentFromStorybookImage) ?? [];
-    return imageUploadVisionEnabled
-      ? images
-      : images.filter((image) => image.description?.trim());
-  }, [imageUploadVisionEnabled, storybooksByNodeId, viewedPhoneCharacter]);
+    return imageOwner?.images.map(chatAttachmentFromStorybookImage) ?? [];
+  }, [storybooksByNodeId, viewedPhoneCharacter]);
 
   function rememberChatCharacter(characterId: string) {
     setRecentChatCharacterIds((current) => [
@@ -453,6 +451,7 @@ export function useRoleplayPanelRuntime({
     }
     setSelectedCharacterId(characterId);
     if (characterId !== narratorCharacterId) {
+      setViewedPhoneCharacterId(characterId);
       rememberChatCharacter(characterId);
     }
   }
@@ -1006,7 +1005,6 @@ export function useRoleplayPanelRuntime({
     setSocialPostOpenRequest(undefined);
     if (chatPanelView !== 'phone') {
       setChatPanelView('phone');
-      return;
     }
 
     setPhoneHomeRequestId((current) => current + 1);
@@ -1286,7 +1284,7 @@ export function useRoleplayPanelRuntime({
   }, [scrollChatThreadToBottom]);
 
   useEffect(() => {
-    if (chatPanelView !== 'chat') {
+    if (!chatVisible) {
       return undefined;
     }
     const thread = chatThreadRef.current;
@@ -1323,20 +1321,20 @@ export function useRoleplayPanelRuntime({
       thread.removeEventListener('keydown', markUserScrollIntent);
       thread.removeEventListener('scroll', updateAutoFollow);
     };
-  }, [cancelChatAutoFollowAnimation, chatPanelView]);
+  }, [cancelChatAutoFollowAnimation, chatVisible]);
 
   useEffect(() => {
-    if (chatPanelView === 'chat') {
+    if (chatVisible) {
       chatAutoFollowBottomRef.current = true;
       scrollChatThreadToBottom();
     }
-  }, [chatPanelView, scrollChatThreadToBottom]);
+  }, [chatVisible, scrollChatThreadToBottom]);
 
   useEffect(() => {
-    if (chatPanelView === 'chat') {
+    if (chatVisible) {
       scrollChatThreadToBottomIfFollowing();
     }
-  }, [chatPanelView, messages, scrollChatThreadToBottomIfFollowing]);
+  }, [chatVisible, messages, scrollChatThreadToBottomIfFollowing]);
 
   const roleplayShortcuts = useMemo<RoleplayActivityShortcut[]>(() => {
     let latestChatMessage: MessageRecord | undefined;
@@ -1560,6 +1558,10 @@ export function useRoleplayPanelRuntime({
     clearPhoneReply,
     phoneDraft,
     setPhoneDraft,
+    phoneDraftContextComment,
+    setPhoneDraftContextComment,
+    phoneMoodStatus,
+    setPhoneMoodStatus,
     phoneDraftCommands,
     setPhoneDraftCommands,
     phoneImages,

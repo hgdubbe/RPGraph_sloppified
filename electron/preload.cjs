@@ -50,7 +50,8 @@ function abortableLlmInvoke(channel, request, onAbort) {
   return Promise.race([
     ipcRenderer
       .invoke(channel, { ...requestWithoutSignal, requestId })
-      .then(throwIfLlmCancelled),
+      .then(throwIfLlmCancelled)
+      .then(throwIfRpgraphIpcError),
     abortPromise,
   ]);
 }
@@ -144,7 +145,8 @@ contextBridge.exposeInMainWorld('rpgraph', {
             'llm:chat-completion-stream',
             { ...requestWithoutSignal, requestId },
           )
-          .then(throwIfLlmCancelled),
+          .then(throwIfLlmCancelled)
+          .then(throwIfRpgraphIpcError),
         abortPromise,
       ]);
     } finally {
@@ -192,6 +194,8 @@ contextBridge.exposeInMainWorld('rpgraph', {
   getResourceStats: () => ipcRenderer.invoke('system:resource-stats'),
   saveSession: (name, session, protection, password, overwrite = false) =>
     ipcRenderer.invoke('session:save', { name, session, protection, password, overwrite }),
+  saveTurnAutosave: (session) => ipcRenderer.invoke('autosave:save-turn', session),
+  loadTurnAutosave: () => ipcRenderer.invoke('autosave:load-turn'),
   saveStorybook: (name, storybook, protection, password, overwrite = false) =>
     ipcRenderer.invoke('storybook:save', { name, storybook, protection, password, overwrite }),
   saveCharacter: (name, characterCard, protection, password, overwrite = false) =>

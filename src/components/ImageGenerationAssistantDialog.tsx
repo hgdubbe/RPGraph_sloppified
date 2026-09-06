@@ -34,6 +34,7 @@ class ImageSettingsError extends Error {
 }
 
 type ImageGenerationAssistantDialogProps = {
+  embedded?: boolean;
   connections: ConnectionPreset[];
   providerHealthById: Record<string, ProviderConnectionHealth>;
   availableCharacterLoras: string[];
@@ -74,6 +75,7 @@ type ImageGenerationAssistantDialogProps = {
 };
 
 export function ImageGenerationAssistantDialog({
+  embedded = false,
   connections,
   providerHealthById,
   availableCharacterLoras,
@@ -392,12 +394,12 @@ export function ImageGenerationAssistantDialog({
             ? 'Provider connection is being checked.'
             : '';
 
-  return createPortal(
+  const content = (
     <div className="dialog-backdrop" role="presentation" {...backdropDismiss}>
       <section
         className="image-generation-assistant-dialog"
         role="dialog"
-        aria-modal="true"
+        aria-modal={!embedded}
         aria-label="Image Generation Assistant"
       >
         <header className="dialog-header storybook-creator-header">
@@ -758,7 +760,7 @@ export function ImageGenerationAssistantDialog({
           </div>
         )}
       </section>
-    </div>,
-    document.body,
+    </div>
   );
+  return embedded ? content : createPortal(content, document.body);
 }

@@ -10,6 +10,7 @@ import type {
   RpWeekdayLanguage,
   PhoneDesktopIconSize,
   PhoneDesktopLayout,
+  PhoneDesktopWidgetId,
 } from './types';
 import { bundledComfyNarratorVoice } from './comfy/defaultNarratorVoice';
 import {
@@ -31,16 +32,25 @@ export const defaultPhoneChatTextSize = 14;
 export const phoneDesktopGridColumns = 8;
 export const phoneDesktopGridRows = 12;
 const defaultPhoneDesktopLayout: PhoneDesktopLayout = {
-  clock: { column: 2, row: 4, width: 5, height: 2 },
+  orientation: 'portrait',
+  clock: { column: 1, row: 1, width: 4, height: 2 },
+  widgets: {
+    gallery: { column: 1, row: 7, width: 4, height: 2, enabled: true },
+    chat: { column: 1, row: 7, width: 4, height: 2, enabled: true },
+    notes: { column: 1, row: 9, width: 4, height: 2, enabled: true },
+    social: { column: 1, row: 9, width: 4, height: 2, enabled: true },
+    banking: { column: 1, row: 11, width: 4, height: 2, enabled: true },
+    narrative: { column: 1, row: 11, width: 4, height: 2, enabled: true },
+  },
   apps: {
-    whatsup: { column: 1, row: 1 },
-    gallery: { column: 2, row: 1 },
-    camera: { column: 3, row: 1 },
-    banking: { column: 4, row: 1 },
-    fotogram: { column: 1, row: 2 },
-    onlyfriends: { column: 4, row: 2 },
-    notes: { column: 3, row: 2 },
-    ai: { column: 2, row: 2 },
+    whatsup: { column: 1, row: 4 },
+    gallery: { column: 4, row: 3 },
+    camera: { column: 3, row: 4 },
+    banking: { column: 2, row: 3 },
+    fotogram: { column: 2, row: 4 },
+    onlyfriends: { column: 4, row: 4 },
+    notes: { column: 1, row: 3 },
+    ai: { column: 3, row: 3 },
   },
 };
 const defaultPhoneDesktopIconSize: PhoneDesktopIconSize = 'large';
@@ -100,6 +110,7 @@ const rpWeekdayLanguages = [
 ] as const satisfies readonly RpWeekdayLanguage[];
 const defaultGlassDesignEnabled = true;
 const defaultRetryFormatErrorsEnabled = true;
+const defaultTurnAutosaveEnabled = false;
 const defaultGlassDesignOpacity = 0.6;
 const defaultDialogueVoiceMode: DialogueVoiceMode = 'click';
 const dialogueVoiceModes = ['click', 'preload', 'read-aloud', 'narrator-only'] as const satisfies readonly DialogueVoiceMode[];
@@ -184,6 +195,9 @@ function validPhoneDesktopLayout(value: unknown): PhoneDesktopLayout {
   const apps = input.apps && typeof input.apps === 'object'
     ? input.apps as Partial<PhoneDesktopLayout['apps']>
     : {} as Partial<PhoneDesktopLayout['apps']>;
+  const widgets = input.widgets && typeof input.widgets === 'object'
+    ? input.widgets as Partial<NonNullable<PhoneDesktopLayout['widgets']>>
+    : {} as Partial<NonNullable<PhoneDesktopLayout['widgets']>>;
   const gridNumber = (candidate: unknown, fallback: number, minimum: number, maximum: number) =>
     typeof candidate === 'number' && Number.isFinite(candidate)
       ? Math.min(maximum, Math.max(minimum, Math.round(candidate)))
@@ -197,12 +211,44 @@ function validPhoneDesktopLayout(value: unknown): PhoneDesktopLayout {
       row: gridNumber(position.row, defaultPhoneDesktopLayout.apps[app].row, 1, phoneDesktopGridRows),
     };
   };
+  const widgetPosition = (widget: PhoneDesktopWidgetId) => {
+    const fallback = defaultPhoneDesktopLayout.widgets?.[widget] ?? { column: 1, row: 7, width: 4, height: 2, enabled: true };
+    type WidgetLayoutDraft = {
+      column?: number;
+      row?: number;
+      width?: number;
+      height?: number;
+      enabled?: boolean;
+    };
+    const rawPosition = widgets[widget];
+    const position: WidgetLayoutDraft = rawPosition && typeof rawPosition === 'object'
+      ? rawPosition as WidgetLayoutDraft
+      : {};
+    const width = gridNumber(position.width, fallback.width, 2, phoneDesktopGridColumns);
+    const height = gridNumber(position.height, fallback.height, 1, 4);
+    return {
+      column: gridNumber(position.column, fallback.column, 1, phoneDesktopGridColumns - width + 1),
+      row: gridNumber(position.row, fallback.row, 1, phoneDesktopGridRows - height + 1),
+      width,
+      height,
+      enabled: typeof position.enabled === 'boolean' ? position.enabled : fallback.enabled,
+    };
+  };
   return {
+    orientation: input.orientation === 'landscape' ? 'landscape' : 'portrait',
     clock: {
       column: gridNumber(clock.column, defaultPhoneDesktopLayout.clock.column, 1, phoneDesktopGridColumns - 1),
       row: gridNumber(clock.row, defaultPhoneDesktopLayout.clock.row, 1, phoneDesktopGridRows),
       width: gridNumber(clock.width, defaultPhoneDesktopLayout.clock.width, 2, phoneDesktopGridColumns),
       height: gridNumber(clock.height, defaultPhoneDesktopLayout.clock.height, 1, 4),
+    },
+    widgets: {
+      gallery: widgetPosition('gallery'),
+      chat: widgetPosition('chat'),
+      notes: widgetPosition('notes'),
+      social: widgetPosition('social'),
+      banking: widgetPosition('banking'),
+      narrative: widgetPosition('narrative'),
     },
     apps: {
       whatsup: appPosition('whatsup'),
@@ -808,6 +854,8 @@ function isAppSettings(value: unknown): value is AppSettings {
         settings.options.uiScale <= maxUiScale)) &&
     (settings.options.retryFormatErrorsEnabled === undefined ||
       typeof settings.options.retryFormatErrorsEnabled === 'boolean') &&
+    (settings.options.turnAutosaveEnabled === undefined ||
+      typeof settings.options.turnAutosaveEnabled === 'boolean') &&
     (settings.options.dialogueVoiceMode === undefined ||
       dialogueVoiceModes.includes(settings.options.dialogueVoiceMode)) &&
     (settings.options.dialogueNarratorProviderId === undefined ||
@@ -889,6 +937,8 @@ type AppSettingsState = {
   setUiScale: Dispatch<SetStateAction<number>>;
   retryFormatErrorsEnabled: boolean;
   setRetryFormatErrorsEnabled: Dispatch<SetStateAction<boolean>>;
+  turnAutosaveEnabled: boolean;
+  setTurnAutosaveEnabled: Dispatch<SetStateAction<boolean>>;
   dialogueVoiceMode: DialogueVoiceMode;
   setDialogueVoiceMode: Dispatch<SetStateAction<DialogueVoiceMode>>;
   dialogueNarratorProviderId: string;
@@ -955,6 +1005,7 @@ export function useAppSettings(): AppSettingsState {
   const [retryFormatErrorsEnabled, setRetryFormatErrorsEnabled] = useState(
     defaultRetryFormatErrorsEnabled,
   );
+  const [turnAutosaveEnabled, setTurnAutosaveEnabled] = useState(defaultTurnAutosaveEnabled);
   const [dialogueVoiceMode, setDialogueVoiceMode] = useState<DialogueVoiceMode>(
     defaultDialogueVoiceMode,
   );
@@ -1051,6 +1102,9 @@ export function useAppSettings(): AppSettingsState {
         setRetryFormatErrorsEnabled(
           result.settings.options.retryFormatErrorsEnabled ?? defaultRetryFormatErrorsEnabled,
         );
+        setTurnAutosaveEnabled(
+          result.settings.options.turnAutosaveEnabled ?? defaultTurnAutosaveEnabled,
+        );
         setDialogueVoiceMode(validDialogueVoiceMode(result.settings.options.dialogueVoiceMode));
         setDialogueNarratorProviderId(result.settings.options.dialogueNarratorProviderId ?? '');
         setDialogueCloneVoiceProviderId(result.settings.options.dialogueCloneVoiceProviderId ?? '');
@@ -1122,6 +1176,7 @@ export function useAppSettings(): AppSettingsState {
         nodeTextSize: validNodeTextSize(nodeTextSize),
         uiScale: validUiScale(uiScale),
         retryFormatErrorsEnabled,
+        turnAutosaveEnabled,
         dialogueVoiceMode,
         dialogueNarratorProviderId,
         dialogueCloneVoiceProviderId,
@@ -1180,6 +1235,7 @@ export function useAppSettings(): AppSettingsState {
     nodeTextSize,
     uiScale,
     retryFormatErrorsEnabled,
+    turnAutosaveEnabled,
     dialogueVoiceMode,
     dialogueNarratorProviderId,
     dialogueCloneVoiceProviderId,
@@ -1258,6 +1314,8 @@ export function useAppSettings(): AppSettingsState {
     setUiScale,
     retryFormatErrorsEnabled,
     setRetryFormatErrorsEnabled,
+    turnAutosaveEnabled,
+    setTurnAutosaveEnabled,
     dialogueVoiceMode,
     setDialogueVoiceMode,
     dialogueNarratorProviderId,

@@ -764,6 +764,70 @@ async function loadStoredWorkflowFile(fileName, password = '') {
   };
 }
 
+const turnAutosaveFileNames = [
+  'turn-autosave-a.rpgraph.json',
+  'turn-autosave-b.rpgraph.json',
+];
+
+function turnAutosaveFilePath(fileName) {
+  return path.join(filesDirectory(), fileName);
+}
+
+async function readTurnAutosaveFile(fileName) {
+  const filePath = approveFilePath(turnAutosaveFilePath(fileName));
+  const { metadata, value } = await readRpgraphFile(filePath, '');
+  if (metadata.type !== 'session' || metadata.protection !== 'plain') {
+    throw new Error('The turn autosave is not a plain RP save.');
+  }
+  const stats = await fs.stat(filePath);
+  return {
+    fileName: path.basename(filePath),
+    name: value?.name || 'Turn Autosave',
+    filePath,
+    ...metadata,
+    value,
+    savedAt: stats.mtime.toISOString(),
+  };
+}
+
+async function turnAutosaveCandidates() {
+  const candidates = await Promise.all(
+    turnAutosaveFileNames.map(async (fileName) => {
+      const filePath = turnAutosaveFilePath(fileName);
+      try {
+        const stats = await fs.stat(filePath);
+        return { fileName, filePath, mtimeMs: stats.mtimeMs };
+      } catch (error) {
+        if (error && error.code === 'ENOENT') {
+          return { fileName, filePath, mtimeMs: -1 };
+        }
+        throw error;
+      }
+    }),
+  );
+  return candidates.sort((left, right) => left.mtimeMs - right.mtimeMs);
+}
+
+async function nextTurnAutosaveFilePath() {
+  const [oldest] = await turnAutosaveCandidates();
+  return oldest.filePath;
+}
+
+async function loadTurnAutosaveFile() {
+  const newestFirst = (await turnAutosaveCandidates()).reverse();
+  for (const candidate of newestFirst) {
+    if (candidate.mtimeMs < 0) {
+      continue;
+    }
+    try {
+      return await readTurnAutosaveFile(candidate.fileName);
+    } catch {
+      continue;
+    }
+  }
+  return null;
+}
+
 function unsupportedSessionFormatError(envelope) {
   const { envelopeFormatVersion, formatVersion } = encryptedSessionMetadata(envelope);
   if (envelopeFormatVersion !== currentEncryptedSessionEnvelopeFormatVersion) {
@@ -2033,12 +2097,39 @@ function failedLlmIpcResult(error) {
   };
 }
 
+function providerJsonErrorMessage(message) {
+  const trimmed = String(message ?? '').trim();
+  if (!trimmed.startsWith('{')) {
+    return '';
+  }
+  try {
+    const parsed = JSON.parse(trimmed);
+    return typeof parsed?.error?.message === 'string'
+      ? parsed.error.message.trim()
+      : '';
+  } catch {
+    return '';
+  }
+}
+
 function normalizeLlmError(error) {
   if (error instanceof Error && error.name === 'AbortError') {
     return cancelledLlmError();
   }
   if (error instanceof TypeError && String(error.message).includes('aborted')) {
     return cancelledLlmError();
+  }
+  if (error instanceof Error) {
+    const providerMessage = providerJsonErrorMessage(error.message);
+    if (providerMessage) {
+      if (/model unloaded/i.test(providerMessage)) {
+        return new Error('LM Studio model is unloaded. Load the selected model in LM Studio, then run again.');
+      }
+      if (/failed to load model/i.test(providerMessage)) {
+        return new Error(`LM Studio could not load the selected model. ${providerMessage}`);
+      }
+      return new Error(providerMessage);
+    }
   }
   return error;
 }
@@ -2217,7 +2308,9 @@ async function requestLmStudioChat(request, abort) {
   const result = await response.json();
   const text = lmStudioResponseText(result, { allowReasoningFallback });
   if (!text) {
-    throw new Error('The LM Studio response does not contain any message text.');
+    throw new Error(
+      'LM Studio returned a response without message text. The model may have emitted only reasoning/tool data, stopped early, or been interrupted. Try the request again after confirming the model is loaded.',
+    );
   }
   return { text, usage: result.stats };
 }
@@ -3427,7 +3520,7 @@ ipcMain.handle('lmstudio:load-model', async (_event, request) => {
     if (abort.signal.aborted) {
       return cancelledLlmIpcResult();
     }
-    throw normalizeLlmError(error);
+    return failedLlmIpcResult(error);
   } finally {
     abort.dispose();
   }
@@ -3446,7 +3539,7 @@ ipcMain.handle('lmstudio:model-loaded', async (_event, request) => {
     if (abort.signal.aborted) {
       return cancelledLlmIpcResult();
     }
-    throw normalizeLlmError(error);
+    return failedLlmIpcResult(error);
   } finally {
     abort.dispose();
   }
@@ -5359,6 +5452,39 @@ ipcMain.handle('session:save', async (_event, request) => {
   }
   approveFilePath(filePath);
   return { fileName, name: baseName, filePath };
+});
+
+ipcMain.handle('autosave:save-turn', async (_event, session) => {
+  if (
+    !session ||
+    session.format !== 'rpgraph-session' ||
+    session.formatVersion !== currentSessionFormatVersion ||
+    session.workflow?.formatVersion !== currentSessionWorkflowFormatVersion ||
+    !Array.isArray(session.timeline)
+  ) {
+    throw new Error(`Only RPGraph RP Save Format v${currentSessionFormatVersion} can be autosaved.`);
+  }
+  const filePath = await nextTurnAutosaveFilePath();
+  await fs.mkdir(path.dirname(filePath), { recursive: true });
+  await writeTextFileAtomically(filePath, `${JSON.stringify(session, null, 2)}\n`);
+  approveFilePath(filePath);
+  return {
+    fileName: path.basename(filePath),
+    name: session.name || 'Turn Autosave',
+    filePath,
+    savedAt: session.savedAt,
+  };
+});
+
+ipcMain.handle('autosave:load-turn', async () => {
+  try {
+    return await loadTurnAutosaveFile();
+  } catch (error) {
+    if (error && error.code === 'ENOENT') {
+      return null;
+    }
+    throw error;
+  }
 });
 
 ipcMain.handle('image:select', async (_event, request = {}) => {

@@ -152,6 +152,7 @@ type StudioDialogsProps = {
   minUiScale: number;
   maxUiScale: number;
   retryFormatErrorsEnabled: boolean;
+  turnAutosaveEnabled: boolean;
   onCloseOptions: () => void;
   onEnglishProcessingChange: (enabled: boolean) => void;
   onInputTranslationOnlyChange: (enabled: boolean) => void;
@@ -177,6 +178,7 @@ type StudioDialogsProps = {
   onNodeTextSizeChange: (size: 'small' | 'normal' | 'big') => void;
   onUiScaleChange: (scale: number) => void;
   onRetryFormatErrorsChange: (enabled: boolean) => void;
+  onTurnAutosaveEnabledChange: (enabled: boolean) => void;
   showFiles: boolean;
   savedFiles: SavedFileSummary[];
   selectedFile: string | null;
@@ -388,13 +390,13 @@ function RetryIcon() {
 }
 
 const OPTIONS_TABS = [
-  { id: 'chat', label: 'Chat & UI', desc: 'Font sizes, UI scale and date/time' },
-  { id: 'translation', label: 'Translation', desc: 'English processing and display language' },
-  { id: 'nodes', label: 'Node Design', desc: 'Canvas node transparency and text sizes' },
-  { id: 'variables', label: 'Workflow Variables', desc: 'Global variables referenced in prompts' },
-  { id: 'images', label: 'Reference Images', desc: 'Vision model context lookback and limits' },
-  { id: 'tokens', label: 'Token Estimate', desc: 'UTF-8 byte factors and auto-calibration' },
-  { id: 'reliability', label: 'Run Reliability', desc: 'Automatic retry for LLM format errors' },
+  { id: 'chat', label: 'Reading & Display', desc: 'Text size, zoom, scrolling and dates', keywords: 'font ui scale phone thoughts time weekday' },
+  { id: 'translation', label: 'Language', desc: 'Translation and reply language', keywords: 'english processing input output translate' },
+  { id: 'nodes', label: 'Graph Appearance', desc: 'Node text and transparency', keywords: 'canvas glass opacity design' },
+  { id: 'variables', label: 'Workflow Variables', desc: 'Shared values used in prompts', keywords: 'global settings values' },
+  { id: 'images', label: 'Image Context', desc: 'Which images the model can see', keywords: 'reference vision lookback limits captions' },
+  { id: 'tokens', label: 'Context Estimates', desc: 'Token counting and calibration', keywords: 'utf bytes factor reserve tokens automatic' },
+  { id: 'reliability', label: 'Error Recovery', desc: 'Retry invalid model responses', keywords: 'reliability llm format json errors automatic' },
 ] as const;
 
 type OptionsTabId = typeof OPTIONS_TABS[number]['id'];
@@ -810,6 +812,7 @@ export function StudioDialogs({
   minUiScale,
   maxUiScale,
   retryFormatErrorsEnabled,
+  turnAutosaveEnabled,
   onCloseOptions,
   onEnglishProcessingChange,
   onInputTranslationOnlyChange,
@@ -835,6 +838,7 @@ export function StudioDialogs({
   onNodeTextSizeChange,
   onUiScaleChange,
   onRetryFormatErrorsChange,
+  onTurnAutosaveEnabledChange,
   showFiles,
   savedFiles,
   selectedFile,
@@ -938,6 +942,10 @@ export function StudioDialogs({
   const uiScalePercentRef = useRef(Math.round(uiScale * 100));
   const [showFileVersionInfo, setShowFileVersionInfo] = useState(false);
   const [activeOptionsTab, setActiveOptionsTab] = useState<OptionsTabId>('chat');
+  const [optionsSearch, setOptionsSearch] = useState('');
+  const matchingOptionsTabs = OPTIONS_TABS.filter((tab) =>
+    `${tab.label} ${tab.desc} ${tab.keywords}`.toLowerCase().includes(optionsSearch.trim().toLowerCase()),
+  );
   const [deleteFileCandidate, setDeleteFileCandidate] = useState<SavedFileSummary | null>(null);
   const [fileFilter, setFileFilter] = useState<'all' | 'workflow' | 'storybook' | 'session' | 'character-card'>('all');
   const [editingWorkflowVariableKey, setEditingWorkflowVariableKey] = useState<string | null>(null);
@@ -1764,15 +1772,23 @@ export function StudioDialogs({
             <div className="dialog-header">
               <div>
                 <h2>Options</h2>
-                <p>Roleplay processing and display preferences</p>
+                <p>Reading, language and workflow preferences</p>
               </div>
               <button type="button" className="close-button" onClick={onCloseOptions}>
                 Close
               </button>
             </div>
             <div className="options-layout">
-              <aside className="options-sidebar">
-                {OPTIONS_TABS.map((tab) => {
+              <aside className="options-sidebar" aria-label="Settings categories">
+                <input type="search" className="options-search" aria-label="Search settings" placeholder="Search settings" value={optionsSearch}
+                  onChange={(event) => {
+                    const query = event.target.value;
+                    setOptionsSearch(query);
+                    const match = OPTIONS_TABS.find((tab) => `${tab.label} ${tab.desc} ${tab.keywords}`.toLowerCase().includes(query.trim().toLowerCase()));
+                    if (query.trim() && match) setActiveOptionsTab(match.id);
+                  }} />
+                {matchingOptionsTabs.length === 0 && <p className="options-search-empty" role="status">No matching settings.</p>}
+                {matchingOptionsTabs.map((tab) => {
                   const isActive = activeOptionsTab === tab.id;
                   let Icon = ChatUiIcon;
                   if (tab.id === 'translation') Icon = TranslationIcon;
@@ -1787,6 +1803,7 @@ export function StudioDialogs({
                       key={tab.id}
                       type="button"
                       className={`options-tab-btn ${isActive ? 'active' : ''}`}
+                      aria-current={isActive ? 'page' : undefined}
                       onClick={() => setActiveOptionsTab(tab.id)}
                     >
                       <Icon />
@@ -1799,18 +1816,17 @@ export function StudioDialogs({
                 })}
               </aside>
 
-              <main className="options-panel">
+              <main className="options-panel" aria-label={OPTIONS_TABS.find((tab) => tab.id === activeOptionsTab)?.label}>
                 {activeOptionsTab === 'chat' && (
                   <div className="options-tab-content">
                     <div className="options-tab-header">
-                      <h3>Chat & UI</h3>
-                      <p>Normal Chat + Phone Chat formatting and interface scaling</p>
+                      <h3>Reading & Display</h3>
+                      <p>RP chat, phone messages and interface size</p>
                     </div>
                     <div className="options-tab-body">
                       <label className="option-field chat-text-size-field" htmlFor="ui-scale">
                         <span className="option-label-row">
-                          UI SCALE
-                          <small>Type a value, press Enter, or focus and scroll</small>
+                          Interface size
                         </span>
                         <div className="option-stepper-row">
                           <button
@@ -1865,7 +1881,7 @@ export function StudioDialogs({
                         </div>
                       </label>
                       <div className="option-scale-status">
-                        <span>Internal zoom: {roundedUiScalePercent}%</span>
+                        <span>Current size: {roundedUiScalePercent}%</span>
                         <span>Minimum: {Math.round(minUiScale * 100)}%</span>
                         <span>Maximum: {Math.round(maxUiScale * 100)}%</span>
                       </div>
@@ -1877,13 +1893,13 @@ export function StudioDialogs({
                             onSmoothChatAutoScrollEnabledChange(event.target.checked)
                           }
                         />
-                        <span>Smooth Chat Auto-Scroll</span>
+                        <span>Smoothly follow new messages</span>
                       </label>
                       <label
                         className="option-field chat-text-size-field"
                         htmlFor="smooth-chat-auto-scroll-min-speed"
                       >
-                        SMOOTH SCROLL MIN SPEED
+                        Minimum scroll speed
                         <div className="option-range-row">
                           <input
                             id="smooth-chat-auto-scroll-min-speed"
@@ -1903,7 +1919,7 @@ export function StudioDialogs({
                         </div>
                       </label>
                       <label className="option-field chat-text-size-field" htmlFor="chat-text-size">
-                        NORMAL CHAT TEXT SIZE
+                        RP chat text size
                         <div className="option-range-row">
                           <input
                             id="chat-text-size"
@@ -1918,7 +1934,7 @@ export function StudioDialogs({
                         </div>
                       </label>
                       <label className="option-field chat-text-size-field" htmlFor="phone-chat-text-size">
-                        PHONE CHAT TEXT SIZE
+                        Phone message text size
                         <div className="option-range-row">
                           <input
                             id="phone-chat-text-size"
@@ -1933,7 +1949,7 @@ export function StudioDialogs({
                         </div>
                       </label>
                       <div className="option-field">
-                        <span>FORMATTING FOR *THOUGHTS*</span>
+                        <span>Thought text style</span>
                         <NodeCustomSelect
                           id="thought-text-style"
                           value={thoughtTextStyle}
@@ -1974,41 +1990,24 @@ export function StudioDialogs({
                 {activeOptionsTab === 'translation' && (
                   <div className="options-tab-content">
                     <div className="options-tab-header">
-                      <h3>Translation</h3>
-                      <p>Translation and internal workflow language preferences</p>
+                      <h3>Language</h3>
+                      <p>Choose what gets translated before and after a model response</p>
                     </div>
                     <div className="options-tab-body">
-                      <div className="option-info">
-                        <strong>Why use English internal processing?</strong>
-                        <p>
-                          Many roleplay models produce stronger prose and more consistent character
-                          behavior in English. When enabled, your message is converted to English
-                          before it enters the workflow, and the English RP response is converted
-                          back only for display. Chat History keeps the English workflow text.
-                        </p>
-                        <p>
-                          When disabled, nothing is converted: the workflow and model reply in the
-                          language you write in.
-                        </p>
-                      </div>
-                      <label className="option-toggle">
-                        <input
-                          type="checkbox"
-                          checked={englishProcessingEnabled}
-                          onChange={(event) => onEnglishProcessingChange(event.target.checked)}
-                        />
-                        <span>Translate but use English internally for better RP quality</span>
-                      </label>
-                      <label className="option-toggle">
-                        <input
-                          type="checkbox"
-                          checked={inputTranslationOnlyEnabled}
-                          onChange={(event) => onInputTranslationOnlyChange(event.target.checked)}
-                        />
-                        <span>Translate only input to English</span>
-                      </label>
+                      <fieldset className="options-translation-mode">
+                        <legend>Translation mode</legend>
+                        <label><input type="radio" name="translation-mode" checked={!englishProcessingEnabled && !inputTranslationOnlyEnabled}
+                          onChange={() => { onEnglishProcessingChange(false); onInputTranslationOnlyChange(false); }} />
+                          <span><strong>No translation</strong><small>Send your writing and show model replies unchanged.</small></span></label>
+                        <label><input type="radio" name="translation-mode" checked={inputTranslationOnlyEnabled}
+                          onChange={() => onInputTranslationOnlyChange(true)} />
+                          <span><strong>Translate my input to English</strong><small>Translate outgoing messages; show model replies unchanged.</small></span></label>
+                        <label><input type="radio" name="translation-mode" checked={englishProcessingEnabled}
+                          onChange={() => onEnglishProcessingChange(true)} />
+                          <span><strong>Translate input and replies</strong><small>Process in English, then translate replies for display. History retains the English text.</small></span></label>
+                      </fieldset>
                       <label className="option-field" htmlFor="display-language">
-                        DISPLAY LANGUAGE WHEN ENABLED
+                        Display language
                         <input
                           id="display-language"
                           value={displayLanguage}
@@ -2286,9 +2285,24 @@ export function StudioDialogs({
                   <div className="options-tab-content">
                     <div className="options-tab-header">
                       <h3>Run Reliability</h3>
-                      <p>Automatic retry when an LLM response has an invalid format</p>
+                      <p>Crash recovery and automatic retry when a response has an invalid format</p>
                     </div>
                     <div className="options-tab-body">
+                      <div className="option-info">
+                        <strong>Turn autosave</strong>
+                        <p>
+                          Save a plain recovery RP file after each completed turn, including the current workflow
+                          and embedded Storybook data. When enabled, RPGraph loads the newest turn autosave on startup.
+                        </p>
+                      </div>
+                      <label className="option-toggle">
+                        <input
+                          type="checkbox"
+                          checked={turnAutosaveEnabled}
+                          onChange={(event) => onTurnAutosaveEnabledChange(event.target.checked)}
+                        />
+                        <span>Autosave RP, workflow, and Storybook after each turn</span>
+                      </label>
                       <div className="option-info">
                         <strong>Why retry format errors?</strong>
                         <p>

@@ -15,7 +15,7 @@ import {
   phoneDesktopGridRows,
 } from '../settings';
 import type { StorybookCharacter } from '../storybook/runtime';
-import type { PhoneDesktopIconSize, PhoneDesktopLayout } from '../types';
+import type { PhoneDesktopIconSize, PhoneDesktopLayout, PhoneDesktopWidgetId } from '../types';
 import type {
   ChatImageAttachment,
   ConnectionPreset,
@@ -99,6 +99,7 @@ type PhoneScreen =
   | 'fotogram' | 'onlyfriends' | 'notes' | 'ai';
 
 type PhoneDesktopAppId = 'whatsup' | 'gallery' | 'camera' | 'banking' | 'fotogram' | 'onlyfriends' | 'notes' | 'ai';
+type PhoneDesktopWidgetLayout = NonNullable<NonNullable<PhoneDesktopLayout['widgets']>[PhoneDesktopWidgetId]>;
 export type PhoneAppOpenRequest = {
   requestId: number;
   app: Exclude<PhoneScreen, 'desktop' | 'chat-gallery'>;
@@ -106,6 +107,24 @@ export type PhoneAppOpenRequest = {
 
 const phoneDesktopAppIds: readonly PhoneDesktopAppId[] =
   ['whatsup', 'gallery', 'camera', 'banking', 'fotogram', 'onlyfriends', 'notes', 'ai'];
+
+const phoneDesktopWidgetLandscapeFallbacks: Record<PhoneDesktopWidgetId, PhoneDesktopWidgetLayout> = {
+  gallery: { column: 5, row: 1, width: 4, height: 2, enabled: true },
+  chat: { column: 5, row: 1, width: 4, height: 2, enabled: true },
+  notes: { column: 5, row: 3, width: 4, height: 2, enabled: true },
+  social: { column: 9, row: 1, width: 2, height: 2, enabled: true },
+  banking: { column: 9, row: 3, width: 2, height: 2, enabled: true },
+  narrative: { column: 1, row: 3, width: 4, height: 2, enabled: true },
+};
+
+const phoneDesktopWidgetPortraitFallbacks: Record<PhoneDesktopWidgetId, PhoneDesktopWidgetLayout> = {
+  gallery: { column: 1, row: 7, width: 4, height: 2, enabled: true },
+  chat: { column: 1, row: 7, width: 4, height: 2, enabled: true },
+  notes: { column: 1, row: 9, width: 4, height: 2, enabled: true },
+  social: { column: 1, row: 9, width: 4, height: 2, enabled: true },
+  banking: { column: 1, row: 11, width: 4, height: 2, enabled: true },
+  narrative: { column: 1, row: 11, width: 4, height: 2, enabled: true },
+};
 
 const defaultPhoneWallpapers: ChatImageAttachment[] = [
   {
@@ -142,7 +161,6 @@ const phoneDesktopIconSizePx: Record<PhoneDesktopIconSize, number> = {
   medium: 52,
   large: 68,
 };
-const phoneDesktopIconLabelHeight = 18;
 
 function phoneReplySizeClass(text: string) {
   if (text.length > 120) {
@@ -154,6 +172,33 @@ function phoneReplySizeClass(text: string) {
 function desktopBadgeLabel(count: number) {
   return count > 99 ? '99+' : String(count);
 }
+
+function compactPhoneText(text: string, fallback: string, maxLength = 92) {
+  const compact = text.replace(/\s+/g, ' ').trim();
+  if (!compact) {
+    return fallback;
+  }
+  return compact.length > maxLength ? `${compact.slice(0, maxLength - 1).trim()}...` : compact;
+}
+
+const phoneMoodStatusOptions = [
+  { id: 'online', label: 'Online', symbol: '', monoSymbol: '' },
+  { id: 'happy', label: 'Happy', symbol: '🙂', monoSymbol: '☺' },
+  { id: 'excited', label: 'Excited', symbol: '😄', monoSymbol: '☻' },
+  { id: 'amused', label: 'Amused', symbol: '😂', monoSymbol: '〃' },
+  { id: 'wild', label: 'Wild', symbol: '😵', monoSymbol: '※' },
+  { id: 'playful', label: 'Playful', symbol: '😜', monoSymbol: '♪' },
+  { id: 'flirty', label: 'Flirty', symbol: '😉', monoSymbol: '♡' },
+  { id: 'horny', label: 'Thirsty', symbol: '💦', monoSymbol: '⋯' },
+  { id: 'devilish', label: 'Devilish', symbol: '😈', monoSymbol: '♆' },
+  { id: 'flustered', label: 'Flustered', symbol: '😳', monoSymbol: '!' },
+  { id: 'anxious', label: 'Anxious', symbol: '😟', monoSymbol: '?' },
+  { id: 'sad', label: 'Sad', symbol: '😔', monoSymbol: '☹' },
+  { id: 'annoyed', label: 'Annoyed', symbol: '😒', monoSymbol: '⌁' },
+  { id: 'angry', label: 'Angry', symbol: '😠', monoSymbol: '!' },
+  { id: 'furious', label: 'Furious', symbol: '🤬', monoSymbol: '‼' },
+  { id: 'tired', label: 'Tired', symbol: '😴', monoSymbol: '☾' },
+] as const;
 
 type PhonePanelProps = {
   phoneContacts: PhoneContact[];
@@ -180,6 +225,10 @@ type PhonePanelProps = {
   phoneGalleryOpenRequestId: number;
   phoneImages: ChatImageAttachment[];
   phoneGalleryImages: ChatImageAttachment[];
+  rpDraft: string;
+  onRpDraftChange: (value: string) => void;
+  canSendRpNarrative: boolean;
+  onSubmitRpNarrative: (event: FormEvent<HTMLFormElement>) => void;
   phoneDraft: string;
   phoneDraftCommands: CommandInputCommand[];
   replyToMessage?: MessageRecord;
@@ -221,6 +270,10 @@ type PhonePanelProps = {
   onScrollPhoneThreadToBottom: (behavior?: ScrollBehavior) => void;
   onRemovePhoneImage: (imageId: string) => void;
   onPhoneDraftChange: (value: string) => void;
+  phoneDraftContextComment: string;
+  onPhoneDraftContextCommentChange: (value: string) => void;
+  phoneMoodStatus: string;
+  onPhoneMoodStatusChange: (value: string) => void;
   onPhoneDraftCommandsChange: (commands: CommandInputCommand[]) => void;
   onReplyToMessage: (message: MessageRecord) => void;
   onCancelPhoneReply: () => void;
@@ -354,6 +407,10 @@ export function PhonePanel({
   phoneGalleryOpenRequestId,
   phoneImages,
   phoneGalleryImages,
+  rpDraft,
+  onRpDraftChange,
+  canSendRpNarrative,
+  onSubmitRpNarrative,
   phoneDraft,
   phoneDraftCommands,
   replyToMessage,
@@ -395,6 +452,10 @@ export function PhonePanel({
   onScrollPhoneThreadToBottom,
   onRemovePhoneImage,
   onPhoneDraftChange,
+  phoneDraftContextComment,
+  onPhoneDraftContextCommentChange,
+  phoneMoodStatus,
+  onPhoneMoodStatusChange,
   onPhoneDraftCommandsChange,
   onReplyToMessage,
   onCancelPhoneReply,
@@ -454,6 +515,7 @@ export function PhonePanel({
   onRefreshImageAssistantModelState,
 }: PhonePanelProps) {
   const commandComposerRef = useRef<CommandPillComposerHandle | null>(null);
+  const [contactListOpen, setContactListOpen] = useState(!selectedPhoneContact);
   // Start on the conversation when the panel opens through a chat message
   // link, or on a requested social post; otherwise start on the desktop.
   const [screen, setScreen] = useState<PhoneScreen>(() =>
@@ -549,6 +611,7 @@ export function PhonePanel({
   if (seenHighlightPulseKey !== highlightedPhoneMessagePulseKey) {
     setSeenHighlightPulseKey(highlightedPhoneMessagePulseKey);
     if (highlightedPhoneMessageId !== undefined && screen !== 'whatsup') {
+      setContactListOpen(false);
       setScreen('whatsup');
     }
   }
@@ -557,31 +620,52 @@ export function PhonePanel({
   const desktopLayoutRef = useRef(phoneDesktopLayout);
   const desktopRef = useRef<HTMLDivElement | null>(null);
   const desktopInteractionRef = useRef<{
-    kind: 'clock' | 'app' | 'resize';
+    kind: 'clock' | 'app' | 'resize' | 'widget' | 'resize-widget';
     appId?: PhoneDesktopAppId;
+    widgetId?: PhoneDesktopWidgetId;
     startedAt: { x: number; y: number };
     moved: boolean;
   } | undefined>(undefined);
   const suppressAppClickRef = useRef(false);
+  const launchTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+  const [launchingApp, setLaunchingApp] = useState<PhoneDesktopAppId>();
+  useEffect(() => () => clearTimeout(launchTimer.current), [phoneHomeRequestId, selectedCharacter?.id]);
+
+  function launchDesktopApp(app: PhoneDesktopAppId) {
+    clearTimeout(launchTimer.current);
+    setLaunchingApp(app);
+    const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    launchTimer.current = setTimeout(() => {
+      setLaunchingApp(undefined);
+      setScreen(app);
+    }, reduceMotion ? 0 : 140);
+  }
   const [desktopSettingsOpen, setDesktopSettingsOpen] = useState(false);
+  const [phoneMoodStatusOpen, setPhoneMoodStatusOpen] = useState(false);
+  const [narrativeWidgetExpanded, setNarrativeWidgetExpanded] = useState(false);
   const desktopSettingsRef = useRef<HTMLDivElement | null>(null);
-  const desktopIconPx = phoneDesktopIconSizePx[phoneDesktopIconSize];
-  const desktopGridGap = desktopIconPx / 2;
-  const desktopCellWidth = desktopIconPx;
-  const desktopCellHeight = desktopIconPx + phoneDesktopIconLabelHeight;
+  const desktopIconPx = Math.min(58, phoneDesktopIconSizePx[phoneDesktopIconSize]);
+  const phoneDesktopOrientation = desktopLayout.orientation ?? 'portrait';
+  const effectiveDesktopIconPx = phoneDesktopOrientation === 'landscape'
+    ? Math.min(44, desktopIconPx)
+    : desktopIconPx;
 
   useEffect(() => {
-    if (!desktopSettingsOpen) {
+    if (!desktopSettingsOpen && !phoneMoodStatusOpen) {
       return;
     }
     const closeMenu = (event: PointerEvent) => {
       if (event.target instanceof Node && !desktopSettingsRef.current?.contains(event.target)) {
         setDesktopSettingsOpen(false);
+        setPhoneMoodStatusOpen(false);
       }
     };
     document.addEventListener('pointerdown', closeMenu);
     return () => document.removeEventListener('pointerdown', closeMenu);
-  }, [desktopSettingsOpen]);
+  }, [desktopSettingsOpen, phoneMoodStatusOpen]);
+
+  const selectedPhoneMoodStatus = phoneMoodStatusOptions.find((option) => option.id === phoneMoodStatus)
+    ?? phoneMoodStatusOptions[0];
 
   const [clockNow, setClockNow] = useState(() => new Date());
 
@@ -619,6 +703,42 @@ export function PhonePanel({
   const desktopStyle = wallpaperImage?.dataUrl
     ? { backgroundImage: `url("${wallpaperImage.dataUrl}")` }
     : undefined;
+  const desktopWidgetBounds = phoneDesktopOrientation === 'landscape'
+    ? { columns: 10, rows: 4 }
+    : { columns: phoneDesktopGridColumns, rows: 10 };
+
+  function desktopWidgetFallback(widgetId: PhoneDesktopWidgetId, orientation = phoneDesktopOrientation) {
+    return orientation === 'landscape'
+      ? phoneDesktopWidgetLandscapeFallbacks[widgetId]
+      : phoneDesktopWidgetPortraitFallbacks[widgetId];
+  }
+
+  function fitDesktopWidgetLayout(
+    layout: PhoneDesktopWidgetLayout,
+    bounds = desktopWidgetBounds,
+  ): PhoneDesktopWidgetLayout {
+    const width = Math.max(2, Math.min(layout.width, bounds.columns));
+    const height = Math.max(1, Math.min(layout.height, bounds.rows));
+    return {
+      ...layout,
+      width,
+      height,
+      column: Math.max(1, Math.min(layout.column, bounds.columns - width + 1)),
+      row: Math.max(1, Math.min(layout.row, bounds.rows - height + 1)),
+    };
+  }
+
+  function desktopWidgetLayout(widgetId: PhoneDesktopWidgetId) {
+    const stored = desktopLayout.widgets?.[widgetId];
+    const fallback = desktopWidgetFallback(widgetId);
+    const layout = stored ?? fallback;
+    const offscreen =
+      layout.column > desktopWidgetBounds.columns ||
+      layout.row > desktopWidgetBounds.rows ||
+      layout.column + layout.width - 1 > desktopWidgetBounds.columns ||
+      layout.row + layout.height - 1 > desktopWidgetBounds.rows;
+    return fitDesktopWidgetLayout(offscreen ? { ...fallback, enabled: layout.enabled } : layout);
+  }
   const selectedReplyText = replyToMessage
     ? phoneReplyVisibleText(replyToMessage, englishProcessingEnabled) || 'Image'
     : '';
@@ -682,25 +802,118 @@ export function PhonePanel({
     }));
   }
 
+  const latestPhoneContact = useMemo(
+    () => [...phoneContacts].sort((left, right) => right.latestPhoneId - left.latestPhoneId)[0],
+    [phoneContacts],
+  );
+  const latestNote = phoneNotes[0];
+  const latestBankTransfer = [...bankTransferMessages].reverse().find((message) => message.bankTransfer)?.bankTransfer;
+  const latestSocialPost = [...socialMediaMessages].reverse().find((message) =>
+    message.socialPost &&
+    (!selectedCharacter || message.socialPost.author === selectedCharacter.name)
+  )?.socialPost;
+  const desktopWidgets: Array<{
+    id: PhoneDesktopWidgetId;
+    label: string;
+    value: string;
+    detail?: string;
+    available: boolean;
+    onOpen: () => void;
+  }> = [
+    {
+      id: 'narrative',
+      label: 'Narrative',
+      value: rpDraft.trim() ? 'Drafting' : 'Write next beat',
+      detail: rpDraft,
+      available: true,
+      onOpen: () => setNarrativeWidgetExpanded(true),
+    },
+    {
+      id: 'gallery',
+      label: 'Memories',
+      value: '',
+      available: phoneGalleryImages.length > 0,
+      onOpen: () => launchDesktopApp('gallery'),
+    },
+    {
+      id: 'chat',
+      label: 'Latest chat',
+      value: latestPhoneContact?.character.name ?? 'No chats',
+      detail: latestPhoneContact?.preview,
+      available: !!latestPhoneContact,
+      onOpen: () => launchDesktopApp('whatsup'),
+    },
+    {
+      id: 'notes',
+      label: 'Notes',
+      value: latestNote?.title || 'No notes',
+      detail: latestNote?.text,
+      available: !!latestNote,
+      onOpen: () => launchDesktopApp('notes'),
+    },
+    {
+      id: 'social',
+      label: latestSocialPost?.app === 'onlyfriends' ? 'OnlyFriends' : 'Fotogram',
+      value: latestSocialPost?.authorHandle ?? 'No posts',
+      detail: latestSocialPost?.caption,
+      available: !!latestSocialPost,
+      onOpen: () => launchDesktopApp(latestSocialPost?.app === 'onlyfriends' ? 'onlyfriends' : 'fotogram'),
+    },
+    {
+      id: 'banking',
+      label: 'Wallet',
+      value: latestBankTransfer ? `${latestBankTransfer.amount}` : 'No transfers',
+      detail: latestBankTransfer?.note || latestBankTransfer?.to || latestBankTransfer?.from,
+      available: !!latestBankTransfer || unreadBankingCount > 0,
+      onOpen: () => launchDesktopApp('banking'),
+    },
+  ];
+  const visibleDesktopWidgets = desktopWidgets.filter((widget) =>
+    widget.available && (desktopLayout.widgets?.[widget.id]?.enabled ?? true));
+
+  function toggleDesktopWidget(widgetId: PhoneDesktopWidgetId) {
+    const current = desktopLayoutRef.current;
+    const fallback = current.widgets?.[widgetId] ?? desktopWidgetFallback(widgetId, current.orientation ?? 'portrait');
+    const next = {
+      ...current,
+      widgets: {
+        ...current.widgets,
+        [widgetId]: { ...fallback, enabled: !fallback.enabled },
+      },
+    };
+    desktopLayoutRef.current = next;
+    setDesktopLayoutOverride(next);
+    onPhoneDesktopLayoutChange(next);
+  }
+
   function desktopGridPoint(clientX: number, clientY: number) {
     const bounds = desktopRef.current?.getBoundingClientRect();
-    const pitchX = desktopCellWidth + desktopGridGap;
-    const pitchY = desktopCellHeight + desktopGridGap;
-    if (!bounds) {
+    if (!bounds || !desktopRef.current) {
       return { column: 1, row: 1, fitColumns: 1, fitRows: 1 };
     }
-    const padding = desktopIconPx * 0.75;
+    const style = getComputedStyle(desktopRef.current);
+    const gapX = parseFloat(style.columnGap) || 0;
+    const gapY = parseFloat(style.rowGap) || 0;
+    const cellWidth = parseFloat(style.gridTemplateColumns);
+    const cellHeight = parseFloat(style.gridAutoRows);
+    const pitchX = cellWidth + gapX;
+    const pitchY = cellHeight + gapY;
+    const scale = bounds.width / (desktopRef.current?.offsetWidth || bounds.width);
+    const localWidth = bounds.width / scale;
+    const localHeight = bounds.height / scale;
+    const paddingX = parseFloat(style.paddingLeft);
+    const paddingY = parseFloat(style.paddingTop);
     const fitColumns = Math.min(
-      phoneDesktopGridColumns,
-      Math.max(1, Math.floor((bounds.width - padding * 2 + desktopGridGap) / pitchX)),
+      desktopWidgetBounds.columns,
+      Math.max(1, Math.floor((localWidth - paddingX - parseFloat(style.paddingRight) + gapX) / pitchX)),
     );
     const fitRows = Math.min(
       phoneDesktopGridRows,
-      Math.max(1, Math.floor((bounds.height - padding * 2 + desktopGridGap) / pitchY)),
+      Math.max(1, Math.floor((localHeight - paddingY - parseFloat(style.paddingBottom) + gapY) / pitchY)),
     );
     return {
-      column: Math.min(fitColumns, Math.max(1, Math.floor((clientX - bounds.left - padding) / pitchX) + 1)),
-      row: Math.min(fitRows, Math.max(1, Math.floor((clientY - bounds.top - padding) / pitchY) + 1)),
+      column: Math.min(fitColumns, Math.max(1, Math.floor(((clientX - bounds.left) / scale - paddingX - (localWidth - paddingX * 2 - fitColumns * pitchX + gapX) / 2) / pitchX) + 1)),
+      row: Math.min(fitRows, Math.max(1, Math.floor(((clientY - bounds.top) / scale - paddingY) / pitchY) + 1)),
       fitColumns,
       fitRows,
     };
@@ -708,11 +921,20 @@ export function PhonePanel({
 
   function beginDesktopInteraction(
     event: ReactPointerEvent<HTMLElement>,
-    interaction: { kind: 'clock' | 'app' | 'resize'; appId?: PhoneDesktopAppId },
+    interaction: {
+      kind: 'clock' | 'app' | 'resize' | 'widget' | 'resize-widget';
+      appId?: PhoneDesktopAppId;
+      widgetId?: PhoneDesktopWidgetId;
+    },
   ) {
     event.preventDefault();
     event.stopPropagation();
     event.currentTarget.setPointerCapture(event.pointerId);
+    const display = desktopRef.current?.parentElement;
+    if (display) {
+      const bounds = display.getBoundingClientRect();
+      display.style.setProperty('--phone-launch-origin', `${(event.clientX - bounds.left) / bounds.width * 100}% ${(event.clientY - bounds.top) / bounds.height * 100}%`);
+    }
     desktopLayoutRef.current = desktopLayout;
     desktopInteractionRef.current = {
       ...interaction,
@@ -764,6 +986,44 @@ export function PhonePanel({
         desktopLayoutRef.current = next;
         return next;
       }
+      if (interaction.kind === 'widget' && interaction.widgetId) {
+        const orientation = current.orientation ?? phoneDesktopOrientation;
+        const bounds = { columns: point.fitColumns, rows: point.fitRows };
+        const storedWidget = current.widgets?.[interaction.widgetId] ?? desktopWidgetFallback(interaction.widgetId, orientation);
+        const widget = fitDesktopWidgetLayout(storedWidget, bounds);
+        const next = {
+          ...current,
+          widgets: {
+            ...current.widgets,
+            [interaction.widgetId]: {
+              ...widget,
+              column: Math.max(1, Math.min(point.fitColumns - widget.width + 1, point.column)),
+              row: Math.max(1, Math.min(point.fitRows - widget.height + 1, point.row)),
+            },
+          },
+        };
+        desktopLayoutRef.current = next;
+        return next;
+      }
+      if (interaction.kind === 'resize-widget' && interaction.widgetId) {
+        const orientation = current.orientation ?? phoneDesktopOrientation;
+        const bounds = { columns: point.fitColumns, rows: point.fitRows };
+        const storedWidget = current.widgets?.[interaction.widgetId] ?? desktopWidgetFallback(interaction.widgetId, orientation);
+        const widget = fitDesktopWidgetLayout(storedWidget, bounds);
+        const next = {
+          ...current,
+          widgets: {
+            ...current.widgets,
+            [interaction.widgetId]: {
+              ...widget,
+              width: Math.max(2, Math.min(point.fitColumns - widget.column + 1, point.column - widget.column + 1)),
+              height: Math.max(1, Math.min(4, point.fitRows - widget.row + 1, point.row - widget.row + 1)),
+            },
+          },
+        };
+        desktopLayoutRef.current = next;
+        return next;
+      }
       const next = {
         ...current,
         clock: {
@@ -783,12 +1043,15 @@ export function PhonePanel({
       return;
     }
     desktopInteractionRef.current = undefined;
-    suppressAppClickRef.current = interaction.kind === 'app' || interaction.moved;
+    suppressAppClickRef.current = interaction.kind === 'app' || interaction.kind === 'widget' || interaction.moved;
     if (interaction.moved) {
       onPhoneDesktopLayoutChange(desktopLayoutRef.current);
     }
     if (interaction.kind === 'app' && interaction.appId && !interaction.moved) {
-      setScreen(interaction.appId);
+      launchDesktopApp(interaction.appId);
+    }
+    if (interaction.kind === 'widget' && interaction.widgetId && !interaction.moved) {
+      desktopWidgets.find((widget) => widget.id === interaction.widgetId)?.onOpen();
     }
   }
 
@@ -818,206 +1081,380 @@ export function PhonePanel({
     )?.dataUrl;
   }
 
+  const phoneSystemTrayControls = (
+    <div className="phone-desktop-settings" ref={desktopSettingsRef}>
+      {phoneMoodStatusOpen && (
+        <div className="phone-mood-status-menu" role="menu" aria-label="Phone status">
+          {phoneMoodStatusOptions.map((option) => (
+            <button
+              className={`phone-mood-status-option${option.id === selectedPhoneMoodStatus.id ? ' active' : ''}`}
+              type="button"
+              key={option.id}
+              onClick={() => {
+                onPhoneMoodStatusChange(option.id);
+                setPhoneMoodStatusOpen(false);
+              }}
+              role="menuitemradio"
+              aria-checked={option.id === selectedPhoneMoodStatus.id}
+            >
+              <span className="phone-mood-status-option-symbol" aria-hidden="true">
+                {option.id === 'online' ? <span className="phone-mood-status-dot" /> : option.symbol}
+              </span>
+              <span>{option.label}</span>
+            </button>
+          ))}
+        </div>
+      )}
+      {desktopSettingsOpen && (
+        <div className="phone-desktop-settings-menu" role="menu" aria-label="Desktop settings">
+          <span className="phone-desktop-settings-grabber" aria-hidden="true" />
+          <span className="phone-desktop-settings-label">Wallpaper</span>
+          <div className="phone-desktop-wallpaper-options">
+            {defaultPhoneWallpapers.map((wallpaper) => (
+              <button
+                className={`phone-desktop-wallpaper-option${
+                  wallpaperImageId === wallpaper.id ? ' active' : ''
+                }`}
+                type="button"
+                key={wallpaper.id}
+                onClick={() => selectWallpaper(wallpaper)}
+                title={`Use ${wallpaper.name}`}
+                aria-label={`Use ${wallpaper.name}`}
+              >
+                <img src={wallpaper.dataUrl} alt={wallpaper.name} />
+              </button>
+            ))}
+            <button
+              className="phone-desktop-wallpaper-gallery"
+              type="button"
+              onClick={() => {
+                setDesktopSettingsOpen(false);
+                setScreen('gallery');
+              }}
+              aria-label="Select wallpaper from gallery"
+              title="Select image from gallery"
+            >
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                <rect x="3" y="5" width="18" height="14" rx="2" />
+                <circle cx="8.5" cy="10" r="1.5" />
+                <path d="m21 15-4.5-4.5L8 19" />
+              </svg>
+            </button>
+          </div>
+          <span className="phone-desktop-settings-label">Icon Size</span>
+          <div className="phone-desktop-icon-size-options">
+            {(['medium', 'large'] as const).map((size) => (
+              <button
+                className={phoneDesktopIconSize === size ? 'active' : ''}
+                type="button"
+                key={size}
+                onClick={() => onPhoneDesktopIconSizeChange(size)}
+                aria-label={`${size === 'medium' ? 'Medium' : 'Large'} app icons`}
+                title={`${size === 'medium' ? 'Medium' : 'Large'} app icons`}
+              >
+                <span className={`phone-settings-size-symbol ${size}`} aria-hidden="true">
+                  <span />
+                  <span />
+                  <span />
+                  <span />
+                </span>
+              </button>
+            ))}
+          </div>
+          <span className="phone-desktop-settings-label">Orientation</span>
+          <div className="phone-desktop-icon-size-options">
+            {(['portrait', 'landscape'] as const).map((orientation) => (
+              <button
+                className={(desktopLayout.orientation ?? 'portrait') === orientation ? 'active' : ''}
+                type="button"
+                key={orientation}
+                onClick={() => {
+                  const next = { ...desktopLayoutRef.current, orientation };
+                  desktopLayoutRef.current = next;
+                  setDesktopLayoutOverride(next);
+                  onPhoneDesktopLayoutChange(next);
+                }}
+                aria-label={`${orientation === 'portrait' ? 'Portrait' : 'Horizontal'} phone orientation`}
+                title={`${orientation === 'portrait' ? 'Portrait' : 'Horizontal'} phone orientation`}
+              >
+                <span className={`phone-settings-orientation-symbol ${orientation}`} aria-hidden="true" />
+              </button>
+            ))}
+          </div>
+          {desktopWidgets.some((widget) => widget.available) && (
+            <>
+              <span className="phone-desktop-settings-label">Widgets</span>
+              <div className="phone-desktop-widget-options">
+                {desktopWidgets.filter((widget) => widget.available).map((widget) => (
+                  <button
+                    className={(desktopLayout.widgets?.[widget.id]?.enabled ?? true) ? 'active' : ''}
+                    type="button"
+                    key={widget.id}
+                    onClick={() => toggleDesktopWidget(widget.id)}
+                  >
+                    {widget.label}
+                  </button>
+                ))}
+              </div>
+            </>
+          )}
+        </div>
+      )}
+      <button
+        className="phone-desktop-settings-button"
+        type="button"
+        onClick={() => {
+          setPhoneMoodStatusOpen(false);
+          setDesktopSettingsOpen((open) => !open);
+        }}
+        aria-label="Desktop settings"
+        aria-expanded={desktopSettingsOpen}
+        title="Desktop settings"
+      >
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+          <circle cx="12" cy="12" r="3" />
+          <path d="M19.4 15a1.7 1.7 0 0 0 .34 1.87l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.7 1.7 0 0 0-1.87-.34 1.7 1.7 0 0 0-1.03 1.56V21a2 2 0 1 1-4 0v-.09A1.7 1.7 0 0 0 8.98 19.4a1.7 1.7 0 0 0-1.87.34l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.7 1.7 0 0 0 .34-1.87 1.7 1.7 0 0 0-1.56-1.03H3a2 2 0 1 1 0-4h.09A1.7 1.7 0 0 0 4.6 8.98a1.7 1.7 0 0 0-.34-1.87l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.7 1.7 0 0 0 1.87.34h.02a1.7 1.7 0 0 0 1.02-1.56V3a2 2 0 1 1 4 0v.09a1.7 1.7 0 0 0 1.03 1.56 1.7 1.7 0 0 0 1.87-.34l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.7 1.7 0 0 0-.34 1.87v.02a1.7 1.7 0 0 0 1.56 1.02H21a2 2 0 1 1 0 4h-.09a1.7 1.7 0 0 0-1.56 1.03Z" />
+        </svg>
+      </button>
+      <button
+        className={`phone-mood-status-button${selectedPhoneMoodStatus.id === 'online' ? ' online' : ''}`}
+        type="button"
+        onClick={() => {
+          setDesktopSettingsOpen(false);
+          setPhoneMoodStatusOpen((open) => !open);
+        }}
+        aria-label={`Phone status: ${selectedPhoneMoodStatus.label}`}
+        aria-expanded={phoneMoodStatusOpen}
+        title={`Phone status: ${selectedPhoneMoodStatus.label}`}
+      >
+        {selectedPhoneMoodStatus.id === 'online' ? (
+          <span className="phone-mood-status-dot" aria-hidden="true" />
+        ) : (
+          <span aria-hidden="true">{selectedPhoneMoodStatus.symbol}</span>
+        )}
+      </button>
+    </div>
+  );
+
   if (screen === 'gallery' || screen === 'chat-gallery') {
     const wallpaperMode = screen === 'gallery';
     return (
-      <PhoneGalleryScreen
-        title={`${phoneOwnerName ?? 'Phone'}'s Gallery`}
-        images={phoneGalleryImages}
-        action={wallpaperMode ? 'wallpaper' : 'select'}
-        selectedWallpaperId={wallpaperMode ? wallpaperImageId : undefined}
-        newImageIds={wallpaperMode ? undefined : newGalleryImageIds}
-        onBack={() => setScreen(wallpaperMode ? 'desktop' : 'whatsup')}
-        onSelectImage={(image) => {
-          markGalleryImageSeen(image.id);
-          if (wallpaperMode) {
-            selectWallpaper(image);
-            setScreen('desktop');
-          } else {
-            onSelectPhoneGalleryImage(image);
-            setScreen('whatsup');
-          }
-        }}
-      />
+      <Fragment>
+        <PhoneGalleryScreen
+          title={`${phoneOwnerName ?? 'Phone'}'s Gallery`}
+          images={phoneGalleryImages}
+          action={wallpaperMode ? 'wallpaper' : 'select'}
+          selectedWallpaperId={wallpaperMode ? wallpaperImageId : undefined}
+          newImageIds={wallpaperMode ? undefined : newGalleryImageIds}
+          onBack={() => setScreen(wallpaperMode ? 'desktop' : 'whatsup')}
+          onSelectImage={(image) => {
+            markGalleryImageSeen(image.id);
+            if (wallpaperMode) {
+              selectWallpaper(image);
+              setScreen('desktop');
+            } else {
+              onSelectPhoneGalleryImage(image);
+              setScreen('whatsup');
+            }
+          }}
+        />
+        {phoneSystemTrayControls}
+      </Fragment>
     );
   }
 
   if (screen === 'banking') {
     return (
-      <PhoneBankingScreen
-        key={selectedCharacter?.id ?? 'no-account'}
-        owner={selectedCharacter}
-        storyCharacters={storyCharacters}
-        characterColors={characterColors}
-        bankTransferMessages={bankTransferMessages}
-        bankingContactNames={bankingContactNames}
-        clockDateTime={clockDateTime}
-        rpDateTimeFormat={rpDateTimeFormat}
-        rpWeekdayLanguage={rpWeekdayLanguage}
-        sendLocked={inputLocked}
-        isRunning={isRunning}
-        onBack={() => setScreen('desktop')}
-        onAddBankingContact={onAddBankingContact}
-        onSendBankTransfer={onSendBankTransfer}
-      />
+      <Fragment>
+        <PhoneBankingScreen
+          key={selectedCharacter?.id ?? 'no-account'}
+          owner={selectedCharacter}
+          storyCharacters={storyCharacters}
+          characterColors={characterColors}
+          bankTransferMessages={bankTransferMessages}
+          bankingContactNames={bankingContactNames}
+          clockDateTime={clockDateTime}
+          rpDateTimeFormat={rpDateTimeFormat}
+          rpWeekdayLanguage={rpWeekdayLanguage}
+          sendLocked={inputLocked}
+          isRunning={isRunning}
+          onBack={() => setScreen('desktop')}
+          onAddBankingContact={onAddBankingContact}
+          onSendBankTransfer={onSendBankTransfer}
+        />
+        {phoneSystemTrayControls}
+      </Fragment>
     );
   }
 
   if (screen === 'notes') {
     return (
-      <PhoneNotesScreen
-        key={selectedCharacter?.id ?? 'no-owner'}
-        owner={selectedCharacter}
-        notes={phoneNotes}
-        onDeleteNote={onPhoneNoteDelete}
-        onChangeNoteColor={onPhoneNoteColorChange}
-        clockDateTime={clockDateTime}
-        rpDateTimeFormat={rpDateTimeFormat}
-        rpWeekdayLanguage={rpWeekdayLanguage}
-        onCommitNote={onPhoneNoteCommit}
-        onBack={() => setScreen('desktop')}
-      />
+      <Fragment>
+        <PhoneNotesScreen
+          key={selectedCharacter?.id ?? 'no-owner'}
+          owner={selectedCharacter}
+          notes={phoneNotes}
+          onDeleteNote={onPhoneNoteDelete}
+          onChangeNoteColor={onPhoneNoteColorChange}
+          clockDateTime={clockDateTime}
+          rpDateTimeFormat={rpDateTimeFormat}
+          rpWeekdayLanguage={rpWeekdayLanguage}
+          onCommitNote={onPhoneNoteCommit}
+          onBack={() => setScreen('desktop')}
+        />
+        {phoneSystemTrayControls}
+      </Fragment>
     );
   }
 
   if (screen === 'ai') {
     return (
-      <PhoneChatGpdScreen
-        key={selectedCharacter?.id ?? 'no-owner'}
-        chatGpd={chatGpd}
-        sidebarOpen={chatGpdSidebarOpen}
-        onSidebarOpenChange={onChatGpdSidebarOpenChange}
-        sidebarWidth={chatGpdSidebarWidth}
-        onSidebarWidthChange={onChatGpdSidebarWidthChange}
-        archivedChatIds={archivedChatGpdChatIds}
-        onCommitChat={onChatGpdChatCommit}
-        onBack={() => setScreen('desktop')}
-      />
+      <Fragment>
+        <PhoneChatGpdScreen
+          key={selectedCharacter?.id ?? 'no-owner'}
+          chatGpd={chatGpd}
+          sidebarOpen={chatGpdSidebarOpen}
+          onSidebarOpenChange={onChatGpdSidebarOpenChange}
+          sidebarWidth={chatGpdSidebarWidth}
+          onSidebarWidthChange={onChatGpdSidebarWidthChange}
+          archivedChatIds={archivedChatGpdChatIds}
+          onCommitChat={onChatGpdChatCommit}
+          onBack={() => setScreen('desktop')}
+        />
+        {phoneSystemTrayControls}
+      </Fragment>
     );
   }
 
   if (screen === 'fotogram' || screen === 'onlyfriends') {
     const socialScreen = screen;
     return (
-      <PhoneSocialFeedScreen
-        key={`${screen}-${selectedCharacter?.id ?? 'no-account'}`}
-        app={socialApps[screen]}
-        owner={selectedCharacter}
-        storyCharacters={storyCharacters}
-        characterColors={characterColors}
-        phoneGalleryImages={phoneGalleryImages}
-        bankTransferMessages={bankTransferMessages}
-        socialMediaMessages={socialMediaMessages}
-        phoneEmojiOptions={phoneEmojiOptions}
-        recentlyUsedEmojis={recentlyUsedEmojis}
-        rpTimeTrackingEnabled={rpTimeTrackingEnabled}
-        onSendDirectMessage={onSubmitSocialDirectMessage}
-        unreadDirectMessages={unreadSocialDirectMessages[socialScreen]}
-        onMarkDirectMessagesSeen={(partnerHandle) =>
-          onMarkSocialDirectMessagesSeen(socialScreen, partnerHandle)}
-        openPostRequest={
-          socialPostOpenRequest?.app === screen &&
-          socialPostOpenRequest.requestId !== dismissedSocialPostOpenRequestId
-            ? {
-                requestId: socialPostOpenRequest.requestId,
-                postId: socialPostOpenRequest.postId,
-              }
-            : undefined
-        }
-        openDirectMessageRequest={
-          socialDirectMessageOpenRequest?.app === screen &&
-          socialDirectMessageOpenRequest.requestId !== dismissedSocialDirectMessageOpenRequestId
-            ? socialDirectMessageOpenRequest
-            : undefined
-        }
-        isRunning={isRunning}
-        onTransferOnlyFriendsWallet={onTransferOnlyFriendsWallet}
-        onSubmitSocialPost={onSubmitSocialPost}
-        onSubmitSocialThreadAction={onSubmitSocialThreadAction}
-        onCreateSocialAccount={onCreateSocialAccount}
-        onImportPostImage={onImportSocialPostImage}
-        socialImageById={socialImageById}
-        socialLikesByAccount={socialLikesByAccount}
-        socialDirectoryUsers={socialDirectoryUsers}
-        fotogramContactsByCharacter={fotogramContactsByCharacter}
-        socialConnectionsByCharacter={socialConnectionsByCharacter}
-        onAddSocialConnection={onAddSocialConnection}
-        onlyFriendsPurchasesByCharacter={onlyFriendsPurchasesByCharacter}
-        onUnlockOnlyFriendsPost={onUnlockOnlyFriendsPost}
-        onToggleLike={(postId) => {
-          if (selectedCharacter) {
-            onToggleSocialLike(selectedCharacter.id, socialScreen, postId);
+      <Fragment>
+        <PhoneSocialFeedScreen
+          key={`${screen}-${selectedCharacter?.id ?? 'no-account'}`}
+          app={socialApps[screen]}
+          owner={selectedCharacter}
+          storyCharacters={storyCharacters}
+          characterColors={characterColors}
+          phoneGalleryImages={phoneGalleryImages}
+          bankTransferMessages={bankTransferMessages}
+          socialMediaMessages={socialMediaMessages}
+          phoneEmojiOptions={phoneEmojiOptions}
+          recentlyUsedEmojis={recentlyUsedEmojis}
+          rpTimeTrackingEnabled={rpTimeTrackingEnabled}
+          onSendDirectMessage={onSubmitSocialDirectMessage}
+          unreadDirectMessages={unreadSocialDirectMessages[socialScreen]}
+          onMarkDirectMessagesSeen={(partnerHandle) =>
+            onMarkSocialDirectMessagesSeen(socialScreen, partnerHandle)}
+          openPostRequest={
+            socialPostOpenRequest?.app === screen &&
+            socialPostOpenRequest.requestId !== dismissedSocialPostOpenRequestId
+              ? {
+                  requestId: socialPostOpenRequest.requestId,
+                  postId: socialPostOpenRequest.postId,
+                }
+              : undefined
           }
-        }}
-        onBack={() => {
-          setDismissedSocialPostOpenRequestId(socialPostOpenRequest?.requestId);
-          setDismissedSocialDirectMessageOpenRequestId(socialDirectMessageOpenRequest?.requestId);
-          setScreen('desktop');
-        }}
-        connections={connections}
-        providerHealthById={providerHealthById}
-        estimatedTokenBytesPerToken={estimatedTokenBytesPerToken}
-        imageAssistantChatHistoryContext={imageAssistantChatHistoryContext}
-        imageAssistantModelStateById={imageAssistantModelStateById}
-        onSetImageAssistantLlmModelLoaded={onSetImageAssistantLlmModelLoaded}
-        onUnloadImageAssistantComfyModel={onUnloadImageAssistantComfyModel}
-        onRefreshImageAssistantModelState={onRefreshImageAssistantModelState}
-        onSubmitImageAssistantMessage={onSubmitImageAssistantMessage}
-        onGenerateImageAssistantImages={onGenerateImageAssistantImages}
-        onSaveImageAssistantImage={onSaveImageAssistantImage}
-        rpDateTimeFormat={rpDateTimeFormat}
-        rpWeekdayLanguage={rpWeekdayLanguage}
-      />
+          openDirectMessageRequest={
+            socialDirectMessageOpenRequest?.app === screen &&
+            socialDirectMessageOpenRequest.requestId !== dismissedSocialDirectMessageOpenRequestId
+              ? socialDirectMessageOpenRequest
+              : undefined
+          }
+          isRunning={isRunning}
+          onTransferOnlyFriendsWallet={onTransferOnlyFriendsWallet}
+          onSubmitSocialPost={onSubmitSocialPost}
+          onSubmitSocialThreadAction={onSubmitSocialThreadAction}
+          onCreateSocialAccount={onCreateSocialAccount}
+          onImportPostImage={onImportSocialPostImage}
+          socialImageById={socialImageById}
+          socialLikesByAccount={socialLikesByAccount}
+          socialDirectoryUsers={socialDirectoryUsers}
+          fotogramContactsByCharacter={fotogramContactsByCharacter}
+          socialConnectionsByCharacter={socialConnectionsByCharacter}
+          onAddSocialConnection={onAddSocialConnection}
+          onlyFriendsPurchasesByCharacter={onlyFriendsPurchasesByCharacter}
+          onUnlockOnlyFriendsPost={onUnlockOnlyFriendsPost}
+          onToggleLike={(postId) => {
+            if (selectedCharacter) {
+              onToggleSocialLike(selectedCharacter.id, socialScreen, postId);
+            }
+          }}
+          onBack={() => {
+            setDismissedSocialPostOpenRequestId(socialPostOpenRequest?.requestId);
+            setDismissedSocialDirectMessageOpenRequestId(socialDirectMessageOpenRequest?.requestId);
+            setScreen('desktop');
+          }}
+          connections={connections}
+          providerHealthById={providerHealthById}
+          estimatedTokenBytesPerToken={estimatedTokenBytesPerToken}
+          imageAssistantChatHistoryContext={imageAssistantChatHistoryContext}
+          imageAssistantModelStateById={imageAssistantModelStateById}
+          onSetImageAssistantLlmModelLoaded={onSetImageAssistantLlmModelLoaded}
+          onUnloadImageAssistantComfyModel={onUnloadImageAssistantComfyModel}
+          onRefreshImageAssistantModelState={onRefreshImageAssistantModelState}
+          onSubmitImageAssistantMessage={onSubmitImageAssistantMessage}
+          onGenerateImageAssistantImages={onGenerateImageAssistantImages}
+          onSaveImageAssistantImage={onSaveImageAssistantImage}
+          rpDateTimeFormat={rpDateTimeFormat}
+          rpWeekdayLanguage={rpWeekdayLanguage}
+        />
+        {phoneSystemTrayControls}
+      </Fragment>
     );
   }
 
   if (screen === 'camera') {
     return (
-      <div className="phone-desktop" style={desktopStyle} aria-label="Phone desktop">
-        <div className="phone-desktop-scrim" />
-        <PhoneImagePicker
-          hideLauncher
-          openCameraOnMount
-          onCameraClose={() => setScreen('desktop')}
-          onUploadFromComputer={() => {}}
-          connections={connections}
-          providerHealthById={providerHealthById}
-          availableCharacterLoras={storyCharacters.flatMap((character) => {
-            const loraName = character.comfyConfig?.loraName.trim();
-            return loraName ? [`${character.name}: ${loraName}`] : [];
-          })}
-          characterContext={imageGenerationCharacterContext(storyCharacters)}
-          characterCount={storyCharacters.length}
-          chatHistoryContext={imageAssistantChatHistoryContext}
-          estimatedTokenBytesPerToken={estimatedTokenBytesPerToken}
-          saveCharacters={storyCharacters}
-          preferredSaveCharacterId={selectedCharacter?.id}
-          onSubmitImageAssistantMessage={onSubmitImageAssistantMessage}
-          onGenerateImageAssistantImages={onGenerateImageAssistantImages}
-          onSaveImageAssistantImage={onSaveImageAssistantImage}
-          imageAssistantModelStateById={imageAssistantModelStateById}
-          onSetImageAssistantLlmModelLoaded={onSetImageAssistantLlmModelLoaded}
-          onUnloadImageAssistantComfyModel={onUnloadImageAssistantComfyModel}
-          onRefreshImageAssistantModelState={onRefreshImageAssistantModelState}
-        />
-      </div>
+      <Fragment>
+        <div className="phone-desktop" style={desktopStyle} aria-label="Phone desktop">
+          <div className="phone-desktop-scrim" />
+          <PhoneImagePicker
+            hideLauncher
+            openCameraOnMount
+            onCameraClose={() => setScreen('desktop')}
+            onUploadFromComputer={() => {}}
+            connections={connections}
+            providerHealthById={providerHealthById}
+            availableCharacterLoras={storyCharacters.flatMap((character) => {
+              const loraName = character.comfyConfig?.loraName.trim();
+              return loraName ? [`${character.name}: ${loraName}`] : [];
+            })}
+            characterContext={imageGenerationCharacterContext(storyCharacters)}
+            characterCount={storyCharacters.length}
+            chatHistoryContext={imageAssistantChatHistoryContext}
+            estimatedTokenBytesPerToken={estimatedTokenBytesPerToken}
+            saveCharacters={storyCharacters}
+            preferredSaveCharacterId={selectedCharacter?.id}
+            onSubmitImageAssistantMessage={onSubmitImageAssistantMessage}
+            onGenerateImageAssistantImages={onGenerateImageAssistantImages}
+            onSaveImageAssistantImage={onSaveImageAssistantImage}
+            imageAssistantModelStateById={imageAssistantModelStateById}
+            onSetImageAssistantLlmModelLoaded={onSetImageAssistantLlmModelLoaded}
+            onUnloadImageAssistantComfyModel={onUnloadImageAssistantComfyModel}
+            onRefreshImageAssistantModelState={onRefreshImageAssistantModelState}
+          />
+        </div>
+        {phoneSystemTrayControls}
+      </Fragment>
     );
   }
 
   if (screen === 'desktop') {
     return (
+      <Fragment>
       <div
-        className="phone-desktop"
+        className={`phone-desktop${launchingApp ? ' is-launching' : ''}`}
         ref={desktopRef}
-        style={{ ...desktopStyle, '--phone-icon': `${desktopIconPx}px` } as CSSProperties}
+        style={{ ...desktopStyle, '--phone-icon': `${effectiveDesktopIconPx}px` } as CSSProperties}
         aria-label="Phone desktop"
         onPointerMove={moveDesktopInteraction}
         onPointerUp={endDesktopInteraction}
-        onPointerCancel={endDesktopInteraction}
+        onPointerCancel={() => { desktopInteractionRef.current = undefined; }}
       >
         <div className="phone-desktop-scrim" />
         <div
-          className="phone-clock-widget"
+          className={`phone-clock-widget phone-clock-widget-${desktopLayout.clock.width}x${desktopLayout.clock.height}`}
           style={{
             gridColumn: `${desktopLayout.clock.column} / span ${desktopLayout.clock.width}`,
             gridRow: `${desktopLayout.clock.row} / span ${desktopLayout.clock.height}`,
@@ -1038,6 +1475,119 @@ export function PhonePanel({
             </svg>
           </button>
         </div>
+        <div className="phone-desktop-widgets" aria-label="Phone widgets">
+          {visibleDesktopWidgets.map((widget) => {
+            const widgetLayout = desktopWidgetLayout(widget.id);
+            const displayLayout = widget.id === 'narrative' && narrativeWidgetExpanded
+              ? fitDesktopWidgetLayout({
+                ...widgetLayout,
+                row: Math.max(1, widgetLayout.row - 1),
+                height: Math.max(widgetLayout.height, phoneDesktopOrientation === 'landscape' ? 3 : 4),
+              })
+              : widgetLayout;
+            if (widget.id === 'narrative') {
+              return (
+                <form
+                  key={widget.id}
+                  className={`phone-desktop-widget phone-narrative-widget${narrativeWidgetExpanded ? ' expanded' : ''}`}
+                  style={{
+                    gridColumn: `${displayLayout.column} / span ${displayLayout.width}`,
+                    gridRow: `${displayLayout.row} / span ${displayLayout.height}`,
+                  }}
+                  onSubmit={onSubmitRpNarrative}
+                  aria-label="Narrative input widget"
+                >
+                  <button
+                    className="phone-narrative-widget-grip"
+                    type="button"
+                    onPointerDown={(event) => beginDesktopInteraction(event, { kind: 'widget', widgetId: widget.id })}
+                    aria-label="Move narrative widget"
+                    title="Move narrative widget"
+                  >
+                    <span className="phone-desktop-widget-label">Narrative</span>
+                    <strong>{rpDraft.trim() ? 'Ready to run' : 'Next beat'}</strong>
+                  </button>
+                  <textarea
+                    value={rpDraft}
+                    disabled={inputLocked}
+                    onFocus={() => setNarrativeWidgetExpanded(true)}
+                    onPointerDown={(event) => event.stopPropagation()}
+                    onChange={(event) => onRpDraftChange(event.currentTarget.value)}
+                    placeholder="Write narration..."
+                    aria-label="Narrative draft"
+                  />
+                  <div className="phone-narrative-widget-actions">
+                    <button
+                      type="button"
+                      onPointerDown={(event) => event.stopPropagation()}
+                      onClick={() => {
+                        onRpDraftChange('');
+                        setNarrativeWidgetExpanded(false);
+                      }}
+                    >
+                      Clear
+                    </button>
+                    <button
+                      type="submit"
+                      onPointerDown={(event) => event.stopPropagation()}
+                      disabled={!canSendRpNarrative}
+                    >
+                      {isRunning ? 'Stop' : 'Run'}
+                    </button>
+                  </div>
+                  <span
+                    className="phone-widget-resize-handle"
+                    aria-label="Resize Narrative widget"
+                    title="Resize Narrative widget"
+                    onPointerDown={(event) => beginDesktopInteraction(event, { kind: 'resize-widget', widgetId: widget.id })}
+                  />
+                </form>
+              );
+            }
+            return (
+              <button
+                key={widget.id}
+                type="button"
+                className={`phone-desktop-widget ${widget.id}`}
+                style={{
+                  gridColumn: `${displayLayout.column} / span ${displayLayout.width}`,
+                  gridRow: `${displayLayout.row} / span ${displayLayout.height}`,
+                }}
+                onPointerDown={(event) => beginDesktopInteraction(event, { kind: 'widget', widgetId: widget.id })}
+                onClick={(event) => {
+                  if (suppressAppClickRef.current) {
+                    suppressAppClickRef.current = false;
+                    event.preventDefault();
+                    return;
+                  }
+                  widget.onOpen();
+                }}
+                aria-label={`View ${widget.label} widget`}
+              >
+                <span className="phone-desktop-widget-label">{widget.label}</span>
+                {widget.id === 'gallery' && phoneGalleryImages.length > 0 && (
+                  <span className="phone-desktop-gallery-strip" aria-hidden="true">
+                    {[...phoneGalleryImages, ...phoneGalleryImages]
+                      .slice(0, Math.min(8, Math.max(4, phoneGalleryImages.length * 2)))
+                      .map((image, index) => (
+                        <img key={`${image.id}-${index}`} src={image.dataUrl} alt="" />
+                      ))}
+                  </span>
+                )}
+                {widget.value && <strong>{widget.value}</strong>}
+                {widget.detail && (
+                  <span>{compactPhoneText(widget.detail, '', widget.id === 'gallery' ? 58 : 82)}</span>
+                )}
+                <span
+                  className="phone-widget-resize-handle"
+                  aria-label={`Resize ${widget.label} widget`}
+                  title={`Resize ${widget.label} widget`}
+                  onPointerDown={(event) => beginDesktopInteraction(event, { kind: 'resize-widget', widgetId: widget.id })}
+                />
+              </button>
+            );
+          })}
+        </div>
         <div className="phone-desktop-apps">
           <button
             className="phone-desktop-app"
@@ -1052,7 +1602,7 @@ export function PhonePanel({
                 suppressAppClickRef.current = false;
                 return;
               }
-              setScreen('whatsup');
+              launchDesktopApp('whatsup');
             }}
             aria-label={unreadWhatsUpCount > 0
               ? `Open WhatsUp, ${unreadWhatsUpCount} unread`
@@ -1083,7 +1633,7 @@ export function PhonePanel({
                 suppressAppClickRef.current = false;
                 return;
               }
-              setScreen('gallery');
+              launchDesktopApp('gallery');
             }}
             aria-label="Open Gallery"
           >
@@ -1109,7 +1659,7 @@ export function PhonePanel({
                 suppressAppClickRef.current = false;
                 return;
               }
-              setScreen('camera');
+              launchDesktopApp('camera');
             }}
             aria-label="Open Camera"
           >
@@ -1134,7 +1684,7 @@ export function PhonePanel({
                 suppressAppClickRef.current = false;
                 return;
               }
-              setScreen('banking');
+              launchDesktopApp('banking');
             }}
             aria-label={unreadBankingCount > 0
               ? `Open Banking, ${unreadBankingCount} new transactions`
@@ -1168,7 +1718,7 @@ export function PhonePanel({
                 suppressAppClickRef.current = false;
                 return;
               }
-              setScreen('fotogram');
+              launchDesktopApp('fotogram');
             }}
             aria-label={phoneAppNotificationCounts.fotogram > 0
               ? `Open Fotogram, ${phoneAppNotificationCounts.fotogram} new`
@@ -1201,7 +1751,7 @@ export function PhonePanel({
                 suppressAppClickRef.current = false;
                 return;
               }
-              setScreen('onlyfriends');
+              launchDesktopApp('onlyfriends');
             }}
             aria-label={phoneAppNotificationCounts.onlyfriends > 0
               ? `Open OnlyFriends, ${phoneAppNotificationCounts.onlyfriends} new`
@@ -1232,7 +1782,7 @@ export function PhonePanel({
                 suppressAppClickRef.current = false;
                 return;
               }
-              setScreen('notes');
+              launchDesktopApp('notes');
             }}
             aria-label={phoneAppNotificationCounts.notes > 0
               ? `Open Notes, ${phoneAppNotificationCounts.notes} new`
@@ -1265,7 +1815,7 @@ export function PhonePanel({
                 suppressAppClickRef.current = false;
                 return;
               }
-              setScreen('ai');
+              launchDesktopApp('ai');
             }}
             aria-label={phoneAppNotificationCounts.ai > 0
               ? `Open ChatGPD, ${phoneAppNotificationCounts.ai} new`
@@ -1280,9 +1830,33 @@ export function PhonePanel({
             <span>ChatGPD</span>
           </button>
         </div>
+      </div>
         <div className="phone-desktop-settings" ref={desktopSettingsRef}>
+          {phoneMoodStatusOpen && (
+            <div className="phone-mood-status-menu" role="menu" aria-label="Phone status">
+              {phoneMoodStatusOptions.map((option) => (
+                <button
+                  className={`phone-mood-status-option${option.id === selectedPhoneMoodStatus.id ? ' active' : ''}`}
+                  type="button"
+                  key={option.id}
+                  onClick={() => {
+                    onPhoneMoodStatusChange(option.id);
+                    setPhoneMoodStatusOpen(false);
+                  }}
+                  role="menuitemradio"
+                  aria-checked={option.id === selectedPhoneMoodStatus.id}
+                >
+                  <span className="phone-mood-status-option-symbol" aria-hidden="true">
+                    {option.id === 'online' ? <span className="phone-mood-status-dot" /> : option.symbol}
+                  </span>
+                  <span>{option.label}</span>
+                </button>
+              ))}
+            </div>
+          )}
           {desktopSettingsOpen && (
             <div className="phone-desktop-settings-menu" role="menu" aria-label="Desktop settings">
+              <span className="phone-desktop-settings-grabber" aria-hidden="true" />
               <span className="phone-desktop-settings-label">Wallpaper</span>
               <div className="phone-desktop-wallpaper-options">
                 {defaultPhoneWallpapers.map((wallpaper) => (
@@ -1306,8 +1880,14 @@ export function PhonePanel({
                     setDesktopSettingsOpen(false);
                     setScreen('gallery');
                   }}
+                  aria-label="Select wallpaper from gallery"
+                  title="Select image from gallery"
                 >
-                  Select Image from Gallery
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                    <rect x="3" y="5" width="18" height="14" rx="2" />
+                    <circle cx="8.5" cy="10" r="1.5" />
+                    <path d="m21 15-4.5-4.5L8 19" />
+                  </svg>
                 </button>
               </div>
               <span className="phone-desktop-settings-label">Icon Size</span>
@@ -1318,17 +1898,70 @@ export function PhonePanel({
                     type="button"
                     key={size}
                     onClick={() => onPhoneDesktopIconSizeChange(size)}
+                    aria-label={`${size === 'medium' ? 'Medium' : 'Large'} app icons`}
+                    title={`${size === 'medium' ? 'Medium' : 'Large'} app icons`}
                   >
-                    {size === 'medium' ? 'Medium' : 'Large'}
+                    <span
+                      className={`phone-settings-size-symbol ${size}`}
+                      aria-hidden="true"
+                    >
+                      <span />
+                      <span />
+                      <span />
+                      <span />
+                    </span>
                   </button>
                 ))}
               </div>
+              <span className="phone-desktop-settings-label">Orientation</span>
+              <div className="phone-desktop-icon-size-options">
+                {(['portrait', 'landscape'] as const).map((orientation) => (
+                  <button
+                    className={(desktopLayout.orientation ?? 'portrait') === orientation ? 'active' : ''}
+                    type="button"
+                    key={orientation}
+                    onClick={() => {
+                      const next = { ...desktopLayoutRef.current, orientation };
+                      desktopLayoutRef.current = next;
+                      setDesktopLayoutOverride(next);
+                      onPhoneDesktopLayoutChange(next);
+                    }}
+                    aria-label={`${orientation === 'portrait' ? 'Portrait' : 'Horizontal'} phone orientation`}
+                    title={`${orientation === 'portrait' ? 'Portrait' : 'Horizontal'} phone orientation`}
+                  >
+                    <span
+                      className={`phone-settings-orientation-symbol ${orientation}`}
+                      aria-hidden="true"
+                    />
+                  </button>
+                ))}
+              </div>
+              {desktopWidgets.some((widget) => widget.available) && (
+                <>
+                  <span className="phone-desktop-settings-label">Widgets</span>
+                  <div className="phone-desktop-widget-options">
+                    {desktopWidgets.filter((widget) => widget.available).map((widget) => (
+                      <button
+                        className={(desktopLayout.widgets?.[widget.id]?.enabled ?? true) ? 'active' : ''}
+                        type="button"
+                        key={widget.id}
+                        onClick={() => toggleDesktopWidget(widget.id)}
+                      >
+                        {widget.label}
+                      </button>
+                    ))}
+                  </div>
+                </>
+              )}
             </div>
           )}
           <button
             className="phone-desktop-settings-button"
             type="button"
-            onClick={() => setDesktopSettingsOpen((open) => !open)}
+            onClick={() => {
+              setPhoneMoodStatusOpen(false);
+              setDesktopSettingsOpen((open) => !open);
+            }}
             aria-label="Desktop settings"
             aria-expanded={desktopSettingsOpen}
             title="Desktop settings"
@@ -1338,14 +1971,32 @@ export function PhonePanel({
               <path d="M19.4 15a1.7 1.7 0 0 0 .34 1.87l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.7 1.7 0 0 0-1.87-.34 1.7 1.7 0 0 0-1.03 1.56V21a2 2 0 1 1-4 0v-.09A1.7 1.7 0 0 0 8.98 19.4a1.7 1.7 0 0 0-1.87.34l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.7 1.7 0 0 0 .34-1.87 1.7 1.7 0 0 0-1.56-1.03H3a2 2 0 1 1 0-4h.09A1.7 1.7 0 0 0 4.6 8.98a1.7 1.7 0 0 0-.34-1.87l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.7 1.7 0 0 0 1.87.34h.02a1.7 1.7 0 0 0 1.02-1.56V3a2 2 0 1 1 4 0v.09a1.7 1.7 0 0 0 1.03 1.56 1.7 1.7 0 0 0 1.87-.34l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.7 1.7 0 0 0-.34 1.87v.02a1.7 1.7 0 0 0 1.56 1.02H21a2 2 0 1 1 0 4h-.09a1.7 1.7 0 0 0-1.56 1.03Z" />
             </svg>
           </button>
+          <button
+            className={`phone-mood-status-button${selectedPhoneMoodStatus.id === 'online' ? ' online' : ''}`}
+            type="button"
+            onClick={() => {
+              setDesktopSettingsOpen(false);
+              setPhoneMoodStatusOpen((open) => !open);
+            }}
+            aria-label={`Phone status: ${selectedPhoneMoodStatus.label}`}
+            aria-expanded={phoneMoodStatusOpen}
+            title={`Phone status: ${selectedPhoneMoodStatus.label}`}
+          >
+            {selectedPhoneMoodStatus.id === 'online' ? (
+              <span className="phone-mood-status-dot" aria-hidden="true" />
+            ) : (
+              <span aria-hidden="true">{selectedPhoneMoodStatus.symbol}</span>
+            )}
+          </button>
         </div>
-      </div>
+      </Fragment>
     );
   }
 
   return (
-    <div className="phone-surface">
-      <div className="phone-list" aria-label="Phone chats">
+    <Fragment>
+      <div className={`phone-surface${contactListOpen || !selectedPhoneContact ? ' shows-contacts' : ' shows-conversation'}`}>
+        <div className="phone-list" aria-label="Phone chats">
         <div className="phone-list-header">
           <button
             className="phone-home-button"
@@ -1367,7 +2018,10 @@ export function PhonePanel({
               }`}
               type="button"
               key={contact.character.id}
-              onClick={() => onOpenPhoneContact(contact)}
+              onClick={() => {
+                setContactListOpen(false);
+                onOpenPhoneContact(contact);
+              }}
             >
               <CharacterAvatar
                 className="phone-avatar"
@@ -1403,7 +2057,10 @@ export function PhonePanel({
                 type="button"
                 className={conversation.unread ? 'unread' : 'idle'}
                 key={conversation.key}
-                onClick={() => onOpenUnreadPhoneConversation(conversation)}
+                onClick={() => {
+                  setContactListOpen(false);
+                  onOpenUnreadPhoneConversation(conversation);
+                }}
               >
                 <span>Switch to {unreadPhoneSwitchName(conversation)} Phone</span>
                 {conversation.unread && (
@@ -1420,6 +2077,7 @@ export function PhonePanel({
         {selectedPhoneContact ? (
           <>
             <div className="phone-chat-header">
+              <button className="phone-home-button" type="button" aria-label="Back to chats" onClick={() => setContactListOpen(true)}>←</button>
               <CharacterAvatar
                 className="phone-avatar large"
                 name={selectedPhoneContact.character.name}
@@ -1573,19 +2231,23 @@ export function PhonePanel({
                             </span>
                           )}
                         </div>
-                        {!inputLocked && message.replyToMessageId === undefined && (
-                          <button
-                            className="phone-reply-action"
-                            type="button"
-                            onClick={() => onReplyToMessage(message)}
-                            aria-label={`Reply to ${view.senderName}`}
-                            title="Reply to message"
-                          >
-                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                              <polyline points="9 17 4 12 9 7" />
-                              <path d="M20 18v-2a4 4 0 0 0-4-4H4" />
-                            </svg>
-                          </button>
+                        {!inputLocked && (
+                          <div className="phone-message-side-actions">
+                            {message.replyToMessageId === undefined && (
+                              <button
+                                className="phone-reply-action"
+                                type="button"
+                                onClick={() => onReplyToMessage(message)}
+                                aria-label={`Reply to ${view.senderName}`}
+                                title="Reply to message"
+                              >
+                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                                  <polyline points="9 17 4 12 9 7" />
+                                  <path d="M20 18v-2a4 4 0 0 0-4-4H4" />
+                                </svg>
+                              </button>
+                            )}
+                          </div>
                         )}
                       </div>
                       </div>
@@ -1698,6 +2360,21 @@ export function PhonePanel({
                   placeholder="Write message"
                   rows={4}
                 />
+                {(phoneDraft.trim() || phoneDraftContextComment.trim()) && (
+                  <details className="phone-draft-context-note" open={!!phoneDraftContextComment.trim()}>
+                    <summary>
+                      <span>Context</span>
+                      <small>{phoneDraftContextComment.trim() ? 'attached' : 'optional'}</small>
+                    </summary>
+                    <textarea
+                      className="phone-draft-context-textarea"
+                      value={phoneDraftContextComment}
+                      onChange={(event) => onPhoneDraftContextCommentChange(event.currentTarget.value)}
+                      placeholder="How this text should land, e.g. clearly sarcastic."
+                      rows={2}
+                    />
+                  </details>
+                )}
                 <div className="phone-composer-actions">
                   <button className="phone-send-button" type="submit" disabled={!canSend}>
                     {isRunning ? 'Cancel' : 'Send'}
@@ -1807,7 +2484,9 @@ export function PhonePanel({
         ) : (
           <div className="phone-chat-empty">No chat selected.</div>
         )}
+        </div>
       </div>
-    </div>
+      {phoneSystemTrayControls}
+    </Fragment>
   );
 }

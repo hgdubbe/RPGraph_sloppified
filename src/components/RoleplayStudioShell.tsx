@@ -12,13 +12,9 @@ export type StorySurfaceItem = {
 };
 
 export type RoleplayStudioShellProps = {
-  activeSurfaceLabel: string;
-  sceneLabel: string;
-  headerControls: ReactNode;
   characterPicker: ReactNode;
   composerActions: ReactNode;
   surfaces: StorySurfaceItem[];
-  onOpenGraphMode: () => void;
   panelWidth: number;
   onResizeStart: () => void;
   children: ReactNode;
@@ -89,13 +85,9 @@ function renderSurfaceIcon(id: StorySurfaceId) {
 }
 
 export function RoleplayStudioShell({
-  activeSurfaceLabel,
-  sceneLabel,
-  headerControls,
   characterPicker,
   composerActions,
   surfaces,
-  onOpenGraphMode,
   panelWidth,
   onResizeStart,
   children,
@@ -113,27 +105,11 @@ export function RoleplayStudioShell({
       </div>
 
       <div className="studio-play-main">
-        <header className="studio-play-header">
-          <div className="studio-play-brand">
-            <span className="studio-play-logo" aria-hidden="true">RP</span>
-            <strong>RPGraph<br />Studio</strong>
-          </div>
-          <div className="studio-play-scene">
-            <strong>{sceneLabel}</strong>
-            <span>{activeSurfaceLabel}</span>
-          </div>
-          <div className="studio-play-actions">{headerControls}</div>
-          <button
-            type="button"
-            className="studio-mode-button"
-            onClick={onOpenGraphMode}
-          >
-            Graph Mode
-          </button>
-        </header>
-
+        <div className="studio-character-strip">{characterPicker}</div>
+        <div className="studio-play-content">{children}</div>
+        <div className="studio-play-footer">
         <nav className="studio-activity-rail" aria-label="Story surfaces">
-          {surfaces.map((surface) => (
+          {surfaces.filter((surface) => surface.id === 'events' || surface.id === 'chat').map((surface) => (
             <button
               key={surface.id}
               className={`studio-rail-button ${surface.id}${surface.active ? ' active' : ''}`}
@@ -149,9 +125,7 @@ export function RoleplayStudioShell({
           ))}
         </nav>
 
-        <div className="studio-character-strip">{characterPicker}</div>
-        <div className="studio-play-content">{children}</div>
-        <div className="studio-play-footer">{composerActions}</div>
+        {composerActions}</div>
       </div>
     </section>
   );

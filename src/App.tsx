@@ -28,6 +28,7 @@ import { EventsPanel } from './components/EventsPanel';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import { GraphStudioShell } from './components/GraphStudioShell';
 import { PhonePanel } from './components/PhonePanel';
+import { RoleplayPhoneDevice } from './components/RoleplayPhoneDevice';
 import { RoleplayStudioShell } from './components/RoleplayStudioShell';
 import { useChatGpdPhoneApp } from './chat/useChatGpdPhoneApp';
 import { useAutoplay, type AutoplayRunRequest } from './chat/useAutoplay';
@@ -185,6 +186,10 @@ import {
   restoreTurnRuntime,
   turnMessageIds,
 } from './chat/turns';
+import {
+  selectableTurnVariants,
+  switchActiveTurnVariant,
+} from './chat/turnVariants';
 import { useTurnRecordState } from './chat/useTurnRecordState';
 import { currentSessionFormatVersion } from './session/version';
 import {
@@ -605,6 +610,24 @@ type PreviewImageState = {
   image: ChatImageAttachment;
 };
 
+const phoneMoodStatusContext: Record<string, string | undefined> = {
+  happy: 'Phone status context: the sender is currently showing a happy mood.',
+  excited: 'Phone status context: the sender is currently showing an excited mood.',
+  amused: 'Phone status context: the sender is currently showing an amused or laughing mood.',
+  wild: 'Phone status context: the sender is currently showing a chaotic, overwhelmed, or overstimulated mood.',
+  playful: 'Phone status context: the sender is currently showing a playful, teasing mood.',
+  flirty: 'Phone status context: the sender is currently showing a flirty mood.',
+  horny: 'Phone status context: the sender is currently showing a thirsty or sexually charged mood.',
+  devilish: 'Phone status context: the sender is currently showing a mischievous, provocative mood.',
+  flustered: 'Phone status context: the sender is currently showing a flustered or embarrassed mood.',
+  annoyed: 'Phone status context: the sender is currently showing an annoyed mood.',
+  sad: 'Phone status context: the sender is currently showing a sad mood.',
+  angry: 'Phone status context: the sender is currently showing an angry mood.',
+  furious: 'Phone status context: the sender is currently showing a furious mood.',
+  anxious: 'Phone status context: the sender is currently showing an anxious mood.',
+  tired: 'Phone status context: the sender is currently showing a tired mood.',
+};
+
 function App() {
   const [nodes, setNodes, onNodesChange] = useNodesState<WorkflowNode>(createInitialNodes());
   const [edges, setEdges, onEdgesChange] = useEdgesState(createInitialEdges());
@@ -728,6 +751,8 @@ function App() {
     setUiScale,
     retryFormatErrorsEnabled,
     setRetryFormatErrorsEnabled,
+    turnAutosaveEnabled,
+    setTurnAutosaveEnabled,
     dialogueVoiceMode,
     setDialogueVoiceMode,
     dialogueNarratorProviderId,
@@ -805,6 +830,7 @@ function App() {
     setNodes,
   });
   const [draft, setDraft] = useState('');
+  const [draftContextComment, setDraftContextComment] = useState('');
   const [draftCommands, setDraftCommands] = useState<CommandInputCommand[]>([]);
   const [draftImages, setDraftImages] = useState<ChatImageAttachment[]>([]);
   const [editingMessageId, setEditingMessageId] = useState<number | null>(null);
@@ -883,6 +909,7 @@ function App() {
   const [flowInstance, setFlowInstance] = useState<ReactFlowInstance<WorkflowNode> | null>(null);
   const flowInstanceRef = useRef<ReactFlowInstance<WorkflowNode> | null>(null);
   const imageInputRef = useRef<HTMLInputElement | null>(null);
+  const lastTurnAutosaveIdRef = useRef<string | null>(null);
   useEffect(() => {
     if (!topbarMenuOpen) {
       return undefined;
@@ -1075,6 +1102,10 @@ function App() {
     clearPhoneReply,
     phoneDraft,
     setPhoneDraft,
+    phoneDraftContextComment,
+    setPhoneDraftContextComment,
+    phoneMoodStatus,
+    setPhoneMoodStatus,
     phoneDraftCommands,
     setPhoneDraftCommands,
     phoneImages,
@@ -1100,7 +1131,6 @@ function App() {
     turns,
     storybooksByNodeId,
     characterStorybookNodeCount: characterStorybookNodes.length,
-    imageUploadVisionEnabled,
     englishProcessingEnabled,
     smoothChatAutoScrollEnabled,
     smoothChatAutoScrollMinSpeed,
@@ -2306,10 +2336,39 @@ function App() {
     if (!settingsLoadComplete) {
       return;
     }
-    void loadStartupWorkflow();
+    void loadStartupWorkflow({ preferTurnAutosave: turnAutosaveEnabled });
     // The last local workflow is loaded once settings are ready at app startup.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [settingsLoadComplete]);
+
+  useEffect(() => {
+    if (!settingsLoadComplete || !turnAutosaveEnabled) {
+      return;
+    }
+    const latestTurn = [...turnsRef.current].reverse().find((turn) => !turn.openingHistory);
+    if (!latestTurn || latestTurn.id === lastTurnAutosaveIdRef.current) {
+      return;
+    }
+    lastTurnAutosaveIdRef.current = latestTurn.id;
+    const name = sessionName.trim() || suggestedSessionName();
+    void currentSession(name)
+      .then((session) => window.rpgraph.saveTurnAutosave(session))
+      .then((result) => {
+        setFileStorageStatus(`Autosaved RP recovery: ${result.fileName}`);
+      })
+      .catch((error) => {
+        const detail = error instanceof Error ? error.message : String(error);
+        setFileStorageStatus(`Autosave failed: ${detail}`);
+        notifySystem('warning', `Autosave failed: ${detail}`);
+      });
+  }, [
+    settingsLoadComplete,
+    sessionName,
+    setFileStorageStatus,
+    turns,
+    turnAutosaveEnabled,
+    notifySystem,
+  ]);
 
   function changeTokenEstimateBytesPerToken(value: number) {
     setTokenEstimateBytesPerToken(validEstimatedTokenBytesPerToken(value));
@@ -3559,6 +3618,9 @@ function App() {
   }
 
   const currentSessionTurn = lastSessionTurn(turns);
+  const currentTurnVariants = currentSessionTurn
+    ? selectableTurnVariants(currentSessionTurn)
+    : [];
   const undoTurnTitle = isRunning
     ? 'Cancel the running turn'
     : currentSessionTurn
@@ -3604,7 +3666,7 @@ function App() {
     role: Extract<MessageRecord['role'], 'user' | 'output'> = 'user',
     phoneAutoTurnSource?: MessageRecord['phoneAutoTurnSource'],
     workflowVariableSetCommands?: WorkflowVariableSetCommand[],
-    inputMetadata: Pick<MessageRecord, 'inputMessageFormat' | 'inputPromptSlot' | 'replyToMessageId'> = {},
+    inputMetadata: Pick<MessageRecord, 'inputMessageFormat' | 'inputPromptSlot' | 'replyToMessageId' | 'contextComment'> = {},
   ) {
     const canonicalMessage = {
       ...message,
@@ -3648,6 +3710,7 @@ function App() {
       phoneImageDescription: imageDescription,
       phoneImageCaptionChange: canonicalMessage.phoneImageCaptionChange,
       replyToMessageId: inputMetadata.replyToMessageId,
+      contextComment: inputMetadata.contextComment,
       inputMessageFormat: inputMetadata.inputMessageFormat,
       inputPromptSlot: inputMetadata.inputPromptSlot,
       speakerName: canonicalMessage.from,
@@ -3871,7 +3934,18 @@ function App() {
     };
   }, [messagesRef, runGraph]);
 
-  function regenerateLastOutput() {
+  function graphTextWithReflavorInstruction(text: string, enabled: boolean) {
+    if (!enabled) {
+      return text;
+    }
+    return [
+      '[REFLAVOR]',
+      'Regenerate this same turn as a stylistic variation. Preserve the same facts, outcomes, app actions, phone/social effects, continuity, and intent. Change only phrasing, pacing, tone, and prose texture.',
+      text,
+    ].join('\n');
+  }
+
+  function regenerateLastOutput(options: { reflavor?: boolean } = {}) {
     if (isRunning) {
       const retry = activeRunRef.current?.retry;
       if (retry) {
@@ -3894,7 +3968,7 @@ function App() {
     if (turn.directAction) {
       applyTurnCheckpointRuntime(turn, 'before');
       void runGraph(
-        turn.input.graphText,
+        graphTextWithReflavorInstruction(turn.input.graphText, !!options.reflavor),
         inputMessage?.imageAttachments ?? [],
         undefined,
         messagesRef.current.filter((message) => !allTurnMessageIds.has(message.id)),
@@ -3902,7 +3976,7 @@ function App() {
         turn.mode === 'narrator' ? undefined : selectedCharacter,
         false,
         undefined,
-        { turn, replaceInput: false },
+        { turn, replaceInput: false, variantLabel: options.reflavor ? 'Reflavor' : 'Regenerate' },
         turn.mode ?? 'user',
         inputMessage?.eventDisplayText,
         undefined,
@@ -3961,7 +4035,7 @@ function App() {
       const threadContext = socialThreadAction
         ? socialThreadRunContextFromInput(turn.input.graphText)
         : undefined;
-      const displayText = socialPost
+      const displayText = graphTextWithReflavorInstruction(socialPost
         ? socialPostInputText(socialPost)
         : socialThreadAction
           ? socialThreadActionInputText(
@@ -3971,7 +4045,7 @@ function App() {
             )
           : socialDirectRunMessage
             ? socialDirectMessageInputText(socialDirectRunMessage, historyMessages)
-            : turn.input.graphText;
+            : turn.input.graphText, !!options.reflavor);
       const imageId = socialPost?.imageId ?? socialDirectMessage?.origin?.postImageId;
       const inputImages = imageId
         ? [socialImageById(imageId)].filter(
@@ -3995,7 +4069,7 @@ function App() {
         actor,
         false,
         undefined,
-        { turn, replaceInput: false },
+        { turn, replaceInput: false, variantLabel: options.reflavor ? 'Reflavor' : 'Regenerate' },
         turn.mode ?? 'user',
         socialDirectRegenerateInputMessage?.eventDisplayText,
         undefined,
@@ -4016,7 +4090,7 @@ function App() {
     if (turn.messageFormat === autoplayMessageFormat) {
       applyTurnCheckpointRuntime(turn, 'before');
       void runGraph(
-        turn.input.graphText,
+        graphTextWithReflavorInstruction(turn.input.graphText, !!options.reflavor),
         [],
         undefined,
         messagesRef.current.filter((message) => !allTurnMessageIds.has(message.id)),
@@ -4024,7 +4098,7 @@ function App() {
         undefined,
         false,
         undefined,
-        { turn, replaceInput: false },
+        { turn, replaceInput: false, variantLabel: options.reflavor ? 'Reflavor' : 'Regenerate' },
         'user',
         undefined,
         undefined,
@@ -4046,7 +4120,7 @@ function App() {
         : undefined;
       applyTurnCheckpointRuntime(turn, 'before');
       void runGraph(
-        storedAutoTurnInputText(turn.input.graphText),
+        graphTextWithReflavorInstruction(storedAutoTurnInputText(turn.input.graphText), !!options.reflavor),
         [],
         undefined,
         messagesRef.current.filter((message) => !allTurnMessageIds.has(message.id)),
@@ -4054,7 +4128,7 @@ function App() {
         inputCharacter,
         phoneAutoTurn,
         phoneRecipient,
-        { turn, replaceInput: false },
+        { turn, replaceInput: false, variantLabel: options.reflavor ? 'Reflavor' : 'Regenerate' },
         'auto-turn',
         inputMessage?.eventDisplayText,
       );
@@ -4063,7 +4137,7 @@ function App() {
     if (turn.mode === 'narrator') {
       applyTurnCheckpointRuntime(turn, 'before');
       void runGraph(
-        storedNarratorInputText(turn.input.graphText),
+        graphTextWithReflavorInstruction(storedNarratorInputText(turn.input.graphText), !!options.reflavor),
         inputMessage?.imageAttachments ?? [],
         inputMessage,
         messagesRef.current.filter((message) => !allTurnMessageIds.has(message.id)),
@@ -4071,7 +4145,7 @@ function App() {
         undefined,
         false,
         undefined,
-        { turn, replaceInput: false },
+        { turn, replaceInput: false, variantLabel: options.reflavor ? 'Reflavor' : 'Regenerate' },
         'narrator',
       );
       return;
@@ -4084,7 +4158,7 @@ function App() {
       : selectedCharacter;
     applyTurnCheckpointRuntime(turn, 'before');
     void runGraph(
-      inputMessage.translatedText ?? inputMessage.originalText,
+      graphTextWithReflavorInstruction(inputMessage.translatedText ?? inputMessage.originalText, !!options.reflavor),
       inputMessage.imageAttachments ?? [],
       inputMessage,
       messagesRef.current.filter((message) => !allTurnMessageIds.has(message.id)),
@@ -4094,8 +4168,77 @@ function App() {
       inputMessage.phoneTo
         ? phoneCharacters.find((character) => phoneNamesMatch(character.name, inputMessage.phoneTo ?? ''))
         : undefined,
-      { turn, replaceInput: false },
+      { turn, replaceInput: false, variantLabel: options.reflavor ? 'Reflavor' : 'Regenerate' },
     );
+  }
+
+  function selectLastTurnVariant(variantId: string) {
+    if (isRunning) {
+      return;
+    }
+    const turnIndex = lastSessionTurnIndex(turnsRef.current);
+    const activeTurn = turnIndex >= 0 ? turnsRef.current[turnIndex] : undefined;
+    if (!activeTurn || variantId === `${activeTurn.id}-active`) {
+      return;
+    }
+    const activeCheckpoint = turnCheckpointsRef.current.find((entry) => entry.turnId === activeTurn.id);
+    const switched = switchActiveTurnVariant({
+      activeTurn,
+      targetVariantId: variantId,
+      activeCheckpoint,
+    });
+    if (!switched) {
+      return;
+    }
+    const nextTurn = {
+      ...switched.turn,
+      id: activeTurn.id,
+      number: activeTurn.number,
+      input: {
+        ...switched.turn.input,
+        messages: switched.turn.input.messages.map((message) => ({
+          ...message,
+          turnId: activeTurn.id,
+          turnNumber: activeTurn.number,
+        })),
+      },
+      output: {
+        ...switched.turn.output,
+        messages: switched.turn.output.messages.map((message) => ({
+          ...message,
+          turnId: activeTurn.id,
+          turnNumber: activeTurn.number,
+        })),
+      },
+    };
+    const removedIds = turnMessageIds(activeTurn);
+    const replacementMessages = flattenTurnMessages([nextTurn]);
+    const firstMessageIndex = messagesRef.current.findIndex((message) => removedIds.has(message.id));
+    const remainingMessages = messagesRef.current.filter((message) => !removedIds.has(message.id));
+    const insertionIndex = firstMessageIndex >= 0 ? firstMessageIndex : remainingMessages.length;
+    const nextMessages = [
+      ...remainingMessages.slice(0, insertionIndex),
+      ...replacementMessages,
+      ...remainingMessages.slice(insertionIndex),
+    ];
+    const nextTurns = turnsRef.current.map((turn, index) => index === turnIndex ? nextTurn : turn);
+    const nextCheckpoints = switched.checkpoint
+      ? turnCheckpointsRef.current.map((checkpoint) =>
+          checkpoint.turnId === activeTurn.id
+            ? { ...structuredClone(switched.checkpoint!), turnId: activeTurn.id }
+            : checkpoint,
+        )
+      : turnCheckpointsRef.current;
+    turnsRef.current = nextTurns;
+    messagesRef.current = nextMessages;
+    turnCheckpointsRef.current = nextCheckpoints;
+    setTurns(nextTurns);
+    setMessages(nextMessages);
+    setTurnCheckpoints(nextCheckpoints);
+    if (switched.checkpoint) {
+      applyTurnCheckpointRuntime(nextTurn, 'after');
+    }
+    setFileStorageStatus('Switched active turn variant.');
   }
 
   function cancelEditMessage() {
@@ -4236,6 +4379,7 @@ function App() {
       return;
     }
     setDraft('');
+    setDraftContextComment('');
     setDraftCommands([]);
     setDraftImages([]);
     if (!narratorSelected && selectedCharacter) {
@@ -4260,6 +4404,12 @@ function App() {
       undefined,
       undefined,
       inputPayload,
+      undefined,
+      undefined,
+      undefined,
+      false,
+      undefined,
+      draftContextComment,
     );
   }
 
@@ -4536,8 +4686,14 @@ function App() {
     }
     const images = phoneImages;
     const replyTo = phoneReplyToMessage;
+    const moodContext = phoneMoodStatusContext[phoneMoodStatus] ?? '';
+    const phoneRunContextComment = [
+      phoneDraftContextComment.trim(),
+      moodContext,
+    ].filter(Boolean).join('\n');
     retainReplyReferenceImages(replyTo);
     setPhoneDraft('');
+    setPhoneDraftContextComment('');
     setPhoneDraftCommands([]);
     setPhoneImages([]);
     clearPhoneReply();
@@ -4561,6 +4717,12 @@ function App() {
       undefined,
       replyTo,
       inputPayload,
+      undefined,
+      undefined,
+      undefined,
+      false,
+      undefined,
+      phoneRunContextComment,
     );
   }
 
@@ -5073,56 +5235,6 @@ function App() {
     setFileStorageStatus(`Imported node: ${nextNode.data.label}`);
   }, [commitNodes, prepareLoadedWorkflow, selectedGraphNode, setFileStorageStatus]);
 
-  const playHeaderControls = (
-    <div className="studio-play-command-group">
-      <label className="studio-theme-picker">
-        <span>Theme</span>
-        <select
-          aria-label="Theme"
-          value={studioTheme}
-          onChange={(event) => {
-            const nextTheme = event.target.value;
-            if (isStudioTheme(nextTheme)) {
-              setStudioTheme(nextTheme);
-            }
-          }}
-        >
-          {studioThemes.map((theme) => (
-            <option key={theme.id} value={theme.id}>
-              {theme.label}
-            </option>
-          ))}
-        </select>
-      </label>
-      <button className="connection-button" type="button" onClick={() => void openFiles()}>
-        Files
-      </button>
-      <button className="connection-button" type="button" onClick={openConnectionManager}>
-        Providers
-      </button>
-      <button
-        className="connection-button"
-        type="button"
-        onClick={() => {
-          setNodeAssistantNodeId(null);
-          setWorkflowAssistantOpen(true);
-        }}
-        title="Open workflow assistant. You can also press F1, or select a node and press F1 for node-specific help."
-      >
-        Assistant
-      </button>
-      <button
-        className={`connection-button log-button studio-play-log-button ${systemLogBadgeCount ? 'has-log' : ''}`}
-        type="button"
-        onClick={() => setShowSystemLog(true)}
-        title="Open system log"
-      >
-        Log
-        {systemLogBadgeCount > 0 && <span key={systemLogBadgeCount}>{systemLogBadgeCount}</span>}
-      </button>
-    </div>
-  );
-
   const roleplayCharacterPicker = (
     <div className="studio-character-tabs" role="tablist" aria-label="Playable characters">
       <button
@@ -5189,14 +5301,38 @@ function App() {
           </button>
           <button
             type="button"
-            onClick={regenerateLastOutput}
+            onClick={() => regenerateLastOutput()}
             disabled={!isRunning && !currentSessionTurn}
             title={isRunning ? 'Cancel and restart the running RP output' : 'Regenerate the last RP output'}
             aria-label={isRunning ? 'Cancel and restart the running RP output' : 'Regenerate the last RP output'}
           >
             ↶
           </button>
+          <button
+            type="button"
+            onClick={() => regenerateLastOutput({ reflavor: true })}
+            disabled={isRunning || !currentSessionTurn}
+            title="Reflavor the last output while preserving the same continuity"
+            aria-label="Reflavor the last output while preserving continuity"
+          >
+            Rf
+          </button>
         </div>
+        {currentTurnVariants.length > 1 && (
+          <select
+            className="turn-variant-select"
+            aria-label="Turn variant"
+            value={`${currentSessionTurn?.id}-active`}
+            disabled={isRunning}
+            onChange={(event) => selectLastTurnVariant(event.target.value)}
+          >
+            {currentTurnVariants.map((variant, index) => (
+              <option key={variant.id} value={variant.id}>
+                {index + 1}. {variant.label}
+              </option>
+            ))}
+          </select>
+        )}
         <span className="turn-counter">
           Turn {currentSessionTurn?.number ?? 0}
         </span>
@@ -5810,6 +5946,41 @@ function App() {
             </button>
             {topbarMenuOpen && (
               <div className="topbar-menu" role="menu" aria-label="Main menu">
+                <div className="topbar-menu-context" aria-hidden="true">
+                  <strong>{studioMode === 'play' ? displayedStorybookName === 'not saved' ? displayedWorkflowNameFormatted : displayedStorybookName : displayedWorkflowNameFormatted}</strong>
+                  <span>{studioMode === 'play' ? `Play Mode · ${chatPanelView === 'phone' ? 'Phone' : chatPanelView === 'events' ? 'Events' : 'Chat'}` : 'Graph Mode'}</span>
+                </div>
+                <button
+                  type="button"
+                  role="menuitem"
+                  onClick={() => {
+                    setTopbarMenuOpen(false);
+                    setStudioMode(studioMode === 'play' ? 'graph' : 'play');
+                  }}
+                >
+                  {studioMode === 'play' ? 'Graph Mode' : 'Play Mode'}
+                </button>
+                {studioMode === 'play' && (
+                  <label className="topbar-menu-select-row">
+                    <span>Theme</span>
+                    <select
+                      aria-label="Theme"
+                      value={studioTheme}
+                      onChange={(event) => {
+                        const nextTheme = event.target.value;
+                        if (isStudioTheme(nextTheme)) {
+                          setStudioTheme(nextTheme);
+                        }
+                      }}
+                    >
+                      {studioThemes.map((theme) => (
+                        <option key={theme.id} value={theme.id}>
+                          {theme.label}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                )}
                 <button
                   type="button"
                   role="menuitem"
@@ -5964,7 +6135,6 @@ function App() {
             overlays={graphOverlays}
             paletteCollapsed={graphPaletteCollapsed}
             inspectorCollapsed={graphInspectorCollapsed}
-            onOpenPlayMode={() => setStudioMode('play')}
           />
         </ErrorBoundary>
         )}
@@ -5972,11 +6142,6 @@ function App() {
         {studioMode === 'play' && (
         <ErrorBoundary label="Chat Panel">
         <RoleplayStudioShell
-          activeSurfaceLabel={
-            chatPanelView === 'phone' ? 'Phone' : chatPanelView === 'events' ? 'Events' : 'Chat'
-          }
-          sceneLabel={displayedStorybookName === 'not saved' ? displayedWorkflowNameFormatted : displayedStorybookName}
-          headerControls={playHeaderControls}
           characterPicker={roleplayCharacterPicker}
           composerActions={roleplayComposerActions}
           surfaces={[
@@ -6045,12 +6210,13 @@ function App() {
               onSelect: () => openPhoneApp('notes'),
             },
           ]}
-          onOpenGraphMode={() => setStudioMode('graph')}
           panelWidth={chatWidth}
           onResizeStart={() => setIsResizing(true)}
         >
-          <div className="chat-lockable">
-          {chatPanelView === 'chat' ? (
+          <div className="chat-lockable roleplay-dual-pane">
+          <div className="roleplay-chat-pane" hidden={chatPanelView === 'events'} onFocusCapture={() => {
+            if (chatPanelView === 'phone') selectChatPanelView('chat');
+          }}>
             <ChatConversationPanel
               runtimeNodes={nodes}
               messages={messages}
@@ -6059,6 +6225,7 @@ function App() {
               selectedCharacter={selectedCharacter}
               isNarratorSelected={narratorSelected}
               draft={draft}
+              draftContextComment={draftContextComment}
               draftCommands={draftCommands}
               draftImages={draftImages}
               editingMessageId={editingMessageId}
@@ -6182,12 +6349,16 @@ function App() {
               onOutputActionChoice={submitOutputActionChoice}
               onSubmitMessage={submitMessage}
               onDraftChange={setDraft}
+              onDraftContextCommentChange={setDraftContextComment}
               onDraftCommandsChange={setDraftCommands}
               onAddDraftImages={(files) => void addDraftImages(files)}
               onSelectDraftImages={() => void selectDraftImages()}
               onMessageContentLoaded={() => scrollChatThreadToBottomIfFollowing('auto')}
             />
-          ) : chatPanelView === 'phone' ? (
+          </div>
+          <RoleplayPhoneDevice owner={viewedPhoneCharacter?.name ?? 'Character'} orientation={phoneDesktopLayout.orientation} onHome={selectPhonePanelView} onFocus={() => {
+            if (chatPanelView !== 'phone') selectChatPanelView('phone');
+          }}>
             <PhonePanel
               phoneContacts={phoneContacts}
               storyCharacters={storyCharacters}
@@ -6220,7 +6391,19 @@ function App() {
               phoneGalleryOpenRequestId={phoneGalleryOpenRequestId}
               phoneImages={phoneImages}
               phoneGalleryImages={phoneGalleryImages}
+              rpDraft={draft}
+              onRpDraftChange={setDraft}
+              canSendRpNarrative={
+                isRunning ||
+                draftCommands.some((command) => command.type === 'time') ||
+                !!draft.trim() ||
+                draftImages.length > 0
+              }
+              onSubmitRpNarrative={submitMessage}
               phoneDraft={phoneDraft}
+              phoneDraftContextComment={phoneDraftContextComment}
+              phoneMoodStatus={phoneMoodStatus}
+              onPhoneMoodStatusChange={setPhoneMoodStatus}
               phoneDraftCommands={phoneDraftCommands}
               replyToMessage={phoneReplyToMessage}
               showPhoneEmojiPicker={showPhoneEmojiPicker}
@@ -6296,6 +6479,7 @@ function App() {
                 setPhoneImages((current) => current.filter((entry) => entry.id !== imageId))
               }
               onPhoneDraftChange={setPhoneDraft}
+              onPhoneDraftContextCommentChange={setPhoneDraftContextComment}
               onPhoneDraftCommandsChange={setPhoneDraftCommands}
               onReplyToMessage={selectPhoneReplyFromComposer}
               onCancelPhoneReply={clearPhoneReply}
@@ -6443,7 +6627,9 @@ function App() {
               onUnloadImageAssistantComfyModel={unloadImageAssistantComfyModel}
               onRefreshImageAssistantModelState={(providerId) => void refreshImageAssistantModelState(providerId)}
             />
-          ) : (
+          </RoleplayPhoneDevice>
+          {chatPanelView === 'events' && (
+            <div className="roleplay-chat-pane">
             <EventsPanel
               upcomingEvents={upcomingEvents}
               selectedEvent={selectedEvent}
@@ -6462,6 +6648,7 @@ function App() {
               onCancelEvent={cancelEvent}
               onRunEvent={runSelectedEvent}
             />
+            </div>
           )}
           </div>
         </RoleplayStudioShell>
@@ -6640,6 +6827,7 @@ function App() {
         glassDesignOpacity={glassDesignOpacity}
         nodeTextSize={nodeTextSize}
         retryFormatErrorsEnabled={retryFormatErrorsEnabled}
+        turnAutosaveEnabled={turnAutosaveEnabled}
         uiScale={appliedUiScale}
         minUiScale={minimumAllowedUiScale}
         maxUiScale={allowedUiScale}
@@ -6668,6 +6856,7 @@ function App() {
         onNodeTextSizeChange={setNodeTextSize}
         onUiScaleChange={changeUiScale}
         onRetryFormatErrorsChange={setRetryFormatErrorsEnabled}
+        onTurnAutosaveEnabledChange={setTurnAutosaveEnabled}
         showFiles={showFiles}
         savedFiles={savedFiles}
         selectedFile={selectedFile}

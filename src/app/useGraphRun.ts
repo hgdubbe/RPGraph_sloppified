@@ -285,7 +285,7 @@ type UseGraphRunOptions = Pick<
     role?: Extract<MessageRecord['role'], 'user' | 'output'>,
     phoneAutoTurnSource?: MessageRecord['phoneAutoTurnSource'],
     workflowVariableSetCommands?: WorkflowVariableSetCommand[],
-    inputMetadata?: Pick<MessageRecord, 'inputMessageFormat' | 'inputPromptSlot' | 'replyToMessageId'>,
+    inputMetadata?: Pick<MessageRecord, 'inputMessageFormat' | 'inputPromptSlot' | 'replyToMessageId' | 'contextComment'>,
   ) => number;
   ensurePhoneImagesInStorybooks: (
     fromName: string,
@@ -481,6 +481,7 @@ export function useGraphRun(options: UseGraphRunOptions) {
     socialThreadContext?: SocialThreadRunContext,
     directActionOnly = false,
     socialDirectMessage?: SocialDirectMessageRecord,
+    draftContextComment?: string,
   ) {
     onRunStarting?.();
     const isAutoTurn = turnMode === 'auto-turn';
@@ -1199,10 +1200,13 @@ export function useGraphRun(options: UseGraphRunOptions) {
       (isPhoneMessage && phoneRecipientName
         ? formatCurrentPhoneInput(inputText)
         : withSpeakerPrefix(inputCharacterName, inputText)));
+    const inputContextComment = (draftContextComment ?? existingInputMessage?.contextComment)?.trim() || undefined;
+    const withDraftContextComment = (text: string) =>
+      inputContextComment ? `${text}\nContext note: ${inputContextComment}` : text;
     const socialCatalogApp = socialPost?.app ?? socialThreadAction?.app;
     const executionOriginalInput = socialCatalogApp
-      ? withBundledSocialIdentityContext(originalInput, socialCatalogApp)
-      : originalInput;
+      ? withDraftContextComment(withBundledSocialIdentityContext(originalInput, socialCatalogApp))
+      : withDraftContextComment(originalInput);
     const storedInputGraphText = directActionOnly
       ? originalInput
       : replacement && !replacement.replaceInput
@@ -1263,6 +1267,7 @@ export function useGraphRun(options: UseGraphRunOptions) {
         inputMessageFormat: messageFormat,
         inputPromptSlot: promptSlot,
         replyToMessageId: phoneReplyTo?.id,
+        contextComment: inputContextComment,
       });
     }
     if (shouldAppendInputMessage && isAutoTurn) {
@@ -1309,6 +1314,7 @@ export function useGraphRun(options: UseGraphRunOptions) {
         speakerColors: inputCharacterColors,
         originalDialogue: narratorAutoTurn ? [] : originalInputDialogue,
         translatedDialogue: narratorAutoTurn ? undefined : translatedInputDialogue,
+        contextComment: inputContextComment,
         turnContext,
       });
     }
@@ -1332,6 +1338,7 @@ export function useGraphRun(options: UseGraphRunOptions) {
             })
           : undefined,
         includeInHistory: true,
+        contextComment: inputContextComment,
         turnContext,
         socialDirectMessage: persistedSocialDirectMessage,
       });

@@ -127,6 +127,10 @@ function formatMessageRecordForContext(
   includeRpDateTime = true,
   linkedPhoneMessages = new Map<number, MessageRecord>(),
 ) {
+  const withContextComment = (text: string, sourceMessage: MessageRecord = message) => {
+    const comment = sourceMessage.contextComment?.trim();
+    return comment ? `${text}\nContext note: ${comment}` : text;
+  };
   const withOptionalRpDateTime = (text: string) =>
     includeRpDateTime
       ? withRpDateTime(text, message.rpDateTime, rpDateTimeFormat, rpWeekdayLanguage)
@@ -151,14 +155,15 @@ function formatMessageRecordForContext(
     const formatted = replyTo
       ? formatPhoneReplyInput(phoneMessage.from, replyTo, text, translated)
       : `${phoneMessagePrefix(contextMessage, phoneMessage.from, phoneMessage.to)} ${phoneImageContext(contextMessage)}${text}`;
+    const annotated = withContextComment(formatted, contextMessage);
     return includeRpDateTime
       ? withRpDateTime(
-          formatted,
+          annotated,
           linkedMessage?.rpDateTime,
           rpDateTimeFormat,
           rpWeekdayLanguage,
         )
-      : formatted;
+      : annotated;
   };
 
   if (message.channel === 'phone') {
@@ -172,12 +177,12 @@ function formatMessageRecordForContext(
       : undefined;
     if (replyTo) {
       return withPhoneAppCommandHistory(
-        withOptionalRpDateTime(formatPhoneReplyInput(from, replyTo, text, translated)),
+        withOptionalRpDateTime(withContextComment(formatPhoneReplyInput(from, replyTo, text, translated))),
         message,
       );
     }
     return withPhoneAppCommandHistory(
-      withOptionalRpDateTime(`${phoneMessagePrefix(message, from, to)} ${phoneImageContext(message)}${text}`),
+      withOptionalRpDateTime(withContextComment(`${phoneMessagePrefix(message, from, to)} ${phoneImageContext(message)}${text}`)),
       message,
     );
   }
@@ -222,7 +227,7 @@ function formatMessageRecordForContext(
       ...message.embeddedPhoneMessages.map(phoneMessageText),
       textAfter,
     ].filter((part): part is string => !!part.trim());
-    return withPhoneAppCommandHistory(parts.join('\n\n'), message);
+    return withPhoneAppCommandHistory(withContextComment(parts.join('\n\n')), message);
   }
   const text = translated
     ? message.translatedText ?? message.originalText
@@ -237,7 +242,7 @@ function formatMessageRecordForContext(
     knownOutputSpeakers.length > 0
       ? stripRecognizedSpeakerLabels(text, knownOutputSpeakers)
       : text;
-  const historyText = includeImageContext(contextText, message.rpImageDescription, message.rpImageName);
+  const historyText = withContextComment(includeImageContext(contextText, message.rpImageDescription, message.rpImageName));
   return withPhoneAppCommandHistory(withOptionalRpDateTime(historyText), message);
 }
 

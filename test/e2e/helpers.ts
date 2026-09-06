@@ -77,6 +77,11 @@ export async function launchAppWithWorkflow(workflow: WorkflowFixture): Promise<
     env,
   });
   const page = await electronApp.firstWindow();
+  await electronApp.evaluate(({ BrowserWindow }) => {
+    for (const window of BrowserWindow.getAllWindows()) {
+      window.webContents.setBackgroundThrottling(false);
+    }
+  });
 
   // The app reads app-data directly from the passed --user-data-dir (it never calls
   // app.setPath), so our seed dir must equal getPath('userData'). Surface a wrong path
@@ -126,7 +131,8 @@ export async function cleanup(app: LaunchedApp | undefined) {
 }
 
 export async function enterGraphMode(page: Page) {
-  const graphModeButton = page.getByRole('button', { name: /Graph Mode/i });
+  await page.getByRole('button', { name: /Open main menu/i }).click({ force: true });
+  const graphModeButton = page.getByRole('menuitem', { name: /Graph Mode/i });
   await graphModeButton.click({ force: true });
   await page.getByRole('region', { name: /Workflow Graph/i }).waitFor({ state: 'visible' });
   await page.locator('.react-flow__node').first().waitFor({ state: 'attached' });
@@ -134,7 +140,8 @@ export async function enterGraphMode(page: Page) {
 }
 
 export async function enterPlayMode(page: Page) {
-  const playModeButton = page.getByRole('button', { name: /Play Mode/i });
+  await page.getByRole('button', { name: /Open main menu/i }).click({ force: true });
+  const playModeButton = page.getByRole('menuitem', { name: /Play Mode/i });
   await playModeButton.click({ force: true });
   await page.getByRole('navigation', { name: /Story surfaces/i }).waitFor({ state: 'visible' });
 }

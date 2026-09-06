@@ -177,6 +177,7 @@ type ChatConversationPanelProps = {
   selectedCharacter?: StorybookCharacter;
   isNarratorSelected: boolean;
   draft: string;
+  draftContextComment: string;
   draftCommands: CommandInputCommand[];
   draftImages: ChatImageAttachment[];
   editingMessageId: number | null;
@@ -257,6 +258,7 @@ type ChatConversationPanelProps = {
   onOutputActionChoice: (selection: InputActionSelection) => void;
   onSubmitMessage: (event: FormEvent<HTMLFormElement>) => void;
   onDraftChange: (value: string) => void;
+  onDraftContextCommentChange: (value: string) => void;
   onDraftCommandsChange: (commands: CommandInputCommand[]) => void;
   onAddDraftImages: (files: FileList | null) => void;
   onSelectDraftImages: () => void;
@@ -271,6 +273,7 @@ export function ChatConversationPanel({
   selectedCharacter,
   isNarratorSelected,
   draft,
+  draftContextComment,
   draftCommands,
   draftImages,
   editingMessageId,
@@ -343,6 +346,7 @@ export function ChatConversationPanel({
   onOutputActionChoice,
   onSubmitMessage,
   onDraftChange,
+  onDraftContextCommentChange,
   onDraftCommandsChange,
   onAddDraftImages,
   onSelectDraftImages,
@@ -1775,6 +1779,12 @@ export function ChatConversationPanel({
                       </button>
                     </div>
                   )}
+                  {!isEditingMessage && message.contextComment && (
+                    <div className="message-context-note">
+                      <strong>Context</strong>
+                      <span>{message.contextComment}</span>
+                    </div>
+                  )}
                 </div>
                 {!!message.imageAttachments?.length && (
                   <div className="message-images">
@@ -1870,6 +1880,21 @@ export function ChatConversationPanel({
           placeholder="Click here or press Enter to write. Type /cmd for commands"
           rows={3}
         />
+        {(draft.trim() || draftContextComment.trim()) && (
+          <details className="composer-context-note" open={!!draftContextComment.trim()}>
+            <summary>
+              <span>Context</span>
+              <small>{draftContextComment.trim() ? 'attached' : 'optional'}</small>
+            </summary>
+            <textarea
+              className="composer-context-textarea nodrag"
+              value={draftContextComment}
+              onChange={(event) => onDraftContextCommentChange(event.currentTarget.value)}
+              placeholder="How this should be understood, e.g. clearly sarcastic."
+              rows={2}
+            />
+          </details>
+        )}
         {!!draftImages.length && (
           <div className="composer-images">
             {draftImages.map((image) => (

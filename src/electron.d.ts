@@ -427,6 +427,25 @@ declare global {
         password: string,
         overwrite?: boolean,
       ) => Promise<{ fileName: string; name: string; filePath: string; conflict?: boolean }>;
+      saveTurnAutosave: (session: RpgraphSessionV2) => Promise<{
+        fileName: string;
+        name: string;
+        filePath: string;
+        savedAt?: string;
+      }>;
+      loadTurnAutosave: () => Promise<{
+        fileName: string;
+        name: string;
+        filePath: string;
+        type: SavedFileSummary['type'];
+        protection: SavedFileSummary['protection'];
+        envelopeFormatVersion?: string;
+        formatVersion?: string;
+        workflowFormatVersion?: string;
+        compatible?: boolean;
+        value: unknown;
+        savedAt?: string;
+      } | null>;
       saveStorybook: (
         name: string,
         storybook: RpStorybook,

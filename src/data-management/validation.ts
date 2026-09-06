@@ -266,6 +266,10 @@ function isTimelineEntry(value: unknown): value is TimelineEntry {
       isRecord(value.text) &&
       typeof value.text.original === 'string' &&
       (
+        value.contextComment === undefined ||
+        typeof value.contextComment === 'string'
+      ) &&
+      (
         value.replyToMessageId === undefined ||
         (value.channel === 'phone' && typeof value.replyToMessageId === 'string')
       ) &&

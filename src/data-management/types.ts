@@ -18,6 +18,7 @@ import type {
   RpAppointment,
   TurnContext,
   TurnRecordMode,
+  TurnRecordVariant,
   WorkflowFile,
   WorkflowNode,
   WorkflowNodeType,
@@ -87,6 +88,7 @@ export type TimelineTurnMetadata = {
   directAction?: boolean;
   inputGraphText?: string;
   outputGraphText?: string;
+  variants?: TurnRecordVariant[];
 };
 
 /** Interactive output-action UI records persisted with their chat message. */
@@ -111,6 +113,7 @@ export type TimelineMessageEntry = {
     original: string;
     translated?: string;
   };
+  contextComment?: string;
   speakers?: SpeakerAttribution;
   phone?: PhoneMetadata;
   images?: ImageRef[];

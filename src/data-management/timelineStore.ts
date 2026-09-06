@@ -44,6 +44,7 @@ function turnMetadata(turn: TurnRecord): TimelineTurnMetadata {
     ...(turn.directAction ? { directAction: true } : {}),
     ...(turn.input.graphText ? { inputGraphText: turn.input.graphText } : {}),
     ...(turn.output.graphText ? { outputGraphText: turn.output.graphText } : {}),
+    ...(turn.variants?.length ? { variants: turn.variants } : {}),
   };
 }
 
@@ -112,6 +113,7 @@ function messageToTimelineEntry(
       original: message.originalText,
       translated: message.translatedText,
     },
+    contextComment: message.contextComment,
     speakers: speakerNames || message.speakerColors || message.originalDialogue || message.translatedDialogue
       ? {
           primary: message.speakerName,

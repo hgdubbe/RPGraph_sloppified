@@ -315,6 +315,7 @@ function chatMessageFromTimelineEntry(
     role: chatRoleFromTimeline(entry.role),
     originalText: entry.text.original,
     translatedText: entry.text.translated,
+    contextComment: entry.contextComment,
     imageAttachments: imageAttachments?.length ? imageAttachments : undefined,
     includeInHistory: entry.flags?.includeInHistory,
     channel: entry.channel,
@@ -451,6 +452,7 @@ export function appStateFromSessionV2(session: RpgraphSessionV2): SessionV2AppSt
             ?? outputMessages.map((message) => message.originalText).join('\n\n'),
           messages: outputMessages,
         },
+        variants: turnMeta?.variants,
       };
     })
     .sort((left, right) => left.number - right.number);

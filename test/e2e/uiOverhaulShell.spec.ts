@@ -77,14 +77,14 @@ test('starts in Play Mode and preserves access to the full graph editor', async 
   app = await launchAppWithWorkflow(outdatedLlmWorkflow());
   const { page } = app;
 
-  await expect(page.getByRole('button', { name: /Graph Mode/i })).toBeVisible();
+  await expect(page.locator('.roleplay-session-menu summary')).toBeHidden();
   await expect(page.getByRole('navigation', { name: /Story surfaces/i })).toBeVisible();
   await expect(page.getByRole('tablist', { name: /Playable characters/i })).toBeVisible();
   await expect(page.getByRole('complementary', { name: /Story State/i })).toBeHidden();
 
   await enterGraphMode(page);
 
-  await expect(page.getByRole('button', { name: /Play Mode/i })).toBeVisible();
+  await expect(page.getByRole('button', { name: /Play Mode/i })).toBeHidden();
   await expect(page.getByRole('region', { name: /Workflow Graph/i })).toBeVisible();
   await expect(page.getByRole('complementary', { name: /Available nodes/i })).toBeVisible();
   await expect(page.getByRole('complementary', { name: /Node Inspector/i })).toBeVisible();
@@ -110,6 +110,31 @@ test('removes Story State while keeping turn controls', async () => {
   await expect(page.getByText(/Turn 0/i)).toBeVisible();
 });
 
+test('adds context notes from the draft composer instead of sent-message buttons', async () => {
+  app = await launchAppWithWorkflow(rpStorybookWorkflow());
+  const { page } = app;
+
+  await page.getByPlaceholder(/Click here or press Enter to write/i).fill("oh that's awesome...");
+  const chatContext = page.locator('.composer-context-note');
+  await expect(chatContext).toBeVisible();
+  await expect(chatContext.getByText('Context')).toBeVisible();
+  await chatContext.locator('summary').click({ force: true });
+  await chatContext.locator('textarea').fill('clearly sarcastic statement');
+  await expect(chatContext.locator('textarea')).toHaveValue('clearly sarcastic statement');
+  await expect(page.locator('.message-context-button')).toHaveCount(0);
+
+  const phone = page.locator('.roleplay-phone-device');
+  await phone.getByRole('button', { name: /^Open WhatsUp/ }).click({ force: true });
+  await phone.getByRole('button', { name: /Mira/ }).click({ force: true });
+  await phone.getByPlaceholder('Write message').fill('sure');
+  const phoneContext = phone.locator('.phone-draft-context-note');
+  await expect(phoneContext).toBeVisible();
+  await phoneContext.locator('summary').click({ force: true });
+  await phoneContext.locator('textarea').fill('dry and dismissive');
+  await expect(phoneContext.locator('textarea')).toHaveValue('dry and dismissive');
+  await expect(phone.locator('.phone-context-action')).toHaveCount(0);
+});
+
 test('moves global app actions into the topbar menu', async () => {
   app = await launchAppWithWorkflow(outdatedLlmWorkflow());
   const { page } = app;
@@ -127,21 +152,26 @@ test('moves global app actions into the topbar menu', async () => {
   const menu = page.getByRole('menu', { name: /Main menu/i });
   await expect(menu).toBeVisible();
   await expect(menu.getByRole('menuitem', { name: 'Welcome' })).toBeVisible();
+  await expect(menu.getByRole('menuitem', { name: 'Play Mode' })).toBeVisible();
   await expect(menu.getByRole('menuitem', { name: 'Options' })).toBeVisible();
   await expect(menu.getByRole('menuitem', { name: 'Providers' })).toBeVisible();
   await expect(menu.getByRole('menuitem', { name: 'Assistant' })).toBeVisible();
   await expect(menu.getByRole('menuitem', { name: 'Log' })).toBeVisible();
   await expect(menu.getByRole('menuitem', { name: 'Files' })).toBeVisible();
+  await expect(menu.getByRole('menuitem', { name: 'Providers' })).toHaveCount(1);
+  await expect(menu.getByRole('menuitem', { name: 'Assistant' })).toHaveCount(1);
+  await expect(menu.getByRole('menuitem', { name: 'Files' })).toHaveCount(1);
 
   await menu.getByRole('menuitem', { name: 'Options' }).click({ force: true });
   await expect(page.getByRole('dialog', { name: /Options/i })).toBeVisible();
   await expect(menu).toBeHidden();
 });
 
-test('switches Play Mode themes from the header selector', async () => {
+test('switches Play Mode themes from the topbar menu', async () => {
   app = await launchAppWithWorkflow(outdatedLlmWorkflow());
   const { page } = app;
 
+  await page.getByRole('button', { name: /Open main menu/i }).click({ force: true });
   await page.getByLabel(/Theme/i).selectOption('goth');
   await expect(page.locator('.studio')).toHaveAttribute('data-studio-theme', 'goth');
 
@@ -149,27 +179,87 @@ test('switches Play Mode themes from the header selector', async () => {
   await expect(page.locator('.studio')).toHaveAttribute('data-studio-theme', 'cute-girly');
 });
 
-test('keeps Phone and Events reachable from Play Mode', async () => {
+test('shows standard window controls in Play Mode', async () => {
   app = await launchAppWithWorkflow(outdatedLlmWorkflow());
+  const { page, electronApp } = app;
+
+  const topbar = page.locator('.topbar');
+  await expect(topbar).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Minimize window' })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Maximize or restore window' })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Close window' })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Toggle full screen' })).toBeVisible();
+
+  await page.getByRole('button', { name: 'Maximize or restore window' }).click({ force: true });
+  await expect.poll(() => electronApp.evaluate(({ BrowserWindow }) => {
+    return BrowserWindow.getAllWindows()[0]?.isMaximized() ?? false;
+  })).toBe(true);
+  await page.getByRole('button', { name: 'Maximize or restore window' }).click({ force: true });
+  await expect.poll(() => electronApp.evaluate(({ BrowserWindow }) => {
+    return BrowserWindow.getAllWindows()[0]?.isMaximized() ?? true;
+  })).toBe(false);
+});
+
+test('keeps Phone and Events reachable from Play Mode', async () => {
+  app = await launchAppWithWorkflow(rpStorybookWorkflow());
   const { page } = app;
 
-  await page.getByRole('button', { name: /Phone/i }).click({ force: true });
-  await expect(page.getByRole('button', { name: /Phone/i })).toHaveAttribute('aria-current', 'page');
-
-  await page.getByRole('button', { name: 'Gallery', exact: true }).click({ force: true });
-  await expect(page.getByLabel(/Gallery/i).first()).toBeVisible();
-
-  await page.getByRole('button', { name: 'Social', exact: true }).click({ force: true });
-  await expect(page.getByLabel(/Fotogram/i).first()).toBeVisible();
-
-  await page.getByRole('button', { name: 'Bank', exact: true }).click({ force: true });
-  await expect(page.getByLabel(/Banking/i).first()).toBeVisible();
-
-  await page.getByRole('button', { name: 'Notes', exact: true }).click({ force: true });
-  await expect(page.getByLabel(/Notes/i).first()).toBeVisible();
-
+  const phone = page.locator('.roleplay-phone-device');
+  const chat = page.locator('.roleplay-chat-pane').first();
+  await expect(phone).toBeVisible();
+  await expect(chat).toBeVisible();
+  await expect(phone.getByLabel('Phone widgets')).toBeVisible();
+  await expect(phone.getByRole('button', { name: /View Latest chat widget/i })).toBeVisible();
+  await phone.getByRole('button', { name: 'Desktop settings' }).click({ force: true });
+  await expect(phone.getByRole('menu', { name: 'Desktop settings' })).toContainText('Widgets');
+  await expect(phone.getByRole('menu', { name: 'Desktop settings' })).toContainText('Orientation');
+  await phone.getByRole('button', { name: 'Portrait' }).click({ force: true });
+  await expect.poll(async () => {
+    const box = await phone.boundingBox();
+    return box!.width / box!.height;
+  }).toBeCloseTo(430 / 932, 2);
+  await phone.getByRole('button', { name: 'Horizontal' }).click({ force: true });
+  await expect.poll(async () => {
+    const box = await phone.boundingBox();
+    return box!.width / box!.height;
+  }).toBeCloseTo(932 / 430, 2);
+  await expect(phone.getByRole('menu', { name: 'Desktop settings' })).toBeVisible();
+  await phone.getByRole('button', { name: 'Portrait' }).click({ force: true });
+  await expect.poll(async () => {
+    const box = await phone.boundingBox();
+    return box!.width / box!.height;
+  }).toBeCloseTo(430 / 932, 2);
+  await phone.getByRole('button', { name: 'Desktop settings' }).click({ force: true });
+  await page.screenshot({ path: 'test/results/roleplay-initial.png' });
+  for (const appName of ['Gallery', 'Fotogram', 'Banking', 'Notes', 'WhatsUp', 'OnlyFriends', 'ChatGPD', 'Camera']) {
+    await phone.getByRole('button', { name: new RegExp(`^Open ${appName}`) }).click();
+    await expect(phone.locator('.phone-desktop-app').first()).toBeHidden();
+    await page.screenshot({ path: `test/results/roleplay-app-${appName}.png`, animations: 'disabled' });
+    await expect(chat).toBeVisible();
+    await phone.getByRole('button', { name: 'Phone home', exact: true }).click();
+    await expect(phone.locator('.phone-desktop')).toBeVisible();
+  }
   await page.getByRole('button', { name: /Events/i }).click({ force: true });
   await expect(page.getByRole('button', { name: /Events/i })).toHaveAttribute('aria-current', 'page');
+  await expect(phone).toBeVisible();
+  await page.getByRole('button', { name: 'Chat', exact: true }).click();
+  const tabs = page.getByRole('tablist', { name: 'Playable characters' }).getByRole('tab');
+  for (let index = 1; index < await tabs.count(); index++) {
+    await tabs.nth(index).click();
+    const name = await tabs.nth(index).locator('strong').innerText();
+    await expect(phone).toHaveAttribute('aria-label', `${name}'s phone`);
+  }
+  for (const size of [{ width: 2202, height: 1375 }, { width: 1440, height: 1000 }, { width: 1000, height: 700 }, { width: 600, height: 800 }]) {
+    await page.setViewportSize(size);
+    await expect.poll(async () => {
+      const box = await phone.boundingBox();
+      return box!.width / box!.height;
+    }).toBeCloseTo(430 / 932, 3);
+    const phoneBox = (await phone.boundingBox())!;
+    const chatBox = (await chat.boundingBox())!;
+    expect(phoneBox.x + phoneBox.width).toBeLessThanOrEqual(chatBox.x);
+    await page.screenshot({ path: `test/results/roleplay-${size.width}.png` });
+  }
 });
 
 test('keeps the Add Nodes sidebar open and anchored on the left in Graph Mode', async () => {
@@ -252,9 +342,11 @@ test('opens Edit Storybook on the RP Storybook node as the same workbench contra
   await expect(page.getByRole('navigation', { name: /Storybook sections/i })).toBeVisible();
   await expect(page.getByRole('region', { name: /Focused storybook editor/i })).toBeVisible();
   await expect(page.getByRole('complementary', { name: /Storybook assistant/i })).toBeVisible();
+  await expect(page.getByText(/Player-facing title and storybook premise/i)).toBeVisible();
   await expect(page.getByRole('button', { name: /Scenario/i })).toBeVisible();
-  await expect(page.getByText(/Primary Story Fields/i)).toBeVisible();
-  await expect(page.getByText(/Cast Overview/i)).toBeVisible();
+  await page.getByRole('button', { name: /Scenario/i }).click({ force: true });
+  await expect(page.getByText(/Scenario Setup/i)).toBeVisible();
+  await expect(page.getByText(/Cast Overview/i)).toBeHidden();
   await expect(page.getByText(/Stable backdrop: genre, place, premise/i)).toBeVisible();
   await expect(page.getByText(/Starting moment for a fresh run/i)).toBeVisible();
   await expect(page.getByRole('button', { name: /G Gallery image libraries/i })).toBeVisible();
@@ -282,4 +374,25 @@ test('opens Edit Storybook on the RP Storybook node as the same workbench contra
   await page.getByRole('button', { name: /G Gallery image libraries/i }).click({ force: true });
   await expect(miraNavItem).toHaveClass(/selected-character/);
   await expect(page.getByText(/Gallery Libraries - Mira/i)).toBeVisible();
+});
+
+test('edits RP Storybook fields locally until Apply', async () => {
+  app = await launchAppWithWorkflow(rpStorybookWorkflow());
+  const { page } = app;
+
+  await enterGraphMode(page);
+  await page.getByRole('button', { name: /Edit Storybook/i }).click({ force: true });
+
+  const dialog = page.getByRole('dialog', { name: /RP Storybook Creator/i });
+  await expect(dialog).toBeVisible();
+  await expect(dialog.getByRole('button', { name: 'Apply', exact: true })).toHaveCount(0);
+
+  await dialog.getByRole('button', { name: /Scenario/i }).click({ force: true });
+  const scenarioSummary = dialog.getByRole('textbox', { name: /Scenario Summary/i }).first();
+  await scenarioSummary.fill('Typed locally');
+  await expect(scenarioSummary).toHaveValue('Typed locally');
+  const applyButton = dialog.getByRole('button', { name: 'Apply', exact: true });
+  await expect(applyButton).toBeEnabled();
+  await applyButton.click({ force: true });
+  await expect(dialog.getByLabel('Applied')).toBeVisible();
 });
