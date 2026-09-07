@@ -1,4 +1,5 @@
 import { useRef } from 'react';
+import { routerAwarePatch } from '../nodes/llm-prompt-switch/routerModel';
 import type { Dispatch, SetStateAction } from 'react';
 import type { RunLlmReport } from '../components/AppDialogs';
 import { getRegisteredNode } from '../nodes/registry';
@@ -38,6 +39,7 @@ export function useRuntimeNodePatching({
 
   function applyRuntimeNodePatch(nodeId: string, patch: Partial<WorkflowNodeData>) {
     const previousNode = nodesRef.current.find((node) => node.id === nodeId);
+    if (previousNode) patch = routerAwarePatch(previousNode.data, patch);
     const nextStorybookJson = typeof patch.storybookJson === 'string'
       ? patch.storybookJson
       : undefined;

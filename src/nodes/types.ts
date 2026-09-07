@@ -289,6 +289,7 @@ export type NodeActions = {
 };
 
 export type NodeViewValues = {
+  retainNodeEditor?: (nodeId: string, retained: boolean) => void;
   connections: ConnectionPreset[];
   providerHealthById: Record<string, ProviderConnectionHealth>;
   onCheckProviderConnection?: (connectionId: string) => void;

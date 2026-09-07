@@ -907,6 +907,15 @@ function App() {
   const [activeWorkflowProtection, setActiveWorkflowProtection] = useState<'plain' | 'encrypted'>('plain');
   const [activeStorybookProtection, setActiveStorybookProtection] = useState<'plain' | 'encrypted'>('plain');
   const [flowInstance, setFlowInstance] = useState<ReactFlowInstance<WorkflowNode> | null>(null);
+  const [retainedNodeEditors, setRetainedNodeEditors] = useState<Set<string>>(new Set());
+  const retainNodeEditor = useCallback((nodeId: string, retained: boolean) => {
+    setRetainedNodeEditors((current) => {
+      if (current.has(nodeId) === retained) return current;
+      const next = new Set(current);
+      if (retained) next.add(nodeId); else next.delete(nodeId);
+      return next;
+    });
+  }, []);
   const flowInstanceRef = useRef<ReactFlowInstance<WorkflowNode> | null>(null);
   const imageInputRef = useRef<HTMLInputElement | null>(null);
   const lastTurnAutosaveIdRef = useRef<string | null>(null);
@@ -4962,6 +4971,7 @@ function App() {
     }
   }
   const nodeViewValues = useMemo<NodeViewValues>(() => ({
+    retainNodeEditor,
     connections,
     providerHealthById,
     onCheckProviderConnection: (connectionId) => {
@@ -4980,6 +4990,7 @@ function App() {
     nodes: nodeViewNodes,
     edges,
   }), [
+    retainNodeEditor,
     activeTokenEstimateBytesPerToken,
     checkProviderConnectionById,
     connections,
@@ -5432,7 +5443,7 @@ function App() {
           nodesConnectable
           edgesReconnectable
           elementsSelectable
-          onlyRenderVisibleElements
+          onlyRenderVisibleElements={!nodes.some((node) => retainedNodeEditors.has(node.id))}
           deleteKeyCode={['Backspace', 'Delete']}
           multiSelectionKeyCode="Control"
           selectionKeyCode="Control"

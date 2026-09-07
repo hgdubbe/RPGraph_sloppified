@@ -80,6 +80,9 @@ export async function launchAppWithWorkflow(workflow: WorkflowFixture): Promise<
   await electronApp.evaluate(({ BrowserWindow }) => {
     for (const window of BrowserWindow.getAllWindows()) {
       window.webContents.setBackgroundThrottling(false);
+      // Tests can reach DOM controls before ready-to-show delivers the first
+      // paint. A visible window is required for Playwright's frame-based checks.
+      window.show();
     }
   });
 

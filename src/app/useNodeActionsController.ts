@@ -885,6 +885,11 @@ export function useNodeActionsController({
   }
 
   function removeLlmPromptSwitchOutputChannel(nodeId: string, index: number) {
+    const stableHandle = nodesRef.current.find((node) => node.id === nodeId)?.data.responseRouter?.outputs[index]?.handle;
+    if (stableHandle) {
+      setEdges((edges) => edges.filter((edge) => edge.source !== nodeId || edge.sourceHandle !== stableHandle));
+      return;
+    }
     setEdges((currentEdges) =>
       currentEdges.flatMap((edge) => {
         if (edge.source !== nodeId || !edge.sourceHandle?.startsWith('output-channel-')) {

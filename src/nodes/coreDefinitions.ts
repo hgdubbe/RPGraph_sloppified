@@ -12,7 +12,7 @@ import {
   defaultLlmPromptSwitchPromptBeforesByOutput,
   defaultLlmPromptSwitchPromptTitlesByOutput,
   llmPromptSwitchOutputTitles,
-  llmPromptSwitchOutputHandle,
+  responseRouterOutputHandle,
   llmDecisionEntries,
   llmDecisionOutputHandle,
   defaultContextCompressionLengthWords,
@@ -48,7 +48,8 @@ import { executeEventManagerNode } from './event-manager/execute';
 import { defaultEventManagerPromptSettings } from './event-manager/prompt';
 import { LlmDecisionNodeCard } from './llm-decision/Card';
 import { executeLlmDecisionNode } from './llm-decision/execute';
-import { LlmPromptSwitchNodeCard } from './llm-prompt-switch/Card';
+import { ResponseRouterCard } from './llm-prompt-switch/ResponseRouterCard';
+import { migrateRouter } from './llm-prompt-switch/routerModel';
 import {
   executeLlmPromptSwitchNode,
   promptSwitchOutputChannelHandle,
@@ -479,9 +480,9 @@ const coreNodeCreationDefinitions: Array<Omit<CoreNodeCreationDefinition, 'saveD
   {
     type: 'llm-prompt-switch',
     dataVersion: currentCoreNodeVersions['llm-prompt-switch'],
-    label: 'LLM Prompt Switch',
+    label: 'Response Router',
     description: 'Select an LLM prompt by output channel and prompt slot',
-    menuDescription: 'Select an LLM prompt from a channel matrix',
+    menuDescription: 'Inspect routes, edit prompts and connect outputs',
     origin: 'core',
     usesLlm: true,
     contributesToTokenCalibration: true,
@@ -489,11 +490,8 @@ const coreNodeCreationDefinitions: Array<Omit<CoreNodeCreationDefinition, 'saveD
     requiresPreparedInputEdge: true,
     hydrateStyle: (node) => ({
       ...node.style,
-      width: coreNodeLayout.llmPromptSwitchWidth,
-      height:
-        typeof node.style?.height === 'number'
-          ? Math.max(node.style.height, coreNodeLayout.llmPromptSwitchHeight)
-          : coreNodeLayout.llmPromptSwitchHeight,
+      width: 600,
+      height: undefined,
     }),
     ports: (data) => [
       input(promptSwitchTextHandle, 'text', 'Text Input'),
@@ -501,21 +499,22 @@ const coreNodeCreationDefinitions: Array<Omit<CoreNodeCreationDefinition, 'saveD
       input(promptSwitchOutputChannelHandle, 'number', 'Output Channel'),
       input(promptSwitchPromptSlotHandle, 'number', 'Prompt Slot'),
       ...llmPromptSwitchOutputTitles(data).map((title, index) =>
-        output(llmPromptSwitchOutputHandle(index), 'mixed', title.trim() || `Output ${index}`),
+        output(responseRouterOutputHandle(data, index), 'mixed', title.trim() || `Output ${index}`),
       ),
     ],
-    Component: LlmPromptSwitchNodeCard,
+    Component: ResponseRouterCard,
     execute: executeLlmPromptSwitchNode,
     create: ({ defaultConnectionId, position, createId }) => ({
       id: createId('llm-prompt-switch'),
       type: 'workflow',
       position,
-      style: { width: coreNodeLayout.llmPromptSwitchWidth, height: coreNodeLayout.llmPromptSwitchHeight },
+      style: { width: 600 },
       data: {
-        label: 'LLM Prompt Switch',
+        label: 'Response Router',
         description: 'Select an LLM prompt by output channel and prompt slot',
         preview: 'Not run yet',
         nodeType: 'llm-prompt-switch',
+        responseRouter: { ...migrateRouter({ nodeType: 'llm-prompt-switch', label: 'Response Router', description: '', preview: '' }), policy: 'strict' },
         llmPromptSwitchOutputTitles: defaultLlmPromptSwitchOutputTitles(),
         llmPromptSwitchPromptTitlesByOutput: defaultLlmPromptSwitchPromptTitlesByOutput(),
         llmPromptSwitchPromptBeforesByOutput: defaultLlmPromptSwitchPromptBeforesByOutput(),

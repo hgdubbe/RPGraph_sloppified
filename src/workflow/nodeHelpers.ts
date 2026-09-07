@@ -171,6 +171,10 @@ export function llmPromptSwitchOutputHandle(index: number) {
   return `output-channel-${index}`;
 }
 
+export function responseRouterOutputHandle(data: WorkflowNodeData, index: number) {
+  return data.responseRouter?.outputs[index]?.handle ?? llmPromptSwitchOutputHandle(index);
+}
+
 export function defaultLlmPromptSwitchOutputTitles() {
   return ['Output 0'];
 }
@@ -217,10 +221,12 @@ function visibleSwitchRows(
 }
 
 export function llmPromptSwitchOutputTitles(data: WorkflowNodeData) {
+  if (data.responseRouter) return data.responseRouter.outputs.map((output) => output.title);
   return visibleSwitchEntries(data.llmPromptSwitchOutputTitles, defaultLlmPromptSwitchOutputTitles(), 'Output 0');
 }
 
 export function llmPromptSwitchPromptTitlesByOutput(data: WorkflowNodeData) {
+  if (data.responseRouter) return data.responseRouter.outputs.map((output) => output.routes.map((route) => route.title));
   return visibleSwitchRows(
     data.llmPromptSwitchPromptTitlesByOutput,
     defaultLlmPromptSwitchPromptTitlesByOutput(),
@@ -247,6 +253,7 @@ function promptRows(
 }
 
 export function llmPromptSwitchPromptBeforesByOutput(data: WorkflowNodeData) {
+  if (data.responseRouter) return data.responseRouter.outputs.map((output) => output.routes.map((route) => route.before));
   return promptRows(
     data.llmPromptSwitchPromptBeforesByOutput,
     defaultLlmPromptSwitchPromptBeforesByOutput(),
@@ -255,6 +262,7 @@ export function llmPromptSwitchPromptBeforesByOutput(data: WorkflowNodeData) {
 }
 
 export function llmPromptSwitchPromptAftersByOutput(data: WorkflowNodeData) {
+  if (data.responseRouter) return data.responseRouter.outputs.map((output) => output.routes.map((route) => route.after));
   return promptRows(
     data.llmPromptSwitchPromptAftersByOutput,
     defaultLlmPromptSwitchPromptAftersByOutput(),

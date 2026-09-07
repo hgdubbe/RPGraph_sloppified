@@ -330,6 +330,19 @@ type WorkflowNodeCommonFields = {
   llmPromptActions?: Array<PromptActionConfig | PromptActionStoredConfig>;
   llmPromptCommands?: Array<PromptCommandConfig | PromptCommandStoredConfig>;
   llmPromptDebug?: PromptRunDebug;
+  responseRouter?: import('./nodes/llm-prompt-switch/routerModel').ResponseRouterConfig;
+  responseRouterLastRun?: {
+    routeId: string;
+    revision: number;
+    state: 'running' | 'success' | 'skipped' | 'error';
+    outputValue: string;
+    promptValue: string;
+    selectedOutput?: number;
+    selectedPrompt?: number;
+    connectedImageCount?: number;
+    referenceImageCount?: number;
+    error?: string;
+  };
   llmPromptSwitchOutputTitles?: string[];
   llmPromptSwitchPromptTitlesByOutput?: string[][];
   llmPromptSwitchPromptBeforesByOutput?: string[][];

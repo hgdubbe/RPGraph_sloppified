@@ -5,6 +5,11 @@ import {
 } from '../workflow';
 
 function selectedPromptSwitchRoute(data: WorkflowNodeData) {
+  if (data.responseRouter) {
+    const output = data.responseRouter.outputs.find((entry) => entry.routes.some((route) => route.id === data.responseRouterLastRun?.routeId));
+    const route = output?.routes.find((entry) => entry.id === data.responseRouterLastRun?.routeId);
+    return output && route ? `${output.title} / ${route.title}` : undefined;
+  }
   const outputIndex = data.llmPromptSwitchSelectedOutputChannel ?? 0;
   const promptIndex = data.llmPromptSwitchSelectedPromptSlot ?? 0;
   const outputTitle = llmPromptSwitchOutputTitles(data)[outputIndex] ?? `Output ${outputIndex}`;

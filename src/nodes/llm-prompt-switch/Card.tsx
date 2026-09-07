@@ -94,7 +94,10 @@ function optionLabel(index: number, title: string, fallback: string) {
   return `${index}: ${title.trim() || (index === 0 && fallback === 'Prompt' ? 'Default Prompt' : `${fallback} ${index}`)}`;
 }
 
-export function LlmPromptSwitchNodeCard({ id, data }: NodeProps<WorkflowNode>) {
+export function LlmPromptSwitchNodeCard({ id, data, editorOnly = false, confirmRemoval }: Pick<NodeProps<WorkflowNode>, 'id' | 'data'> & {
+  editorOnly?: boolean;
+  confirmRemoval?: (kind: 'output' | 'route') => boolean;
+}) {
   const actions = useNodeActions();
   const view = useNodeView();
   const nodeBodyRef = useNodeLayoutSync(id);
@@ -306,6 +309,7 @@ export function LlmPromptSwitchNodeCard({ id, data }: NodeProps<WorkflowNode>) {
     if (outputTitles.length <= 1) {
       return;
     }
+    if (confirmRemoval && !confirmRemoval('output')) return;
     actions.removeLlmPromptSwitchOutputChannel(id, selectedOutputChannel);
     const nextPromptTitleRows = promptTitleRows.filter((_, index) => index !== selectedOutputChannel);
     const nextSelectedOutputChannel = clampIndex(selectedOutputChannel, outputTitles.length - 1);
@@ -347,6 +351,7 @@ export function LlmPromptSwitchNodeCard({ id, data }: NodeProps<WorkflowNode>) {
     if (promptTitles.length <= 1) {
       return;
     }
+    if (confirmRemoval && !confirmRemoval('route')) return;
     const nextTitleRows = promptTitleRows.map((row, index) =>
       index === selectedOutputChannel ? row.filter((_, promptIndex) => promptIndex !== selectedPromptSlot) : [...row],
     );
@@ -536,7 +541,7 @@ export function LlmPromptSwitchNodeCard({ id, data }: NodeProps<WorkflowNode>) {
   return (
     <>
     <div className={`workflow-node llm-prompt-switch-node${runStateClassName(data)}`} ref={nodeBodyRef} style={{ paddingBottom: 16 + outputPortsHeight }}>
-      <NodeResizeControl
+      {!editorOnly && <NodeResizeControl
         className="llm-prompt-resize-control"
         position="bottom"
         variant={ResizeControlVariant.Line}
@@ -544,7 +549,7 @@ export function LlmPromptSwitchNodeCard({ id, data }: NodeProps<WorkflowNode>) {
         minHeight={1140}
         minWidth={548}
         maxWidth={548}
-      />
+      />}
       <div className="node-title-row">
         <span className="node-dot" />
         <strong>{data.label}</strong>
@@ -563,7 +568,7 @@ export function LlmPromptSwitchNodeCard({ id, data }: NodeProps<WorkflowNode>) {
               onChange={(val) => updateSelectedOutputChannel(Number(val))}
               options={outputTitles.map((title, index) => ({
                 value: index,
-                label: optionLabel(index, title, 'Output'),
+                label: optionLabel(data.responseRouter?.outputs[index]?.selector ?? index, title, 'Output'),
               }))}
             />
             <button className="combiner-count-button prompt-switch-control-button nodrag" type="button" onClick={addOutputChannel} disabled={outputTitles.length >= maximumLlmPromptSwitchEntries}>
@@ -588,7 +593,7 @@ export function LlmPromptSwitchNodeCard({ id, data }: NodeProps<WorkflowNode>) {
               onChange={(val) => updateSelectedPromptSlot(Number(val))}
               options={promptTitles.map((title, index) => ({
                 value: index,
-                label: optionLabel(index, title, 'Prompt'),
+                label: optionLabel(data.responseRouter?.outputs[selectedOutputChannel]?.routes[index]?.selector ?? index, title, 'Prompt'),
               }))}
             />
             <button className="combiner-count-button prompt-switch-control-button nodrag" type="button" onClick={addPromptSlot} disabled={promptTitles.length >= maximumLlmPromptSwitchEntries}>
@@ -680,7 +685,7 @@ export function LlmPromptSwitchNodeCard({ id, data }: NodeProps<WorkflowNode>) {
         connectionId={data.connectionId}
       />
       <PostOutputToggle id={id} enabled={data.runAfterRpOutput} />
-      <label className="node-toggle post-output-toggle nodrag">
+      {!editorOnly && <label className="node-toggle post-output-toggle nodrag">
         <input
           className="nodrag nowheel"
           type="checkbox"
@@ -688,7 +693,7 @@ export function LlmPromptSwitchNodeCard({ id, data }: NodeProps<WorkflowNode>) {
           onChange={(event) => actions.updateData(id, { llmPromptSwitchAutoShowPrompt: event.target.checked })}
         />
         Automatically show prompt
-      </label>
+      </label>}
       <label className="node-toggle post-output-toggle nodrag">
         <input
           className="nodrag nowheel"
@@ -698,7 +703,7 @@ export function LlmPromptSwitchNodeCard({ id, data }: NodeProps<WorkflowNode>) {
         />
         Automatically format JSON
       </label>
-      <div className="workflow-ports">
+      {!editorOnly && <div className="workflow-ports">
         <div className="workflow-port workflow-port-input">
           <Handle id={promptSwitchTextHandle} type="target" position={Position.Left} />
           <PortLabel data={data} direction="input" handle={promptSwitchTextHandle} label="Text Input" valueType="text" />
@@ -715,21 +720,21 @@ export function LlmPromptSwitchNodeCard({ id, data }: NodeProps<WorkflowNode>) {
           <Handle id={promptSwitchPromptSlotHandle} type="target" position={Position.Left} />
           <PortLabel data={data} direction="input" handle={promptSwitchPromptSlotHandle} label="Prompt Slot" valueSuffix={promptTitles[selectedPromptSlot] ?? ''} valueType="number" />
         </div>
-      </div>
-      <PromptPreviewTools
+      </div>}
+      {!editorOnly && <PromptPreviewTools
         id={id}
         debug={data.llmPromptSwitchDebug}
         generatedText={data.generatedText}
         runLabel="Prompt Switch"
-      />
-      <div className="workflow-ports llm-prompt-switch-outputs">
+      />}
+      {!editorOnly && <div className="workflow-ports llm-prompt-switch-outputs">
         {outputTitles.map((title, index) => (
           <div className="workflow-port workflow-port-output" key={index}>
             <PortLabel data={data} direction="output" handle={llmPromptSwitchOutputHandle(index)} label={title.trim() || `Output ${index}`} valueType="mixed" />
             <Handle id={llmPromptSwitchOutputHandle(index)} type="source" position={Position.Right} />
           </div>
         ))}
-      </div>
+      </div>}
     </div>
     {actionDialog ? (
       <PromptActionModal

@@ -21,6 +21,7 @@ import {
 import { isCustomNodeDefinition } from '../nodes/custom-node/model';
 import { isPromptActionConfig } from '../nodes/shared/promptActions';
 import { isPromptCommandConfig } from '../nodes/shared/promptCommands';
+import { isResponseRouterConfig } from '../nodes/llm-prompt-switch/routerModel';
 import { contextBuilderInputCount } from './defaults';
 import {
   isCurrentWorkflowFormatVersion,
@@ -266,6 +267,7 @@ function isWorkflowNodeData(value: unknown): value is WorkflowNodeData {
     !isOptionalBoolean(value.llmPromptAutoFormatJson) ||
     (value.llmPromptActions !== undefined && !isPromptActionConfigArray(value.llmPromptActions)) ||
     (value.llmPromptCommands !== undefined && !isPromptCommandConfigArray(value.llmPromptCommands)) ||
+    (value.responseRouter !== undefined && !isResponseRouterConfig(value.responseRouter)) ||
     (value.llmPromptSwitchOutputTitles !== undefined && !isStringArray(value.llmPromptSwitchOutputTitles)) ||
     (value.llmPromptSwitchPromptTitlesByOutput !== undefined && !isStringMatrix(value.llmPromptSwitchPromptTitlesByOutput)) ||
     (value.llmPromptSwitchPromptBeforesByOutput !== undefined && !isStringMatrix(value.llmPromptSwitchPromptBeforesByOutput)) ||

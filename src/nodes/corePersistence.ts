@@ -1,4 +1,5 @@
 import type { WorkflowNodeData } from '../types';
+import { migrateRouter, validateRouter } from './llm-prompt-switch/routerModel';
 import {
   combinerInputCount,
   combinerPrefixes,
@@ -49,6 +50,13 @@ export type CorePersistence = {
   saveData: (data: WorkflowNodeData) => WorkflowNodeData;
   hydrateData: (data: WorkflowNodeData, context: HydrateContext) => WorkflowNodeData;
 };
+
+function checkedRouter(data: WorkflowNodeData) {
+  const config = migrateRouter(data);
+  const errors = validateRouter(config);
+  if (errors.length) throw new Error(errors.join(' '));
+  return config;
+}
 
 function baseData(data: WorkflowNodeData, preview: string): WorkflowNodeData {
   return {
@@ -198,6 +206,7 @@ export const corePersistence: Record<CoreNodeType, CorePersistence> = {
   },
   'llm-prompt-switch': {
     saveData: (data) => preservedData(data, 'Not run yet', {
+      responseRouter: checkedRouter(data),
       llmPromptSwitchOutputTitles: llmPromptSwitchOutputTitles(data),
       llmPromptSwitchPromptTitlesByOutput: llmPromptSwitchPromptTitlesByOutput(data),
       llmPromptSwitchPromptBeforesByOutput: llmPromptSwitchPromptBeforesByOutput(data),
@@ -212,6 +221,7 @@ export const corePersistence: Record<CoreNodeType, CorePersistence> = {
       runAfterRpOutput: data.runAfterRpOutput ?? false,
     }),
     hydrateData: (data, context) => preservedData(data, 'Not run yet', {
+      responseRouter: checkedRouter(data),
       llmPromptSwitchOutputTitles: llmPromptSwitchOutputTitles(data),
       llmPromptSwitchPromptTitlesByOutput: llmPromptSwitchPromptTitlesByOutput(data),
       llmPromptSwitchPromptBeforesByOutput: llmPromptSwitchPromptBeforesByOutput(data),

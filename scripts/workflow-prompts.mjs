@@ -68,6 +68,15 @@ function stringRows(value) {
 
 function extractedSwitch(node) {
   const data = node.data;
+  if (data.responseRouter) {
+    return {
+      nodeId: node.id, nodeLabel: data.label,
+      outputs: data.responseRouter.outputs.map((output) => ({
+        outputId: output.id, title: output.title,
+        prompts: output.routes.map((route) => ({ routeId: route.id, title: route.title, before: route.before, after: route.after })),
+      })),
+    };
+  }
   const outputTitles = Array.isArray(data.llmPromptSwitchOutputTitles)
     ? data.llmPromptSwitchOutputTitles
     : [];
@@ -155,6 +164,30 @@ async function mergePrompts(promptPath, workflowPath, destinationPath) {
     const node = switchesById.get(extracted.nodeId);
     if (!node) {
       throw new Error(`Workflow has no LLM Prompt Switch node with id ${extracted.nodeId}.`);
+    }
+    if (node.data.responseRouter) {
+      const config = node.data.responseRouter;
+      const seen = new Set();
+      for (const extractedOutput of extracted.outputs) {
+        const output = config.outputs.find((entry) => entry.id === extractedOutput.outputId);
+        if (!output || seen.has(output.id)) throw new Error('Missing, unknown or duplicate output identity. Re-extract prompts from this workflow.');
+        seen.add(output.id);
+        output.title = extractedOutput.title;
+        for (const prompt of extractedOutput.prompts) {
+          const route = output.routes.find((entry) => entry.id === prompt.routeId);
+          if (!route || seen.has(route.id)) throw new Error('Missing, unknown or duplicate route identity. Re-extract prompts from this workflow.');
+          seen.add(route.id);
+          route.title = prompt.title;
+          route.before = prompt.before;
+          route.after = prompt.after;
+        }
+      }
+      config.revision++;
+      node.data.llmPromptSwitchOutputTitles = config.outputs.map((output) => output.title);
+      node.data.llmPromptSwitchPromptTitlesByOutput = config.outputs.map((output) => output.routes.map((route) => route.title));
+      node.data.llmPromptSwitchPromptBeforesByOutput = config.outputs.map((output) => output.routes.map((route) => route.before));
+      node.data.llmPromptSwitchPromptAftersByOutput = config.outputs.map((output) => output.routes.map((route) => route.after));
+      continue;
     }
     node.data.llmPromptSwitchOutputTitles = extracted.outputs.map((output) => output.title);
     node.data.llmPromptSwitchPromptTitlesByOutput = extracted.outputs.map((output) =>

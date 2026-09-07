@@ -17,6 +17,7 @@ export type LlmDecisionRunResult = Array<{ bool: boolean; text: string; number: 
 
 export type LlmPromptSwitchRunResult = {
   outputChannel: number;
+  outputHandle: string;
   text: string;
 };
 
