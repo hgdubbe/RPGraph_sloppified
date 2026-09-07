@@ -41,6 +41,8 @@ import type { useTurnRecordState, TurnReplacement } from '../chat/useTurnRecordS
 import type { useNextTurnReferenceImages } from '../chat/useNextTurnReferenceImages';
 import type { usePhoneReply } from '../chat/usePhoneReply';
 import { normalizeRunGraphRequest, type RunGraphRequest } from './runGraphRequest';
+import { applyPhoneOutputCommits, buildPhoneOutputCommits } from './phoneOutputCommits';
+import { buildSocialCommentCommit, buildSocialDirectMessageCommit } from './socialOutputCommits';
 import {
   applyTimeCommandsToWorkflowNodes,
   commandInputCommandsFromStructured,
@@ -87,12 +89,8 @@ import {
 import {
   parseSocialReactionsOutput,
   parseSocialDirectMessageOutput,
-  socialAppNames,
   socialDirectMessageHistoryText,
   socialDirectMessageInputText,
-  socialHandleForCharacter,
-  socialHandleForName,
-  socialIdentityMatches,
   socialPostInputText,
   socialPostHistoryText,
   socialPostTextFromInput,
@@ -103,14 +101,8 @@ import {
   type SocialThreadRunContext,
 } from '../chat/socialMedia';
 import {
-  establishedSocialHandle,
-} from '../chat/socialDirectory';
-import {
-  isBundledSocialHandle,
-  socialHandleFromCatalogIdentity,
   withBundledSocialIdentityContext,
 } from '../chat/socialCatalogs';
-import { resolveSocialMessageIdentity } from '../chat/socialMessageValidation';
 import { recentInputHistoryContext } from '../chat/inputTransforms';
 import {
   chatGpdFallbackTitle,
@@ -1812,39 +1804,15 @@ export function useGraphRun(options: UseGraphRunOptions) {
               );
             }
           }
-          const canonicalParsedPhoneMessage = {
-            ...phoneReply,
-            from: canonicalPhoneName(phoneCharacters, phoneReply.from),
-            to: canonicalPhoneName(phoneCharacters, phoneReply.to),
-          };
-          const outgoingRpPicture = rpPicturePhoneAttachment(
-            [...messagesRef.current, ...(activeTurnCollectorRef.current?.inputMessages ?? [])],
-            canonicalParsedPhoneMessage.imageId,
-          );
-          const phoneMessageId = appendPhoneMessage(
-            {
-              ...canonicalParsedPhoneMessage,
-              imageId: outgoingRpPicture?.id ?? canonicalParsedPhoneMessage.imageId,
-              imageDescription: outgoingRpPicture?.description,
-              imageAttachments: outgoingRpPicture ? [outgoingRpPicture] : undefined,
-              phoneImageCaptionChange,
-            },
-            messageIndex === 0
-              ? phoneOutputSoundOverride ?? (isAutoTurn ? 'sent' : 'received')
-              : undefined,
-            'output',
-            isNarratorPhoneAutoTurn ? 'narrator' : undefined,
-            messageIndex === 0 && responseWorkflowVariableSetCommands.length > 0
-              ? structuredClone(responseWorkflowVariableSetCommands)
-              : undefined,
-          );
-          appendedPhoneMessageLinks.push({
-            phoneMessageId,
-            from: canonicalParsedPhoneMessage.from,
-            to: canonicalParsedPhoneMessage.to,
-            message: canonicalParsedPhoneMessage.message,
-            translatedMessage: canonicalParsedPhoneMessage.translatedMessage,
+          const commits = buildPhoneOutputCommits({
+            phoneCharacters, replies: [{ ...phoneReply, phoneImageCaptionChange }],
+            existingMessages: [...messagesRef.current, ...(activeTurnCollectorRef.current?.inputMessages ?? [])],
+            resolveRpPictures: true,
+            firstSound: messageIndex === 0 ? phoneOutputSoundOverride ?? (isAutoTurn ? 'sent' : 'received') : undefined,
+            phoneAutoTurnSource: isNarratorPhoneAutoTurn ? 'narrator' : undefined,
+            workflowVariableSetCommands: messageIndex === 0 ? responseWorkflowVariableSetCommands : undefined,
           });
+          appendedPhoneMessageLinks.push(...applyPhoneOutputCommits(commits, { appendPhoneMessage }));
         }
         if (isAutoTurn && isPhoneMessage) {
           const autoTurnInput = autoTurnInputMessageId
@@ -1970,33 +1938,12 @@ export function useGraphRun(options: UseGraphRunOptions) {
       const embeddedPhoneMessages: EmbeddedPhoneMessageLink[] = [];
       if (embeddedPhoneResult.phoneMessages.length > 0) {
         for (const [index, embeddedPhoneMessage] of embeddedPhoneResult.phoneMessages.entries()) {
-          const canonicalEmbeddedPhoneMessage = {
-            ...embeddedPhoneMessage,
-            from: canonicalPhoneName(phoneCharacters, embeddedPhoneMessage.from),
-            to: canonicalPhoneName(phoneCharacters, embeddedPhoneMessage.to),
-          };
-          const outgoingRpPicture = rpPicturePhoneAttachment(
-            [...messagesRef.current, ...(activeTurnCollectorRef.current?.inputMessages ?? [])],
-            canonicalEmbeddedPhoneMessage.imageId,
-          );
-          const phoneMessageId = appendPhoneMessage(
-            {
-              ...canonicalEmbeddedPhoneMessage,
-              imageId: outgoingRpPicture?.id ?? canonicalEmbeddedPhoneMessage.imageId,
-              imageDescription: outgoingRpPicture?.description,
-              imageAttachments: outgoingRpPicture ? [outgoingRpPicture] : undefined,
-              turnContext,
-            },
-            index === 0 ? 'received' : undefined,
-            'output',
-          );
-          embeddedPhoneMessages.push({
-            phoneMessageId,
-            from: canonicalEmbeddedPhoneMessage.from,
-            to: canonicalEmbeddedPhoneMessage.to,
-            message: canonicalEmbeddedPhoneMessage.message,
-            sourceOrder: canonicalEmbeddedPhoneMessage.sourceOrder,
+          const commits = buildPhoneOutputCommits({
+            phoneCharacters, replies: [embeddedPhoneMessage],
+            existingMessages: [...messagesRef.current, ...(activeTurnCollectorRef.current?.inputMessages ?? [])],
+            resolveRpPictures: true, turnContext, firstSound: index === 0 ? 'received' : undefined, includeSourceOrder: true,
           });
+          embeddedPhoneMessages.push(...applyPhoneOutputCommits(commits, { appendPhoneMessage }));
         }
         // Link the phone records to the output message before the slow
         // translation/attribution steps run, so the bubbles render inside the
@@ -2306,16 +2253,11 @@ export function useGraphRun(options: UseGraphRunOptions) {
           ...appliedActions.phoneMessages,
           ...socialDirectExtras.phoneMessages,
         ].entries()) {
-          const canonicalActionPhoneMessage = {
-            ...actionPhoneMessage,
-            from: canonicalPhoneName(phoneCharacters, actionPhoneMessage.from),
-            to: canonicalPhoneName(phoneCharacters, actionPhoneMessage.to),
-          };
           let translatedMessage: string | undefined;
           if (runEnglishProcessing) {
             try {
               translatedMessage = await translateText(
-                canonicalActionPhoneMessage.message,
+                actionPhoneMessage.message,
                 'to-display',
                 outputNode.data.connectionId ?? defaultConnectionId,
                 outputNode.id,
@@ -2334,19 +2276,11 @@ export function useGraphRun(options: UseGraphRunOptions) {
               );
             }
           }
-          appendPhoneMessage(
-            {
-              from: canonicalActionPhoneMessage.from,
-              to: canonicalActionPhoneMessage.to,
-              message: canonicalActionPhoneMessage.message,
-              translatedMessage,
-              imageId: canonicalActionPhoneMessage.imageId,
-              imageDescription: canonicalActionPhoneMessage.imageDescription,
-              turnContext,
-            },
-            index === 0 ? 'received' : undefined,
-            'output',
-          );
+          applyPhoneOutputCommits(buildPhoneOutputCommits({
+            phoneCharacters, existingMessages: [], firstSound: index === 0 ? 'received' : undefined, turnContext,
+            replies: [{ from: actionPhoneMessage.from, to: actionPhoneMessage.to, message: actionPhoneMessage.message,
+              translatedMessage, imageId: actionPhoneMessage.imageId, imageDescription: actionPhoneMessage.imageDescription }],
+          }), { appendPhoneMessage });
         }
 
         for (const bankTransfer of [
@@ -2428,54 +2362,14 @@ export function useGraphRun(options: UseGraphRunOptions) {
         // A social post comment command appends one comment to an existing
         // post via the same append-reactions record the comment thread uses.
         for (const postComment of parsedSocialPostComments) {
-          const targetPost = messagesRef.current.find(
-            (message) =>
-              message.socialPost?.app === postComment.app &&
-              message.socialPost.postId === postComment.postId,
-          )?.socialPost;
-          if (!targetPost) {
-            reportRunWarning(
-              `${socialAppNames[postComment.app]} post comment was ignored because post "${postComment.postId}" does not exist.`,
-              outputNodeTraceInfo,
-            );
-            continue;
-          }
-          // Commenters go through the same identity resolution as social DMs,
-          // so known Storybook characters without an account in the app are
-          // blocked here too instead of silently gaining one.
-          const resolvedCommenter = resolveSocialMessageIdentity({
-            characters: storyCharacters,
-            messages: messagesRef.current,
-            app: postComment.app,
-            identity: postComment.from,
-          });
-          if (!resolvedCommenter.available) {
-            reportRunWarning(
-              `${socialAppNames[postComment.app]} post comment was ignored. ${resolvedCommenter.reason}`,
-              outputNodeTraceInfo,
-            );
-            continue;
-          }
-          const from = resolvedCommenter.name;
-          const handle = resolvedCommenter.handle ??
-            (resolvedCommenter.character
-              ? socialHandleForCharacter(resolvedCommenter.character, postComment.app)
-              : establishedSocialHandle(messagesRef.current, postComment.app, from) ??
-                socialHandleForName(from));
-          const historyText = `[${socialAppNames[postComment.app]}] ${from} (@${handle}) commented on ${postComment.postId}: "${postComment.text}"`;
+          const result = buildSocialCommentCommit({ incoming: postComment, characters: storyCharacters, messages: messagesRef.current });
+          result.warnings.forEach((warning) => reportRunWarning(warning, outputNodeTraceInfo));
+          if (!result.commit) continue;
+          const { historyText, reactions } = result.commit;
           const translatedText = await translateOutputActionText(historyText, { text: historyText });
           appendMessage({
-            role: 'output',
-            originalText: historyText,
-            translatedText,
-            includeInHistory: true,
-            socialReactions: {
-              app: postComment.app,
-              postId: postComment.postId,
-              likes: 0,
-              comments: [{ from, handle, text: postComment.text }],
-              append: true,
-            },
+            role: 'output', originalText: historyText, translatedText,
+            includeInHistory: true, socialReactions: reactions,
           });
         }
 
@@ -2488,111 +2382,15 @@ export function useGraphRun(options: UseGraphRunOptions) {
           defaultRecipient?: { name: string; handle: string },
           runPost?: SocialPostRecord,
         ): Promise<EmbeddedSocialMessageLink | undefined> => {
-          const recipientName = incoming.to ?? defaultRecipient?.name;
-          if (!recipientName) {
-            reportRunWarning(
-              `A ${socialAppNames[incoming.app]} direct message from "${incoming.from}" was ignored because it has no recipient.`,
-              outputNodeTraceInfo,
-            );
-            return undefined;
-          }
-          const resolvedRecipient = resolveSocialMessageIdentity({
-            characters: storyCharacters,
-            messages: messagesRef.current,
-            app: incoming.app,
-            identity: recipientName,
-          });
-          if (!resolvedRecipient.available) {
-            reportRunWarning(
-              `A ${socialAppNames[incoming.app]} direct message was ignored. ${resolvedRecipient.reason}`,
-              outputNodeTraceInfo,
-            );
-            return undefined;
-          }
-          const to = resolvedRecipient.name;
-          const recipientCharacter = resolvedRecipient.character;
-          const toHandle = !incoming.to && defaultRecipient
-            ? defaultRecipient.handle
-            : resolvedRecipient.handle ??
-              (recipientCharacter
-                ? socialHandleForCharacter(recipientCharacter, incoming.app)
-                : establishedSocialHandle(messagesRef.current, incoming.app, to) ??
-                  socialHandleForName(to));
-          const resolvedSender = resolveSocialMessageIdentity({
-            characters: storyCharacters,
-            messages: messagesRef.current,
-            app: incoming.app,
-            identity: incoming.from,
-          });
-          if (!resolvedSender.available) {
-            reportRunWarning(
-              `A ${socialAppNames[incoming.app]} direct message was ignored. ${resolvedSender.reason}`,
-              outputNodeTraceInfo,
-            );
-            return undefined;
-          }
-          const from = resolvedSender.name;
-          const senderCharacter = resolvedSender.character;
-          const explicitOrCatalogHandle = socialHandleFromCatalogIdentity(
-            incoming.app,
-            incoming.from,
-            incoming.handle,
-          );
-          const knownFromHandle = resolvedSender.handle ??
-            (senderCharacter
-              ? socialHandleForCharacter(senderCharacter, incoming.app)
-              : establishedSocialHandle(messagesRef.current, incoming.app, from));
-          const fromHandle = senderCharacter
-            ? knownFromHandle ?? socialHandleForName(from)
-            : explicitOrCatalogHandle &&
-                (!knownFromHandle || isBundledSocialHandle(incoming.app, explicitOrCatalogHandle))
-              ? explicitOrCatalogHandle
-              : knownFromHandle ?? socialHandleForName(from);
-          if (socialIdentityMatches(fromHandle, toHandle)) {
-            reportRunWarning(
-              `A ${socialAppNames[incoming.app]} direct message from "${from}" to themselves was ignored.`,
-              outputNodeTraceInfo,
-            );
-            return undefined;
-          }
-          let originPost = runPost && runPost.postId === incoming.postId ? runPost : undefined;
-          if (!originPost && incoming.postId) {
-            originPost = messagesRef.current.find(
-              (message) =>
-                message.socialPost?.app === incoming.app &&
-                message.socialPost.postId === incoming.postId,
-            )?.socialPost;
-            if (!originPost) {
-              reportRunWarning(
-                `${socialAppNames[incoming.app]} direct message references unknown post "${incoming.postId}"; it was delivered without the post context.`,
-                outputNodeTraceInfo,
-              );
-            }
-          }
-          incomingSocialDmSequence += 1;
-          const record: SocialDirectMessageRecord = {
-            app: incoming.app,
-            messageId: `${incoming.app}-dm-incoming-${Date.now()}-${incomingSocialDmSequence}`,
-            from,
-            fromHandle,
-            to,
-            toHandle,
-            text: incoming.text,
-            ...(incoming.tip !== undefined ? { tip: incoming.tip } : {}),
+          const result = buildSocialDirectMessageCommit({
+            incoming, defaultRecipient, runPost, characters: storyCharacters, messages: messagesRef.current,
+            messageId: `${incoming.app}-dm-incoming-${Date.now()}-${incomingSocialDmSequence + 1}`,
             sentAt: new Date().toISOString(),
-            ...(originPost
-              ? {
-                  origin: {
-                    postId: originPost.postId,
-                    postAuthor: originPost.author,
-                    postAuthorHandle: originPost.authorHandle,
-                    postCaption: originPost.caption,
-                    postImageId: originPost.imageId,
-                    postImageDescription: originPost.imageDescription,
-                  },
-                }
-              : {}),
-          };
+          });
+          result.warnings.forEach((warning) => reportRunWarning(warning, outputNodeTraceInfo));
+          if (!result.commit) return undefined;
+          incomingSocialDmSequence += 1;
+          const { record } = result.commit;
           const translatedDmText = await translateOutputActionText(incoming.text, {
             text: incoming.text,
           });

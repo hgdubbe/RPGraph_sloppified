@@ -195,7 +195,7 @@ function phoneNameMatchScore(characterName: string, inputName: string) {
 }
 
 export function canonicalPhoneName<T extends { name: string }>(
-  characters: T[],
+  characters: readonly T[],
   name: string,
 ) {
   const scoredMatches = characters

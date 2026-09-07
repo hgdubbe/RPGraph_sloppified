@@ -10,7 +10,9 @@
 
 **Spec:** `docs/review/code-quality-cleanup-findings.md`
 
-**User-requested insertion after H3 (2026-09-07):** Structured prompt sections, copy-once reuse, contextual router help and importable default prompts are implemented. See the [implementation record](2026-09-07-prompt-sections.md) and [imports/usage/verification](../../../prompts/README.md). This is an authoring improvement, not the less LLM-dependent action runtime. Task 9/H4 remains next; Legacy/Strict is only selector-validation behavior.
+**Current checkpoint (2026-09-07):** H1-H3, the prompt-authoring insertion, and Task 9 are complete. Next is H4's action registry, strict references and execution ownership. See [Task 9 verification and remaining runtime work](../../review/action-runtime-progress.md). Legacy/Strict remains selector-validation behavior only.
+
+**User-requested insertion after H3 (2026-09-07):** Structured prompt sections, copy-once reuse, contextual router help and importable default prompts are implemented. See the [implementation record](2026-09-07-prompt-sections.md) and [imports/usage/verification](../../../prompts/README.md). This is an authoring improvement, not the less LLM-dependent action runtime.
 
 ## Redesign Handoff Integration (2026-09-07)
 
@@ -1066,6 +1068,8 @@ git commit -m "refactor: migrate graph calls to request objects"
 
 ### Task 9: Extract phone/social output commit helpers from `useGraphRun`
 
+**Status (2026-09-07): Complete.** See [implementation, compatibility limits and verification](../../review/action-runtime-progress.md). H4 runtime contracts and ownership remain next. Commit shape uses a typed `payload` rather than flattened message fields; social comment/DM builders and tests are included too.
+
 **Files:**
 - Create: `src/app/phoneOutputCommits.ts`
 - Create: `src/app/phoneOutputCommits.test.ts`
@@ -1077,7 +1081,7 @@ git commit -m "refactor: migrate graph calls to request objects"
   - `buildPhoneOutputCommits(input: PhoneOutputCommitInput): PhoneOutputCommit[]`
   - `applyPhoneOutputCommits(commits, callbacks)`
 
-- [ ] **Step 1: Write a pure helper test**
+- [x] **Step 1: Write a pure helper test**
 
 Create a minimal test covering canonical names and image attachment propagation:
 
@@ -1093,13 +1097,13 @@ describe('phone output commits', () => {
       existingMessages: [],
     });
     expect(commits).toMatchObject([
-      { type: 'append-phone-message', from: 'Helga Harper', to: 'Espen Harper', message: 'hey' },
+      { type: 'append-phone-message', payload: { from: 'Helga Harper', to: 'Espen Harper', message: 'hey' } },
     ]);
   });
 });
 ```
 
-- [ ] **Step 2: Run test to verify it fails**
+- [x] **Step 2: Run test to verify it fails**
 
 Run:
 
@@ -1109,11 +1113,11 @@ npx vitest run src/app/phoneOutputCommits.test.ts
 
 Expected: FAIL because helper does not exist.
 
-- [ ] **Step 3: Extract only pure mapping first**
+- [x] **Step 3: Extract only pure mapping first**
 
 Move canonicalization and commit-shape creation out of `useGraphRun`, but keep actual `appendPhoneMessage`, `updateMessage`, and `notifySystem` calls in the hook.
 
-- [ ] **Step 4: Run checks**
+- [x] **Step 4: Run checks**
 
 Run:
 
@@ -1124,7 +1128,7 @@ npm run build
 
 Expected: all pass.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 Run:
 

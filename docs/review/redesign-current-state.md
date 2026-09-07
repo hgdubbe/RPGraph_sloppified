@@ -44,7 +44,7 @@ Implementation contracts: versioned router configuration with stable output/rout
 
 ## Delivered Catch-up
 
-H1-H3 are implemented. Resume at original Task 9 together with H4. The broader provider work in Task 5 remains partial; the new typed action runtime has not been implemented in this catch-up.
+H1-H3 and original Task 9 are implemented. Resume at H4's shared action registry and strict reference contracts. Task 9 extracted compatibility commit builders, not the new typed action runtime. The broader provider work in Task 5 remains partial. See [Task 9 implementation and remaining H4 work](action-runtime-progress.md).
 
 Checkpoint commits: `254b55f` records the source handoff, roadmap and audit; `ff99677` implements the Response Router catch-up and regression checks.
 
