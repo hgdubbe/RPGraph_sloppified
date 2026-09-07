@@ -46,6 +46,8 @@ Implementation contracts: versioned router configuration with stable output/rout
 
 H1-H3 are implemented. Resume at original Task 9 together with H4. The broader provider work in Task 5 remains partial; the new typed action runtime has not been implemented in this catch-up.
 
+Checkpoint commits: `254b55f` records the source handoff, roadmap and audit; `ff99677` implements the Response Router catch-up and regression checks.
+
 - `src/nodes/llm-prompt-switch/ResponseRouterCard.tsx` and `responseRouter.css`: compact output groups, actual node/port destination labels, fan-out, disconnected state, path emphasis, last-run metadata, manual/captured selector check, and a searchable side editor. Large configurations start collapsed. Existing theme tokens are used.
 - `Card.tsx`: existing prompt/action/command tools reused inside the editor. Node-authored edits stay in RAM until Apply; switching routes/closing retains the draft. Apply has a green confirmation and one-step Undo Apply. Shared preset/provider settings retain their existing global semantics.
 - `routerModel.ts`: versioned canonical records, stable output/route/prompt IDs, independent selectors, monotonically increasing allocation counters, strict/legacy policies, shape/identity validation, pure resolution and assembly, and a matrix adapter for older callers.
