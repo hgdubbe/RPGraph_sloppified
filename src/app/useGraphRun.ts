@@ -40,6 +40,7 @@ import type { useTurnTraceState } from './useTurnTraceState';
 import type { useTurnRecordState, TurnReplacement } from '../chat/useTurnRecordState';
 import type { useNextTurnReferenceImages } from '../chat/useNextTurnReferenceImages';
 import type { usePhoneReply } from '../chat/usePhoneReply';
+import { normalizeRunGraphRequest, type RunGraphRequest } from './runGraphRequest';
 import {
   applyTimeCommandsToWorkflowNodes,
   commandInputCommandsFromStructured,
@@ -2972,5 +2973,35 @@ export function useGraphRun(options: UseGraphRunOptions) {
     }
   }
 
-  return { runGraph };
+  async function runGraphFromRequest(request: RunGraphRequest) {
+    const normalized = normalizeRunGraphRequest(request);
+    return runGraph(
+      normalized.inputText,
+      normalized.images,
+      normalized.existingInputMessage,
+      normalized.historyMessages,
+      normalized.replacedMessageIds,
+      normalized.inputCharacterOverride,
+      normalized.isPhoneMessage,
+      normalized.phoneRecipientCharacterOverride,
+      normalized.replacement,
+      normalized.turnMode,
+      normalized.eventDisplayText,
+      normalized.onSuccessfulRunBeforeCommit,
+      normalized.phoneOutputSoundOverride,
+      normalized.narratorAutoTurn,
+      normalized.messageFormatOverride,
+      normalized.turnModeOverride,
+      normalized.phoneReplyToOverride,
+      normalized.structuredInput,
+      normalized.socialPost,
+      normalized.socialThreadAction,
+      normalized.socialThreadContext,
+      normalized.directActionOnly,
+      normalized.socialDirectMessage,
+      normalized.contextComment,
+    );
+  }
+
+  return { runGraph, runGraphFromRequest };
 }
