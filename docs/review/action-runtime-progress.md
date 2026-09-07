@@ -1,5 +1,36 @@
 # Action Runtime Progress
 
+## 2026-09-07: H4b Isolated Execution Boundary and Prompt Guide
+
+**Current status: still not enabled in live workflows.** H4a and this checkpoint provide compiler/runtime internals exercised with deterministic adapters. They do not complete H4 or the H5 end-to-end acceptance gates.
+
+### Delivered
+
+- `src/actions/executionRegistry.ts`: handlers for image generation and WhatsUp delivery, strict acknowledgement validation, stable-ID/access/capability rechecks, and conservative reconcile-before-retry policies. Both handlers use supplied adapters; there are no production adapter implementations yet.
+- `src/actions/runtime.ts`: compiles the entire envelope before effects; preflights accepted stable IDs before starting; rechecks each operation immediately before its adapter; binds generated artifacts directly to delivery; retains ordered block/operation identities and typed results.
+- Concurrent or repeated `run()` calls on the same prepared object share one internal execution. Returned plans/reports are detached from internal state. Two intentional sends remain separate operations. A new prepared object is a new execution, not a restart-safe retry.
+- Generation results must name a real, accessible artifact in the adapter's current catalog. Message acknowledgements must match the requested sender, recipient, text and artifact. Invalid acknowledgements or adapter exceptions become `outcome-unknown`, not a safe-to-retry failure.
+- Cancellation gates prevent unsent downstream effects. A generation that completes before cancellation is observed retains its receipt. Any failed/uncertain operation stops the remaining batch; earlier committed operations remain recorded in the report.
+- [Legacy prompt migration guide](../guides/action-prompt-migration.md): what to keep/change, main-response authoring instructions, exact field/capability limits, five compiler-checked examples, and a production-readiness checklist. Linked from `prompts/README.md`. Working default workflows and prompts were not changed.
+
+### Verification and Corrections
+
+- Initial runtime tests failed because the runtime module did not exist. Twelve runtime tests now pass, plus a test that compiles all five JSON examples directly from the published guide.
+- A failing regression test exposed a handle-reassignment bug in initial run-time preflight. It now validates the accepted stable IDs instead of resolving the original handles again.
+- A second failing regression test caught a scope-change error hidden by an empty operation list. Reports now expose batch preflight errors even for zero-action replies.
+- Full unit suite: 185 tests in 43 files pass. Production build and actions-directory lint pass. Existing Node prompt-extraction module-type warnings remain unrelated.
+- No real provider, ComfyUI, UI or restart-recovery tests were performed. Test adapters simulate storage and acknowledge delivery; they do not establish atomic real persistence.
+
+### Next Work
+
+1. Consolidate compiler validation and handler metadata into shared model-facing argument/result schemas, without maintaining divergent schema descriptions. The execution registry is not yet the complete schema/capability/rendering registry promised by H4.
+2. Build authoritative production catalogs and image/message adapters, preserving the existing image access rules. Check capability/access atomically with local commits where possible; a renderer-side precheck cannot prevent all asynchronous races.
+3. Add explicit opt-in workflow protocol selection and migrate direct/legacy adapters to the single owner for migrated runs. Keep old workflows on their existing executor until compatibility fixtures pass.
+4. Integrate structural image results and same-receipt phone/RP rendering with deterministic H5 integration tests, then verify real providers separately.
+5. Add H6 provider structured-response contracts and bounded correction. Add H7 durable operation records, reconciliation, delivery-only retry and regeneration/branch semantics. Do not treat the in-memory run cache as a durable journal.
+
+The sections below record earlier checkpoints; their then-pending items are superseded only by the specific work listed above.
+
 ## 2026-09-07: H4a Compiler Foundation Complete
 
 H4 remains unfinished and is not enabled for live workflows. The new modules are deliberately not imported by the production execution path yet. Existing prompts, direct actions, saved workflows, and Legacy/Strict routing behavior are unchanged.

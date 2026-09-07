@@ -10,7 +10,7 @@
 
 **Spec:** `docs/review/code-quality-cleanup-findings.md`
 
-**Current checkpoint (2026-09-07):** H1-H3, the prompt-authoring insertion, Task 9 and H4a's compiler foundation are complete. H4 remains unfinished and is not active in live workflows. Next: full handler/result registry, authoritative catalog adapter and single execution ownership. See [verification and remaining runtime work](../../review/action-runtime-progress.md). Legacy/Strict remains selector-validation behavior only.
+**Current checkpoint (2026-09-07):** H1-H3, the prompt-authoring insertion, Task 9, H4a's compiler and H4b's isolated execution boundary are implemented. H4 remains unfinished and is not active in live workflows. Next: shared provider-facing schemas, production catalogs/adapters and opt-in single execution ownership. See [verification and remaining runtime work](../../review/action-runtime-progress.md) and the [legacy prompt migration guide](../../guides/action-prompt-migration.md). Legacy/Strict remains selector-validation behavior only.
 
 **User-requested insertion after H3 (2026-09-07):** Structured prompt sections, copy-once reuse, contextual router help and importable default prompts are implemented. See the [implementation record](2026-09-07-prompt-sections.md) and [imports/usage/verification](../../../prompts/README.md). This is an authoring improvement, not the less LLM-dependent action runtime.
 
@@ -86,7 +86,7 @@ Acceptance: every imported valid pair reaches the same prompt/output; deletion l
 
 ### H4: Shared Typed Action Contracts and Execution Ownership
 
-**In progress: H4a compiler foundation complete, not a live runtime.** `src/actions/{contracts.ts,compileReply.ts}` defines and validates an initial image/WhatsUp slice and compiles ordered operations with structural image dependencies. 24 compiler tests pass. Registry result schemas/handlers, production catalog construction, direct/legacy adapters, effect-boundary revalidation and single ownership remain open. The broad H4 checkboxes below deliberately remain unchecked; see the [detailed checkpoint](../../review/action-runtime-progress.md).
+**In progress: H4a compiler plus H4b isolated execution, not a live runtime.** `src/actions/` defines image/WhatsUp contracts, compiles structural image dependencies, executes through supplied adapters, revalidates references and verifies acknowledgements. 24 compiler tests, 12 runtime tests and one guide-example test pass. Shared model-facing schemas, production catalogs/adapters, direct/legacy migration, rendering and durable ownership remain open. The broad H4 checkboxes below deliberately remain unchecked; see the [detailed checkpoint](../../review/action-runtime-progress.md) and [prompt migration instructions](../../guides/action-prompt-migration.md).
 
 Sources: [pipeline proposal](../../design/RPGraph-redesign-handoff-2026-09-07/command-pipeline-proposal.md), [atlas sections 6-10](../../design/RPGraph-redesign-handoff-2026-09-07/DESIGN_ATLAS.md), [architecture graphic](../../design/RPGraph-redesign-handoff-2026-09-07/action-runtime-architecture.svg).
 

@@ -1,5 +1,7 @@
 # Response Router Prompt Imports
 
+For the forthcoming typed action protocol, see the [legacy prompt migration guide](../docs/guides/action-prompt-migration.md). It includes compiler-checked examples and an explicit readiness checklist. The action runtime is not enabled in these imports; do not replace working prompts with the new envelopes yet.
+
 ## Complete Workflows
 
 Open either file through the app's existing workflow-open command:
