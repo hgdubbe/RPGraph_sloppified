@@ -1,5 +1,11 @@
 # Action Runtime Progress
 
+## 2026-09-07: Full Default-Prompt Migration Demonstration
+
+The [prompt migration guide](../guides/action-prompt-migration.md#full-default-workflow-prompt-rp-prompt-with-image) now includes the entire `Normal RP -> RP Prompt with Image` route from `workflow.default_v25.json`, its full action-v1 authoring draft, a complete highlighted diff, a section-by-section explanation and an explicit feature-parity blocker list. Both text files are attached under `docs/guides/examples/`. The before field is empty; this demonstrates the complete stored after field, not a fully assembled provider request.
+
+A documentation regression test reconstructs both files from the diff and verifies that the legacy text equals both the canonical route and raw default-workflow field. Focused documentation tests (2) and lint pass. No live prompts, workflows or runtime behavior changed. The draft remains unsuitable as a feature-equivalent live replacement until the listed integrations exist.
+
 ## 2026-09-07: H4b Isolated Execution Boundary and Prompt Guide
 
 **Current status: still not enabled in live workflows.** H4a and this checkpoint provide compiler/runtime internals exercised with deterministic adapters. They do not complete H4 or the H5 end-to-end acceptance gates.
