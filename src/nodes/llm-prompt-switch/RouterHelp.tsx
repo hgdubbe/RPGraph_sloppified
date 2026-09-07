@@ -1,0 +1,13 @@
+const help = {
+  selectors: ['Selector values', 'The two incoming numbers choose an output group and a prompt within that group. For example, (0, 1) chooses prompt selector 1 in output selector 0. These are saved numbers, not row positions: reordering does not change them. Change the upstream selector values too if you renumber a route.'],
+  policy: ['Selector policy', 'Strict requires both inputs to contain nonnegative whole numbers matching an existing pair. Empty, fractional, negative and unmatched values stop the run; multiple sources on a text or selector input are rejected. Use Strict for new workflows. Legacy preserves older workflows: empty or nonnumeric values become 0, decimals are truncated, the output number is clamped between 0 and the largest output selector, and a missing prompt falls back to prompt selector 0. Missing output gaps or a missing fallback 0 still fail. Example: output 0 and prompt 1.9 select (0, 1) in Legacy but fail in Strict.'],
+  disconnected: ['Disconnected output', 'Allow execution still calls the model and performs configured actions even when no node receives the result. Stop before model call rejects a selected output with no outgoing connection, avoiding that call and its actions. This policy applies to this output group only.'],
+  unused: ['Intentionally unused', 'This is a visual label for an output you intentionally leave unused. It does not disable the route, prevent model calls, or override the disconnected-output policy.'],
+  sections: ['Prompt sections and steps', 'Sections are editable, ordered pieces of one prompt, not additional model calls. Blank lines stay inside a topic. Rename sections, merge adjacent sections, or add your own; the category controls which Copy from sources are offered. Regroup by topic rebuilds the grouping without changing prompt text. Named execution steps run in their existing order; the last step produces the final output. Put tone, vocabulary and dialogue instructions in that response step. Copy from copies once; later edits stay independent. Changes remain a draft until Apply. Raw prompt and action tools remain available below.'],
+  preview: ['Check routing', 'Tests the currently saved selector mapping without calling a model or running actions. Use last run fills in the actual input values from the previous run. Apply draft changes before checking the new mapping. Step preview and Preview assembly show prompt text without executing it.'],
+} as const;
+
+export function RouterHelp({ topic }: { topic: keyof typeof help }) {
+  const [title, text] = help[topic];
+  return <details className="router-help"><summary aria-label={`Help: ${title}`}>? <span>{title}</span></summary><p>{text}</p></details>;
+}

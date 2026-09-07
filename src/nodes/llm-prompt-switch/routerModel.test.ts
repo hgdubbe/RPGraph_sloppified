@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import type { WorkflowNodeData } from '../../types';
 import { applyLegacyRouterPatch, assemblePrompt, migrateRouter, resolveRoute, routerAwarePatch, validateRouter } from './routerModel';
 import { corePersistence } from '../corePersistence';
+import { splitPromptSections } from './promptSections';
 
 const legacy = {
   nodeType: 'llm-prompt-switch', label: 'Router', description: '', preview: '',
@@ -12,6 +13,23 @@ const legacy = {
 } as WorkflowNodeData;
 
 describe('Response Router compatibility', () => {
+  it('roundtrips named sections and rejects stale assembled projections', () => {
+    const config = migrateRouter(legacy);
+    const route = config.outputs[0].routes[0];
+    route.sections = splitPromptSections(route.before, route.after);
+    const field = route.sections.before[0];
+    if (field.kind === 'field') field.title = 'My instructions';
+    const saved = corePersistence['llm-prompt-switch'].saveData({ ...legacy, responseRouter: config });
+    const loaded = corePersistence['llm-prompt-switch'].hydrateData(saved, { defaultConnectionId: '', connectionIds: new Set() });
+    expect(loaded.responseRouter?.outputs[0].routes[0].sections).toEqual(route.sections);
+    const unchanged = applyLegacyRouterPatch({ ...legacy, responseRouter: config }, { llmPromptSwitchOutputTitles: ['Renamed', 'Phone'] });
+    expect(unchanged.outputs[0].routes[0].sections).toEqual(route.sections);
+    const changed = applyLegacyRouterPatch({ ...legacy, responseRouter: config }, { llmPromptSwitchPromptBeforesByOutput: [['New raw text', 'other'], ['phone']] });
+    expect(validateRouter(changed)).toEqual([]);
+    expect(assemblePrompt(changed.outputs[0].routes[0], '', [], {}).promptBefore).toBe('New raw text');
+    route.before = 'stale';
+    expect(validateRouter(config).join(' ')).toContain('disagree');
+  });
   it('adapts older authored-field callers while leaving runtime-only patches untouched', () => {
     const data = { ...legacy, responseRouter: migrateRouter(legacy) };
     const adapted = routerAwarePatch(data, { llmPromptSwitchPromptBeforesByOutput: [['changed', 'other'], ['phone']] });

@@ -11,6 +11,9 @@ import { buildPromptStepChain, stepOutputTokenNames } from '../shared/promptStep
 import { LlmPromptSwitchNodeCard } from './Card';
 import { applyLegacyRouterPatch, assemblePrompt, migrateRouter, resolveRoute, validateRouter, type ResponseRouterConfig } from './routerModel';
 import './responseRouter.css';
+import { PromptSectionEditor } from './PromptSectionEditor';
+import { RouterHelp } from './RouterHelp';
+import { assembleSections } from './promptSections';
 
 const inputPorts = [
   ['text', 'Text'], ['image', 'Images'], ['output-channel', 'Output selection'], ['prompt-slot', 'Prompt selection'],
@@ -214,6 +217,7 @@ export function ResponseRouterCard({ id, data }: NodeProps<WorkflowNode>) {
         }}>Use last run</button>}
       </div>
       <p role="status" className="router-check-result">{checkResult || data.responseRouterLastRun?.error || (data.responseRouterLastRun ? `Run revision ${data.responseRouterLastRun.revision}` : 'Not run yet')}</p>
+      <RouterHelp topic="preview" />
       <PromptPreviewTools id={id} debug={data.llmPromptSwitchDebug} generatedText={data.generatedText} runLabel="Response Router" />
     </div>
     {open && createPortal(<div className="router-editor-backdrop nodrag nowheel" onPointerDown={(event) => event.stopPropagation()}>
@@ -238,11 +242,16 @@ export function ResponseRouterCard({ id, data }: NodeProps<WorkflowNode>) {
           </nav>
           <main className="router-editor-content">
             <div className="router-editor-context"><strong>{selectedOutput.title} / {selectedRoute.title}</strong><span>Selected by ({selectedOutput.selector}, {selectedRoute.selector})</span>{destinations(selectedOutput.handle)}</div>
+            <RouterHelp topic="sections" />
             <NodeActionsContext.Provider value={{ ...actions, updateData: updateDraft,
               removeLlmPromptSwitchOutputChannel: () => {},
               changeConnection: (_id, value) => updateDraft(id, { connectionId: value }),
             }}>
-              <LlmPromptSwitchNodeCard id={id} data={editorData} editorOnly confirmRemoval={(kind) => window.confirm(kind === 'output'
+              <LlmPromptSwitchNodeCard id={id} data={editorData} editorOnly structuredEditor={<PromptSectionEditor
+                key={selectedRoute.id} route={selectedRoute} config={editorConfig} onChange={(sections) => changeConfig({ ...editorConfig,
+                  outputs: editorConfig.outputs.map((output) => ({ ...output, routes: output.routes.map((route) => route.id === selectedRoute.id
+                    ? { ...route, sections, ...assembleSections(sections) } : route) })),
+                })} />} confirmRemoval={(kind) => window.confirm(kind === 'output'
                 ? `Remove ${selectedOutput.title}, its ${selectedOutput.routes.length} routes and ${destinationList(selectedOutput.handle).length} outgoing connections on Apply? Other selector mappings will remain unchanged.`
                 : `Remove ${selectedRoute.title}, mapping (${selectedOutput.selector}, ${selectedRoute.selector}), on Apply? Other mappings and shared actions will remain unchanged.`)} />
             </NodeActionsContext.Provider>
@@ -253,6 +262,7 @@ export function ResponseRouterCard({ id, data }: NodeProps<WorkflowNode>) {
             </details>
             <details><summary>Preview assembly</summary><pre>{assemblePrompt(selectedRoute, data.llmPromptSwitchDebug?.inputValue ?? '', view.settingsValueDefinitions, view.settingsValues).combinedPrompt}</pre></details>
             <details><summary>Routing and compatibility</summary>
+              <RouterHelp topic="selectors" />
               <label>Output selector<input type="number" min="0" step="1" value={selectedOutput.selector} onChange={(event) => {
                 const selector = event.target.valueAsNumber;
                 if (!Number.isSafeInteger(selector) || selector < 0) return;
@@ -265,12 +275,15 @@ export function ResponseRouterCard({ id, data }: NodeProps<WorkflowNode>) {
               }} /></label>
               {validateRouter(editorConfig).map((error) => <p className="router-error" key={error}>{error}</p>)}
               <label>Selector policy<select value={editorConfig.policy} onChange={(event) => changeConfig({ ...editorConfig, policy: event.target.value as ResponseRouterConfig['policy'] })}>
-                <option value="legacy">Legacy: truncate, clamp output, default prompt 0</option><option value="strict">Strict: exact integer pairs; unmatched values fail</option>
+                <option value="legacy">Legacy compatibility</option><option value="strict">Strict routing</option>
               </select></label>
+              <RouterHelp topic="policy" />
               <label>Disconnected output<select value={selectedOutput.disconnected} onChange={(event) => changeConfig({ ...editorConfig, outputs: editorConfig.outputs.map((output) => output.id === selectedOutput.id ? { ...output, disconnected: event.target.value as 'allow' | 'error' } : output) })}>
                 <option value="allow">Allow execution</option><option value="error">Stop before model call</option>
               </select></label>
+              <RouterHelp topic="disconnected" />
               <label><input type="checkbox" checked={selectedOutput.unused} onChange={(event) => changeConfig({ ...editorConfig, outputs: editorConfig.outputs.map((output) => output.id === selectedOutput.id ? { ...output, unused: event.target.checked } : output) })} />Intentionally unused</label>
+              <RouterHelp topic="unused" />
               <div className="router-order"><span>Output order</span><button type="button" aria-label="Move output up" disabled={selectedOutputIndex === 0} onClick={() => reorder(-1, true)}>&uarr;</button><button type="button" aria-label="Move output down" disabled={selectedOutputIndex === editorConfig.outputs.length - 1} onClick={() => reorder(1, true)}>&darr;</button></div>
               <div className="router-order"><span>Route order</span><button type="button" aria-label="Move route up" disabled={selectedPromptIndex === 0} onClick={() => reorder(-1, false)}>&uarr;</button><button type="button" aria-label="Move route down" disabled={selectedPromptIndex === selectedOutput.routes.length - 1} onClick={() => reorder(1, false)}>&darr;</button></div>
             </details>

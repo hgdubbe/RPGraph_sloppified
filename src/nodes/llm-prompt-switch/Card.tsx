@@ -1,4 +1,4 @@
-import { useCallback, useLayoutEffect, useRef, useState } from 'react';
+import { useCallback, useLayoutEffect, useRef, useState, type ReactNode } from 'react';
 import { Handle, NodeResizeControl, Position, ResizeControlVariant, type NodeProps } from '@xyflow/react';
 import type { WorkflowNode } from '../../types';
 import {
@@ -94,9 +94,10 @@ function optionLabel(index: number, title: string, fallback: string) {
   return `${index}: ${title.trim() || (index === 0 && fallback === 'Prompt' ? 'Default Prompt' : `${fallback} ${index}`)}`;
 }
 
-export function LlmPromptSwitchNodeCard({ id, data, editorOnly = false, confirmRemoval }: Pick<NodeProps<WorkflowNode>, 'id' | 'data'> & {
+export function LlmPromptSwitchNodeCard({ id, data, editorOnly = false, confirmRemoval, structuredEditor }: Pick<NodeProps<WorkflowNode>, 'id' | 'data'> & {
   editorOnly?: boolean;
   confirmRemoval?: (kind: 'output' | 'route') => boolean;
+  structuredEditor?: ReactNode;
 }) {
   const actions = useNodeActions();
   const view = useNodeView();
@@ -633,6 +634,11 @@ export function LlmPromptSwitchNodeCard({ id, data, editorOnly = false, confirmR
           </div>
         )}
         <div className="llm-prompt-field">
+          {structuredEditor}
+        </div>
+        <details className="router-raw-prompts" open={structuredEditor ? undefined : true}>
+          <summary>Raw prompt and action tools</summary>
+        <div className="llm-prompt-field">
           <label className="node-field-label" htmlFor={`${id}-before`} ref={promptBeforeLabelRef}>
             PROMPT BEFORE INPUT
           </label>
@@ -678,6 +684,7 @@ export function LlmPromptSwitchNodeCard({ id, data, editorOnly = false, confirmR
             onPromptCommandClick={openPromptCommandConfig}
           />
         </div>
+        </details>
       </div>
       <ConnectionSelect
         id={id}

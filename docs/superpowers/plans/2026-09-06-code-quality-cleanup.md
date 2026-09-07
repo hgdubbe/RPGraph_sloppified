@@ -10,6 +10,8 @@
 
 **Spec:** `docs/review/code-quality-cleanup-findings.md`
 
+**User-requested insertion after H3 (2026-09-07):** Structured prompt sections, copy-once reuse, contextual router help and importable default prompts are implemented. See the [implementation record](2026-09-07-prompt-sections.md) and [imports/usage/verification](../../../prompts/README.md). This is an authoring improvement, not the less LLM-dependent action runtime. Task 9/H4 remains next; Legacy/Strict is only selector-validation behavior.
+
 ## Redesign Handoff Integration (2026-09-07)
 
 The repository-local handoff below is an additional specification for this roadmap. Read the linked source documents before implementing the corresponding tasks; this summary does not replace their detailed examples, diagrams, and acceptance criteria. The user authorized incorporation of this package into the existing roadmap. Workstation paths and next-session instructions inside the package describe its original analysis environment; continue in the current cleanup worktree.

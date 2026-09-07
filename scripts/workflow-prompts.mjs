@@ -2,9 +2,10 @@
 import { readdirSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { mkdir, readFile, writeFile } from 'node:fs/promises';
+import { assembleSections, splitPromptSections, validateSections } from '../src/nodes/llm-prompt-switch/promptSections.ts';
 
 const promptFileFormat = 'rpgraph-llm-prompt-switch-prompts';
-const promptFileFormatVersion = 1;
+const promptFileFormatVersion = 2;
 const defaultPromptPath = '/tmp/rpgraph-workflow.default.prompts.json';
 const maximumEntries = 10;
 
@@ -73,7 +74,8 @@ function extractedSwitch(node) {
       nodeId: node.id, nodeLabel: data.label,
       outputs: data.responseRouter.outputs.map((output) => ({
         outputId: output.id, title: output.title,
-        prompts: output.routes.map((route) => ({ routeId: route.id, title: route.title, before: route.before, after: route.after })),
+        prompts: output.routes.map((route) => ({ routeId: route.id, title: route.title,
+          ...(route.sections ? { sections: route.sections } : { before: route.before, after: route.after }) })),
       })),
     };
   }
@@ -100,7 +102,7 @@ function extractedSwitch(node) {
 function validatedPromptDocument(value) {
   if (
     value?.format !== promptFileFormat ||
-    value?.formatVersion !== promptFileFormatVersion ||
+    ![1, promptFileFormatVersion].includes(value?.formatVersion) ||
     !Array.isArray(value.switches)
   ) {
     throw new Error(`Prompt file must use ${promptFileFormat} version ${promptFileFormatVersion}.`);
@@ -120,6 +122,11 @@ function validatedPromptDocument(value) {
         throw new Error(`Every output in ${promptSwitch.nodeId} needs 1-${maximumEntries} prompts.`);
       }
       for (const prompt of output.prompts) {
+        if (prompt?.sections !== undefined) {
+          const errors = validateSections(prompt.sections);
+          if (errors.length) throw new Error(errors.join(' '));
+          Object.assign(prompt, assembleSections(prompt.sections));
+        }
         if (
           typeof prompt?.title !== 'string' ||
           typeof prompt?.before !== 'string' ||
@@ -180,6 +187,8 @@ async function mergePrompts(promptPath, workflowPath, destinationPath) {
           route.title = prompt.title;
           route.before = prompt.before;
           route.after = prompt.after;
+          if (prompt.sections) route.sections = prompt.sections;
+          else if (route.sections) route.sections = splitPromptSections(prompt.before, prompt.after);
         }
       }
       config.revision++;
@@ -199,6 +208,20 @@ async function mergePrompts(promptPath, workflowPath, destinationPath) {
     node.data.llmPromptSwitchPromptAftersByOutput = extracted.outputs.map((output) =>
       output.prompts.map((prompt) => prompt.after),
     );
+    if (extracted.outputs.some((output) => output.prompts.some((prompt) => prompt.sections))) {
+      node.data.responseRouter = {
+        version: 1, revision: 0, policy: 'legacy', nextOutputSelector: extracted.outputs.length,
+        outputs: extracted.outputs.map((output, index) => ({
+          id: `output-${index}`, handle: `output-channel-${index}`, selector: index, title: output.title,
+          nextPromptSelector: output.prompts.length, disconnected: 'allow', unused: false,
+          routes: output.prompts.map((prompt, slot) => ({
+            id: `route-${index}-${slot}`, promptId: `prompt-${index}-${slot}`, selector: slot,
+            title: prompt.title, before: prompt.before, after: prompt.after,
+            sections: prompt.sections ?? splitPromptSections(prompt.before, prompt.after),
+          })),
+        })),
+      };
+    }
   }
   const destination = resolve(destinationPath);
   await writeJson(destination, workflow);

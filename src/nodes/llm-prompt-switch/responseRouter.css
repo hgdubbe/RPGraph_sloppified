@@ -51,7 +51,29 @@
 .router-applied::before { content: '\2713'; margin-right: 6px; }
 .router-error { color: var(--danger); }
 .router-editor footer { border-top: 1px solid var(--line); border-bottom: 0; font-size: 13px; }
+.router-sections { min-width: 0; width: 100%; }
+.router-step-tabs { display: flex; flex-wrap: wrap; gap: 6px; margin: 12px 0; }
+.router-step-tabs button { text-align: left; }
+.router-step-tabs button[aria-selected=true] { border-color: var(--accent-light); background: var(--surface-soft); }
+.router-step-tabs small { display: block; color: var(--muted); font-size: 11px; }
+.router-prompt-section summary { cursor: pointer; font-size: 13px; font-weight: 600; overflow-wrap: anywhere; }
+.router-prompt-section summary small { font-weight: 400; color: var(--muted); margin-left: 10px; }
+.router-section-toolbar, .router-section-add { display: flex; align-items: center; gap: 8px; margin: 10px 0; }
+.router-section-toolbar select, .router-section-add select { flex: 1; width: 0; }
+.router-section-toolbar button, .router-section-add button { flex: 0 0 32px; height: 32px; }
+.router-section-management { display: flex; justify-content: flex-end; margin: 10px 0; }
+.router-section-name { display: grid; gap: 5px; margin: 10px 0; color: var(--muted); font-size: 12px; }
+.router-section-name input { width: 100%; }
+.router-editor .router-merge { margin: 0 0 8px; font-size: 12px; }
+.router-editor .router-prompt-section .node-textarea { width: 100%; height: 170px !important; min-height: 120px; max-height: 500px; resize: vertical; line-height: 1.55; font-size: 14px; padding: 10px; }
+.router-editor .router-raw-prompts .llm-prompt-field { margin-top: 12px; }
+.router-help { font-size: 12px; color: var(--muted); }
+.router-editor .router-help { border: 0; padding: 6px 0; }
+.router-help summary { cursor: pointer; color: var(--accent-light); }
+.router-help p { line-height: 1.6; max-width: 70ch; overflow-wrap: anywhere; margin: 8px 0; }
 @media (max-width: 700px) {
+  .router-section-toolbar { flex-wrap: wrap; }
+  .router-section-toolbar select { flex-basis: calc(100% - 40px); }
   .router-editor-body { grid-template-columns: 130px minmax(0, 1fr); }
   .router-editor nav { padding: 8px; }
   .router-editor-content { padding: 10px; }

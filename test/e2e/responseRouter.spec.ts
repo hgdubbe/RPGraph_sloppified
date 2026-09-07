@@ -55,6 +55,7 @@ test('shows real routes and retains prompt drafts across selection and inspector
   await card.getByRole('button', { name: /Narration/ }).click();
   const editor = page.getByRole('dialog', { name: 'Response Router editor' });
   await expect(editor).toBeVisible();
+  await editor.getByText('Raw prompt and action tools', { exact: true }).click();
   await expect(page.locator('.react-flow__edge[data-id="route-edge"]')).toHaveClass(/response-router-path/);
   await editor.locator('#router-before').fill('Draft preserved');
   await page.screenshot({ path: 'test/results/response-router-editor.png' });
@@ -67,6 +68,7 @@ test('shows real routes and retains prompt drafts across selection and inspector
   await expect(editor.getByRole('status').filter({ hasText: 'Applied' })).toBeVisible();
   await editor.getByRole('button', { name: 'Undo Apply', exact: true }).click();
   await expect(editor.locator('#router-before')).toHaveValue('Original prompt');
+  if (!(await editor.locator('#router-before').isVisible())) await editor.getByText('Raw prompt and action tools', { exact: true }).click();
   await editor.locator('#router-before').fill('Draft preserved');
   await editor.getByRole('button', { name: 'Apply', exact: true }).click();
   await editor.getByRole('button', { name: 'Close editor' }).click();
@@ -77,6 +79,7 @@ test('shows real routes and retains prompt drafts across selection and inspector
   await page.screenshot({ path: 'test/results/response-router-desktop.png', fullPage: true });
   await card.getByRole('button', { name: /Narration/ }).click();
   await page.setViewportSize({ width: 650, height: 750 });
+  if (!(await editor.locator('#router-before').isVisible())) await editor.getByText('Raw prompt and action tools', { exact: true }).click();
   expect(await page.evaluate(() => window.innerWidth)).toBe(650);
   await expect(editor.locator('#router-before')).toBeVisible();
   expect(await editor.evaluate((element) => element.scrollWidth <= element.clientWidth)).toBe(true);

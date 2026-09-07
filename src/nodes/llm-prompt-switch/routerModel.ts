@@ -1,5 +1,6 @@
 import type { SettingsValueDefinition, WorkflowNodeData } from '../../types';
 import { resolveWorkflowVariables } from '../../workflow/variables';
+import { assembleSections, splitPromptSections, validateSections, type PromptSections } from './promptSections';
 import {
   llmPromptSwitchOutputTitles, llmPromptSwitchPromptTitlesByOutput,
   llmPromptSwitchPromptBeforesByOutput, llmPromptSwitchPromptAftersByOutput,
@@ -12,6 +13,7 @@ export type RouterRoute = {
   title: string;
   before: string;
   after: string;
+  sections?: PromptSections;
 };
 export type RouterOutput = {
   id: string;
@@ -83,6 +85,14 @@ export function validateRouter(value: unknown): string[] {
         errors.push('Invalid route.'); continue;
       }
       unique(ids, route.id, 'route ID'); unique(ids, route.promptId, 'prompt ID');
+      if (route.sections !== undefined) {
+        const issues = validateSections(route.sections);
+        errors.push(...issues);
+        if (!issues.length) {
+          const assembled = assembleSections(route.sections as PromptSections);
+          if (assembled.before !== route.before || assembled.after !== route.after) errors.push('Prompt sections and assembled text disagree.');
+        }
+      }
       if (slots.has(route.selector)) errors.push(`Duplicate pair (${output.selector}, ${route.selector}).`);
       slots.add(route.selector);
       if (route.selector >= output.nextPromptSelector) errors.push('Prompt allocator would reuse a selector.');
@@ -96,8 +106,9 @@ export function isResponseRouterConfig(value: unknown): value is ResponseRouterC
 }
 
 export function assemblePrompt(route: RouterRoute, input: string, definitions: SettingsValueDefinition[], values: Record<string, string>) {
-  const promptBefore = resolveWorkflowVariables(route.before, definitions, values);
-  const promptAfter = resolveWorkflowVariables(route.after, definitions, values);
+  const text = route.sections ? assembleSections(route.sections) : route;
+  const promptBefore = resolveWorkflowVariables(text.before, definitions, values);
+  const promptAfter = resolveWorkflowVariables(text.after, definitions, values);
   return { promptBefore, promptAfter, combinedPrompt: [promptBefore.trim(), input, promptAfter.trim()].filter(Boolean).join('\n\n') };
 }
 
@@ -151,8 +162,11 @@ export function applyLegacyRouterPatch(data: WorkflowNodeData, patch: Partial<Wo
     }
     output.routes.forEach((route, slot) => {
       route.title = titles?.[slot] ?? route.title;
-      route.before = patch.llmPromptSwitchPromptBeforesByOutput?.[outputIndex]?.[slot] ?? route.before;
-      route.after = patch.llmPromptSwitchPromptAftersByOutput?.[outputIndex]?.[slot] ?? route.after;
+      const before = patch.llmPromptSwitchPromptBeforesByOutput?.[outputIndex]?.[slot] ?? route.before;
+      const after = patch.llmPromptSwitchPromptAftersByOutput?.[outputIndex]?.[slot] ?? route.after;
+      if (route.sections && (route.before !== before || route.after !== after)) route.sections = splitPromptSections(before, after);
+      route.before = before;
+      route.after = after;
     });
   });
   config.revision++;
