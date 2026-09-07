@@ -10,6 +10,123 @@
 
 **Spec:** `docs/review/code-quality-cleanup-findings.md`
 
+## Redesign Handoff Integration (2026-09-07)
+
+The repository-local handoff below is an additional specification for this roadmap. Read the linked source documents before implementing the corresponding tasks; this summary does not replace their detailed examples, diagrams, and acceptance criteria. The user authorized incorporation of this package into the existing roadmap. Workstation paths and next-session instructions inside the package describe its original analysis environment; continue in the current cleanup worktree.
+
+### Persistent Source Index
+
+All eleven supplied files are referenced here, relative to this roadmap:
+
+| Source | Purpose and when to consult |
+|---|---|
+| [HANDOFF.md](../../design/RPGraph-redesign-handoff-2026-09-07/HANDOFF.md) | Start here: requirements, evidence map, compatibility constraints, implementation sequence and acceptance checks. |
+| [DESIGN_ATLAS.md](../../design/RPGraph-redesign-handoff-2026-09-07/DESIGN_ATLAS.md) | Read second: canvas and inspector layouts, worked routing examples, ordered replies, lifecycle, validation and recovery. Consult throughout H2-H7. |
+| [prompt-switch-redesign.md](../../design/RPGraph-redesign-handoff-2026-09-07/prompt-switch-redesign.md) | Read third: Response Router behavior, stable identities, execution boundaries and migration checks for H1-H3. |
+| [command-pipeline-proposal.md](../../design/RPGraph-redesign-handoff-2026-09-07/command-pipeline-proposal.md) | Read fourth: action ownership, artifact binding, provider protocol, migration and verification for H4-H7. |
+| [response-router-wireframe.svg](../../design/RPGraph-redesign-handoff-2026-09-07/response-router-wireframe.svg) | Canvas layout and actual outgoing connections for H2; colors are illustrative. |
+| [action-runtime-architecture.svg](../../design/RPGraph-redesign-handoff-2026-09-07/action-runtime-architecture.svg) | Runtime boundaries for H4-H6; distinguish graph output routing from model-selected action destinations. |
+| [NEXT_SESSION_PROMPT.txt](../../design/RPGraph-redesign-handoff-2026-09-07/NEXT_SESSION_PROMPT.txt) | Original continuation context and scope; use this roadmap's current progress and local paths when resuming. |
+| [case_manifest.json](../../design/RPGraph-redesign-handoff-2026-09-07/case_manifest.json) | Provenance of the static analysis; paths refer to the original workstation. |
+| [repo_inventory.json](../../design/RPGraph-redesign-handoff-2026-09-07/repo_inventory.json) | Inventory of the reviewed snapshot; locate historical evidence during H1. |
+| [repo_map.json](../../design/RPGraph-redesign-handoff-2026-09-07/repo_map.json) | Supplemental dependency and import index for H1 and boundary extraction. Verify against current source. |
+| [repo_corpus.jsonl](../../design/RPGraph-redesign-handoff-2026-09-07/repo_corpus.jsonl) | Searchable per-file static evidence for H1-H7. Read relevant records and current source; index entries are not proof of current behavior. |
+
+The primary documents and SVG source were read in the preceding handoff review; the large JSON/JSONL artifacts were inspected as structured indexes, with targeted corpus records. This is not a claim of exhaustive line-by-line review of the large indexes. The package describes static analysis of commit `afa75164a83f12b72f25f3469f5a28b22f9cecfc`, not verified behavior of the newer cleanup branch.
+
+### Execution Order and Existing Work
+
+**Catch-up status (2026-09-07): H1-H3 complete. Next: Task 9 with H4.** The [current-state audit and verification record](../../review/redesign-current-state.md) is the authoritative progress ledger, including partial older tasks and remaining gaps. Checks: 130 unit tests, production build, 12 targeted Electron UI tests; touched-file lint has zero errors and two pre-existing App hook warnings. Keep the original Task 5 provider expansion and Task 6 API-shape coverage on the backlog.
+
+The diagnostics, IPC validation, initial provider adapter, grouped preload API, request-object adapter and migrated call sites already implemented in Tasks 1-8 support this redesign. Task 5 is only an initial LM Studio adapter step; broader provider extraction remains open. Existing task checklists below are original instructions, not an authoritative completion ledger.
+
+Continue with **H1, H2, H3, then Task 9 together with H4, then H5-H7**, followed by remaining Tasks 10-16 and final gates in Tasks 17-18. Finish remaining Task 5 provider work alongside H6. H2 deliberately retains current execution so the routing UI does not wait for the whole action runtime. Coordinate Task 15 persistence extraction with H7. Keep settings, storybook, phone and whole-app maintenance in scope.
+
+Preserve current theme tokens and established node/edge styling. The diagrams specify layout, hierarchy and behavior, not a replacement palette. Show statuses through labels/icons as well as color. These tasks explicitly permit the described router UI and action behavior changes; all unrelated behavior remains covered by the original global constraints.
+
+### H1: Reconcile the Handoff with Current Source
+
+Sources: [handoff evidence map](../../design/RPGraph-redesign-handoff-2026-09-07/HANDOFF.md#evidence-map), [router proposal](../../design/RPGraph-redesign-handoff-2026-09-07/prompt-switch-redesign.md), and the three indexed snapshot files above.
+
+- [x] Inspect current repository instructions, scripts, persistence versions, ports and fixtures. Compare relevant current files with the reviewed revision when available; document unavailable history rather than assuming equality.
+- [x] Inspect `src/nodes/llm-prompt-switch/{Card.tsx,execute.ts}`, `src/nodes/{coreDefinitions.ts,corePersistence.ts}`, `src/workflow/{nodeHelpers.ts,validation.ts}`, `src/types.ts`, and `src/app/useNodeActionsController.ts`.
+- [x] Inspect `src/nodes/shared/{promptRun.ts,promptSteps.ts,promptActions.ts,promptCommands.ts}`, `src/graph/executeGraph.ts`, `src/nodes/runScratch.ts`, `src/app/useGraphRun.ts`, `src/chat/{directAppActions.ts,outputActions.ts,phoneMessages.ts,rpOutput.ts}`, and the provider bridge.
+- [x] Create `docs/review/redesign-current-state.md` recording current symbols, differences, existing validation, test coverage, ownership of effects, and concrete files for each milestone. Verify existing behavior before selecting save-format, journal and IPC contracts.
+
+Acceptance: each historical finding is confirmed, updated or marked obsolete with current evidence. Preserve newer project changes.
+
+### H2: Response Router Overview and Independent Editor
+
+Sources: [atlas sections 2-4 and 11](../../design/RPGraph-redesign-handoff-2026-09-07/DESIGN_ATLAS.md), [router interactions](../../design/RPGraph-redesign-handoff-2026-09-07/prompt-switch-redesign.md), [wireframe](../../design/RPGraph-redesign-handoff-2026-09-07/response-router-wireframe.svg).
+
+- [x] Keep one node and existing execution; present it as Response Router with grouped routes and one output handle per output group.
+- [x] Derive destination node/port labels, fan-out and disconnected states from real graph edges. Selecting a destination focuses its actual node/port. Filtering must preserve port positions.
+- [x] Add a side-panel route editor retaining before/after prompts, templates, action configuration and prompt steps. Separate `editingRouteId`, `previewRouteId` and `lastRunRouteId`; execution cannot move editor selection or overwrite drafts.
+- [x] Show observed raw inputs, resolved selectors, reference-image context, not-run and not-connected states accurately. Distinguish preview, running and last-run state with labels/icons.
+- [x] Verify rendered UI and keyboard operation at normal canvas zoom with small and large route counts, fan-out, missing destinations and concurrent editing/execution.
+
+Acceptance: users can identify routes, outputs, real connections and run state without opening every prompt. Preserve theme and all graph ports.
+
+### H3: Stable Routing, Pure Preview and Compatibility
+
+Sources: [router data model and acceptance criteria](../../design/RPGraph-redesign-handoff-2026-09-07/prompt-switch-redesign.md), [atlas sections 4-5](../../design/RPGraph-redesign-handoff-2026-09-07/DESIGN_ATLAS.md).
+
+- [x] Introduce stable route, prompt and output IDs with an explicit mapping from legacy numeric selector pairs. Update persistence, validation, output deletion and edge mapping together with migration fixtures.
+- [x] Separate `resolveRoute`, `assemblePrompt`, `executeResponse` and `dispatchResult`, using a configuration snapshot for each run and once-per-node-per-run memoization.
+- [x] Preserve Text, Images, `output-channel`, `prompt-slot`, raw before/after strings, variables, `@step`/`@output`, custom actions, reference images, model settings, streaming, timing, metrics, blank-text skipping and inactive-output empty strings. Do not reinterpret prompt text as provider roles.
+- [x] Validate exact integer pairs, duplicate mappings and ambiguous multiple selector sources. New configurations use explicit invalid/unmatched/disconnected-route policies; imports retain visible legacy fallback until deliberately migrated.
+- [x] Implement a pure route check with supplied/captured inputs. It must call no upstream nodes, LLMs or app effects.
+- [x] Test all existing valid pairs, save/load roundtrips, rename/reorder/delete stability, outgoing edges, fallback compatibility, draft isolation and multiple output reads.
+
+Acceptance: every imported valid pair reaches the same prompt/output; deletion leaves other mappings intact; preview has zero effects.
+
+### H4: Shared Typed Action Contracts and Execution Ownership
+
+Sources: [pipeline proposal](../../design/RPGraph-redesign-handoff-2026-09-07/command-pipeline-proposal.md), [atlas sections 6-10](../../design/RPGraph-redesign-handoff-2026-09-07/DESIGN_ATLAS.md), [architecture graphic](../../design/RPGraph-redesign-handoff-2026-09-07/action-runtime-architecture.svg).
+
+- [ ] Coordinate Task 9 extraction with canonical intent, result, artifact, operation and ordered reply-block contracts. Choose exact module locations after H1; extend existing domain helpers where appropriate.
+- [ ] Add an action registry with stable keys, argument/result schemas, capability checks, semantic validators, handlers, retry policies and rendering adapters.
+- [ ] Keep whether/what/where/content/order decisions with the LLM. Code owns stable IDs, entity resolution, dependencies, execution, receipts and insertion. Use compact current-state catalogs; unresolved existing contacts cannot become new contacts silently.
+- [ ] Adapt legacy commands and direct UI operations to one shared domain execution path. Each migrated operation has exactly one effect owner; compatibility adapters cannot also execute it.
+- [ ] Validate unknown, wrong-type, stale, cross-save and unavailable entity/artifact references before effects. Check destination capabilities before expensive generation.
+
+Acceptance: repeated action types remain distinct ordered operations; invalid references cannot execute; workflow output ports and action destinations remain separate concepts.
+
+### H5: Generated Images and WhatsUp as the First Vertical Slice
+
+Sources: [pipeline migration and verification](../../design/RPGraph-redesign-handoff-2026-09-07/command-pipeline-proposal.md), [atlas sections 6-8](../../design/RPGraph-redesign-handoff-2026-09-07/DESIGN_ATLAS.md).
+
+- [ ] Implement generated attachment sources so code binds the actual image artifact to the chosen recipient, without copying image IDs through prose.
+- [ ] Preserve gallery-only generation, search/inspection followed by later destination choice, no posting, multiple deliveries and multiple same-type actions. Do not assume non-WhatsUp attachment/voice support.
+- [ ] Store ordered text/action blocks with operation, artifact and reply-block IDs. Render phone and RP views from the same committed result; support action-only replies.
+- [ ] Protect bindings from translation/speaker/text passes. Produce action-dependent success narration after commit or keep it provisional until results are known.
+- [ ] Test generation with no narrative image reference, unsupported destination, generation success/delivery failure, delivery retry using the existing artifact, repeated actions, direct UI parity and legacy double-execution prevention.
+
+Acceptance: selected recipients receive the real generated artifact and both views agree, independently of model-written filenames or markers.
+
+### H6: Provider Contracts and Remaining App Operations
+
+Sources: [pipeline model-facing protocol](../../design/RPGraph-redesign-handoff-2026-09-07/command-pipeline-proposal.md), [atlas validation examples](../../design/RPGraph-redesign-handoff-2026-09-07/DESIGN_ATLAS.md).
+
+- [ ] Extend `src/llm/types.ts` and provider adapters with explicit supported structured-response capabilities. Use native tools/constrained output where supported and bounded validated JSON correction otherwise.
+- [ ] Correct failed intent validation without replaying successful operations or regenerating the entire turn. JSON syntax validation alone is insufficient.
+- [ ] Migrate remaining image/search, messenger, social posts, comments, reactions, DMs and other existing operations incrementally with capability-specific tests. `social.post` is a proposed abstraction, not an already implemented command.
+- [ ] Retain readable legacy workflows through boundary adapters until migration coverage is demonstrated.
+
+Acceptance: provider limitations are explicit; each migrated operation shares domain ownership and preserves its existing supported behavior.
+
+### H7: Durable Lifecycle, Recovery and Full-App Verification
+
+Sources: [atlas sections 9-11](../../design/RPGraph-redesign-handoff-2026-09-07/DESIGN_ATLAS.md), [handoff action acceptance checks](../../design/RPGraph-redesign-handoff-2026-09-07/HANDOFF.md#required-acceptance-checks).
+
+- [ ] Document and implement operation states, stable operation identity, artifact persistence and delivery receipts. Coordinate the journal/save boundary with Task 15 session persistence and existing two-slot autosaves.
+- [ ] Define cancellation, retry, restart, provisional text, outcome-unknown, prose regeneration/reflavor and action replacement/branch semantics. Regenerating prose must not silently replay committed effects.
+- [ ] Test restart after local commit without duplicate deliveries/transfers; retry delivery without regenerating assets; reconcile or expose uncertain remote completion. Do not claim exactly-once remote generation without provider support.
+- [ ] Exercise graph editor, provider/backend execution, storybook saves, phone apps, RP replies, legacy imports and recovery together. Carry H2-H7 acceptance checks into Task 17 full quality gates.
+- [ ] Update `docs/review/redesign-current-state.md` with milestone commits, checks, remaining gaps and links back to the source specifications before marking each milestone complete.
+
+Acceptance: committed results survive restart consistently, failures are recoverable without silent duplicate effects, and existing whole-app cleanup remains verified.
+
 ## Global Constraints
 
 - Keep the current look, behavior, save formats, and local-first model unless a task explicitly defines a visible behavior change.

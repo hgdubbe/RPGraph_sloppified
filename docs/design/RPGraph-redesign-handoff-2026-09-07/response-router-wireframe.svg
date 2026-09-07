@@ -1,0 +1,49 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1400" height="1000" viewBox="0 0 1400 1000" role="img" aria-labelledby="title desc">
+<title id="title">Response Router proposed canvas design</title>
+<desc id="desc">An illustrative node with four inputs, visible route groups, one port per output group, and real destination labels. The Messenger group connects to the Phone port. Social is disconnected.</desc>
+<defs><style>text{font-family:Segoe UI,Arial,sans-serif;fill:#243247}.title{font-size:30px;font-weight:700}.h{font-size:21px;font-weight:650}.body{font-size:18px}.small{font-size:15px;fill:#52627a}.tiny{font-size:13px;fill:#52627a}.panel{fill:#fff;stroke:#c6d2e0;stroke-width:2}.wire{fill:none;stroke:#8093ae;stroke-width:3}.active{fill:none;stroke:#247963;stroke-width:5}.port{fill:#fff;stroke:#526b89;stroke-width:3}.rule{stroke:#e1e7ef}</style><marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M 0 0 L 10 5 L 0 10 z" fill="#8093ae"/></marker><marker id="green" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M 0 0 L 10 5 L 0 10 z" fill="#247963"/></marker></defs>
+<rect width="1400" height="1000" fill="#f3f6fa"/>
+<text x="42" y="53" class="title">Response Router · canvas overview</text>
+<text x="42" y="84" class="body">Layout proposal only. Colors are illustrative — implement using the target system's existing theme.</text>
+<rect x="36" y="176" width="230" height="108" rx="12" class="panel"/>
+<text x="54" y="209" class="h">Context builder</text><text x="54" y="246" class="body">Text</text><circle cx="266" cy="244" r="6" class="port"/>
+<rect x="36" y="319" width="230" height="165" rx="12" class="panel"/>
+<text x="54" y="354" class="h">User input</text><text x="54" y="390" class="body">Images</text><text x="54" y="425" class="body">Format</text><text x="54" y="460" class="body">Mode</text>
+<circle cx="266" cy="385" r="6" class="port"/><circle cx="266" cy="421" r="6" class="port"/><circle cx="266" cy="457" r="6" class="port"/>
+<path d="M272 244 C302 244 302 253 334 253" class="wire"/>
+<path d="M272 385 C304 385 302 294 334 294" class="wire"/>
+<path d="M272 421 C310 421 306 335 334 335" class="wire"/>
+<path d="M272 457 C320 457 308 376 334 376" class="wire"/>
+<rect x="340" y="139" width="634" height="720" rx="15" class="panel"/>
+<text x="362" y="180" class="title">Response Router</text><rect x="819" y="155" width="131" height="32" rx="16" fill="#fff2d3"/><text x="835" y="177" class="small">1 connection issue</text>
+<text x="362" y="211" class="small">LLM: selected connection · inputs from actual graph edges</text>
+<line x1="340" y1="226" x2="974" y2="226" class="rule"/>
+<circle cx="340" cy="253" r="6" class="port"/><circle cx="340" cy="294" r="6" class="port"/><circle cx="340" cy="335" r="6" class="port"/><circle cx="340" cy="376" r="6" class="port"/>
+<text x="362" y="259" class="body">Text</text><text x="516" y="259" class="small">Context builder.Text</text><text x="860" y="259" class="small">Captured</text>
+<text x="362" y="300" class="body">Images</text><text x="516" y="300" class="small">User input.Images</text><text x="860" y="300" class="small">1 image</text>
+<text x="362" y="341" class="body">Output select</text><text x="516" y="341" class="small">User input.Format</text><text x="860" y="341" class="small">Last: 1</text>
+<text x="362" y="382" class="body">Prompt select</text><text x="516" y="382" class="small">User input.Mode</text><text x="860" y="382" class="small">Last: 0</text>
+<line x1="340" y1="400" x2="974" y2="400" class="rule"/>
+<text x="362" y="429" class="small">OUTPUT GROUP / ROUTES</text><text x="698" y="429" class="small">SELECTOR PAIR / STATUS</text>
+<rect x="352" y="443" width="610" height="39" rx="6" fill="#edf2f8"/><text x="367" y="470" class="h">▾ Story</text><text x="707" y="469" class="small">RP Output.Story</text><circle cx="974" cy="462" r="7" class="port"/>
+<text x="386" y="512" class="body">Normal reply</text><text x="713" y="512" class="small">[0,0]   Ready</text>
+<text x="386" y="548" class="body">Narrator</text><text x="713" y="548" class="small">[0,1]   Ready</text>
+<rect x="352" y="565" width="610" height="39" rx="6" fill="#dcefe8"/><text x="367" y="592" class="h">▾ Messenger</text><text x="707" y="592" class="small">RP Output.Phone</text><circle cx="974" cy="584" r="7" fill="#247963"/>
+<rect x="366" y="610" width="582" height="35" rx="5" fill="#edf8f2"/><text x="380" y="635" class="body">✓ Phone reply</text><text x="713" y="635" class="small">[1,0]   Last run</text>
+<text x="386" y="672" class="body">Conversation</text><text x="713" y="672" class="small">[1,1]   Ready</text>
+<rect x="352" y="688" width="610" height="39" rx="6" fill="#fff2d3"/><text x="367" y="715" class="h">▾ Social</text><text x="707" y="715" class="small">Not connected</text><circle cx="974" cy="708" r="7" fill="#fff" stroke="#b87816" stroke-width="3"/>
+<text x="386" y="759" class="body">Post response</text><text x="713" y="759" class="small">[2,0]   Warning</text>
+<line x1="340" y1="782" x2="974" y2="782" class="rule"/>
+<rect x="362" y="798" width="165" height="40" rx="7" fill="#e7edf7"/><text x="389" y="824" class="body">Edit prompts</text>
+<rect x="541" y="798" width="170" height="40" rx="7" fill="#e7edf7"/><text x="566" y="824" class="body">Check routing</text>
+<rect x="725" y="798" width="225" height="40" rx="7" fill="#e7edf7"/><text x="760" y="824" class="body">Inspect last run</text>
+<rect x="1118" y="428" width="245" height="186" rx="12" class="panel"/><text x="1140" y="465" class="h">RP Output</text><text x="1140" y="505" class="body">Story</text><text x="1140" y="577" class="body">Phone</text>
+<circle cx="1118" cy="500" r="6" class="port"/><circle cx="1118" cy="572" r="6" fill="#247963"/>
+<path d="M982 462 C1050 462 1045 500 1110 500" class="wire" marker-end="url(#arrow)"/>
+<path d="M982 584 C1047 584 1045 572 1110 572" class="active" marker-end="url(#green)"/>
+<rect x="1020" y="672" width="345" height="155" rx="10" fill="#fff8e9" stroke="#d6b879"/>
+<text x="1038" y="704" class="h">One port per output group</text><text x="1038" y="737" class="small">Prompt routes share the group's port.</text><text x="1038" y="763" class="small">Select a route to highlight its real wires.</text><text x="1038" y="789" class="small">Disconnected groups stay visible.</text>
+<text x="42" y="908" class="h">Editing is separate from execution</text>
+<text x="42" y="939" class="body">Selecting a row previews its path. Running another route never replaces the prompt being edited.</text>
+<text x="42" y="972" class="small">Numbers preserve the existing input contract; labels and display order do not determine route identity.</text>
+</svg>

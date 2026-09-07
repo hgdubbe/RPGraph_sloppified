@@ -1,0 +1,14 @@
+Implement the RPGraph redesign described in this handoff package. Start by reading HANDOFF.md, DESIGN_ATLAS.md, prompt-switch-redesign.md and command-pipeline-proposal.md. Inspect response-router-wireframe.svg and action-runtime-architecture.svg as well. The atlas contains the detailed canvas/editor interactions, connection visualization, sequence/state diagrams, worked payloads, recovery behavior and visual review checkpoints; include these in the implementation scope.
+
+Repository: https://github.com/unrefined803/RPGraph
+
+Explicit user clarification: colors in the mockups and diagrams are illustrative only. The target system uses another color theme. Reuse its existing theme, design tokens and node/edge/status styling; do not copy the SVG colors, create a replacement theme or treat node coloration as a design acceptance criterion. Implement the specified layout, route visibility, connections and interactions, with labels/icons that make status clear independently of color.
+
+Reviewed revision: afa75164a83f12b72f25f3469f5a28b22f9cecfc
+Existing local checkout: C:/Users/htrouet/Documents/ChatGPT/rpgraph-backend/source
+Existing handoff: C:/Users/htrouet/Documents/ChatGPT/rpgraph-backend/analysis/HANDOFF.md
+If the package was moved, use its extracted location and obtain the repository as needed. The parent rpgraph-backend directory is a separate Git repository; work inside the actual RPGraph checkout.
+
+Preserve the user's constraints: the LLM chooses whether to act, which action and where results go; code should reliably execute and insert results without copying filenames/IDs through prose. Redesign the Prompt Switch into an understandable route overview that clearly shows all output groups, their prompt routes and actual connected destinations, with a separate prompt editor. Preserve existing input data, prompts and output behavior through versioned compatibility adapters. Backend changes are allowed.
+
+Inspect current repository instructions and differences from the reviewed revision, then prepare and execute a concrete staged implementation plan. Prioritize visible routing, stable route identity and validation, followed by typed action execution beginning with generated images and WhatsUp delivery/display. Keep changes reviewable, verify the rendered UI and relevant behavior, and document migrations. Do not claim the proposed design is already implemented or tested. Do not publish, deploy or modify the remote repository unless separately authorized.
