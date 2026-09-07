@@ -10,7 +10,7 @@
 
 **Spec:** `docs/review/code-quality-cleanup-findings.md`
 
-**Current checkpoint (2026-09-07):** H1-H3, the prompt-authoring insertion, and Task 9 are complete. Next is H4's action registry, strict references and execution ownership. See [Task 9 verification and remaining runtime work](../../review/action-runtime-progress.md). Legacy/Strict remains selector-validation behavior only.
+**Current checkpoint (2026-09-07):** H1-H3, the prompt-authoring insertion, Task 9 and H4a's compiler foundation are complete. H4 remains unfinished and is not active in live workflows. Next: full handler/result registry, authoritative catalog adapter and single execution ownership. See [verification and remaining runtime work](../../review/action-runtime-progress.md). Legacy/Strict remains selector-validation behavior only.
 
 **User-requested insertion after H3 (2026-09-07):** Structured prompt sections, copy-once reuse, contextual router help and importable default prompts are implemented. See the [implementation record](2026-09-07-prompt-sections.md) and [imports/usage/verification](../../../prompts/README.md). This is an authoring improvement, not the less LLM-dependent action runtime.
 
@@ -40,7 +40,7 @@ The primary documents and SVG source were read in the preceding handoff review; 
 
 ### Execution Order and Existing Work
 
-**Catch-up status (2026-09-07): H1-H3 complete. Next: Task 9 with H4.** The [current-state audit and verification record](../../review/redesign-current-state.md) is the authoritative progress ledger, including partial older tasks and remaining gaps. Checks: 130 unit tests, production build, 12 targeted Electron UI tests; touched-file lint has zero errors and two pre-existing App hook warnings. Keep the original Task 5 provider expansion and Task 6 API-shape coverage on the backlog.
+**Original catch-up checkpoint (2026-09-07): H1-H3 complete.** Subsequent Task 9 and H4a progress is recorded in the current checkpoint above and the [action runtime ledger](../../review/action-runtime-progress.md). The [current-state audit](../../review/redesign-current-state.md) retains partial older tasks and their gaps. H1-H3 checks were 130 unit tests, production build and 12 targeted Electron UI tests. Keep the original Task 5 provider expansion and Task 6 API-shape coverage on the backlog.
 
 The diagnostics, IPC validation, initial provider adapter, grouped preload API, request-object adapter and migrated call sites already implemented in Tasks 1-8 support this redesign. Task 5 is only an initial LM Studio adapter step; broader provider extraction remains open. Existing task checklists below are original instructions, not an authoritative completion ledger.
 
@@ -85,6 +85,8 @@ Sources: [router data model and acceptance criteria](../../design/RPGraph-redesi
 Acceptance: every imported valid pair reaches the same prompt/output; deletion leaves other mappings intact; preview has zero effects.
 
 ### H4: Shared Typed Action Contracts and Execution Ownership
+
+**In progress: H4a compiler foundation complete, not a live runtime.** `src/actions/{contracts.ts,compileReply.ts}` defines and validates an initial image/WhatsUp slice and compiles ordered operations with structural image dependencies. 24 compiler tests pass. Registry result schemas/handlers, production catalog construction, direct/legacy adapters, effect-boundary revalidation and single ownership remain open. The broad H4 checkboxes below deliberately remain unchecked; see the [detailed checkpoint](../../review/action-runtime-progress.md).
 
 Sources: [pipeline proposal](../../design/RPGraph-redesign-handoff-2026-09-07/command-pipeline-proposal.md), [atlas sections 6-10](../../design/RPGraph-redesign-handoff-2026-09-07/DESIGN_ATLAS.md), [architecture graphic](../../design/RPGraph-redesign-handoff-2026-09-07/action-runtime-architecture.svg).
 

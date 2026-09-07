@@ -16,7 +16,8 @@ Specification: [handoff](../design/RPGraph-redesign-handoff-2026-09-07/HANDOFF.m
 | 6 Preload grouping | `f6f50ca`, `electron/preload.cjs`, `src/electron.d.ts` | Grouped aliases implemented alongside legacy methods. The proposed API-shape test/factory was not added; retain as a test-coverage follow-up. |
 | 7 Request object | `015bb3e`, `src/app/runGraphRequest.ts`, `useGraphRun.ts` | Adapter implemented; core runner remains positional. |
 | 8 Call sites | `6004b2b`, `src/App.tsx`, `src/app/useDirectAppActions.ts` | Selected phone/event/autoturn/direct-action sites migrated. Other legacy callers remain. |
-| 9-18 | No implementation commits after Task 8 | Pending. |
+| 9 | `0345667`, phone/social commit helpers | Complete. See the action-runtime progress record for subsequent H4a compiler work. |
+| 10-18 | No implementation commits for these tasks | Pending; coordinate Task 15 persistence with H7. |
 
 Fresh baseline: `npm test`: 33 files, 112 tests passed. This is broader than the original 29-file/104-test baseline. No AGENTS.md was found in this worktree. Package scripts use TypeScript/Vite, Vitest and Electron Playwright; no extra runtime dependency is needed for routing.
 
@@ -44,7 +45,7 @@ Implementation contracts: versioned router configuration with stable output/rout
 
 ## Delivered Catch-up
 
-H1-H3 and original Task 9 are implemented. Resume at H4's shared action registry and strict reference contracts. Task 9 extracted compatibility commit builders, not the new typed action runtime. The broader provider work in Task 5 remains partial. See [Task 9 implementation and remaining H4 work](action-runtime-progress.md).
+H1-H3 and original Task 9 are implemented. H4a adds a tested pure action compiler with strict references and structural generation/delivery dependencies; it is not connected to live workflows. Resume at H4's handler/result registry, authoritative catalogs and execution ownership. The broader provider work in Task 5 remains partial. See [implementation and remaining H4 work](action-runtime-progress.md).
 
 Checkpoint commits: `254b55f` records the source handoff, roadmap and audit; `ff99677` implements the Response Router catch-up and regression checks.
 

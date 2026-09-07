@@ -1,5 +1,30 @@
 # Action Runtime Progress
 
+## 2026-09-07: H4a Compiler Foundation Complete
+
+H4 remains unfinished and is not enabled for live workflows. The new modules are deliberately not imported by the production execution path yet. Existing prompts, direct actions, saved workflows, and Legacy/Strict routing behavior are unchanged.
+
+### Implemented and Tested
+
+- `src/actions/contracts.ts`: version-1 plan contracts for scope, authoritative catalogs, stable entity/artifact bindings, generation/delivery operations and ordered reply blocks.
+- `src/actions/compileReply.ts`: synchronous preflight for a complete decoded reply envelope. Validates the whole batch before allocating block/operation IDs; returns structured field errors with no partial executable plan on failure.
+- The compiler accepts `image.generate` and WhatsUp `messenger.send`, including stored images and an inline `generate_image` source. Inline generation expands into separate generation and delivery operations with an explicit dependency and result binding. No provider, filesystem or app-state effects are invoked.
+- Exact catalog handles only: unknown, ambiguous, wrong-type, stale, unavailable, cross-save and cross-branch references are rejected. Catalog turn identity, sender image access, generation capability and destination capability are checked. There is no fallback from a misspelled character to a new contact.
+- Empty action lists, action-only replies and repeated identical messages are supported. Every occurrence receives its own runtime-assigned ID; text is left provisional and is never interpreted as executable commands.
+- Initial red test run failed because the compiler did not exist. Now 24 focused tests pass; full suite: 172 tests in 41 files. Production build and actions-directory lint pass. Existing prompt-extraction module-type warnings remain unrelated.
+
+### Explicit Limits and Next Checkpoint
+
+1. The compiler dispatch table is not the complete action registry. Add shared argument/result schemas, execution handlers, retry policies and rendering adapters before declaring the registry implemented.
+2. Build catalogs from authoritative storybook/session state, including actual image access and provider availability. The current compiler accepts a trusted application-supplied catalog; no production catalog builder is wired yet.
+3. Recheck availability/access at the effect boundary, especially after asynchronous generation. Successful preflight is not a durable authorization or proof that state cannot change.
+4. Connect a single execution owner and adapt direct/legacy operations behind an explicit opt-in workflow boundary. Never execute both the compatibility path and the new runtime for one operation. Existing legacy helper behavior must stay isolated.
+5. Implement result/receipt contracts, artifact storage and same-result phone/RP rendering. Compilation of dependencies alone does not prove that a generated image reaches a recipient; H5's deterministic provider/store tests and live integration are still required.
+6. Only WhatsUp and existing character references are supported in this initial compiler. New contacts, other apps, advanced result selection, voice payloads and broader action types need explicit contracts rather than inferred support. Generated inline attachment ownership is restricted to the sender until cross-owner access semantics are defined.
+7. The application must supply globally scoped operation IDs; the compiler checks uniqueness within one plan only. No execution, retries, persistence, crash recovery or exactly-once guarantee is implemented here. H7 remains open.
+
+No UI or live-provider tests were run for this dormant compiler-only step. Prior Electron results remain historical, not evidence of an enabled action runtime.
+
 ## 2026-09-07: Task 9 Complete, H4 Preparation
 
 Authoritative requirements remain in the [cleanup roadmap](../superpowers/plans/2026-09-06-code-quality-cleanup.md), [command pipeline proposal](../design/RPGraph-redesign-handoff-2026-09-07/command-pipeline-proposal.md) and [Design Atlas](../design/RPGraph-redesign-handoff-2026-09-07/DESIGN_ATLAS.md), especially sections 6-11. Consult the [architecture diagram](../design/RPGraph-redesign-handoff-2026-09-07/action-runtime-architecture.svg) before moving execution ownership.
@@ -28,7 +53,7 @@ Legacy/Strict selector policy continues to affect numeric route selection only. 
 - Existing Node module-type warnings from prompt extraction remain unrelated.
 - No live-provider or full phone/social turn UI test was performed in this step. Pure builder tests do not replace the whole-app final gates in Task 17.
 
-### Next: H4
+### Original Next Steps After Task 9
 
 1. Define the shared action registry and canonical intent/result/artifact/operation/reply-block contracts against the proposal, extending existing domain types rather than adding parallel competing models.
 2. Implement strict entity and artifact reference validation, explicitly separate from the compatibility projections above.
