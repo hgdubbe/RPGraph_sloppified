@@ -3804,7 +3804,7 @@ function App() {
       }];
     });
   }
-  const { runGraph } = useGraphRun({
+  const { runGraph, runGraphFromRequest } = useGraphRun({
     messages,
     setMessages,
     messagesRef,
@@ -4477,7 +4477,7 @@ function App() {
     deletePhoneNote,
     commitChatGpdChat,
   } = useDirectAppActions({
-    runGraph,
+    runGraphFromRequest,
     isRunning,
     messagesRef,
     turnsRef,
@@ -4698,32 +4698,18 @@ function App() {
     setPhoneImages([]);
     clearPhoneReply();
     setShowPhoneEmojiPicker(false);
-    void runGraph(
-      message,
+    void runGraphFromRequest({
+      inputText: message,
       images,
-      undefined,
-      messagesRef.current,
-      undefined,
-      selectedCharacter,
-      true,
-      selectedPhoneContact.character,
-      undefined,
-      'user',
-      undefined,
-      undefined,
-      undefined,
-      false,
-      undefined,
-      undefined,
-      replyTo,
-      inputPayload,
-      undefined,
-      undefined,
-      undefined,
-      false,
-      undefined,
-      phoneRunContextComment,
-    );
+      historyMessages: messagesRef.current,
+      inputCharacterOverride: selectedCharacter,
+      phoneMessageOverride: true,
+      phoneRecipientCharacterOverride: selectedPhoneContact.character,
+      turnMode: 'user',
+      phoneReplyToOverride: replyTo,
+      structuredInput: inputPayload,
+      contextComment: phoneRunContextComment,
+    });
   }
 
   async function runSelectedEvent() {
@@ -4753,21 +4739,18 @@ function App() {
         rpDateTimeFormat,
         rpWeekdayLanguage,
       );
-      await runGraph(
-        eventGraphText,
-        [],
-        undefined,
-        messagesRef.current,
-        undefined,
-        sender,
-        true,
-        recipient,
-        undefined,
-        'auto-turn',
-        eventNarratorText,
-        completeEvent,
-        'received',
-      );
+      await runGraphFromRequest({
+        inputText: eventGraphText,
+        images: [],
+        historyMessages: messagesRef.current,
+        inputCharacterOverride: sender,
+        phoneMessageOverride: true,
+        phoneRecipientCharacterOverride: recipient,
+        turnMode: 'auto-turn',
+        eventDisplayText: eventNarratorText,
+        onSuccessfulRunBeforeCommit: completeEvent,
+        phoneOutputSoundOverride: 'received',
+      });
       return;
     }
     const eventSpeaker = eventStoryCharacter(eventToRun, storyCharacters);
@@ -4781,20 +4764,15 @@ function App() {
       rpDateTimeFormat,
       rpWeekdayLanguage,
     );
-    await runGraph(
-      eventGraphText,
-      [],
-      undefined,
-      messagesRef.current,
-      undefined,
-      eventSpeaker,
-      undefined,
-      undefined,
-      undefined,
-      'auto-turn',
-      eventNarratorText,
-      completeEvent,
-    );
+    await runGraphFromRequest({
+      inputText: eventGraphText,
+      images: [],
+      historyMessages: messagesRef.current,
+      inputCharacterOverride: eventSpeaker,
+      turnMode: 'auto-turn',
+      eventDisplayText: eventNarratorText,
+      onSuccessfulRunBeforeCommit: completeEvent,
+    });
   }
 
   function triggerAutoTurn() {
@@ -4809,68 +4787,50 @@ function App() {
     }
     if (chatPanelView === 'phone') {
       if (narratorSelected) {
-        void runGraph(
-          autoTurnNarratorPhoneInstruction(autoTurnInstructions),
-          [],
-          undefined,
-          messagesRef.current,
-          undefined,
-          undefined,
-          true,
-          undefined,
-          undefined,
-          'narrator',
-          undefined,
-          undefined,
-          undefined,
-          true,
-        );
+        void runGraphFromRequest({
+          inputText: autoTurnNarratorPhoneInstruction(autoTurnInstructions),
+          images: [],
+          historyMessages: messagesRef.current,
+          phoneMessageOverride: true,
+          turnMode: 'narrator',
+          narratorAutoTurn: true,
+        });
         return;
       }
       if (!selectedCharacter || !selectedPhoneContact) {
         notifySystem('warning', 'Select a phone contact first.');
         return;
       }
-      void runGraph(
-        autoTurnPhoneInstruction(
+      void runGraphFromRequest({
+        inputText: autoTurnPhoneInstruction(
           selectedCharacter.name,
           selectedPhoneContact.character.name,
           autoTurnInstructions,
         ),
-        [],
-        undefined,
-        messagesRef.current,
-        undefined,
-        selectedCharacter,
-        true,
-        selectedPhoneContact.character,
-        undefined,
-        'auto-turn',
-      );
+        images: [],
+        historyMessages: messagesRef.current,
+        inputCharacterOverride: selectedCharacter,
+        phoneMessageOverride: true,
+        phoneRecipientCharacterOverride: selectedPhoneContact.character,
+        turnMode: 'auto-turn',
+      });
       return;
     }
     if (!selectedCharacter && !narratorSelected) {
       notifySystem('warning', 'Select a Storybook character first.');
       return;
     }
-    void runGraph(
-      narratorSelected
+    void runGraphFromRequest({
+      inputText: narratorSelected
         ? autoTurnNarratorInstruction(autoTurnInstructions)
         : autoTurnRpInstruction(selectedCharacter!.name, autoTurnInstructions),
-      [],
-      undefined,
-      messagesRef.current,
-      undefined,
-      narratorSelected ? undefined : selectedCharacter,
-      false,
-      undefined,
-      undefined,
-      narratorSelected ? 'narrator' : 'auto-turn',
-      undefined,
-      undefined,
-      undefined,
-      narratorSelected,
-    );
+      images: [],
+      historyMessages: messagesRef.current,
+      inputCharacterOverride: narratorSelected ? undefined : selectedCharacter,
+      phoneMessageOverride: false,
+      turnMode: narratorSelected ? 'narrator' : 'auto-turn',
+      narratorAutoTurn: narratorSelected,
+    });
   }
 
   const displayedWorkflowName = activeWorkflowFileName

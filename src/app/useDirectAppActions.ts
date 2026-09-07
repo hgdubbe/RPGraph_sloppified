@@ -28,10 +28,10 @@ import { normalRpMessageFormat } from '../chat/messageFormats';
 import { turnMessageIds } from '../chat/turns';
 import type { useGraphRun } from './useGraphRun';
 
-type RunGraph = ReturnType<typeof useGraphRun>['runGraph'];
+type RunGraphFromRequest = ReturnType<typeof useGraphRun>['runGraphFromRequest'];
 
 type UseDirectAppActionsOptions = {
-  runGraph: RunGraph;
+  runGraphFromRequest: RunGraphFromRequest;
   isRunning: boolean;
   messagesRef: { current: MessageRecord[] };
   turnsRef: { current: TurnRecord[] };
@@ -48,7 +48,7 @@ type UseDirectAppActionsOptions = {
 };
 
 export function useDirectAppActions({
-  runGraph,
+  runGraphFromRequest,
   isRunning,
   messagesRef,
   turnsRef,
@@ -79,30 +79,20 @@ export function useDirectAppActions({
     if (replacementTurn) {
       applyTurnCheckpointRuntime(replacementTurn, 'before');
     }
-    void runGraph(
-      directAppActionJson(payload),
-      [],
-      undefined,
+    void runGraphFromRequest({
+      inputText: directAppActionJson(payload),
+      images: [],
       historyMessages,
       replacedMessageIds,
-      actor,
-      false,
-      undefined,
-      replacementTurn ? { turn: replacementTurn, replaceInput: false } : undefined,
-      'user',
-      undefined,
-      undefined,
-      undefined,
-      false,
-      normalRpMessageFormat,
-      0,
-      undefined,
-      undefined,
-      undefined,
-      undefined,
-      undefined,
-      true,
-    );
+      inputCharacterOverride: actor,
+      phoneMessageOverride: false,
+      replacement: replacementTurn ? { turn: replacementTurn, replaceInput: false } : undefined,
+      turnMode: 'user',
+      narratorAutoTurn: false,
+      messageFormatOverride: normalRpMessageFormat,
+      turnModeOverride: 0,
+      directActionOnly: true,
+    });
     return true;
   }
 
