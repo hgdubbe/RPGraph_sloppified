@@ -15,6 +15,7 @@ import {
   phoneDesktopGridRows,
 } from '../settings';
 import type { StorybookCharacter } from '../storybook/runtime';
+import { phoneMoodStatuses, type PhoneMoodStatusId } from '../phone/moodStatus';
 import type { PhoneDesktopIconSize, PhoneDesktopLayout, PhoneDesktopWidgetId } from '../types';
 import type {
   ChatImageAttachment,
@@ -181,25 +182,6 @@ function compactPhoneText(text: string, fallback: string, maxLength = 92) {
   return compact.length > maxLength ? `${compact.slice(0, maxLength - 1).trim()}...` : compact;
 }
 
-const phoneMoodStatusOptions = [
-  { id: 'online', label: 'Online', symbol: '', monoSymbol: '' },
-  { id: 'happy', label: 'Happy', symbol: '🙂', monoSymbol: '☺' },
-  { id: 'excited', label: 'Excited', symbol: '😄', monoSymbol: '☻' },
-  { id: 'amused', label: 'Amused', symbol: '😂', monoSymbol: '〃' },
-  { id: 'wild', label: 'Wild', symbol: '😵', monoSymbol: '※' },
-  { id: 'playful', label: 'Playful', symbol: '😜', monoSymbol: '♪' },
-  { id: 'flirty', label: 'Flirty', symbol: '😉', monoSymbol: '♡' },
-  { id: 'horny', label: 'Thirsty', symbol: '💦', monoSymbol: '⋯' },
-  { id: 'devilish', label: 'Devilish', symbol: '😈', monoSymbol: '♆' },
-  { id: 'flustered', label: 'Flustered', symbol: '😳', monoSymbol: '!' },
-  { id: 'anxious', label: 'Anxious', symbol: '😟', monoSymbol: '?' },
-  { id: 'sad', label: 'Sad', symbol: '😔', monoSymbol: '☹' },
-  { id: 'annoyed', label: 'Annoyed', symbol: '😒', monoSymbol: '⌁' },
-  { id: 'angry', label: 'Angry', symbol: '😠', monoSymbol: '!' },
-  { id: 'furious', label: 'Furious', symbol: '🤬', monoSymbol: '‼' },
-  { id: 'tired', label: 'Tired', symbol: '😴', monoSymbol: '☾' },
-] as const;
-
 type PhonePanelProps = {
   phoneContacts: PhoneContact[];
   storyCharacters: StorybookCharacter[];
@@ -272,8 +254,8 @@ type PhonePanelProps = {
   onPhoneDraftChange: (value: string) => void;
   phoneDraftContextComment: string;
   onPhoneDraftContextCommentChange: (value: string) => void;
-  phoneMoodStatus: string;
-  onPhoneMoodStatusChange: (value: string) => void;
+  phoneMoodStatus: PhoneMoodStatusId;
+  onPhoneMoodStatusChange: (value: PhoneMoodStatusId) => void;
   onPhoneDraftCommandsChange: (commands: CommandInputCommand[]) => void;
   onReplyToMessage: (message: MessageRecord) => void;
   onCancelPhoneReply: () => void;
@@ -664,8 +646,8 @@ export function PhonePanel({
     return () => document.removeEventListener('pointerdown', closeMenu);
   }, [desktopSettingsOpen, phoneMoodStatusOpen]);
 
-  const selectedPhoneMoodStatus = phoneMoodStatusOptions.find((option) => option.id === phoneMoodStatus)
-    ?? phoneMoodStatusOptions[0];
+  const selectedPhoneMoodStatus = phoneMoodStatuses.find((option) => option.id === phoneMoodStatus)
+    ?? phoneMoodStatuses[0];
 
   const [clockNow, setClockNow] = useState(() => new Date());
 
@@ -1085,7 +1067,7 @@ export function PhonePanel({
     <div className="phone-desktop-settings" ref={desktopSettingsRef}>
       {phoneMoodStatusOpen && (
         <div className="phone-mood-status-menu" role="menu" aria-label="Phone status">
-          {phoneMoodStatusOptions.map((option) => (
+          {phoneMoodStatuses.map((option) => (
             <button
               className={`phone-mood-status-option${option.id === selectedPhoneMoodStatus.id ? ' active' : ''}`}
               type="button"
@@ -1834,7 +1816,7 @@ export function PhonePanel({
         <div className="phone-desktop-settings" ref={desktopSettingsRef}>
           {phoneMoodStatusOpen && (
             <div className="phone-mood-status-menu" role="menu" aria-label="Phone status">
-              {phoneMoodStatusOptions.map((option) => (
+              {phoneMoodStatuses.map((option) => (
                 <button
                   className={`phone-mood-status-option${option.id === selectedPhoneMoodStatus.id ? ' active' : ''}`}
                   type="button"

@@ -30,6 +30,7 @@ import { GraphStudioShell } from './components/GraphStudioShell';
 import { PhonePanel } from './components/PhonePanel';
 import { RoleplayPhoneDevice } from './components/RoleplayPhoneDevice';
 import { RoleplayStudioShell } from './components/RoleplayStudioShell';
+import { phoneMoodContext } from './phone/moodStatus';
 import { useChatGpdPhoneApp } from './chat/useChatGpdPhoneApp';
 import { useAutoplay, type AutoplayRunRequest } from './chat/useAutoplay';
 import {
@@ -608,24 +609,6 @@ function eventStoryCharacter(event: RpAppointment, characters: StorybookCharacte
 
 type PreviewImageState = {
   image: ChatImageAttachment;
-};
-
-const phoneMoodStatusContext: Record<string, string | undefined> = {
-  happy: 'Phone status context: the sender is currently showing a happy mood.',
-  excited: 'Phone status context: the sender is currently showing an excited mood.',
-  amused: 'Phone status context: the sender is currently showing an amused or laughing mood.',
-  wild: 'Phone status context: the sender is currently showing a chaotic, overwhelmed, or overstimulated mood.',
-  playful: 'Phone status context: the sender is currently showing a playful, teasing mood.',
-  flirty: 'Phone status context: the sender is currently showing a flirty mood.',
-  horny: 'Phone status context: the sender is currently showing a thirsty or sexually charged mood.',
-  devilish: 'Phone status context: the sender is currently showing a mischievous, provocative mood.',
-  flustered: 'Phone status context: the sender is currently showing a flustered or embarrassed mood.',
-  annoyed: 'Phone status context: the sender is currently showing an annoyed mood.',
-  sad: 'Phone status context: the sender is currently showing a sad mood.',
-  angry: 'Phone status context: the sender is currently showing an angry mood.',
-  furious: 'Phone status context: the sender is currently showing a furious mood.',
-  anxious: 'Phone status context: the sender is currently showing an anxious mood.',
-  tired: 'Phone status context: the sender is currently showing a tired mood.',
 };
 
 function App() {
@@ -4695,7 +4678,7 @@ function App() {
     }
     const images = phoneImages;
     const replyTo = phoneReplyToMessage;
-    const moodContext = phoneMoodStatusContext[phoneMoodStatus] ?? '';
+    const moodContext = phoneMoodContext(phoneMoodStatus);
     const phoneRunContextComment = [
       phoneDraftContextComment.trim(),
       moodContext,

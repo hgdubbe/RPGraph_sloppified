@@ -8,6 +8,7 @@ import {
 import {
   validSmoothChatAutoScrollMinSpeed,
 } from '../settings';
+import type { PhoneMoodStatusId } from '../phone/moodStatus';
 import type { CommandInputCommand } from '../chat/structuredCommands';
 import {
   phoneRuntimeCharactersFromMessages,
@@ -187,7 +188,7 @@ export function useRoleplayPanelRuntime({
   const [highlightedEventIds, setHighlightedEventIds] = useState<Set<string>>(() => new Set());
   const [phoneDraft, setPhoneDraft] = useState('');
   const [phoneDraftContextComment, setPhoneDraftContextComment] = useState('');
-  const [phoneMoodStatus, setPhoneMoodStatus] = useState('online');
+  const [phoneMoodStatus, setPhoneMoodStatus] = useState<PhoneMoodStatusId>('online');
   const [phoneDraftCommands, setPhoneDraftCommands] = useState<CommandInputCommand[]>([]);
   const [phoneImages, setPhoneImages] = useState<ChatImageAttachment[]>([]);
   const [showPhoneEmojiPicker, setShowPhoneEmojiPicker] = useState(false);
