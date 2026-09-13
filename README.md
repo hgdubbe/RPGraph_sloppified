@@ -1,3 +1,31 @@
+# Sloppified Fork of RPGraph Studio
+
+current work status here: https://claude.ai/code/artifact/caebaccf-f75c-47cb-8e9c-a197a2578d3c
+
+## TL;DR: 
+- UI overhaul:
+  - RP Chat overhaul
+  - theming
+  - Storybook Editor UI overhaul
+  - Menu Buttons moved to Burger menu
+  - Seperation between Graph edit view / Roleplay view
+
+- Phone Simulation overhaul:
+  - looks like a phone (well, i tried my best)
+  - basic Widget support
+  - Vertical/Landscape mode
+  
+- new mode:
+  - Similar to planned mode, but anchored into backend to make it easier for dumb llms
+  - Checkpointing
+  
+- minor features:
+  - Character mood selector in phone simulation
+  - comments on messages (think: "obviously sarcastic" for the llm to understand intentions better)
+  - new Providers
+
+not everything working right now, but planned/started
+
 # 🎭 RPgraph Studio
 
 > **Your personal roleplay engine — powered by your own AI, running entirely on your machine.**
