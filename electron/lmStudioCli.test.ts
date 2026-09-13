@@ -8,14 +8,14 @@ describe('LM Studio CLI resolution', () => {
   it('prefers the Windows lms.exe install path when it exists', () => {
     const command = lmStudioCliCommand({
       platform: 'win32',
-      homeDir: 'C:\\Users\\hen',
-      exists: (filePath) => filePath === 'C:\\Users\\hen\\.lmstudio\\bin\\lms.exe',
+      homeDir: 'C:\\Users\\testuser',
+      exists: (filePath) => filePath === 'C:\\Users\\testuser\\.lmstudio\\bin\\lms.exe',
       pathLookup: () => undefined,
     });
 
-    expect(command).toBe('C:\\Users\\hen\\.lmstudio\\bin\\lms.exe');
+    expect(command).toBe('C:\\Users\\testuser\\.lmstudio\\bin\\lms.exe');
     expect(lmStudioCliExecOptions(command, ['unload', '--all'], 'win32')).toEqual({
-      command: 'C:\\Users\\hen\\.lmstudio\\bin\\lms.exe',
+      command: 'C:\\Users\\testuser\\.lmstudio\\bin\\lms.exe',
       args: ['unload', '--all'],
       options: { timeout: 60000, windowsHide: true, shell: false },
     });
@@ -24,7 +24,7 @@ describe('LM Studio CLI resolution', () => {
   it('falls back to lms.cmd on Windows only when it resolves on PATH', () => {
     const command = lmStudioCliCommand({
       platform: 'win32',
-      homeDir: 'C:\\Users\\hen',
+      homeDir: 'C:\\Users\\testuser',
       exists: () => false,
       pathLookup: (name) => name === 'lms.cmd' ? 'C:\\Tools\\lms.cmd' : undefined,
     });
@@ -40,7 +40,7 @@ describe('LM Studio CLI resolution', () => {
   it('preserves non-Windows lms command behavior', () => {
     const command = lmStudioCliCommand({
       platform: 'linux',
-      homeDir: '/home/hen',
+      homeDir: '/home/testuser',
       exists: () => false,
       pathLookup: () => undefined,
     });
