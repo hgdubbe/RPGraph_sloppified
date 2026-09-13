@@ -1,6 +1,7 @@
 # Sloppified Fork of RPGraph Studio
 
-current work status here: https://claude.ai/code/artifact/caebaccf-f75c-47cb-8e9c-a197a2578d3c
+work status here: https://claude.ai/code/artifact/caebaccf-f75c-47cb-8e9c-a197a2578d3c
+Current state: Port Changes to 0.5 Upstream Version
 
 ## TL;DR: 
 - UI overhaul:
