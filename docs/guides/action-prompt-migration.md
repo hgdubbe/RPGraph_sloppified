@@ -2,11 +2,23 @@
 
 For a complete worked conversion of the actual default workflow, see [Full Default-Workflow Prompt: RP Prompt with Image](#full-default-workflow-prompt-rp-prompt-with-image), including a full highlighted diff and both prompt files.
 
-## Status: Preparation Only
+## Status: Experimental Live Opt-In
 
-The new compiler and isolated execution boundary exist, but **live workflows still use the legacy executor**. There is no action-runtime switch in the UI yet. Choosing Strict in the Response Router only changes numeric selector validation; it does not enable this protocol.
+For a ready-to-import baseline, open [default-actions-v1.json](../../workflows/default-actions-v1.json) with this updated build. It is converted from the complete default workflow; [baseline instructions](../../workflows/README.md) describe provider setup and compatibility boundaries.
 
-**Do not replace your working workflow prompts with the examples below yet.** Prepare a separate copy. The examples are compiler-checked decision envelopes, not importable workflows or prompt-document files. The production catalog builder, provider contract, legacy/direct-action adapters, result rendering and persistence integration are still pending. See the [runtime progress record](../review/action-runtime-progress.md).
+RP Output now has an **Action protocol** selector. Legacy remains the default for existing workflows. Structured v1 connects ordinary RP/narrator replies to the typed image/WhatsUp runtime. Choosing Strict in the Response Router still only changes numeric selector validation; it does not enable this protocol.
+
+**Use a separate workflow copy.** Connect a Response Router or LLM Prompt directly to RP Output, select Structured v1, and use RP/WhatsUp routes limited to narration, image generation and WhatsUp sends. Phone replies use the Phone Message output connection. Social, autoplay and direct-only input modes retain the legacy executor; a failed structured reply never falls back to it. Regeneration and automatic restart of structured turns are blocked pending durable operation recovery. The examples below are compiler-checked decision envelopes, not importable workflows. See the [runtime progress record](../review/action-runtime-progress.md).
+
+## Creative Fields Versus Managed Rules
+
+Users write tone, vocabulary, perspective, character behavior, scene objectives and creative image direction. Put output style in the final-response step; planning concerns intent and facts.
+
+The application automatically supplies **Reply structure**, **Characters and access**, **Image handling**, and **Message delivery** instructions from [the shared preset](../../src/actions/promptPreset.ts). The router displays these as read-only **Action system / Application managed** sections on the final-response step when its selected output connects to an opted-in RP Output. They are not copied into every route, cannot be accidentally edited through the section editor, and are included in preview assembly. Current character/image handles and capabilities are generated from the actual storybook on each run.
+
+**Do not paste a JSON schema, catalog, receipt rules or ID-handling boilerplate into each prompt.** The detailed contract below is a technical reference. A new route can simply say, for example: "Continue the scene in a warm, understated tone. Keep dialogue concise. Alice may text Bob when it follows naturally from the scene."
+
+Existing legacy action declarations and incompatible response wrappers must still be removed from migrated RP/WhatsUp routes. They are rejected instead of silently running a second executor. The supplied baseline has already been converted. Arbitrary user-authored instructions cannot be safely stripped automatically without changing story behavior. Existing bundled legacy workflows remain unchanged.
 
 Legacy prompts need no changes to continue running on the current executor. Compatibility with the new executor will require explicit adapters and regression tests; it is not achieved merely by writing JSON. Never send the same action through both executors.
 
@@ -33,18 +45,18 @@ Routing, graph connections, model selection and prompt section editing are separ
 
 ## Migration Steps
 
-1. Save/export the original workflow and prepare a separate migration copy. Retain the original as the working version until a runtime-enabled import path is available.
+1. Save/export the original workflow and prepare a separate migration copy.
 2. Inventory the actual operations used by each route. The initial compiler supports only `image.generate` and WhatsUp `messenger.send`. Routes requiring other operations must remain legacy for now.
-3. In the main response's output-format section, replace legacy marker/multiple-object instructions with the complete-envelope contract below. Keep creative instructions in their existing thematic sections.
+3. Remove legacy marker/multiple-object output instructions. Keep creative instructions in their thematic sections. The application-managed section supplies the complete-envelope contract automatically.
 4. In its commands/images sections, remove instructions to repeat image IDs, invent operation IDs, wrap actions in prose markers, or re-emit a completed action after a tool result. Express generation and delivery as one message attachment source instead.
-5. Replace executable character-name references with supplied catalog handles. Do not hardcode the sample handles or catalog ID in a reusable prompt: the future runtime context supplies current values for each decision. Unknown handles are errors, not permission to create a contact.
+5. Remove hardcoded executable names, handles and catalog IDs. The runtime supplies current values and their selection rules automatically. Character names remain ordinary creative prose. Unknown handles are errors, not permission to create a contact.
 6. On the migrated path, retire the old marker-to-command formatter and prompt replay stages once their responsibilities are replaced by the structured provider/runtime integration. Do not disable them in your current legacy workflow. Both paths must never execute the same operation.
 7. Check text-only, message-only, stored-image, generated-image and gallery-only examples. Then check unavailable recipients, missing images, repeated sends, cancellation and failed delivery before enabling a workflow.
-8. Preserve your original prompts until save/load, phone/RP rendering and recovery tests pass for the migrated workflow. No automatic converter or runtime enablement command is supplied yet.
+8. Preserve your original prompts. Enable Structured v1 on RP Output only for the supported migration copy. Crash reconciliation and action-preserving regeneration remain unfinished; saved messages/autosaves are not a durable operation journal.
 
 ## Main Response Contract
 
-The following is authoring text for a future structured main-response field, not a current workflow import:
+The following explains the runtime contract for advanced inspection. Equivalent rules are already injected by the managed preset; this is not text the user needs to paste into an editable field:
 
 ```text
 Return one complete JSON object with version: 1, catalogId equal to the supplied
@@ -135,7 +147,7 @@ These examples assume catalog ID `example-catalog`: `person_1` is Alice, `person
 }
 ```
 
-Code creates the generation and delivery operation IDs, binds the returned artifact to the send, and retains a receipt. There is no future image ID to predict or copy. The current isolated tests verify this with deterministic adapters; live provider and phone/RP integration are not complete.
+Code creates the generation and delivery operation IDs, binds the returned artifact to the send, and retains a receipt. There is no future image ID to predict or copy. Unit tests and the real Electron graph/phone/autosave pipeline verify this with controlled provider responses; external provider reliability still requires separate testing.
 
 ### Generate Without Sending
 
@@ -157,7 +169,7 @@ Code creates the generation and delivery operation IDs, binds the returned artif
 - At most 128 blocks per envelope; text fields are limited to 65,536 characters, image descriptions to 16,384, and input handles to 128.
 - Unknown extra fields are rejected, including model-supplied `operationId`, filenames, arbitrary metadata, annotations and voice flags. Do not silently remove meaningful context to fit: keep affected routes legacy until those fields are supported.
 - No new-contact variant, bank transfers, notes, social posts/comments/DMs, voice messages, image search, caption updates or advanced result-selection protocol is implemented in this initial compiler. Do not invent new action keys for them.
-- No workflow flag, provider tool schema, runtime toggle, automatic legacy conversion or persistent recovery is currently available for this path. Re-running a newly prepared execution is a new batch; only repeated calls to the same in-memory execution object share its result.
+- RP Output persists explicit protocol selection. Provider-native tool schemas, automatic legacy conversion and persistent recovery are not implemented yet. Re-running a newly prepared execution is a new batch; only repeated calls to the same in-memory execution object share its result.
 
 ## Before Enabling Migrated Workflows
 
@@ -167,7 +179,9 @@ Reference specifications: [command pipeline](../design/RPGraph-redesign-handoff-
 
 ## Full Default-Workflow Prompt: RP Prompt with Image
 
-This is the **complete route prompt**, not a generic sample. Source: [workflow.default_v25.json](../../workflow.default_v25.json), node `llm-prompt-switch-4f07f33e-3db7-4d8d-b3f9-4e5bee791e20`, **Normal RP -> RP Prompt with Image**, route `route-0-0`, selector pair `(0, 0)`. Its Before field is empty; the complete After field is reproduced below. This is the stored authoring prompt, not the assembled provider request with history, variables, image inputs and expanded legacy action instructions.
+This historical before/after demonstration remains complete for inspection. Its technical additions are now supplied by the application-managed preset, not intended as boilerplate to copy into new creative fields. It also documents which original default-workflow features still require Legacy.
+
+This is the **complete route prompt**, not a generic sample. Source: [workflow.default_v26.json](../../default_workflows/workflow.default_v26.json), node `llm-prompt-switch-4f07f33e-3db7-4d8d-b3f9-4e5bee791e20`, **Normal RP -> RP Prompt with Image**, route `route-0-0`, selector pair `(0, 0)`. Its Before field is empty; the complete After field is reproduced below. This is the stored authoring prompt, not the assembled provider request with history, variables, image inputs and expanded legacy action instructions.
 
 - [Original full prompt, extracted verbatim](examples/rp-with-image.legacy.txt)
 - [Full rewritten prompt, without diff markers](examples/rp-with-image.actions-v1.txt)

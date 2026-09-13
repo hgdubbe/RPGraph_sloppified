@@ -70,9 +70,26 @@ export function hydrateLoadedWorkflow({
         data,
       };
     }
+    const style = hydratedNodeStyle(node, data);
+    // A node type whose own `hydrateStyle` resolves `style.height` to `undefined` is
+    // declaring itself auto-height/dynamic-content (Response Router, Character Stats) —
+    // its actual size should never be pinned across a save/load cycle. But `style.height`
+    // is only the CSS hint; React Flow also has its own top-level `node.height`/`node.width`
+    // (the explicit graph dimension) and `node.measured` (its cached last-computed natural
+    // size), both saved verbatim in the file and BOTH untouched by `hydrateStyle`. Left in
+    // place, they keep reserving the old (often taller, from whenever the node was last
+    // expanded/resized) bounding box for pointer hit-testing even though the visible content
+    // is now shorter (e.g. Response Router's route sections collapsed by default) — nothing
+    // ever corrects them since a node that's genuinely short from first paint never fires a
+    // resize. Clearing all three for an auto-height node type (matching the placeholder-node
+    // handling above) forces a fresh measurement against actual current content. `measured`
+    // alone is dropped for every node regardless — it's always just a recomputable cache.
+    const autoHeight = style?.height === undefined;
     return {
       ...node,
-      style: hydratedNodeStyle(node, data),
+      ...(autoHeight ? { width: undefined, height: undefined } : {}),
+      measured: undefined,
+      style,
       selected: false,
       data,
     };

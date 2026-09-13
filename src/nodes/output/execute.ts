@@ -17,6 +17,7 @@ export async function executeOutputNode(node: WorkflowNode, context: ExecuteCont
     throw new Error(`${node.data.label} has no incoming connection.`);
   }
   const inputValue = await context.executeInput(incomingEdge.source, incomingEdge.sourceHandle);
+  if (context.structuredActionContext) return inputValue;
   const extracted = extractWorkflowVariableSetCommands(inputValue);
   if (extracted.commands.length > 0) {
     context.setWorkflowVariables(extracted.commands);

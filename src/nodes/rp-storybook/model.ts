@@ -78,6 +78,13 @@ export type RpStorybookCharacterSocial = {
   onlyfriendsUsername: string;
 };
 
+export type RpStorybookCharacterDecisionSettings = {
+  /** 0-4 tier. Omitted means "use the route's default Activeness" (decision-v1's
+   * decisionDefaultActiveness) — this is a per-character override, not an independent
+   * setting with its own fallback. */
+  activeness?: number;
+};
+
 export type RpStorybookCharacter = {
   id: string;
   name: string;
@@ -91,6 +98,7 @@ export type RpStorybookCharacter = {
   phoneSettings?: RpStorybookCharacterPhoneSettings;
   banking?: RpStorybookCharacterBanking;
   social?: RpStorybookCharacterSocial;
+  decisionSettings?: RpStorybookCharacterDecisionSettings;
 } & RpStorybookCharacterImageOwner;
 
 export type RpStorybookPhoneContactBlock = {
@@ -103,6 +111,9 @@ export type RpStorybookImageDescriptionPromptSettings = {
   customText?: string;
 };
 
+// Known gap, deferred deliberately (not silently ignored): the upstream project this fork
+// diverged from has moved its storybook content schema to 3.0.0. Porting that forward is
+// future work — see TODO.md.
 export const currentRpStorybookVersion = '2.2.0' as const;
 
 const rpStorybookVersionPattern = /^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)$/;
@@ -542,6 +553,19 @@ export function rpStorybookCharacterPhoneSettings(
   };
 }
 
+/** Unlike phoneSettings/banking/social, this stays `undefined` (not a defaulted object) when
+ * absent or invalid — the field's whole meaning is "no override; use the route default", which
+ * a forced default object would erase. */
+export function rpStorybookCharacterDecisionSettings(
+  value: unknown,
+): RpStorybookCharacterDecisionSettings | undefined {
+  const settings = recordValue(value);
+  const activeness = settings.activeness;
+  return typeof activeness === 'number' && Number.isInteger(activeness) && activeness >= 0 && activeness <= 4
+    ? { activeness }
+    : undefined;
+}
+
 export function rpStorybookCharacterVoiceConfig(value: unknown): RpStorybookCharacterVoiceConfig {
   const config = recordValue(value);
   const sampleDataUrl = stringValue(config.sampleDataUrl);
@@ -612,6 +636,7 @@ function normalizeCharacter(
     usedImageDataUrls,
   );
   const profileImage = normalizeCharacterProfileImage(character.profileImage, images);
+  const decisionSettings = rpStorybookCharacterDecisionSettings(character.decisionSettings);
   return {
     id,
     name,
@@ -625,6 +650,7 @@ function normalizeCharacter(
     banking: rpStorybookCharacterBanking(character.banking),
     social: rpStorybookCharacterSocial(character.social),
     ...(profileImage ? { profileImage } : {}),
+    ...(decisionSettings ? { decisionSettings } : {}),
     images,
   };
 }
@@ -1440,10 +1466,11 @@ export function rpStorybookEditPrompt(currentJson: string, instruction: string, 
     `{"format":"rpgraph-storybook","version":"${currentRpStorybookVersion}",` +
     '"title":"","introduction":"","imageDescriptionPrompt":{"mode":"default"},"scenario":{"summary":"","openingSituation":"","currentSituation":""},"characters":[{"id":"","name":"","description":"","personality":"","speechStyle":"","role":"","banking":{"startBalance":1000,"fixedExpenses":[{"label":"Mobile plan","amount":24.99}]},"social":{"fotogramUsername":"nova.reyes","onlyfriendsUsername":""},"comfyConfig":{"loraName":"","loraUrl":"","appearance":""},"profileImage":{"imageId":"robert_miller_image_01","dataUrl":"data:image/jpeg;base64,...","crop":{"x":25,"y":20,"size":50}},"images":[{"id":"robert_miller_image_01","name":"robert_miller_image_01","mimeType":"image/jpeg","size":0,"dataUrl":"data:image/jpeg;base64,...","width":0,"height":0,"description":"","receivedFrom":"","imageAccess":false}]}],"phoneContacts":{"blocked":[{"owner":"character-id","contact":"other-character-id"}]},"openingHistory":{"summary":"","turns":[],"checkpoints":[],"events":[],"voiceMedia":{},"socialLikes":{},"dynamicSocialUsers":{},"socialConnections":{},"notes":{},"chatGpdChats":{}}}',
     'If the user asks a question, answer it in reply, keep changedFields empty, and return an empty patch array.',
-    'If the user asks for edits or provides new story facts, edit only the required fields. Preserve all existing values, including imageDescriptionPrompt, characters[].comfyConfig, characters[].voiceConfig, characters[].profileImage, characters[].phoneSettings, and characters[].images dataUrl values, unless the user explicitly changes them.',
+    'If the user asks for edits or provides new story facts, edit only the required fields. Preserve all existing values, including imageDescriptionPrompt, characters[].comfyConfig, characters[].voiceConfig, characters[].profileImage, characters[].phoneSettings, characters[].decisionSettings, and characters[].images dataUrl values, unless the user explicitly changes them.',
     'Do not create, rewrite, append, delete, reorder, summarize, or otherwise patch openingHistory or any of its fields. Opening History contains imported runtime memory with assigned ids and message slots that you cannot generate correctly. If the user asks for Opening History changes, explain in reply that Opening History must be imported or reset by the app controls instead, and return an empty patch unless another editable storybook text field was requested.',
     'For character renames, replace only characters/{index}/name and keep the character id stable.',
     'For new characters, add one complete character object at /characters/- with id, name, description, personality, speechStyle, role, banking, social, comfyConfig, and images.',
+    'characters[].decisionSettings.activeness (0-4, optional) overrides how often this character adds more than the one necessary action in a Decision Workflow turn (0 = rarely more than the essential action, 4 = often follows through with more than one). Omit it to use the route\'s own default instead of setting a per-character value. Only set this when the user asks about a character\'s activeness/action tendency; otherwise leave it unset.',
     'characters[].banking.startBalance is the character\'s bank account start balance in US dollars for the phone Banking app. Always set a value that fits the character\'s life situation (for example a student low, an engineer or doctor high). Use 1000 only when nothing about the character suggests a better value. Keep existing balances unless the user asks to change them.',
     'characters[].banking.fixedExpenses lists recurring payments shown in the Banking app history, each as {"label":"Mobile plan","amount":24.99} with a US dollar amount. Always include exactly one mobile plan entry with a realistic amount that fits the character. Add further fixed expenses in the same format only when the user asks for them; the app fills the rest of the history with generated everyday spending automatically.',
     'characters[].social.fotogramUsername is the character\'s account username in the phone Fotogram app (a lowercase handle like "nova.reyes"). Every character is expected to have a Fotogram account, so always set a fitting handle derived from the name for new characters. Keep existing usernames unless the user asks to change them.',

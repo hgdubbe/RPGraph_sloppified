@@ -1,0 +1,383 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "properties": {
+    "version": {
+      "const": 1
+    },
+    "catalogId": {
+      "type": "string",
+      "pattern": "\\S"
+    },
+    "blocks": {
+      "type": "array",
+      "maxItems": 128,
+      "items": {
+        "oneOf": [
+          {
+            "type": "object",
+            "properties": {
+              "type": {
+                "const": "text"
+              },
+              "text": {
+                "type": "string",
+                "maxLength": 65536
+              }
+            },
+            "required": [
+              "type",
+              "text"
+            ],
+            "additionalProperties": false
+          },
+          {
+            "type": "object",
+            "properties": {
+              "type": {
+                "const": "action"
+              },
+              "intent": {
+                "oneOf": [
+                  {
+                    "type": "object",
+                    "properties": {
+                      "type": {
+                        "const": "image.generate"
+                      },
+                      "owner": {
+                        "type": "string",
+                        "pattern": "\\S",
+                        "maxLength": 128
+                      },
+                      "description": {
+                        "type": "string",
+                        "pattern": "\\S",
+                        "maxLength": 16384
+                      }
+                    },
+                    "required": [
+                      "type",
+                      "owner",
+                      "description"
+                    ],
+                    "additionalProperties": false
+                  },
+                  {
+                    "type": "object",
+                    "properties": {
+                      "type": {
+                        "const": "messenger.send"
+                      },
+                      "app": {
+                        "const": "whatsup"
+                      },
+                      "from": {
+                        "type": "string",
+                        "pattern": "\\S",
+                        "maxLength": 128
+                      },
+                      "to": {
+                        "type": "string",
+                        "pattern": "\\S",
+                        "maxLength": 128
+                      },
+                      "text": {
+                        "type": "string",
+                        "maxLength": 65536,
+                        "pattern": "\\S"
+                      },
+                      "isVoiceMessage": {
+                        "type": "boolean"
+                      }
+                    },
+                    "required": [
+                      "type",
+                      "app",
+                      "from",
+                      "to",
+                      "text"
+                    ],
+                    "additionalProperties": false
+                  },
+                  {
+                    "type": "object",
+                    "properties": {
+                      "type": {
+                        "const": "messenger.send"
+                      },
+                      "app": {
+                        "const": "whatsup"
+                      },
+                      "from": {
+                        "type": "string",
+                        "pattern": "\\S",
+                        "maxLength": 128
+                      },
+                      "to": {
+                        "type": "string",
+                        "pattern": "\\S",
+                        "maxLength": 128
+                      },
+                      "text": {
+                        "type": "string",
+                        "maxLength": 65536
+                      },
+                      "attachment": {
+                        "oneOf": [
+                          {
+                            "type": "object",
+                            "properties": {
+                              "type": {
+                                "const": "stored_image"
+                              },
+                              "ref": {
+                                "type": "string",
+                                "pattern": "\\S",
+                                "maxLength": 128
+                              }
+                            },
+                            "required": [
+                              "type",
+                              "ref"
+                            ],
+                            "additionalProperties": false
+                          },
+                          {
+                            "type": "object",
+                            "properties": {
+                              "type": {
+                                "const": "generate_image"
+                              },
+                              "owner": {
+                                "type": "string",
+                                "pattern": "\\S",
+                                "maxLength": 128
+                              },
+                              "description": {
+                                "type": "string",
+                                "pattern": "\\S",
+                                "maxLength": 16384
+                              }
+                            },
+                            "required": [
+                              "type",
+                              "owner",
+                              "description"
+                            ],
+                            "additionalProperties": false
+                          }
+                        ]
+                      },
+                      "isVoiceMessage": {
+                        "type": "boolean"
+                      }
+                    },
+                    "required": [
+                      "type",
+                      "app",
+                      "from",
+                      "to",
+                      "text",
+                      "attachment"
+                    ],
+                    "additionalProperties": false
+                  },
+                  {
+                    "type": "object",
+                    "properties": {
+                      "type": {
+                        "const": "social.post"
+                      },
+                      "app": {
+                        "enum": [
+                          "fotogram",
+                          "onlyfriends"
+                        ]
+                      },
+                      "author": {
+                        "type": "string",
+                        "pattern": "\\S",
+                        "maxLength": 128
+                      },
+                      "caption": {
+                        "type": "string",
+                        "maxLength": 65536
+                      }
+                    },
+                    "required": [
+                      "type",
+                      "app",
+                      "author",
+                      "caption"
+                    ],
+                    "additionalProperties": false
+                  },
+                  {
+                    "type": "object",
+                    "properties": {
+                      "type": {
+                        "const": "social.comment"
+                      },
+                      "app": {
+                        "enum": [
+                          "fotogram",
+                          "onlyfriends"
+                        ]
+                      },
+                      "author": {
+                        "type": "string",
+                        "pattern": "\\S",
+                        "maxLength": 128
+                      },
+                      "postId": {
+                        "type": "string",
+                        "pattern": "\\S",
+                        "maxLength": 128
+                      },
+                      "text": {
+                        "type": "string",
+                        "maxLength": 65536
+                      }
+                    },
+                    "required": [
+                      "type",
+                      "app",
+                      "author",
+                      "postId",
+                      "text"
+                    ],
+                    "additionalProperties": false
+                  },
+                  {
+                    "type": "object",
+                    "properties": {
+                      "type": {
+                        "const": "bank.transfer"
+                      },
+                      "from": {
+                        "type": "string",
+                        "pattern": "\\S",
+                        "maxLength": 128
+                      },
+                      "to": {
+                        "type": "string",
+                        "pattern": "\\S",
+                        "maxLength": 128
+                      },
+                      "amount": {
+                        "type": "number",
+                        "exclusiveMinimum": 0,
+                        "maximum": 1000000
+                      },
+                      "note": {
+                        "type": "string",
+                        "maxLength": 65536
+                      }
+                    },
+                    "required": [
+                      "type",
+                      "from",
+                      "to",
+                      "amount"
+                    ],
+                    "additionalProperties": false
+                  },
+                  {
+                    "type": "object",
+                    "properties": {
+                      "type": {
+                        "const": "note.write"
+                      },
+                      "owner": {
+                        "type": "string",
+                        "pattern": "\\S",
+                        "maxLength": 128
+                      },
+                      "title": {
+                        "type": "string",
+                        "pattern": "\\S",
+                        "maxLength": 128
+                      },
+                      "body": {
+                        "type": "string",
+                        "maxLength": 65536
+                      },
+                      "noteId": {
+                        "type": "string",
+                        "pattern": "\\S",
+                        "maxLength": 128
+                      }
+                    },
+                    "required": [
+                      "type",
+                      "owner",
+                      "title",
+                      "body"
+                    ],
+                    "additionalProperties": false
+                  },
+                  {
+                    "type": "object",
+                    "properties": {
+                      "type": {
+                        "const": "assistant.chat"
+                      },
+                      "owner": {
+                        "type": "string",
+                        "pattern": "\\S",
+                        "maxLength": 128
+                      },
+                      "messages": {
+                        "type": "array",
+                        "minItems": 2,
+                        "maxItems": 8,
+                        "items": {
+                          "type": "object",
+                          "properties": {
+                            "role": {
+                              "enum": [
+                                "user",
+                                "assistant"
+                              ]
+                            },
+                            "text": {
+                              "type": "string",
+                              "pattern": "\\S"
+                            }
+                          },
+                          "required": [
+                            "role",
+                            "text"
+                          ],
+                          "additionalProperties": false
+                        }
+                      }
+                    },
+                    "required": [
+                      "type",
+                      "owner",
+                      "messages"
+                    ],
+                    "additionalProperties": false
+                  }
+                ]
+              }
+            },
+            "required": [
+              "type",
+              "intent"
+            ],
+            "additionalProperties": false
+          }
+        ]
+      }
+    }
+  },
+  "required": [
+    "version",
+    "catalogId",
+    "blocks"
+  ],
+  "additionalProperties": false
+}

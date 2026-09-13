@@ -7,36 +7,7 @@ import type { EventEntity } from '../data-management/types';
 import { runtimePortValueKey } from '../nodes/shared/portRuntime';
 import { wireLinkName } from '../nodes/memory-slot/model';
 import { customNodeDefinition } from '../nodes/custom-node/model';
-import {
-  parseRpStorybookJson,
-  rpStorybookJsonText,
-} from '../nodes/rp-storybook/model';
-import {
-  defaultComfyCheckpointName,
-  defaultComfyDiffusionModelName,
-  defaultComfyHeight,
-  defaultComfyLoraSlots,
-  defaultComfyTextEncoderName,
-  defaultComfyVaeName,
-  defaultComfyWidth,
-  defaultComfyWorkflowPath,
-  comfySetupRequiredMessage,
-  characterComfyLoraSlots,
-  missingComfySetupFields,
-} from '../settings';
-import {
-  isLmStudioConnection,
-  isLlamaCppConnection,
-  isLocalProviderConnection,
-  isOllamaConnection,
-} from '../llm/providerKind';
 import { isComfyImageConnection } from '../comfy/connectionRole';
-import { withImagesEnsuredForStorybookCharacter } from '../storybook/imageLibrary';
-import {
-  isStorybookSourceNode,
-  storybookCreateImageCharactersFromNodes,
-  type StorybookCreateImageCharacter,
-} from '../storybook/runtime';
 import type {
   ChatImageAttachment,
   ConnectionPreset,
@@ -54,14 +25,13 @@ import type { WorkflowVariableSetCommand } from '../workflow/variables';
 import { workflowVariableValueKind } from '../workflow/variables';
 import type { ReferenceImageOptions } from '../chat/referenceImages';
 import type { ExecuteTraceFormatResult, ExecuteTraceNodeInfo } from '../nodes/types';
-import {
-  runScratchKeys,
-  type CreateComfyImageForCharacterRunner,
-} from '../nodes/runScratch';
-import { encodedDataUrlBytes, normalizeImageAttachment } from '../utils/imageNormalization';
-import { withGeneratedImageDescriptions } from './generatedImageDescriptions';
+import { runScratchKeys, type CreateComfyImageForCharacterRunner } from '../nodes/runScratch';
+import { createComfyImageRunner } from './comfyImageRunner';
 
 type ExecuteGraphOptions = {
+  structuredActionContext?: string;
+  legacyActionsDisabled?: boolean;
+  onImageRunnerReady?: (runner: CreateComfyImageForCharacterRunner) => void;
   outputNodeId: string;
   outputSourceHandle?: string | null;
   nodes: WorkflowNode[];
@@ -106,6 +76,15 @@ type ExecuteGraphOptions = {
   providerHealthById?: Record<string, ProviderConnectionHealth>;
   auxiliaryOutputHandles?: string[];
   onAuxiliaryOutput?: (handle: string, text: string) => void;
+  /**
+   * Skip the RP Output node's own main handle and only evaluate `auxiliaryOutputHandles`
+   * (in practice, just `'output-actions'`). staged-v1/decision-v1 turns never call
+   * `executeGraph` for their reply content at all (see `useGraphRun.ts`'s early return in
+   * that branch) — they need this only to reach the graph's independent choice/info-box/
+   * progress-bar auxiliary prompt channel, which has no staged/decision equivalent yet.
+   * Running the main handle too would generate a second, unused, wasted completion.
+   */
+  skipPrimaryOutput?: boolean;
   onWarning?: (message: string, node?: ExecuteTraceNodeInfo) => void;
   onFormatResult?: (result: ExecuteTraceFormatResult & ExecuteTraceNodeInfo) => void;
   onComfyGenerationActive?: (active: boolean) => void;
@@ -136,43 +115,8 @@ function throwIfAborted(signal?: AbortSignal) {
   }
 }
 
-export type CreateImageCharacterNameResolution =
-  | { status: 'found'; character: StorybookCreateImageCharacter }
-  | { status: 'not-found' }
-  | { status: 'ambiguous' };
-
-function normalizedCreateImageCharacterName(value: string) {
-  return value.trim().replace(/\s+/g, ' ').toLocaleLowerCase();
-}
-
-export function resolveCreateImageCharacterByName(
-  characters: StorybookCreateImageCharacter[],
-  requestedName: string,
-): CreateImageCharacterNameResolution {
-  const normalizedRequestedName = normalizedCreateImageCharacterName(requestedName);
-  if (!normalizedRequestedName) {
-    return { status: 'not-found' };
-  }
-  const exactMatches = characters.filter(
-    (character) => normalizedCreateImageCharacterName(character.name) === normalizedRequestedName,
-  );
-  if (exactMatches.length === 1) {
-    return { status: 'found', character: exactMatches[0] };
-  }
-  if (exactMatches.length > 1) {
-    return { status: 'ambiguous' };
-  }
-  const requestedParts = normalizedRequestedName.split(' ');
-  if (requestedParts.length !== 1) {
-    return { status: 'not-found' };
-  }
-  const firstNameMatches = characters.filter(
-    (character) => normalizedCreateImageCharacterName(character.name).split(' ')[0] === requestedParts[0],
-  );
-  return firstNameMatches.length === 1
-    ? { status: 'found', character: firstNameMatches[0] }
-    : { status: firstNameMatches.length > 1 ? 'ambiguous' : 'not-found' };
-}
+export type { CreateImageCharacterNameResolution } from './comfyImageRunner';
+export { resolveCreateImageCharacterByName } from './comfyImageRunner';
 
 function withoutPromptPreviewFields(patch: Partial<WorkflowNodeData>) {
   const next = { ...patch };
@@ -193,6 +137,9 @@ function memorySlotKey(name: string) {
 }
 
 export async function executeGraph({
+  structuredActionContext,
+  legacyActionsDisabled = !!structuredActionContext,
+  onImageRunnerReady,
   outputNodeId,
   outputSourceHandle,
   nodes,
@@ -236,6 +183,7 @@ export async function executeGraph({
   onWarning = () => {},
   onFormatResult = () => {},
   onComfyGenerationActive,
+  skipPrimaryOutput = false,
   signal,
 }: ExecuteGraphOptions) {
   let runtimeHistoryMessages = historyMessages;
@@ -259,9 +207,16 @@ export async function executeGraph({
   );
   const resolving = new Set<string>();
   const nodeById = new Map(nodes.map((node) => [node.id, node]));
-  // nodeById is a run-start snapshot; storybook JSON written during this run
-  // must be read from here or a second image generation drops the first one.
-  const runStorybookJsonByNodeId = new Map<string, string>();
+  let structuredReplySourceId: string | undefined;
+  if (structuredActionContext && !postOutputRun) {
+    const outputHandle = outputSourceHandle ?? 'default';
+    const replyEdges = edges.filter((edge) => edge.target === outputNodeId && (edge.targetHandle || 'default') === outputHandle);
+    const source = replyEdges.length === 1 ? nodeById.get(replyEdges[0].source) : undefined;
+    if (!source || !['llm-prompt', 'llm-prompt-switch'].includes(source.data.nodeType)) {
+      throw new Error('Structured v1 requires one LLM Prompt or Response Router connected directly to RP Output.');
+    }
+    structuredReplySourceId = source.id;
+  }
   const runtimePortValues = new Map<string, Record<string, string>>(
     nodes.map((node) => [node.id, { ...(node.data.runtimePortValues ?? {}) }]),
   );
@@ -350,216 +305,20 @@ export async function executeGraph({
     onWorkflowVariablesSet?.(validCommands);
   };
 
-  const workflowConnectionIds = () =>
-    new Set(
-      nodes
-        .map((node) => node.data.connectionId)
-        .filter((connectionId): connectionId is string => !!connectionId),
-    );
-
-  const activeLocalLlmConnections = (llmConnectionId?: string) => {
-    const activeConnectionIds = workflowConnectionIds();
-    if (llmConnectionId) {
-      activeConnectionIds.add(llmConnectionId);
-    }
-    return connections.filter((connection) =>
-      activeConnectionIds.has(connection.id) &&
-      isLocalProviderConnection(connection) &&
-      (isLmStudioConnection(connection) || isOllamaConnection(connection) || isLlamaCppConnection(connection)),
-    );
-  };
-
-  const unloadLocalLlmModelsBeforeComfy = async (
-    warn: (message: string) => void,
-    llmConnectionId?: string,
-  ) => {
-    await Promise.all(
-      activeLocalLlmConnections(llmConnectionId)
-        .map(async (connection) => {
-          try {
-            if (isLmStudioConnection(connection)) {
-              await window.rpgraph.unloadLmStudioModels(connection);
-              return;
-            }
-            if (isLlamaCppConnection(connection)) {
-              await window.rpgraph.unloadLlamaCppModels(connection);
-              return;
-            }
-            await window.rpgraph.unloadOllamaModels(connection);
-          } catch (error) {
-            warn(`${connection.label} unload before ComfyUI generation failed: ${error instanceof Error ? error.message : String(error)}`);
-          }
-        }),
-    );
-  };
-
-  const dataUrlMimeType = (dataUrl: string) => {
-    const match = /^data:([^;,]+)[;,]/.exec(dataUrl);
-    return match?.[1] || 'image/png';
-  };
-
-  const createComfyImageForCharacter: CreateComfyImageForCharacterRunner = async (request, warn) => {
-    const phoneOwnerName = request.phoneOwnerName.trim();
-    const loraCharacterName = request.loraCharacterName?.trim() ?? '';
-    const prompt = request.prompt.trim();
-    if (!phoneOwnerName || !prompt) {
-      throw new Error('Create character phone image action requires a phone owner and prompt.');
-    }
-
-    const createImageCharacters = storybookCreateImageCharactersFromNodes(nodes);
-    const phoneOwnerResolution = resolveCreateImageCharacterByName(createImageCharacters, phoneOwnerName);
-    if (phoneOwnerResolution.status === 'ambiguous') {
-      throw new Error(`Create character phone image action found multiple phone owners matching "${phoneOwnerName}". Use the exact full name.`);
-    }
-    if (phoneOwnerResolution.status === 'not-found') {
-      throw new Error(`Create character phone image action could not find phone owner "${phoneOwnerName}".`);
-    }
-    const phoneOwner = phoneOwnerResolution.character;
-    const loraCharacter = loraCharacterName
-      ? resolveCreateImageCharacterByName(createImageCharacters, loraCharacterName)
-      : undefined;
-    if (loraCharacter?.status === 'ambiguous') {
-      throw new Error(`Create character phone image action found multiple LoRA characters matching "${loraCharacterName}". Use the exact full name.`);
-    }
-    if (loraCharacter?.status === 'not-found') {
-      throw new Error(`Create character phone image action could not find LoRA character "${loraCharacterName}".`);
-    }
-    const resolvedLoraCharacter = loraCharacter?.character;
-    if (resolvedLoraCharacter && !resolvedLoraCharacter.createImage.hasLora) {
-      throw new Error(`Create character phone image action requires a configured LoRA for ${resolvedLoraCharacter.name}.`);
-    }
-
-    const comfyProviderId = request.comfyProviderId?.trim();
-    const comfyConnection = comfyProviderId
-      ? connections.find((connection) => isComfyImageConnection(connection) && connection.id === comfyProviderId)
-      : connections.find(isComfyImageConnection);
-    if (!comfyConnection) {
-      throw new Error(comfyProviderId
-        ? 'Create character phone image action requires the selected ComfyUI provider.'
-        : 'Create character phone image action requires a saved ComfyUI provider.');
-    }
-    const comfyHealth = providerHealthById[comfyConnection.id];
-    if (comfyHealth?.status === 'offline') {
-      throw new Error(`Create character phone image action skipped because ${comfyConnection.label} is offline${comfyHealth.detail ? `: ${comfyHealth.detail}` : '.'}`);
-    }
-    if (comfyHealth?.status === 'warning') {
-      throw new Error(`Create character phone image action skipped because ${comfyConnection.label} is not fully set up${comfyHealth.detail ? `: ${comfyHealth.detail}` : '.'}`);
-    }
-    const missingComfyFields = missingComfySetupFields(comfyConnection);
-    if (missingComfyFields.length > 0) {
-      throw new Error(comfySetupRequiredMessage(missingComfyFields));
-    }
-
-    // With only API LLM providers in play, nothing competes with ComfyUI
-    // for local VRAM, so its model can stay loaded across generations.
-    const manageModelMemory = (request.manageModelMemory ?? true) &&
-      activeLocalLlmConnections(request.llmConnectionId).length > 0;
-    if (manageModelMemory) {
-      await unloadLocalLlmModelsBeforeComfy(warn, request.llmConnectionId);
-    }
-
-    const generationPrompt = prompt;
-    const characterLoraName = resolvedLoraCharacter?.createImage.loraName ?? '';
-
-    let result: Awaited<ReturnType<typeof window.rpgraph.runComfyWorkflowPath>>;
-    try {
-      onComfyGenerationActive?.(true);
-      result = await window.rpgraph.runComfyWorkflowPath({
-        baseUrl: comfyConnection.baseUrl,
-        workflowPath: comfyConnection.comfyWorkflowPath || defaultComfyWorkflowPath,
-        width: comfyConnection.comfyWidth ?? defaultComfyWidth,
-        height: comfyConnection.comfyHeight ?? defaultComfyHeight,
-        prompt: generationPrompt,
-        checkpointName: comfyConnection.comfyCheckpointName ?? defaultComfyCheckpointName,
-        diffusionModelName: comfyConnection.comfyDiffusionModelName ?? defaultComfyDiffusionModelName,
-        vaeName: comfyConnection.comfyVaeName ?? defaultComfyVaeName,
-        textEncoderName: comfyConnection.comfyTextEncoderName ?? defaultComfyTextEncoderName,
-        loraSlots: characterComfyLoraSlots(comfyConnection.comfyLoraSlots ?? defaultComfyLoraSlots, characterLoraName),
-        deleteOutputs: comfyConnection.comfyDeleteImageOutputs !== false,
-        timeoutMs: 180000,
-      });
-    } finally {
-      onComfyGenerationActive?.(false);
-      if (manageModelMemory) {
-        try {
-          await window.rpgraph.freeComfyMemory({ baseUrl: comfyConnection.baseUrl });
-        } catch (error) {
-          warn(`ComfyUI unload after generation failed: ${error instanceof Error ? error.message : String(error)}`);
-        }
-      }
-    }
-
-    const normalizedImages = await Promise.all(
-      result.images.map((image, index) =>
-        normalizeImageAttachment({
-          name: image.filename || `comfy-image-${index + 1}.png`,
-          mimeType: dataUrlMimeType(image.dataUrl),
-          size: encodedDataUrlBytes(image.dataUrl),
-          dataUrl: image.dataUrl,
-        }, () => `generated_comfy_${Date.now()}_${index + 1}`),
-      ),
-    );
-    const describedImages = await withGeneratedImageDescriptions({
-      images: normalizedImages,
-      generationPrompt,
-      llm: graphLlm,
-      connectionId: request.llmConnectionId,
-      nodeId: request.llmNodeId,
-      signal,
-      warn,
-    });
-
-    const storybookNodeCandidate = nodeById.get(phoneOwner.storybookNodeId);
-    const storybookNode = storybookNodeCandidate && isStorybookSourceNode(storybookNodeCandidate)
-      ? storybookNodeCandidate
-      : undefined;
-    const storybookJson = storybookNode
-      ? runStorybookJsonByNodeId.get(storybookNode.id) ?? storybookNode.data.storybookJson
-      : undefined;
-    if (!storybookNode || !storybookJson) {
-      throw new Error(`Create character phone image action could not update ${phoneOwner.name}'s Storybook.`);
-    }
-    const storybook = parseRpStorybookJson(storybookJson);
-    const ensureResult = withImagesEnsuredForStorybookCharacter(
-      storybook,
-      phoneOwner.sourceId,
-      describedImages,
-      '',
-    );
-    if (ensureResult.addedCount + ensureResult.updatedCount > 0) {
-      const nextStorybookJson = rpStorybookJsonText(ensureResult.storybook);
-      runStorybookJsonByNodeId.set(storybookNode.id, nextStorybookJson);
-      updateRuntimeNode(storybookNode.id, {
-        storybookJson: nextStorybookJson,
-        storybookStatus: `Generated ${ensureResult.imageIds.length} image${ensureResult.imageIds.length === 1 ? '' : 's'} for ${phoneOwner.name}${resolvedLoraCharacter ? ` using ${resolvedLoraCharacter.name}'s LoRA` : ''}.`,
-      });
-    }
-
-    const imagesById = new Map(ensureResult.images.map((image) => [image.id, image]));
-    return {
-      phoneOwnerName: phoneOwner.name,
-      ...(resolvedLoraCharacter ? { loraCharacterName: resolvedLoraCharacter.name } : {}),
-      imageIds: ensureResult.imageIds,
-      images: ensureResult.imageIds.flatMap((imageId) => {
-        const image = imagesById.get(imageId);
-        return image
-          ? [{
-              id: image.id,
-              name: image.name || image.id,
-              mimeType: image.mimeType,
-              size: image.size,
-              dataUrl: image.dataUrl,
-              width: image.width,
-              height: image.height,
-              description: image.description,
-              receivedFrom: image.receivedFrom,
-              imageAccess: image.imageAccess,
-            }]
-          : [];
-      }),
-    };
-  };
+  // A fresh runner per graph run, closing over this run's own node snapshot (matching the
+  // prior inline implementation's exact behavior); shared with the live actions-v1/staged-v1
+  // action bridge via `createComfyImageRunner`, see `comfyImageRunner.ts`.
+  const createComfyImageForCharacter = createComfyImageRunner({
+    getNodes: () => nodes,
+    connections,
+    providerHealthById,
+    llm: graphLlm,
+    updateRuntimeNode,
+    onComfyGenerationActive,
+    signal,
+  });
   runScratch.set(runScratchKeys.createComfyImageForCharacter, createComfyImageForCharacter);
+  onImageRunnerReady?.(createComfyImageForCharacter);
 
   const executeNode = async (nodeId: string, sourceHandle?: string | null): Promise<string> => {
     throwIfAborted(signal);
@@ -601,6 +360,9 @@ export async function executeGraph({
           if (!definition) {
             throw new Error(`Cannot execute unknown node type: ${node.data.nodeType}.`);
           }
+          if (legacyActionsDisabled && (definition.origin !== 'core' || node.data.nodeType === 'custom')) {
+            throw new Error('Custom and plugin execution is not supported on the Structured v1 path yet.');
+          }
           const trackNodeRunState = shouldTrackRunState(node);
           if (postOutputRun && node.data.nodeType === 'output') {
             throw new PostOutputNodeBlockedError('RP Output does not run during next-turn preparation.');
@@ -625,6 +387,9 @@ export async function executeGraph({
           }
           return definition.execute(node, {
             phase: postOutputRun ? 'prepare-next-turn' : 'response',
+            legacyActionsDisabled,
+            structuredActionContext: node.id === outputNodeId || node.id === structuredReplySourceId
+              ? structuredActionContext : undefined,
             nodes,
             edges,
             originalInput,
@@ -787,14 +552,20 @@ export async function executeGraph({
     return '';
   }
 
-  const output = await executeNode(outputNodeId, outputSourceHandle);
+  const output = skipPrimaryOutput ? '' : await executeNode(outputNodeId, outputSourceHandle);
   throwIfAborted(signal);
-  for (const handle of auxiliaryOutputHandles) {
+  // A structured-action reply (actions-v1/staged-v1) makes highlighting-context,
+  // phone-message, social-media and autoplay redundant - those are folded into the
+  // JSON envelope's own actions instead - but 'output-actions' (choices, info boxes,
+  // progress bars, tab/player controls) is a wholly separate legacy auxiliary prompt
+  // channel with no actions-v1 equivalent; it must still run so a graph that wires it
+  // up keeps working regardless of the RP Output's action protocol.
+  for (const handle of auxiliaryOutputHandles.filter((candidate) => !structuredActionContext || candidate === 'output-actions')) {
     throwIfAborted(signal);
     onAuxiliaryOutput?.(handle, await executeNode(outputNodeId, handle));
   }
   const isRpOutputRun = nodeById.get(outputNodeId)?.data.nodeType === 'output';
-  if (isRpOutputRun) {
+  if (isRpOutputRun && !structuredActionContext) {
     await Promise.all(
       nodes
         .filter(

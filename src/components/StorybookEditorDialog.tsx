@@ -15,9 +15,22 @@ import {
   rpStorybookEditorJsonView,
 } from '../nodes/rp-storybook-editor/rawJson';
 import { JsonSyntaxTextarea } from '../nodes/shared/JsonSyntaxTextarea';
+import { NodeCustomSelect } from '../nodes/shared/NodeCustomSelect';
 import { useBackdropDismiss } from './useBackdropDismiss';
 
 type ViewMode = 'fields' | 'preview' | 'json';
+
+/** Sentinel option value meaning "no per-character override; use the route's own default
+ * Activeness" — distinct from every real tier (0-4), so it never collides with a set value. */
+const useRouteDefaultActiveness = -1;
+const activenessOverrideOptions = [
+  { value: useRouteDefaultActiveness, label: 'Use route default' },
+  { value: 0, label: 'Off' },
+  { value: 1, label: 'Low' },
+  { value: 2, label: 'Medium' },
+  { value: 3, label: 'High' },
+  { value: 4, label: 'Always' },
+];
 type StorybookSection = 'intro' | 'scenario' | 'history' | 'characters' | 'phone' | 'gallery' | 'social' | 'bank';
 
 type StorybookEditorDialogProps = {
@@ -319,6 +332,20 @@ function StorybookDraftEditor({
             </StorybookEditableField>
             <StorybookEditableField label="Speech Style" hint="dialogue voice">
               <BufferedTextarea value={character.speechStyle} spellCheck={false} onCommit={(value) => setCharacter({ speechStyle: value })} />
+            </StorybookEditableField>
+            <StorybookEditableField label="Activeness" hint="Decision workflow: how often this character does more than the one necessary action">
+              <NodeCustomSelect
+                value={character.decisionSettings?.activeness ?? useRouteDefaultActiveness}
+                onChange={(value) =>
+                  setCharacter({
+                    decisionSettings: {
+                      ...character.decisionSettings,
+                      activeness: value === useRouteDefaultActiveness ? undefined : value,
+                    },
+                  })
+                }
+                options={activenessOverrideOptions}
+              />
             </StorybookEditableField>
             <StorybookEditableField label="Appearance" hint="image generation context" wide>
               <BufferedTextarea

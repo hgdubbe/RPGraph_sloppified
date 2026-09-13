@@ -56,7 +56,7 @@ test('edits step-specific fields, copies once, explains policies, and preserves 
 });
 
 test('bundled planning workflow uses coherent topics and supports regrouping', async () => {
-  const workflow = JSON.parse(readFileSync('workflow.default_planning_v25.json', 'utf8'));
+  const workflow = JSON.parse(readFileSync('default_workflows/workflow.default_planning_v26.json', 'utf8'));
   const node = workflow.nodes.find((entry: { data: { nodeType: string } }) => entry.data.nodeType === 'llm-prompt-switch');
   app = await launchAppWithWorkflow({ ...workflow, nodes: [{ ...node, position: { x: 40, y: 20 } }], edges: [], viewport: { x: 0, y: 0, zoom: 0.7 } });
   const { page } = app;

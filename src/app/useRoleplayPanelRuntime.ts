@@ -4,6 +4,7 @@ import {
   useMemo,
   useRef,
   useState,
+  type SetStateAction,
 } from 'react';
 import {
   validSmoothChatAutoScrollMinSpeed,
@@ -146,9 +147,30 @@ export function useRoleplayPanelRuntime({
   const [savedDynamicSocialUsers, setDynamicSocialUsers] = useState<DynamicSocialUsers>({});
   const [socialConnectionsByCharacter, setSocialConnectionsByCharacter] =
     useState<SocialConnectionsByCharacter>({});
-  // Notes and ChatGPD chats per character id; part of the RP save.
-  const [phoneNotesByCharacter, setPhoneNotesByCharacter] = useState<PhoneNotesByCharacter>({});
-  const [chatGpdChatsByCharacter, setChatGpdChatsByCharacter] = useState<ChatGpdChatsByCharacter>({});
+  // Notes and ChatGPD chats per character id; part of the RP save. Mirrored into refs
+  // (like turnsRef in useTurnRecordState.ts) because a session snapshot taken from
+  // within a useEffect right after a commit otherwise risks reading a stale closure of
+  // this state if that effect's own re-render happens to run before this update lands -
+  // observed as a real, intermittent, silent turn-autosave gap for actions-v1 model-
+  // authored note.write/assistant.chat commits.
+  const [phoneNotesByCharacter, setPhoneNotesByCharacterState] = useState<PhoneNotesByCharacter>({});
+  const phoneNotesByCharacterRef = useRef(phoneNotesByCharacter);
+  const setPhoneNotesByCharacter = (update: SetStateAction<PhoneNotesByCharacter>) => {
+    const next = typeof update === 'function'
+      ? (update as (current: PhoneNotesByCharacter) => PhoneNotesByCharacter)(phoneNotesByCharacterRef.current)
+      : update;
+    phoneNotesByCharacterRef.current = next;
+    setPhoneNotesByCharacterState(next);
+  };
+  const [chatGpdChatsByCharacter, setChatGpdChatsByCharacterState] = useState<ChatGpdChatsByCharacter>({});
+  const chatGpdChatsByCharacterRef = useRef(chatGpdChatsByCharacter);
+  const setChatGpdChatsByCharacter = (update: SetStateAction<ChatGpdChatsByCharacter>) => {
+    const next = typeof update === 'function'
+      ? (update as (current: ChatGpdChatsByCharacter) => ChatGpdChatsByCharacter)(chatGpdChatsByCharacterRef.current)
+      : update;
+    chatGpdChatsByCharacterRef.current = next;
+    setChatGpdChatsByCharacterState(next);
+  };
   const [onlyFriendsPurchasesByCharacter, setOnlyFriendsPurchasesByCharacter] =
     useState<OnlyFriendsPurchasesByCharacter>({});
   const [phoneHomeRequestId, setPhoneHomeRequestId] = useState(0);
@@ -1514,8 +1536,10 @@ export function useRoleplayPanelRuntime({
     addSocialConnection,
     phoneNotesByCharacter,
     setPhoneNotesByCharacter,
+    phoneNotesByCharacterRef,
     chatGpdChatsByCharacter,
     setChatGpdChatsByCharacter,
+    chatGpdChatsByCharacterRef,
     toggleSocialLike,
     onlyFriendsPurchasesByCharacter,
     setOnlyFriendsPurchasesByCharacter,

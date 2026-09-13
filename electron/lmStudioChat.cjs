@@ -102,7 +102,7 @@ function lmStudioChatBody(request, stream = false, reasoningProfile) {
   return body;
 }
 
-function lmStudioResponseText(result, options = {}) {
+function lmStudioResponseText(result) {
   if (!result || typeof result !== 'object' || !Array.isArray(result.output)) {
     return '';
   }
@@ -110,13 +110,7 @@ function lmStudioResponseText(result, options = {}) {
     .filter((item) => item && item.type === 'message' && typeof item.content === 'string')
     .map((item) => item.content)
     .join('');
-  if (messageText || !options.allowReasoningFallback) {
-    return messageText;
-  }
-  return result.output
-    .filter((item) => item && item.type === 'reasoning' && typeof item.content === 'string')
-    .map((item) => item.content)
-    .join('');
+  return messageText;
 }
 
 class LmStudioSseParser {

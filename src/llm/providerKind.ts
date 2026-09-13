@@ -2,6 +2,7 @@ import type { ConnectionPreset, LlmProviderKind } from '../types';
 
 const llmProviderKinds = [
   'lm-studio',
+  'unsloth',
   'llama-cpp',
   'ollama',
   'openrouter',
@@ -44,6 +45,7 @@ function matchesLocalDefaultPort(connection: ConnectionPreset, port: string): bo
 export function inferredProviderKind(connection: ConnectionPreset): LlmProviderKind {
   const label = connection.label.toLowerCase();
   const isLocal = isLocalProviderConnection(connection);
+  if ((label.includes('unsloth') && isLocal) || matchesLocalDefaultPort(connection, '8888')) return 'unsloth';
   if ((label.includes('lm studio') && isLocal) || matchesLocalDefaultPort(connection, '1234')) {
     return 'lm-studio';
   }
@@ -87,6 +89,10 @@ export function isOllamaConnection(connection: ConnectionPreset): boolean {
 
 export function isLlamaCppConnection(connection: ConnectionPreset): boolean {
   return llmProviderKind(connection) === 'llama-cpp';
+}
+
+export function isManagedLocalConnection(connection: ConnectionPreset): boolean {
+  return isLlamaCppConnection(connection) || llmProviderKind(connection) === 'unsloth';
 }
 
 export function isOpenRouterConnection(connection: ConnectionPreset): boolean {

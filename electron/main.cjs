@@ -7,6 +7,8 @@ const http = require('node:http');
 const https = require('node:https');
 const os = require('node:os');
 const path = require('node:path');
+const { createUnslothApi } = require('./unslothApi.cjs');
+const { responseContractOptions, assertResponseContractFinished } = require('./providers/responseContracts.cjs');
 const { currentScryptParameters } = require('./encryptionFormat.cjs');
 const {
   currentEncryptedSessionEnvelopeFormatVersion,
@@ -39,6 +41,18 @@ const {
 const {
   registerCrashDiagnostics,
 } = require('./ipc/crashDiagnostics.cjs');
+const {
+  readEffectJournal,
+  recordEffectAttempt,
+  recordEffectOutcome,
+  clearEffectJournalForScope,
+  clearAllEffectJournal,
+} = require('./ipc/effectJournal.cjs');
+const {
+  readStagedRecoveryForSession,
+  writeStagedRecoveryForSession,
+  clearStagedRecoveryForSession,
+} = require('./ipc/stagedRecovery.cjs');
 const {
   assertChatCompletionRequest,
   assertSettingsPayload,
@@ -139,13 +153,18 @@ function resolveProjectPath(relativePath) {
   return resolved;
 }
 
+function defaultWorkflowsDirectory() {
+  return path.join(projectRootPath, 'default_workflows');
+}
+
 function bundledDefaultWorkflowPaths() {
-  const names = bundledDefaultWorkflowFileNames(fsSync.readdirSync(projectRootPath));
+  const directory = defaultWorkflowsDirectory();
+  const names = bundledDefaultWorkflowFileNames(fsSync.readdirSync(directory));
   if (names.length === 0) {
     throw new Error('No workflow.default*.json file was found in the app directory.');
   }
   return names.map((name) => {
-    const resolved = path.resolve(projectRootPath, name);
+    const resolved = path.resolve(directory, name);
     approvedWorkflowPaths.add(resolved);
     return resolved;
   });
@@ -735,6 +754,36 @@ async function ensureBundledDefaultWorkflowFiles(overwriteExisting) {
   );
 }
 
+const defaultSampleSessionFileNamePattern = /^sample\.default.*\.json$/i;
+
+function bundledSampleSessionPaths() {
+  const directory = defaultWorkflowsDirectory();
+  return fsSync.readdirSync(directory)
+    .filter((name) => defaultSampleSessionFileNamePattern.test(name))
+    .map((name) => path.resolve(directory, name));
+}
+
+// Simpler than the bundled-workflow seeding above: a sample is seeded once, by exact target
+// file name, and then behaves like any other file the user owns (no "restore"/"activate as
+// primary" semantics — if the user edits, renames or deletes it, that's their file now).
+async function seedBundledSampleSessions() {
+  const directory = filesDirectory();
+  await fs.mkdir(directory, { recursive: true });
+  const seeded = [];
+  for (const bundledPath of bundledSampleSessionPaths()) {
+    const fileName = path.basename(bundledPath).replace(/^sample\.default_/i, '');
+    const filePath = path.join(directory, fileName);
+    if (fsSync.existsSync(filePath)) {
+      continue;
+    }
+    const contents = await fs.readFile(bundledPath, 'utf8');
+    await writeNewTextFileAtomically(filePath, contents);
+    approveFilePath(filePath);
+    seeded.push({ fileName, filePath });
+  }
+  return seeded;
+}
+
 async function importMissingBundledDefaultWorkflows() {
   const bundledPaths = bundledDefaultWorkflowPaths();
   const initialState = await loadWorkflowState();
@@ -834,6 +883,28 @@ async function loadTurnAutosaveFile() {
     }
   }
   return null;
+}
+
+/**
+ * Every valid rolling turn-autosave slot, newest first, instead of silently picking one.
+ * Lets the renderer ask the user which backup to restore at startup rather than always
+ * auto-loading the single newest file (there are only ever `turnAutosaveFileNames.length`
+ * slots, so this is never more than a couple of reads).
+ */
+async function listTurnAutosaveFiles() {
+  const newestFirst = (await turnAutosaveCandidates()).reverse();
+  const results = [];
+  for (const candidate of newestFirst) {
+    if (candidate.mtimeMs < 0) {
+      continue;
+    }
+    try {
+      results.push(await readTurnAutosaveFile(candidate.fileName));
+    } catch {
+      continue;
+    }
+  }
+  return results;
 }
 
 function unsupportedSessionFormatError(envelope) {
@@ -1890,6 +1961,9 @@ function chatCompletionReasoningOptions(connection) {
   if (!supportedReasoningEfforts.has(effort)) {
     return {};
   }
+  if (connection?.providerKind === 'unsloth') {
+    return { enable_thinking: effort !== 'none', reasoning_effort: effort };
+  }
   if (connection?.providerKind === 'llama-cpp') {
     if (effort === 'none') {
       return {
@@ -2304,7 +2378,6 @@ async function lmStudioReasoningProfile(connection, abort) {
 
 async function requestLmStudioChat(request, abort) {
   const reasoningProfile = await lmStudioReasoningProfile(request.connection, abort);
-  const allowReasoningFallback = request?.connection?.reasoningEffort === 'none';
   const response = await requestLlmResponse(lmStudioEndpoint(request.connection, 'chat'), {
     method: 'POST',
     headers: requestHeaders(request.connection),
@@ -2314,7 +2387,7 @@ async function requestLmStudioChat(request, abort) {
     throw new Error(await readError(response));
   }
   const result = await response.json();
-  const text = lmStudioResponseText(result, { allowReasoningFallback });
+  const text = lmStudioResponseText(result);
   if (!text) {
     throw new Error(
       'LM Studio returned a response without message text. The model may have emitted only reasoning/tool data, stopped early, or been interrupted. Try the request again after confirming the model is loaded.',
@@ -2325,7 +2398,6 @@ async function requestLmStudioChat(request, abort) {
 
 async function streamLmStudioChat(request, abort, onText) {
   const reasoningProfile = await lmStudioReasoningProfile(request.connection, abort);
-  const allowReasoningFallback = request?.connection?.reasoningEffort === 'none';
   const response = await requestLlmResponse(lmStudioEndpoint(request.connection, 'chat'), {
     method: 'POST',
     headers: requestHeaders(request.connection),
@@ -2368,7 +2440,7 @@ async function streamLmStudioChat(request, abort, onText) {
       const result = payload?.result && typeof payload.result === 'object' ? payload.result : {};
       usage = result.stats;
       if (!text) {
-        text = lmStudioResponseText(result, { allowReasoningFallback });
+        text = lmStudioResponseText(result);
       }
     }
   }
@@ -2444,6 +2516,10 @@ async function waitForLlamaCppStatus(connection, modelId, expected, abort) {
 }
 
 async function ensureLlamaCppModelLoaded(connection, abort) {
+  if (connection?.providerKind === 'unsloth') {
+    await unslothApi.load(connection, abort);
+    return;
+  }
   if (connection?.providerKind !== 'llama-cpp') return;
   const modelId = typeof connection?.model === 'string' ? connection.model.trim() : '';
   if (!modelId) throw new Error('Choose a model ID before loading a llama.cpp model.');
@@ -3050,6 +3126,7 @@ async function freeComfyMemoryForLocalLlm(connection) {
     providerKind === 'lm-studio' ||
     providerKind === 'ollama' ||
     providerKind === 'llama-cpp' ||
+    providerKind === 'unsloth' ||
     isLocalLlmBaseUrl(connection?.baseUrl);
   if (!comfyBaseUrl || !shouldFreeBeforeLlm) {
     return;
@@ -3606,6 +3683,33 @@ ipcMain.handle('lmstudio:list-models', async (_event, request) => {
     abort.dispose();
   }
 });
+
+const unslothApi = createUnslothApi(async (url, connection, body, abort) => {
+  const response = await requestLlmResponse(url, {
+    method: body === undefined ? 'GET' : 'POST',
+    headers: requestHeaders(connection),
+    ...(body === undefined ? {} : { body: JSON.stringify(body) }),
+  }, abort);
+  if (!response.ok) throw new Error(`Unsloth (${response.status}): ${await readError(response)}`);
+  return JSON.parse(await response.text());
+});
+
+for (const operation of ['list', 'load', 'probe', 'unload']) {
+  ipcMain.handle(`unsloth:${operation}`, async (_event, request) => {
+    const connection = request?.connection;
+    const abort = createLlmAbortController(request);
+    try {
+      if (connection?.providerKind !== 'unsloth') throw new Error('Expected an Unsloth connection.');
+      if (operation === 'load') await freeComfyMemoryForLocalLlm(connection);
+      return await unslothApi[operation](connection, abort);
+    } catch (error) {
+      if (abort.signal.aborted) return cancelledLlmIpcResult();
+      return failedLlmIpcResult(error);
+    } finally {
+      abort.dispose();
+    }
+  });
+}
 
 ipcMain.handle('llamacpp:list-models', async (_event, request) => {
   const connection = request?.connection ?? request;
@@ -4390,6 +4494,7 @@ ipcMain.handle('llm:chat-completion', async (_event, rawRequest) => {
           content: chatMessageContent(request.prompt, request.images),
         }],
         ...chatCompletionReasoningOptions(request.connection),
+        ...await responseContractOptions(request, unslothApi.status, abort),
         ...chatCompletionSamplingOptions(request),
         ...(Number.isInteger(request.maxTokens) && request.maxTokens > 0
           ? { max_tokens: request.maxTokens }
@@ -4404,6 +4509,7 @@ ipcMain.handle('llm:chat-completion', async (_event, rawRequest) => {
     const result = await response.json();
     const choice = result.choices?.[0];
     const content = textFromChatChoice(choice);
+    assertResponseContractFinished(request, choice?.finish_reason);
     if (!content) {
       throw emptyChatCompletionTextError(choice);
     }
@@ -4682,6 +4788,7 @@ ipcMain.handle('llm:chat-completion-stream', async (event, rawRequest) => {
           content: chatMessageContent(request.prompt, request.images),
         }],
         ...chatCompletionReasoningOptions(request.connection),
+        ...await responseContractOptions(request, unslothApi.status, abort),
         ...chatCompletionSamplingOptions(request),
         ...(Number.isInteger(request.maxTokens) && request.maxTokens > 0
           ? { max_tokens: request.maxTokens }
@@ -4747,6 +4854,7 @@ ipcMain.handle('llm:chat-completion-stream', async (event, rawRequest) => {
       consumeLine(buffered);
     }
 
+    assertResponseContractFinished(request, finishReason);
     if (!content) {
       throw emptyChatCompletionTextError({ finish_reason: finishReason });
     }
@@ -5346,6 +5454,11 @@ ipcMain.handle('workflow:load-startup', async () => {
   } catch (error) {
     console.error('Unable to import bundled default workflows:', error);
   }
+  try {
+    await seedBundledSampleSessions();
+  } catch (error) {
+    console.error('Unable to seed bundled sample sessions:', error);
+  }
   let files = await workflowFiles();
   if (files.length === 0) {
     await restoreDefaultWorkflowFile();
@@ -5496,6 +5609,50 @@ ipcMain.handle('autosave:load-turn', async () => {
     }
     throw error;
   }
+});
+
+ipcMain.handle('autosave:list-turns', async () => {
+  try {
+    return await listTurnAutosaveFiles();
+  } catch (error) {
+    if (error && error.code === 'ENOENT') {
+      return [];
+    }
+    throw error;
+  }
+});
+
+const effectJournalOptions = () => ({ directory: filesDirectory() });
+
+ipcMain.handle('journal:record-attempt', async (_event, entry) => {
+  await recordEffectAttempt(entry, effectJournalOptions());
+});
+
+ipcMain.handle('journal:record-outcome', async (_event, { operationId, outcome }) => {
+  await recordEffectOutcome(operationId, outcome, effectJournalOptions());
+});
+
+ipcMain.handle('journal:read', async () => readEffectJournal(effectJournalOptions()));
+
+ipcMain.handle('journal:clear', async (_event, scope) => {
+  await clearEffectJournalForScope(scope, effectJournalOptions());
+});
+
+ipcMain.handle('journal:clear-all', async () => {
+  await clearAllEffectJournal(effectJournalOptions());
+});
+
+const stagedRecoveryOptions = () => ({ directory: filesDirectory() });
+
+ipcMain.handle('staged-recovery:read', async (_event, sessionFileName) =>
+  readStagedRecoveryForSession(sessionFileName, stagedRecoveryOptions()));
+
+ipcMain.handle('staged-recovery:write', async (_event, { sessionFileName, retry, error }) => {
+  await writeStagedRecoveryForSession(sessionFileName, retry, error, stagedRecoveryOptions());
+});
+
+ipcMain.handle('staged-recovery:clear', async (_event, sessionFileName) => {
+  await clearStagedRecoveryForSession(sessionFileName, stagedRecoveryOptions());
 });
 
 ipcMain.handle('image:select', async (_event, request = {}) => {

@@ -20,6 +20,10 @@ function llmConnection(patch: Partial<ConnectionPreset>): ConnectionPreset {
 }
 
 describe('provider kind detection', () => {
+  it('accepts and infers the local Unsloth endpoint', () => {
+    expect(validLlmProviderKind('unsloth')).toBe('unsloth');
+    expect(inferredProviderKind(llmConnection({ baseUrl: 'http://127.0.0.1:8888/v1' }))).toBe('unsloth');
+  });
   it('accepts and infers Venice providers', () => {
     expect(validLlmProviderKind('venice')).toBe('venice');
     expect(inferredProviderKind(llmConnection({

@@ -105,6 +105,8 @@ export type ExecuteContext<TLlm = NodeLlmApi, TTextMetrics = TextMetricsApi> = {
   outputNodeId: string;
   sourceHandle?: string | null;
   directActionOnly?: boolean;
+  structuredActionContext?: string;
+  legacyActionsDisabled?: boolean;
   streamOutput?: (text: string) => void;
   llm: TLlm;
   textMetrics: TTextMetrics;

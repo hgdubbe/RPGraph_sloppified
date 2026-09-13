@@ -14,6 +14,7 @@ import './responseRouter.css';
 import { PromptSectionEditor } from './PromptSectionEditor';
 import { RouterHelp } from './RouterHelp';
 import { assembleSections } from './promptSections';
+import { managedActionPromptText } from '../../actions/promptPreset';
 
 const inputPorts = [
   ['text', 'Text'], ['image', 'Images'], ['output-channel', 'Output selection'], ['prompt-slot', 'Prompt selection'],
@@ -50,6 +51,9 @@ export function ResponseRouterCard({ id, data }: NodeProps<WorkflowNode>) {
   const selectedPromptIndex = editorData.llmPromptSwitchSelectedPromptSlot ?? 0;
   const selectedOutput = editorConfig.outputs[selectedOutputIndex] ?? editorConfig.outputs[0];
   const selectedRoute = selectedOutput.routes[selectedPromptIndex] ?? selectedOutput.routes[0];
+  const managedActions = view.edges.some((edge) => edge.source === id && edge.sourceHandle === selectedOutput.handle
+    && (!edge.targetHandle || edge.targetHandle === 'default' || edge.targetHandle === 'phone-message')
+    && view.nodes.some((node) => node.id === edge.target && node.data.nodeType === 'output' && node.data.actionProtocol === 'actions-v1'));
   const steps = buildPromptStepChain(selectedRoute.before, selectedRoute.after);
   const stepIssues = steps.flatMap((step, index) => stepOutputTokenNames(`${step.before}\n${step.after}`)
     .filter((name) => !steps.slice(0, index).some((previous) => previous.name === name))
@@ -248,7 +252,7 @@ export function ResponseRouterCard({ id, data }: NodeProps<WorkflowNode>) {
               changeConnection: (_id, value) => updateDraft(id, { connectionId: value }),
             }}>
               <LlmPromptSwitchNodeCard id={id} data={editorData} editorOnly structuredEditor={<PromptSectionEditor
-                key={selectedRoute.id} route={selectedRoute} config={editorConfig} onChange={(sections) => changeConfig({ ...editorConfig,
+                key={selectedRoute.id} route={selectedRoute} config={editorConfig} managedActions={managedActions} onChange={(sections) => changeConfig({ ...editorConfig,
                   outputs: editorConfig.outputs.map((output) => ({ ...output, routes: output.routes.map((route) => route.id === selectedRoute.id
                     ? { ...route, sections, ...assembleSections(sections) } : route) })),
                 })} />} confirmRemoval={(kind) => window.confirm(kind === 'output'
@@ -260,7 +264,10 @@ export function ResponseRouterCard({ id, data }: NodeProps<WorkflowNode>) {
               {stepIssues.map((issue, index) => <p key={index} className="router-error">{issue}</p>)}
               <pre>{data.llmPromptSwitchDebug?.inputValue ?? 'Not run yet'}</pre>
             </details>
-            <details><summary>Preview assembly</summary><pre>{assemblePrompt(selectedRoute, data.llmPromptSwitchDebug?.inputValue ?? '', view.settingsValueDefinitions, view.settingsValues).combinedPrompt}</pre></details>
+            <details><summary>Preview assembly</summary><pre>{[
+              assemblePrompt(selectedRoute, data.llmPromptSwitchDebug?.inputValue ?? '', view.settingsValueDefinitions, view.settingsValues).combinedPrompt,
+              managedActions ? managedActionPromptText : '',
+            ].filter(Boolean).join('\n\n')}</pre></details>
             <details><summary>Routing and compatibility</summary>
               <RouterHelp topic="selectors" />
               <label>Output selector<input type="number" min="0" step="1" value={selectedOutput.selector} onChange={(event) => {

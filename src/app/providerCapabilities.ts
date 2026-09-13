@@ -2,7 +2,7 @@ import {
   isCompositeConnection,
   isGeminiConnection,
   isLmStudioConnection,
-  isLlamaCppConnection,
+  isManagedLocalConnection,
   isOllamaConnection,
   isOpenRouterConnection,
   isVeniceConnection,
@@ -279,7 +279,7 @@ export function connectionWithLlamaCppCapabilities(
   connection: ConnectionPreset,
   models: LlamaCppModelInfo[],
 ): ConnectionPreset {
-  if (!isLlamaCppConnection(connection)) return connection;
+  if (!isManagedLocalConnection(connection)) return connection;
   return { ...connection, vision: llamaCppCapabilitiesForConnection(connection, models).vision === true };
 }
 

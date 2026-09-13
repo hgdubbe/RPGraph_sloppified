@@ -30,6 +30,7 @@ export type ConnectionReasoningEffort =
 
 export type LlmProviderKind =
   | 'lm-studio'
+  | 'unsloth'
   | 'llama-cpp'
   | 'ollama'
   | 'openrouter'
@@ -359,10 +360,51 @@ type WorkflowNodeCommonFields = {
   };
   connectionId?: string;
   streamOutputEnabled?: boolean;
+  actionProtocol?: 'legacy' | 'actions-v1' | 'staged-v1' | 'decision-v1';
   speakerAnalysisEnabled?: boolean;
   dialogueHighlightEnabled?: boolean;
   outputSpeakerResponseFormat?: OutputSpeakerResponseFormat;
   outputSpeakerPrompt?: OutputSpeakerPromptSettings;
+  stagedInstructions?: StagedInstructionsSettings;
+  stagedBeatsLimit?: number;
+  stagedCallsLimit?: number;
+  stagedGenerationsLimit?: number;
+  /** How many extra plan+run rounds (staged-v1 only) the model may request beyond the first
+   * when one round can't fit the whole scene. 0 (default) matches pre-existing behavior. */
+  stagedContinuationsLimit?: number;
+  /** Route-authored recipe allow-list (S9). Omit/empty means unrestricted. */
+  stagedAllowedRecipes?: string[];
+  /** Decision-v1-only presentation controls (structural-variety punch-list item). 0-4 tiers;
+   * omitted means the middle tier (2), matching "balanced" as the unset default. */
+  decisionNarrativeness?: number;
+  /** Default Activeness used for any character with no per-character override
+   * (`RpStorybookCharacter.decisionSettings.activeness`). 0-4 tiers, omitted means tier 2. */
+  decisionDefaultActiveness?: number;
+  /** Hard cap on non-narration action blocks per turn, 0-5. 0 is legitimate (a character can
+   * choose to take no action, e.g. freeze in shock). Omitted means unset -> resolves to a
+   * default in useGraphRun.ts's resolveDecisionComposition. */
+  decisionMaxActionsPerTurn?: number;
+  /** ON: the model must never narrate/voice the user's own character. OFF: the model may
+   * continue the scene autonomously, including the user's character's beats. Omitted means ON
+   * (respect user agency by default). */
+  decisionRespectUserAgency?: boolean;
+  /** Decision Router node only: free-text style/tone guidance folded into every decision-v1
+   * content prompt. Omitted/empty means no extra guidance (unchanged behavior). */
+  decisionStyleTone?: string;
+  /** Decision Router node only: free text appended to the sequence-selection prompt (which
+   * block types happen this turn). */
+  decisionSequenceGuidance?: string;
+  /** Decision Router node only: per-block-type before/after text wrapped around that block's
+   * built-in instruction. Keyed by `DecisionBlockType` (staged-workflow/decisionSequence.ts) —
+   * kept as a plain string key here rather than importing that type, to avoid a
+   * types.ts <-> staged-workflow import cycle. */
+  decisionBlockPromptOverrides?: Record<string, { before?: string; after?: string }>;
+  /** Decision Router node only: session-only run status for its card preview, never persisted. */
+  decisionRouterLastRun?: { status: 'ok' | 'error'; error?: string };
+  /** Read-only debug text for the last staged turn attempt on this route (S9): which stages
+   * ran, their dependencies/status, and the beats they compose. Session-only, like the other
+   * `*LastPrompt`/`*LastResponse` debug fields — never persisted to the workflow file. */
+  stagedLastPlanDebug?: string;
   inputAPreview?: string;
   inputBPreview?: string;
   writeTextValue?: string;
@@ -484,6 +526,11 @@ export type OutputSpeakerPromptSettings = {
   customText?: string;
 };
 
+export type StagedInstructionsSettings = {
+  mode: 'default' | 'custom';
+  customText?: string;
+};
+
 type CoreWorkflowNodeCommonFields = WorkflowNodeCommonFields & {
   kind?: undefined;
   storedData?: undefined;
@@ -512,6 +559,7 @@ type MemorySlotNodeData = CoreWorkflowNodeCommonFields & {
 type PhoneMessageRouterNodeData = CoreWorkflowNodeCommonFields & { nodeType: 'phone-message-router' };
 type TextSelectorNodeData = CoreWorkflowNodeCommonFields & { nodeType: 'text-selector' };
 type LlmPromptSwitchNodeData = CoreWorkflowNodeCommonFields & { nodeType: 'llm-prompt-switch' };
+type DecisionRouterNodeData = CoreWorkflowNodeCommonFields & { nodeType: 'decision-router' };
 type FixedNumberNodeData = CoreWorkflowNodeCommonFields & { nodeType: 'fixed-number' };
 type FixedBoolNodeData = CoreWorkflowNodeCommonFields & { nodeType: 'fixed-bool' };
 type SettingsValueNodeData = CoreWorkflowNodeCommonFields & { nodeType: 'settings-value' };
@@ -549,6 +597,7 @@ type ConcreteCoreWorkflowNodeData =
   | PhoneMessageRouterNodeData
   | TextSelectorNodeData
   | LlmPromptSwitchNodeData
+  | DecisionRouterNodeData
   | FixedNumberNodeData
   | FixedBoolNodeData
   | SettingsValueNodeData
@@ -989,6 +1038,7 @@ export type AppSettings = {
     nodeTextSize?: 'small' | 'normal' | 'big';
     uiScale?: number;
     retryFormatErrorsEnabled?: boolean;
+    stagedAutoRetryAttempts?: number;
     turnAutosaveEnabled?: boolean;
     dialogueVoiceMode?: DialogueVoiceMode;
     dialogueNarratorProviderId?: string;

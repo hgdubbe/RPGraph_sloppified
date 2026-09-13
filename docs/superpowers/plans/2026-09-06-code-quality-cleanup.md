@@ -1,6 +1,6 @@
 # Code Quality Cleanup Implementation Plan
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+> **For agentic workers:** Implement this plan task-by-task from the current source and the dated checkpoints below. The earlier superpowers skill requirement has been retired; do not depend on it. Steps use checkbox (`- [ ]`) syntax for tracking, but dated consolidation notes are the authoritative current queue when older checklist text conflicts.
 
 **Goal:** Improve RPGraph Studio's code quality step by step without changing user-facing behavior unless a task explicitly says so.
 
@@ -10,7 +10,72 @@
 
 **Spec:** `docs/review/code-quality-cleanup-findings.md`
 
-**Current checkpoint (2026-09-07):** H1-H3, the prompt-authoring insertion, Task 9, H4a's compiler and H4b's isolated execution boundary are implemented. H4 remains unfinished and is not active in live workflows. Next: shared provider-facing schemas, production catalogs/adapters and opt-in single execution ownership. See [verification and remaining runtime work](../../review/action-runtime-progress.md) and the [legacy prompt migration guide](../../guides/action-prompt-migration.md). Legacy/Strict remains selector-validation behavior only.
+## Consolidated Current State (2026-09-10)
+
+This roadmap is broader than the staged data-model work. The staged workflow plan is a sub-track inside the larger cleanup/action-runtime overhaul, not a replacement for the remaining app cleanup tasks.
+
+**Use these documents as the current source of truth:**
+
+| Document | Role |
+|---|---|
+| [action-runtime-progress.md](../../review/action-runtime-progress.md) | Chronological ledger of completed work, verification and explicit limits. |
+| [2026-09-09-staged-workflow.md](2026-09-09-staged-workflow.md) | Current S1-S10 staged workflow/data-model sub-roadmap. |
+| This file | Parent roadmap for Electron, IPC, providers, graph execution, phone/social outputs, action runtime, UI cleanup, persistence, gates and merge. |
+| [redesign-current-state.md](../../review/redesign-current-state.md) | Historical redesign audit and older task gap record; useful context, not the freshest S6 status. |
+
+**Finished or substantially finished in the parent cleanup:**
+
+- Tasks 1-4: cleanup baseline, Electron diagnostics, IPC payload validators and core IPC validation.
+- Task 6: grouped preload API capabilities.
+- Tasks 7-8: graph run request object adapter and migration.
+- Task 9: phone/social output commit helpers.
+- Task 12: centralized phone mood/status module.
+- H1-H3: response-router redesign catch-up and prompt authoring foundations.
+- Structured v1 action-runtime foundation and first vertical slice for image generation plus WhatsUp delivery.
+- Staged workflow S1-S5.
+
+**Partially finished; do not mark complete yet:**
+
+- Task 5 provider cleanup: LM Studio/Unsloth work exists, but provider contracts and all adapters are not complete.
+- H4 typed action contracts/execution ownership: compiler/runtime/shared schemas exist, but direct/legacy migration, full registry/capability/rendering metadata and remaining operation adapters are open.
+- H5 image plus WhatsUp vertical slice: core path works, but broader acceptance/failure/duplicate-prevention coverage remains.
+- H6 provider contracts: response-schema bridge work exists, but corrected nested-schema verification and other provider capability handling remain open.
+- Staged workflow S1-S7: as of 2026-09-11, `useGraphRun`'s `staged-v1` path runs a real, opt-in, end-to-end turn — live context capture, planner call, compile, real content generation, real effects through the shared `actions-v1` executor, deterministic composition (`composeReply.ts`) and a real commit into chat/turn history/autosave — verified by a new Electron regression (`test/e2e/stagedWorkflow.spec.ts`). See [progress](../../review/action-runtime-progress.md#2026-09-11-s7-composer--live-turn-commit-roadmap-m3--staged-workflow-v1-produces-real-output). Still narrow: only 4 recipes advertised, image generation fails structurally, no continuation planning. S8-S10 remain open.
+- H7 durable lifecycle, first slice: as of 2026-09-11, a real effect journal durably records every WhatsUp send/image generation attempted through the shared executor (both `actions-v1` and `staged-v1`), fail-closed before the real effect and cleared once the enclosing turn actually commits. See [progress](../../review/action-runtime-progress.md#2026-09-11-h7-first-slice--effect-journal-roadmap-m4). Reconciliation, safe retry-without-regenerating, and action-preserving regeneration remain unimplemented by design — this slice only stops silent evidence loss, it does not yet recover from it automatically.
+
+**Still open in the parent roadmap:**
+
+- Task 10 normalized settings model.
+- Task 11 storybook Apply Draft/editor state cleanup.
+- Task 13 RoleplayPhoneDevice chrome cleanup.
+- Task 14 PhoneDesktop extraction.
+- Task 15 app shell/session persistence cleanup; coordinate with H7.
+- Task 16 workflow validation test-suite split.
+- H7 remaining: recovery, reconciliation, retry-without-regenerating, action-preserving regeneration and Task 15 coordination (the operation journal itself is now a first slice — see "Partially finished" above).
+- Tasks 17-18 final quality gates and merge.
+- Staged workflow S7-S10: executor/composer, durable recovery, editor/migration and rollout/family acceptance.
+
+**Single next implementation target:** the S10 model-authorable family rollout is complete as of 2026-09-12 — `social.post`/`social.comment`, `voice.message`, `note.write`, `bank.transfer`, `assistant.chat` and `image.generate` are all live end to end for both `actions-v1` and `staged-v1`, verified by real committed effects in their own Electron regressions (`socialActions.spec.ts`, `voiceMessage.spec.ts`, `noteWrite.spec.ts`/`stagedBankingNotes.spec.ts`, `assistantChat.spec.ts`/`stagedAssistantChat.spec.ts`, `stagedImageGeneration.spec.ts`). See [docs/handoff/2026-09-12-assistant-chat-staged-done.md](../../handoff/2026-09-12-assistant-chat-staged-done.md) (a new `messages` staged-compiler content-step kind) and the [image-generation progress log entry](../../review/action-runtime-progress.md#2026-09-12-image-generation-works-in-staged-mode-roadmap-m8-comfyui-runner-extraction) (the ComfyUI runner extracted out of `executeGraph` into `src/graph/comfyImageRunner.ts`, shared by every protocol now) for the two families that needed real infrastructure rather than a same-pattern adapter. Only `choice.information`/`ui.control` remain off staged-v1, and not for lack of an adapter — staged mode has no auxiliary-prompt-channel mechanism to attach them to at all. The roadmap's own first full mixed acceptance scene (message -> narration -> bank receipt -> message w/ generated image -> social comment -> narration) is now delivered too, as `test/e2e/stagedMixedScene.spec.ts`. S8 durable recovery also has its first slice as of 2026-09-12: retrying a failed staged turn no longer regenerates an already-generated image (or repeats any other already-succeeded stage), with both an automatic retry (a new `stagedAutoRetryAttempts` setting) and a manual Retry/Dismiss banner — see [the progress log](../../review/action-runtime-progress.md#2026-09-12-s8-first-slice--retry-without-regenerating-roadmap-m10). Next real targets, in order: the rest of S8 (session-persisted reconciliation across an app restart, action-preserving regeneration), S9 editor/migration, and the `choice.information`/`ui.control` staged mechanism. Do not jump to broad UI cleanup until the live staged boundary is coherent.
+
+## Active Direction: Staged Workflows (2026-09-09)
+
+The user-approved [full staged-workflow handoff](../../design/STAGED-WORKFLOW-HANDOFF-2026-09-09.md) has been read in full and incorporated into the [ordered S1-S10 implementation plan](2026-09-09-staged-workflow.md). This is the primary next direction and supersedes the older "Next" instructions below about investing in giant model-authored action envelopes. Those sections are historical checkpoints, not the current execution queue.
+
+Capture typed GH/LM/OC/I variables, produce compact plans, generate each creative component in a separate selected-input LLM run, and compose arbitrary presentation beats deterministically from drafts and actual receipts. Keep presentation order separate from dependencies. Reuse the validated action executor and cover all existing action families with explicit permission/capability gates. Preserve Legacy and Structured v1 beside an opt-in Staged Workflow v1.
+
+**Current staged position:** S1-S7 support one real, minimal, opt-in end-to-end staged turn as of 2026-09-11 (narration + a WhatsUp message, committed through the same executor/commit primitives as `actions-v1`), now backed by a durable effect journal (H7 first slice, also 2026-09-11). The next staged task is S10 family rollout and continuation planning. No production-scale family coverage, editor migration, or reconciliation/retry is claimed yet. Per user request, routine steps use affected-module tests; broad suites are reserved for integration checkpoints. H4-H7 and whole-app cleanup remain open. The pending live Unsloth nested-schema check remains documented compatibility work. Backup provenance, boundaries and rollout gates are linked in the staged plan.
+
+## Historical Checkpoints
+
+**2026-09-09 H6a checkpoint:** Final Structured v1 requests now carry a registered response contract through the LLM/IPC pipeline. Unsloth GGUF uses a provider-compatible JSON schema; planning and unsupported backends retain their existing behavior. See [implementation and live verification limits](../../guides/action-schema-contract.md#2026-09-09-unsloth-contract-bridge) and [progress](../../review/action-runtime-progress.md#2026-09-09-h6a-unsloth-response-contract). Next: recheck the corrected nested schema with a loaded model, then bounded pre-execution correction and verified support for other providers. Do not mark H6 or H7 complete.
+
+**2026-09-09 schema checkpoint:** Shared version-1 reply/argument/receipt schemas now feed compiler field sets and limits, registered wrapper normalization, execution receipt fields/retry policy, and the router's application-owned technical prompt. See [implementation contract and remaining boundaries](../../guides/action-schema-contract.md) and [verification](../../review/action-runtime-progress.md#2026-09-09-shared-schema-checkpoint). 262 unit tests and four Electron baseline/action tests pass. Next: H6's explicit optional provider response-schema bridge and verified provider/model support. H4 capability/rendering metadata, bounded correction and H7 durable recovery remain open.
+
+**2026-09-08 provider insertion:** Added the user-requested local Unsloth provider before resuming the action roadmap: native discovery/load/unload, automatic residency checks, image-generation memory handoff, OpenAI-compatible buffered/SSE responses and cancellation. See [setup, API sources, implementation references and verification limits](../../guides/unsloth-provider.md). Live streaming passed with the already resident model; load/unload mutations were tested against an isolated HTTP fixture. This does not advance the remaining H4-H7 action-runtime work.
+
+**2026-09-08 addition:** The [planning action baseline](../../../workflows/default-planning-actions-v1.json) now preserves Planning -> Main and automatic chance outcomes. A whole-response JSON-fence parser fixes code-fenced model replies without weakening compiler validation. See [verification and remaining work](../../review/action-runtime-progress.md#2026-09-08-planning-baseline-and-fenced-reply-parsing). Action-preserving regeneration remains open, not silently enabled.
+
+**Current checkpoint (2026-09-07):** H1-H3, prompt authoring, Task 9 and the H4 compiler/runtime foundation are implemented. An experimental RP Output opt-in now uses real storybook catalogs, Comfy image generation and phone receipts. The router automatically supplies read-only technical action instructions; users author creative directions instead of schemas/ID boilerplate. H4-H7 remain incomplete. Next: shared machine-readable provider schemas, broader H5 acceptance and remaining adapters/recovery. See [verification and remaining runtime work](../../review/action-runtime-progress.md) and the [legacy prompt migration guide](../../guides/action-prompt-migration.md). Legacy/Strict remains selector-validation behavior only.
 
 **User-requested insertion after H3 (2026-09-07):** Structured prompt sections, copy-once reuse, contextual router help and importable default prompts are implemented. See the [implementation record](2026-09-07-prompt-sections.md) and [imports/usage/verification](../../../prompts/README.md). This is an authoring improvement, not the less LLM-dependent action runtime.
 
@@ -86,7 +151,7 @@ Acceptance: every imported valid pair reaches the same prompt/output; deletion l
 
 ### H4: Shared Typed Action Contracts and Execution Ownership
 
-**In progress: H4a compiler plus H4b isolated execution, not a live runtime.** `src/actions/` defines image/WhatsUp contracts, compiles structural image dependencies, executes through supplied adapters, revalidates references and verifies acknowledgements. 24 compiler tests, 12 runtime tests and one guide-example test pass. Shared model-facing schemas, production catalogs/adapters, direct/legacy migration, rendering and durable ownership remain open. The broad H4 checkboxes below deliberately remain unchecked; see the [detailed checkpoint](../../review/action-runtime-progress.md) and [prompt migration instructions](../../guides/action-prompt-migration.md).
+**In progress: compiler/runtime plus experimental live RP integration.** `src/actions/` validates image/WhatsUp operations, rechecks real storybook catalogs and executes existing Comfy/phone adapters. RP Output provides explicit saved opt-in. The router displays shared application-managed technical sections; the runtime injects those instructions and the live catalog automatically. Keep tone and creative content editable, and apply style to the final-response step. Shared machine-readable provider schemas, direct/legacy migration, other app operations and durable ownership remain open. The broad H4 checkboxes below deliberately remain unchecked; see the [detailed checkpoint](../../review/action-runtime-progress.md) and [prompt migration instructions](../../guides/action-prompt-migration.md).
 
 Sources: [pipeline proposal](../../design/RPGraph-redesign-handoff-2026-09-07/command-pipeline-proposal.md), [atlas sections 6-10](../../design/RPGraph-redesign-handoff-2026-09-07/DESIGN_ATLAS.md), [architecture graphic](../../design/RPGraph-redesign-handoff-2026-09-07/action-runtime-architecture.svg).
 
@@ -99,6 +164,8 @@ Sources: [pipeline proposal](../../design/RPGraph-redesign-handoff-2026-09-07/co
 Acceptance: repeated action types remain distinct ordered operations; invalid references cannot execute; workflow output ports and action destinations remain separate concepts.
 
 ### H5: Generated Images and WhatsUp as the First Vertical Slice
+
+The [importable default baseline](../../../workflows/default-actions-v1.json) now supplies the real graph/storybook for this slice, with managed RP/WhatsUp prompts and deterministic compatibility routing for social/autoplay. Keep [its setup and limits](../../../workflows/README.md) synchronized as adapters are added. Prompt authors should not need to maintain technical action schemas.
 
 Sources: [pipeline migration and verification](../../design/RPGraph-redesign-handoff-2026-09-07/command-pipeline-proposal.md), [atlas sections 6-8](../../design/RPGraph-redesign-handoff-2026-09-07/DESIGN_ATLAS.md).
 
@@ -124,6 +191,8 @@ Acceptance: provider limitations are explicit; each migrated operation shares do
 ### H7: Durable Lifecycle, Recovery and Full-App Verification
 
 Sources: [atlas sections 9-11](../../design/RPGraph-redesign-handoff-2026-09-07/DESIGN_ATLAS.md), [handoff action acceptance checks](../../design/RPGraph-redesign-handoff-2026-09-07/HANDOFF.md#required-acceptance-checks).
+
+**2026-09-11 (roadmap M4):** first slice landed — a durable effect journal (`electron/ipc/effectJournal.cjs`) records every real effect's attempt/outcome around the shared `actions-v1`/`staged-v1` executor (`src/actions/runtime.ts`'s new `JournalAdapter`), fail-closed before the effect and cleared once the enclosing turn commits. This is real operation identity/attempt-outcome durability, not the full checkbox below yet: no automatic reconciliation, no coordination with Task 15 (still separate), no retry/regeneration semantics. See [progress log](../../review/action-runtime-progress.md#2026-09-11-h7-first-slice--effect-journal-roadmap-m4).
 
 - [ ] Document and implement operation states, stable operation identity, artifact persistence and delivery receipts. Coordinate the journal/save boundary with Task 15 session persistence and existing two-slot autosaves.
 - [ ] Define cancellation, retry, restart, provisional text, outcome-unknown, prose regeneration/reflavor and action replacement/branch semantics. Regenerating prose must not silently replay committed effects.

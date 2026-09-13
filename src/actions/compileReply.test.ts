@@ -7,13 +7,21 @@ function catalog(): ActionCatalog {
   return {
     scope: { ...scope },
     entries: [
-      { handle: 'person_1', id: 'alice-id', kind: 'character', state: 'available', saveId: 'save', branchId: 'branch', capabilities: ['whatsup.send', 'image.generate'] },
+      { handle: 'person_1', id: 'alice-id', kind: 'character', state: 'available', saveId: 'save', branchId: 'branch', capabilities: ['whatsup.send', 'image.generate', 'fotogram.social'], bankBalance: 100 },
       { handle: 'person_2', id: 'bob-id', kind: 'character', state: 'available', saveId: 'save', branchId: 'branch', capabilities: ['whatsup.receive'] },
       { handle: 'image_1', id: 'image-id', kind: 'image', state: 'available', saveId: 'save', branchId: 'branch', accessibleTo: ['alice-id'] },
     ],
   };
 }
 const send = () => ({ type: 'messenger.send', app: 'whatsup', from: 'person_1', to: 'person_2', text: 'Look!' });
+const post = () => ({ type: 'social.post', app: 'fotogram', author: 'person_1', caption: 'Look at this!' });
+const comment = () => ({ type: 'social.comment', app: 'fotogram', author: 'person_1', postId: 'fotogram-post-01', text: 'Nice!' });
+const transfer = () => ({ type: 'bank.transfer', from: 'person_1', to: 'person_2', amount: 25, note: 'For the cab.' });
+const note = () => ({ type: 'note.write', owner: 'person_1', title: 'Reminder', body: 'Buy milk.' });
+const chat = () => ({ type: 'assistant.chat', owner: 'person_1', messages: [
+  { role: 'user', text: 'What should I say to Bob?' },
+  { role: 'assistant', text: 'Try being honest with him.' },
+] });
 const envelope = (intent: unknown) => ({ version: 1, catalogId: scope.catalogId, blocks: [{ type: 'action', intent }] });
 const ids = () => { let next = 0; return vi.fn(() => `runtime-${++next}`); };
 
@@ -43,6 +51,17 @@ describe('strict action reply compilation', () => {
   it('binds stored images by stable identity, not narrative text', () => {
     const result = compileActionReply(envelope({ ...send(), attachment: { type: 'stored_image', ref: 'image_1' } }), catalog(), scope, ids());
     expect(result).toMatchObject({ ok: true, plan: { operations: [{ action: { attachment: { type: 'artifact', artifactId: 'image-id' } } }] } });
+  });
+
+  it('supports an optional voice-message flag on messenger.send, dropping it when false', () => {
+    const voice = compileActionReply(envelope({ ...send(), isVoiceMessage: true }), catalog(), scope, ids());
+    expect(voice).toMatchObject({ ok: true, plan: { operations: [{ action: { type: 'messenger.send', isVoiceMessage: true } }] } });
+    const notVoice = compileActionReply(envelope({ ...send(), isVoiceMessage: false }), catalog(), scope, ids());
+    expect(notVoice.ok).toBe(true);
+    if (!notVoice.ok) return;
+    expect(notVoice.plan.operations[0].action).not.toHaveProperty('isVoiceMessage');
+    expect(compileActionReply(envelope({ ...send(), isVoiceMessage: 'yes' }), catalog(), scope, ids()))
+      .toMatchObject({ ok: false, issues: [{ path: 'blocks[0].intent.isVoiceMessage', code: 'invalid-shape' }] });
   });
 
   it.each([
@@ -158,5 +177,106 @@ describe('strict action reply compilation', () => {
     const result = compileActionReply(envelope(send()), catalog(), currentScope, ids());
     currentScope.turnId = 'later-turn';
     expect(result).toMatchObject({ ok: true, plan: { scope, operations: [{ scope }] } });
+  });
+
+  it('accepts a social post/comment from a character with a configured account', () => {
+    const postResult = compileActionReply(envelope(post()), catalog(), scope, ids());
+    expect(postResult).toMatchObject({ ok: true, plan: { operations: [{ action: { type: 'social.post', app: 'fotogram', authorId: 'alice-id', caption: 'Look at this!' } }] } });
+    const commentResult = compileActionReply(envelope(comment()), catalog(), scope, ids());
+    expect(commentResult).toMatchObject({ ok: true, plan: { operations: [{ action: { type: 'social.comment', app: 'fotogram', authorId: 'alice-id', postId: 'fotogram-post-01', text: 'Nice!' } }] } });
+  });
+
+  it.each([
+    ['unknown app', { ...post(), app: 'myspace' }, 'invalid-shape'],
+    ['unknown author', { ...post(), author: 'Alice' }, 'unknown-reference'],
+    ['wrong reference type', { ...post(), author: 'image_1' }, 'wrong-reference-type'],
+    ['author without a configured account', { ...post(), author: 'person_2' }, 'unsupported-capability'],
+    ['empty caption', { ...post(), caption: '  ' }, 'invalid-shape'],
+  ])('rejects a social post with %s', (_label, intent, code) => {
+    expect(compileActionReply(envelope(intent), catalog(), scope, ids())).toMatchObject({ ok: false, issues: expect.arrayContaining([expect.objectContaining({ code })]) });
+  });
+
+  it.each([
+    ['unknown app', { ...comment(), app: 'myspace' }, 'invalid-shape'],
+    ['author without a configured account', { ...comment(), author: 'person_2' }, 'unsupported-capability'],
+    ['empty text', { ...comment(), text: '  ' }, 'invalid-shape'],
+  ])('rejects a social comment with %s', (_label, intent, code) => {
+    expect(compileActionReply(envelope(intent), catalog(), scope, ids())).toMatchObject({ ok: false, issues: expect.arrayContaining([expect.objectContaining({ code })]) });
+  });
+
+  it('accepts a bank transfer between two known characters, model-authored or not', () => {
+    const result = compileActionReply(envelope(transfer()), catalog(), scope, ids());
+    expect(result).toMatchObject({ ok: true, plan: { operations: [{ action: { type: 'bank.transfer', fromId: 'alice-id', toId: 'bob-id', amount: 25, note: 'For the cab.' } }] } });
+  });
+
+  it('drops a blank transfer note rather than storing an empty string', () => {
+    const result = compileActionReply(envelope({ ...transfer(), note: '  ' }), catalog(), scope, ids());
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.plan.operations[0].action).not.toHaveProperty('note');
+  });
+
+  it.each([
+    ['unknown recipient', { ...transfer(), to: 'Bob' }, 'unknown-reference'],
+    ['same account', { ...transfer(), to: 'person_1' }, 'invalid-destination'],
+    ['zero amount', { ...transfer(), amount: 0 }, 'invalid-shape'],
+    ['negative amount', { ...transfer(), amount: -5 }, 'invalid-shape'],
+    ['amount over the cap', { ...transfer(), amount: 2_000_000 }, 'invalid-shape'],
+    ['insufficient balance', { ...transfer(), amount: 1000 }, 'unsupported-capability'],
+    ['extra field', { ...transfer(), extra: true }, 'invalid-shape'],
+  ])('rejects a bank transfer with %s', (_label, intent, code) => {
+    const allocate = ids();
+    expect(compileActionReply(envelope(intent), catalog(), scope, allocate)).toMatchObject({ ok: false, issues: expect.arrayContaining([expect.objectContaining({ code })]) });
+    expect(allocate).not.toHaveBeenCalled();
+  });
+
+  it('accepts a note write for a known character, creating a new note by default', () => {
+    const result = compileActionReply(envelope(note()), catalog(), scope, ids());
+    expect(result).toMatchObject({ ok: true, plan: { operations: [{ action: { type: 'note.write', ownerId: 'alice-id', title: 'Reminder', body: 'Buy milk.' } }] } });
+    if (!result.ok) return;
+    expect(result.plan.operations[0].action).not.toHaveProperty('noteId');
+  });
+
+  it('accepts a note write with an explicit noteId to update an existing note', () => {
+    const result = compileActionReply(envelope({ ...note(), noteId: 'note-123' }), catalog(), scope, ids());
+    expect(result).toMatchObject({ ok: true, plan: { operations: [{ action: { type: 'note.write', ownerId: 'alice-id', noteId: 'note-123' } }] } });
+  });
+
+  it.each([
+    ['unknown owner', { ...note(), owner: 'Alice' }, 'unknown-reference'],
+    ['empty title', { ...note(), title: '  ' }, 'invalid-shape'],
+    ['empty body', { ...note(), body: '' }, 'invalid-shape'],
+    ['extra field', { ...note(), extra: true }, 'invalid-shape'],
+  ])('rejects a note write with %s', (_label, intent, code) => {
+    const allocate = ids();
+    expect(compileActionReply(envelope(intent), catalog(), scope, allocate)).toMatchObject({ ok: false, issues: expect.arrayContaining([expect.objectContaining({ code })]) });
+    expect(allocate).not.toHaveBeenCalled();
+  });
+
+  it('accepts a one-exchange assistant chat for a known character', () => {
+    const result = compileActionReply(envelope(chat()), catalog(), scope, ids());
+    expect(result).toMatchObject({ ok: true, plan: { operations: [{ action: { type: 'assistant.chat', ownerId: 'alice-id', messages: chat().messages } }] } });
+  });
+
+  it('accepts up to four alternating exchanges', () => {
+    const fourExchanges = { ...chat(), messages: Array.from({ length: 8 }, (_, index) => ({
+      role: index % 2 === 0 ? 'user' : 'assistant', text: `Message ${index}`,
+    })) };
+    expect(compileActionReply(envelope(fourExchanges), catalog(), scope, ids())).toMatchObject({ ok: true });
+  });
+
+  it.each([
+    ['unknown owner', { ...chat(), owner: 'Alice' }, 'unknown-reference'],
+    ['single message', { ...chat(), messages: [chat().messages[0]] }, 'invalid-shape'],
+    ['odd message count', { ...chat(), messages: [...chat().messages, { role: 'user', text: 'Anything else?' }] }, 'invalid-shape'],
+    ['too many exchanges', { ...chat(), messages: Array.from({ length: 10 }, (_, i) => ({ role: i % 2 === 0 ? 'user' : 'assistant', text: `m${i}` })) }, 'invalid-shape'],
+    ['starts with assistant', { ...chat(), messages: [{ role: 'assistant', text: 'Hi there.' }, { role: 'user', text: 'Hi.' }] }, 'invalid-shape'],
+    ['two user messages in a row', { ...chat(), messages: [{ role: 'user', text: 'One?' }, { role: 'user', text: 'Two?' }] }, 'invalid-shape'],
+    ['blank message text', { ...chat(), messages: [{ role: 'user', text: '  ' }, { role: 'assistant', text: 'Reply.' }] }, 'invalid-shape'],
+    ['extra field', { ...chat(), extra: true }, 'invalid-shape'],
+  ])('rejects an assistant chat with %s', (_label, intent, code) => {
+    const allocate = ids();
+    expect(compileActionReply(envelope(intent), catalog(), scope, allocate)).toMatchObject({ ok: false, issues: expect.arrayContaining([expect.objectContaining({ code })]) });
+    expect(allocate).not.toHaveBeenCalled();
   });
 });

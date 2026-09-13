@@ -21,13 +21,14 @@ export type WorkflowSaveScope = 'workflow' | 'workflow-storybook';
 
 type FileProtection = 'plain' | 'encrypted';
 
-type LoadedRpgraphFile = {
+export type LoadedRpgraphFile = {
   fileName: string;
   name: string;
   filePath: string;
   type: SavedFileSummary['type'];
   protection: SavedFileSummary['protection'];
   value: unknown;
+  savedAt?: string;
 };
 
 type StartupWorkflowLoadOptions = {
@@ -89,6 +90,7 @@ export function useRpgraphFiles({
   setActiveStorybookProtection,
   clearWorkspaceForLockedStartup,
 }: UseRpgraphFilesOptions) {
+  const [turnAutosaveChoices, setTurnAutosaveChoices] = useState<LoadedRpgraphFile[] | null>(null);
   const [showFiles, setShowFiles] = useState(false);
   const [savedFiles, setSavedFiles] = useState<SavedFileSummary[]>([]);
   const [selectedFile, setSelectedFile] = useState<string | null>(null);
@@ -867,47 +869,86 @@ export function useRpgraphFiles({
     }
   }
 
+  async function applyTurnAutosaveChoice(autosave: LoadedRpgraphFile) {
+    applyLoadedRpgraphFile(autosave);
+    setSelectedFile(autosave.fileName);
+    setSessionName(autosave.name);
+    setSessionPassword('');
+    setSessionOverwritePending(false);
+    const savedAt = autosave.savedAt
+      ? new Date(autosave.savedAt).toLocaleString()
+      : 'the latest turn';
+    setFileStorageStatus(`Loaded turn autosave from ${savedAt}.`);
+    await refreshFiles(autosave.fileName);
+  }
+
+  async function loadNonAutosaveStartupWorkflow() {
+    const result = await window.rpgraph.loadStartupWorkflow();
+    if (result.requiresPassword) {
+      clearWorkspaceForLockedStartup();
+      setSelectedFile(result.fileName);
+      setSessionName(result.name);
+      setSessionPassword('');
+      setSessionOverwritePending(false);
+      setShowFiles(false);
+      setFileStorageStatus('The last workflow is password protected. Enter its password or PIN to continue.');
+      setSessionPasswordAction('load');
+      await refreshFiles(result.fileName);
+      return;
+    }
+    applyLoadedWorkflow(
+      result.workflow ?? result.value,
+      result.protection === 'plain' ? result.filePath : null,
+      'Loaded',
+      result.fileName,
+      result.protection === 'encrypted' ? result.fileName : undefined,
+    );
+    setActiveWorkflowProtection(result.protection === 'encrypted' ? 'encrypted' : 'plain');
+    setSelectedFile(result.fileName);
+    await refreshFiles(result.fileName);
+  }
+
   async function loadStartupWorkflow(options: StartupWorkflowLoadOptions = {}) {
     try {
       if (options.preferTurnAutosave) {
-        const autosave = await window.rpgraph.loadTurnAutosave();
-        if (autosave) {
-          applyLoadedRpgraphFile(autosave);
-          setSelectedFile(autosave.fileName);
-          setSessionName(autosave.name);
-          setSessionPassword('');
-          setSessionOverwritePending(false);
-          const savedAt = autosave.savedAt
-            ? new Date(autosave.savedAt).toLocaleString()
-            : 'the latest turn';
-          setFileStorageStatus(`Loaded turn autosave from ${savedAt}.`);
-          await refreshFiles(autosave.fileName);
+        const autosaves = await window.rpgraph.listTurnAutosaves();
+        if (autosaves.length > 1) {
+          // More than one rolling backup exists — ask which one to restore instead of
+          // silently picking the newest, so a mid-write/corrupted latest slot doesn't
+          // silently win over a good older one.
+          setTurnAutosaveChoices(autosaves);
+          return;
+        }
+        if (autosaves.length === 1) {
+          await applyTurnAutosaveChoice(autosaves[0]);
           return;
         }
       }
-      const result = await window.rpgraph.loadStartupWorkflow();
-      if (result.requiresPassword) {
-        clearWorkspaceForLockedStartup();
-        setSelectedFile(result.fileName);
-        setSessionName(result.name);
-        setSessionPassword('');
-        setSessionOverwritePending(false);
-        setShowFiles(false);
-        setFileStorageStatus('The last workflow is password protected. Enter its password or PIN to continue.');
-        setSessionPasswordAction('load');
-        await refreshFiles(result.fileName);
-        return;
-      }
-      applyLoadedWorkflow(
-        result.workflow ?? result.value,
-        result.protection === 'plain' ? result.filePath : null,
-        'Loaded',
-        result.fileName,
-        result.protection === 'encrypted' ? result.fileName : undefined,
+      await loadNonAutosaveStartupWorkflow();
+    } catch (error) {
+      notifySystem(
+        'error',
+        `Startup workflow load failed: ${error instanceof Error ? error.message : String(error)}`,
       );
-      setActiveWorkflowProtection(result.protection === 'encrypted' ? 'encrypted' : 'plain');
-      setSelectedFile(result.fileName);
-      await refreshFiles(result.fileName);
+    }
+  }
+
+  async function chooseTurnAutosave(autosave: LoadedRpgraphFile) {
+    setTurnAutosaveChoices(null);
+    try {
+      await applyTurnAutosaveChoice(autosave);
+    } catch (error) {
+      notifySystem(
+        'error',
+        `Startup workflow load failed: ${error instanceof Error ? error.message : String(error)}`,
+      );
+    }
+  }
+
+  async function declineTurnAutosaveChoices() {
+    setTurnAutosaveChoices(null);
+    try {
+      await loadNonAutosaveStartupWorkflow();
     } catch (error) {
       notifySystem(
         'error',
@@ -1021,6 +1062,9 @@ export function useRpgraphFiles({
   }
 
   return {
+    turnAutosaveChoices,
+    chooseTurnAutosave,
+    declineTurnAutosaveChoices,
     showFiles,
     setShowFiles,
     savedFiles,

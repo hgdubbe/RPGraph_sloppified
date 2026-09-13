@@ -10,6 +10,7 @@ import type { StorybookCharacter } from '../storybook/runtime';
 import type { TurnReplacement } from '../chat/useTurnRecordState';
 import type { StructuredInputPayload } from '../chat/structuredCommands';
 import type { SocialThreadRunContext } from '../chat/socialMedia';
+import type { StagedRetryState } from '../staged-workflow/runLiveStagedTurn';
 
 export type RunGraphPhoneMessageSound = 'sent' | 'received';
 
@@ -38,6 +39,20 @@ export type RunGraphRequest = {
   directActionOnly?: boolean;
   socialDirectMessage?: SocialDirectMessageRecord;
   contextComment?: string;
+  /**
+   * S8 restart recovery (second slice): resumes a durably persisted, previously-failed
+   * staged/decision turn instead of planning/compiling a fresh one from `inputText` — see
+   * App.tsx's `checkStagedRecoveryForSession`. When set, `inputText` and the other normal
+   * input-driven fields are ignored by the resumed staged turn itself (though `inputText`
+   * should still be passed as `''` since `runGraph` reads it before branching on this).
+   * `sessionFileName` is the exact file the persisted record was read from — `runGraph`
+   * uses it (not `stagedRecoveryAnchorRef`) for this run's own write-on-failure/clear-on-
+   * success, since the ref can rotate to a different slot before the user even clicks Retry
+   * (a redundant autosave fires almost immediately after a restore, in a fresh renderer
+   * where `lastTurnAutosaveIdRef` has reset) — using the ref here would silently target the
+   * wrong file and leave the real record orphaned.
+   */
+  resumeStagedRetry?: { retry: StagedRetryState; sessionFileName: string };
 };
 
 export type NormalizedRunGraphRequest = RunGraphRequest & {

@@ -12,6 +12,7 @@ import {
   type RpStorybookCharacterProfileImage,
   type RpStorybookCharacterVoiceConfig,
   type RpStorybookCharacterPhoneSettings,
+  type RpStorybookCharacterDecisionSettings,
 } from '../nodes/rp-storybook/model';
 
 /**
@@ -52,6 +53,7 @@ export type StorybookCharacter = {
   phoneSettings: RpStorybookCharacterPhoneSettings;
   banking: RpStorybookCharacterBanking;
   social: RpStorybookCharacterSocial;
+  decisionSettings?: RpStorybookCharacterDecisionSettings;
 };
 
 export type StorybookImageList = {
@@ -126,6 +128,7 @@ export function storyCharactersFromNodes(nodes: WorkflowNode[]): StorybookCharac
         phoneSettings: character.phoneSettings ?? defaultRpStorybookCharacterPhoneSettings(),
         banking: character.banking ?? defaultRpStorybookCharacterBanking(),
         social: character.social ?? defaultRpStorybookCharacterSocial(),
+        ...(character.decisionSettings ? { decisionSettings: character.decisionSettings } : {}),
       };
     });
   });

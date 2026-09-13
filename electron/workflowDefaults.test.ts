@@ -23,6 +23,21 @@ describe('workflow defaults', () => {
     );
   });
 
+  it('ranks a decision file after planning, which stays after the plain original', () => {
+    assert.deepEqual(
+      bundledDefaultWorkflowFileNames([
+        'workflow.default_planning_v26.json',
+        'workflow.default_v26.json',
+        'workflow.default_decision_v26.json',
+      ]),
+      [
+        'workflow.default_v26.json',
+        'workflow.default_planning_v26.json',
+        'workflow.default_decision_v26.json',
+      ],
+    );
+  });
+
   it('normalizes imported default file names from state', () => {
     assert.deepEqual(
       importedDefaultFileNamesFromState({

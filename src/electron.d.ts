@@ -16,6 +16,19 @@ import type {
 import type { RpStorybook } from './nodes/rp-storybook/model';
 import type { RpCharacterCard } from './storybook/characterCard';
 import type { RpgraphSessionV2 } from './data-management/types';
+import type { ActionScope } from './actions/contracts';
+import type { ActionResult } from './actions/executionRegistry';
+import type { SerializedStagedRetryState } from './staged-workflow/stagedRetryPersistence';
+
+type EffectJournalEntry = {
+  operationId: string;
+  scope: ActionScope;
+  actionType: string;
+  status: 'pending' | 'committed' | 'failed';
+  result?: ActionResult;
+  error?: string;
+  recordedAt: string;
+};
 
 type SelectedImageFile = {
   name: string;
@@ -33,6 +46,10 @@ declare global {
       ) => Promise<string[]>;
       listLmStudioModels: (connection: ConnectionPreset) => Promise<LmStudioModelInfo[]>;
       listLlamaCppModels: (connection: ConnectionPreset) => Promise<LlamaCppModelInfo[]>;
+      listUnslothModels: (connection: ConnectionPreset) => Promise<LlamaCppModelInfo[]>;
+      loadUnslothModel: (connection: ConnectionPreset) => Promise<{ loadedModel: string }>;
+      isUnslothModelLoaded: (connection: ConnectionPreset) => Promise<{ loaded: boolean; status: string }>;
+      unloadUnslothModels: (connection: ConnectionPreset) => Promise<{ unloadedCount: number; models: string[] }>;
       loadLlamaCppModel: (connection: ConnectionPreset) => Promise<{ loadedModel: string }>;
       isLlamaCppModelLoaded: (connection: ConnectionPreset) => Promise<{ loaded: boolean; status: LlamaCppModelInfo['status'] }>;
       unloadLlamaCppModels: (connection: ConnectionPreset) => Promise<{ unloadedCount: number; models: string[] }>;
@@ -79,6 +96,7 @@ declare global {
       }>;
       chatCompletion: (
         request: {
+          responseContract?: 'actions-v1';
           connection: ConnectionPreset;
           prompt: string;
           images?: ChatImageAttachment[];
@@ -92,6 +110,7 @@ declare global {
       ) => Promise<LlmCompletionResult>;
       streamChatCompletion: (
         request: {
+          responseContract?: 'actions-v1';
           connection: ConnectionPreset;
           prompt: string;
           images?: ChatImageAttachment[];
@@ -446,6 +465,35 @@ declare global {
         value: unknown;
         savedAt?: string;
       } | null>;
+      listTurnAutosaves: () => Promise<Array<{
+        fileName: string;
+        name: string;
+        filePath: string;
+        type: SavedFileSummary['type'];
+        protection: SavedFileSummary['protection'];
+        envelopeFormatVersion?: string;
+        formatVersion?: string;
+        workflowFormatVersion?: string;
+        compatible?: boolean;
+        value: unknown;
+        savedAt?: string;
+      }>>;
+      recordEffectJournalAttempt: (entry: { operationId: string; scope: ActionScope; actionType: string }) => Promise<void>;
+      recordEffectJournalOutcome: (
+        operationId: string,
+        outcome: { status: 'committed' | 'failed'; result?: ActionResult; error?: string },
+      ) => Promise<void>;
+      readEffectJournal: () => Promise<EffectJournalEntry[]>;
+      clearEffectJournal: (scope: ActionScope) => Promise<void>;
+      clearAllEffectJournal: () => Promise<void>;
+      readStagedRecovery: (sessionFileName: string) => Promise<{
+        sessionFileName: string;
+        retry: SerializedStagedRetryState;
+        error: string;
+        recordedAt: string;
+      } | null>;
+      writeStagedRecovery: (sessionFileName: string, retry: SerializedStagedRetryState, error: string) => Promise<void>;
+      clearStagedRecovery: (sessionFileName: string) => Promise<void>;
       saveStorybook: (
         name: string,
         storybook: RpStorybook,

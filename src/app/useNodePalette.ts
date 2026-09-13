@@ -85,7 +85,7 @@ const nodePaletteGroups: Array<{
   },
   {
     title: 'LLM & Logic',
-    types: ['custom', 'llm-prompt', 'llm-prompt-switch', 'llm-decision', 'context-compression', 'event-manager', 'character-stats', 'phone-apps'],
+    types: ['custom', 'llm-prompt', 'llm-prompt-switch', 'decision-router', 'llm-decision', 'context-compression', 'event-manager', 'character-stats', 'phone-apps'],
   },
   {
     title: 'Text & Values',

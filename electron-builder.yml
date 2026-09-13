@@ -10,7 +10,7 @@ directories:
 files:
   - dist/**/*
   - electron/**/*
-  - workflow.default*.json
+  - default_workflows/**/*.json
   - comfy-workflows/api-workflows-with-variables/**/*
   - comfy-workflows/normal-comfyui-workflows/**/*
   - src/assets/app-icons/rpgraph.png

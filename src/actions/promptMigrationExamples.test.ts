@@ -6,7 +6,7 @@ import type { ActionCatalog } from './contracts';
 describe('published prompt migration examples', () => {
   it('shows the complete default RP-with-image prompt and every rewrite change without omitted lines', () => {
     const read = (path: string) => readFileSync(new URL(path, import.meta.url), 'utf8').replace(/\r\n/g, '\n').trimEnd();
-    const workflow = JSON.parse(read('../../workflow.default_v25.json'));
+    const workflow = JSON.parse(read('../../default_workflows/workflow.default_v26.json'));
     const node = workflow.nodes.find((entry: { id: string }) => entry.id === 'llm-prompt-switch-4f07f33e-3db7-4d8d-b3f9-4e5bee791e20');
     const route = node.data.responseRouter.outputs[0].routes[0];
     expect(route.title).toBe('RP Prompt with Image');

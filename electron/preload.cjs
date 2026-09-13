@@ -63,6 +63,10 @@ const rpgraphApi = {
     ipcRenderer.invoke('lmstudio:list-models', { connection }).then(throwIfRpgraphIpcError),
   listLlamaCppModels: (connection) =>
     ipcRenderer.invoke('llamacpp:list-models', { connection }).then(throwIfRpgraphIpcError),
+  listUnslothModels: (connection) => ipcRenderer.invoke('unsloth:list', { connection }).then(throwIfRpgraphIpcError),
+  loadUnslothModel: (connection) => ipcRenderer.invoke('unsloth:load', { connection }).then(throwIfRpgraphIpcError),
+  isUnslothModelLoaded: (connection) => ipcRenderer.invoke('unsloth:probe', { connection }).then(throwIfRpgraphIpcError),
+  unloadUnslothModels: (connection) => ipcRenderer.invoke('unsloth:unload', { connection }).then(throwIfRpgraphIpcError),
   loadLlamaCppModel: (connection) =>
     ipcRenderer.invoke('llamacpp:load-model', { connection }),
   isLlamaCppModelLoaded: (connection) =>
@@ -196,6 +200,15 @@ const rpgraphApi = {
     ipcRenderer.invoke('session:save', { name, session, protection, password, overwrite }),
   saveTurnAutosave: (session) => ipcRenderer.invoke('autosave:save-turn', session),
   loadTurnAutosave: () => ipcRenderer.invoke('autosave:load-turn'),
+  listTurnAutosaves: () => ipcRenderer.invoke('autosave:list-turns'),
+  recordEffectJournalAttempt: (entry) => ipcRenderer.invoke('journal:record-attempt', entry),
+  recordEffectJournalOutcome: (operationId, outcome) => ipcRenderer.invoke('journal:record-outcome', { operationId, outcome }),
+  readEffectJournal: () => ipcRenderer.invoke('journal:read'),
+  clearEffectJournal: (scope) => ipcRenderer.invoke('journal:clear', scope),
+  clearAllEffectJournal: () => ipcRenderer.invoke('journal:clear-all'),
+  readStagedRecovery: (sessionFileName) => ipcRenderer.invoke('staged-recovery:read', sessionFileName),
+  writeStagedRecovery: (sessionFileName, retry, error) => ipcRenderer.invoke('staged-recovery:write', { sessionFileName, retry, error }),
+  clearStagedRecovery: (sessionFileName) => ipcRenderer.invoke('staged-recovery:clear', sessionFileName),
   saveStorybook: (name, storybook, protection, password, overwrite = false) =>
     ipcRenderer.invoke('storybook:save', { name, storybook, protection, password, overwrite }),
   saveCharacter: (name, characterCard, protection, password, overwrite = false) =>

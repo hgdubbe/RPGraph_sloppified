@@ -1,11 +1,12 @@
 import { useMemo, useState } from 'react';
+import { managedActionPromptSections, managedActionPromptText } from '../../actions/promptPreset';
 import type { ResponseRouterConfig, RouterRoute } from './routerModel';
 import { addSection, assembleSections, copySection, mergeSectionWithPrevious, sectionCategories, sectionFields, splitPromptSections, promptSectionSteps,
   type PromptSections, type SectionCategory } from './promptSections';
 
-type Props = { route: RouterRoute; config: ResponseRouterConfig; onChange: (sections: PromptSections) => void };
+type Props = { route: RouterRoute; config: ResponseRouterConfig; managedActions?: boolean; onChange: (sections: PromptSections) => void };
 
-export function PromptSectionEditor({ route, config, onChange }: Props) {
+export function PromptSectionEditor({ route, config, managedActions = false, onChange }: Props) {
   const sections = useMemo(() => route.sections ?? splitPromptSections(route.before, route.after), [route.sections, route.before, route.after]);
   const fields = sectionFields(sections);
   const steps = promptSectionSteps(sections);
@@ -101,13 +102,20 @@ export function PromptSectionEditor({ route, config, onChange }: Props) {
         }}>+</button>
       </div>
       {error && <p role="alert" className="router-error">{error}</p>}
+      {managedActions && step[1] === 'response' && <section className="router-managed-actions" aria-label="Managed action instructions">
+        <h3>Action system <small>Application managed</small></h3>
+        {managedActionPromptSections.map((section) => <details className="router-prompt-section" key={section.id}>
+          <summary>{section.title}<small>Read-only</small></summary>
+          <pre>{section.text}</pre>
+        </details>)}
+      </section>}
     </div>
     <details><summary>Step preview</summary><pre>{(() => {
       const text = assembleSections({ ...sections,
         before: sections.before.filter((part) => part.kind === 'field' && part.step === step[0]),
         after: sections.after.filter((part) => part.kind === 'field' && part.step === step[0]),
       });
-      return [text.before, '[Connected text input]', text.after].filter(Boolean).join('\n\n');
+      return [text.before, '[Connected text input]', text.after, managedActions && step[1] === 'response' ? managedActionPromptText : ''].filter(Boolean).join('\n\n');
     })()}</pre></details>
   </section>;
 }

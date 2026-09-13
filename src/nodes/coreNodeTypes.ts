@@ -11,6 +11,7 @@ export const coreNodeTypes = [
   'phone-message-router',
   'text-selector',
   'llm-prompt-switch',
+  'decision-router',
   'fixed-number',
   'fixed-bool',
   'settings-value',

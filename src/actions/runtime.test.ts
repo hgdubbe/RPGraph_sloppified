@@ -17,11 +17,27 @@ function fixture() {
     messageId: 10, fromId: request.fromId, toId: request.toId, text: request.text,
     ...(request.artifactId ? { artifactId: request.artifactId } : {}),
   }));
+  const postSocial = vi.fn<ActionAdapters['postSocial']>(async (request) => ({
+    postId: 'post-1', authorId: request.authorId, app: request.app,
+  }));
+  const commentOnSocial = vi.fn<ActionAdapters['commentOnSocial']>(async (request) => ({
+    postId: request.postId, authorId: request.authorId, app: request.app, text: request.text,
+  }));
+  const transferFunds = vi.fn<ActionAdapters['transferFunds']>(async (request) => ({
+    fromId: request.fromId, toId: request.toId, amount: request.amount,
+  }));
+  const writeNote = vi.fn<ActionAdapters['writeNote']>(async (request) => ({
+    noteId: request.noteId ?? 'new-note', ownerId: request.ownerId,
+  }));
+  const simulateAssistantChat = vi.fn<ActionAdapters['simulateAssistantChat']>(async (request) => ({
+    chatId: 'new-chat', ownerId: request.ownerId,
+  }));
   let id = 0;
-  const options = { scope, getCatalog: () => structuredClone(catalog), allocateId: () => `id-${++id}`, adapters: { generateImage, sendMessage } };
+  const options = { scope, getCatalog: () => structuredClone(catalog), allocateId: () => `id-${++id}`,
+    adapters: { generateImage, sendMessage, postSocial, commentOnSocial, transferFunds, writeNote, simulateAssistantChat } };
   const intent = { type: 'messenger.send', app: 'whatsup', from: 'alice', to: 'bob', text: 'Look', attachment: { type: 'generate_image', owner: 'alice', description: 'A sunset' } };
   const input = { version: 1, catalogId: scope.catalogId, blocks: [{ type: 'action', intent }] };
-  return { catalog, generateImage, sendMessage, options, input };
+  return { catalog, generateImage, sendMessage, postSocial, commentOnSocial, transferFunds, writeNote, simulateAssistantChat, options, input };
 }
 
 describe('isolated action execution boundary', () => {
@@ -173,5 +189,74 @@ describe('isolated action execution boundary', () => {
     if (!prepared.ok) throw new Error('fixture did not compile');
     f.catalog.scope.branchId = 'other';
     expect(await prepared.execution.run()).toMatchObject({ error: 'Action scope changed before execution.', operations: [] });
+  });
+
+  describe('H7 effect journal', () => {
+    function journalFixture() {
+      const f = fixture();
+      const calls: string[] = [];
+      const recordAttempt = vi.fn(async (input: { operationId: string; actionType: string }) => {
+        calls.push(`attempt:${input.actionType}`);
+      });
+      const recordOutcome = vi.fn(async (input: { status: string }) => {
+        calls.push(`outcome:${input.status}`);
+      });
+      return { ...f, calls, recordAttempt, recordOutcome, options: { ...f.options, journal: { recordAttempt, recordOutcome } } };
+    }
+
+    it('records a durable attempt before each real effect and its outcome immediately after, per operation', async () => {
+      const f = journalFixture();
+      const prepared = prepareActionExecution(f.input, f.options);
+      if (!prepared.ok) throw new Error('fixture did not compile');
+      await prepared.execution.run();
+      expect(f.calls).toEqual(['attempt:image.generate', 'outcome:committed', 'attempt:messenger.send', 'outcome:committed']);
+      expect(f.recordAttempt).toHaveBeenCalledWith(expect.objectContaining({ scope, actionType: 'image.generate' }));
+    });
+
+    it('a rejected attempt write blocks the real effect entirely (fail closed)', async () => {
+      const f = journalFixture();
+      f.recordAttempt.mockRejectedValueOnce(new Error('disk full'));
+      const prepared = prepareActionExecution(f.input, f.options);
+      if (!prepared.ok) throw new Error('fixture did not compile');
+      const result = await prepared.execution.run();
+      expect(result.operations[0]).toMatchObject({ status: 'failed', error: 'disk full' });
+      expect(f.generateImage).not.toHaveBeenCalled();
+      expect(f.sendMessage).not.toHaveBeenCalled();
+      expect(f.recordOutcome).not.toHaveBeenCalled();
+    });
+
+    it('still records a failed outcome when the real effect throws after the attempt was journaled', async () => {
+      const f = journalFixture();
+      f.sendMessage.mockRejectedValue(new Error('lost acknowledgement'));
+      const prepared = prepareActionExecution(f.input, f.options);
+      if (!prepared.ok) throw new Error('fixture did not compile');
+      const result = await prepared.execution.run();
+      expect(result.operations[1]).toMatchObject({ status: 'outcome-unknown' });
+      expect(f.calls).toEqual(['attempt:image.generate', 'outcome:committed', 'attempt:messenger.send', 'outcome:failed']);
+    });
+
+    it('a failing outcome write never masks the original effect error reported to the caller', async () => {
+      const f = journalFixture();
+      f.sendMessage.mockRejectedValue(new Error('lost acknowledgement'));
+      // The first outcome write (image.generate committing) succeeds; the second
+      // (messenger.send failing) itself fails to write — that must not surface instead.
+      let outcomeCalls = 0;
+      f.recordOutcome.mockImplementation(async () => {
+        outcomeCalls += 1;
+        if (outcomeCalls === 2) throw new Error('journal write failed');
+      });
+      const prepared = prepareActionExecution(f.input, f.options);
+      if (!prepared.ok) throw new Error('fixture did not compile');
+      const result = await prepared.execution.run();
+      expect(result.operations[1]).toMatchObject({ status: 'outcome-unknown', error: 'lost acknowledgement' });
+    });
+
+    it('runs unaffected with no journal supplied at all', async () => {
+      const f = fixture();
+      const prepared = prepareActionExecution(f.input, f.options);
+      if (!prepared.ok) throw new Error('fixture did not compile');
+      const result = await prepared.execution.run();
+      expect(result.operations.map((operation) => operation.status)).toEqual(['committed', 'committed']);
+    });
   });
 });

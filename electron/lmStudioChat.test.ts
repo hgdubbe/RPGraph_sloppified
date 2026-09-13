@@ -95,7 +95,7 @@ describe('LM Studio native chat adapter', () => {
     })).toBe('Final answer');
   });
 
-  it('can recover reasoning-only output when LM Studio mislabels an answer with reasoning disabled', () => {
+  it('never promotes reasoning-only output to a final answer, even when reasoning was disabled', () => {
     const result = {
       output: [
         { type: 'reasoning', content: 'Visible answer' },
@@ -103,7 +103,6 @@ describe('LM Studio native chat adapter', () => {
     };
 
     expect(lmStudioResponseText(result)).toBe('');
-    expect(lmStudioResponseText(result, { allowReasoningFallback: true })).toBe('Visible answer');
   });
 
   it('parses fragmented native streaming events', () => {

@@ -110,6 +110,14 @@ const rpWeekdayLanguages = [
 ] as const satisfies readonly RpWeekdayLanguage[];
 const defaultGlassDesignEnabled = true;
 const defaultRetryFormatErrorsEnabled = true;
+export const defaultStagedAutoRetryAttempts = 3;
+export const maxStagedAutoRetryAttempts = 10;
+
+function validStagedAutoRetryAttempts(value?: number) {
+  return typeof value === 'number' && Number.isFinite(value)
+    ? Math.min(maxStagedAutoRetryAttempts, Math.max(0, Math.round(value)))
+    : defaultStagedAutoRetryAttempts;
+}
 const defaultTurnAutosaveEnabled = false;
 const defaultGlassDesignOpacity = 0.6;
 const defaultDialogueVoiceMode: DialogueVoiceMode = 'click';
@@ -854,6 +862,10 @@ function isAppSettings(value: unknown): value is AppSettings {
         settings.options.uiScale <= maxUiScale)) &&
     (settings.options.retryFormatErrorsEnabled === undefined ||
       typeof settings.options.retryFormatErrorsEnabled === 'boolean') &&
+    (settings.options.stagedAutoRetryAttempts === undefined ||
+      (typeof settings.options.stagedAutoRetryAttempts === 'number' &&
+        Number.isFinite(settings.options.stagedAutoRetryAttempts) &&
+        settings.options.stagedAutoRetryAttempts >= 0)) &&
     (settings.options.turnAutosaveEnabled === undefined ||
       typeof settings.options.turnAutosaveEnabled === 'boolean') &&
     (settings.options.dialogueVoiceMode === undefined ||
@@ -937,6 +949,8 @@ type AppSettingsState = {
   setUiScale: Dispatch<SetStateAction<number>>;
   retryFormatErrorsEnabled: boolean;
   setRetryFormatErrorsEnabled: Dispatch<SetStateAction<boolean>>;
+  stagedAutoRetryAttempts: number;
+  setStagedAutoRetryAttempts: Dispatch<SetStateAction<number>>;
   turnAutosaveEnabled: boolean;
   setTurnAutosaveEnabled: Dispatch<SetStateAction<boolean>>;
   dialogueVoiceMode: DialogueVoiceMode;
@@ -1004,6 +1018,9 @@ export function useAppSettings(): AppSettingsState {
   const [uiScale, setUiScale] = useState(defaultUiScale);
   const [retryFormatErrorsEnabled, setRetryFormatErrorsEnabled] = useState(
     defaultRetryFormatErrorsEnabled,
+  );
+  const [stagedAutoRetryAttempts, setStagedAutoRetryAttempts] = useState(
+    defaultStagedAutoRetryAttempts,
   );
   const [turnAutosaveEnabled, setTurnAutosaveEnabled] = useState(defaultTurnAutosaveEnabled);
   const [dialogueVoiceMode, setDialogueVoiceMode] = useState<DialogueVoiceMode>(
@@ -1102,6 +1119,9 @@ export function useAppSettings(): AppSettingsState {
         setRetryFormatErrorsEnabled(
           result.settings.options.retryFormatErrorsEnabled ?? defaultRetryFormatErrorsEnabled,
         );
+        setStagedAutoRetryAttempts(
+          validStagedAutoRetryAttempts(result.settings.options.stagedAutoRetryAttempts),
+        );
         setTurnAutosaveEnabled(
           result.settings.options.turnAutosaveEnabled ?? defaultTurnAutosaveEnabled,
         );
@@ -1176,6 +1196,7 @@ export function useAppSettings(): AppSettingsState {
         nodeTextSize: validNodeTextSize(nodeTextSize),
         uiScale: validUiScale(uiScale),
         retryFormatErrorsEnabled,
+        stagedAutoRetryAttempts: validStagedAutoRetryAttempts(stagedAutoRetryAttempts),
         turnAutosaveEnabled,
         dialogueVoiceMode,
         dialogueNarratorProviderId,
@@ -1235,6 +1256,7 @@ export function useAppSettings(): AppSettingsState {
     nodeTextSize,
     uiScale,
     retryFormatErrorsEnabled,
+    stagedAutoRetryAttempts,
     turnAutosaveEnabled,
     dialogueVoiceMode,
     dialogueNarratorProviderId,
@@ -1314,6 +1336,8 @@ export function useAppSettings(): AppSettingsState {
     setUiScale,
     retryFormatErrorsEnabled,
     setRetryFormatErrorsEnabled,
+    stagedAutoRetryAttempts,
+    setStagedAutoRetryAttempts,
     turnAutosaveEnabled,
     setTurnAutosaveEnabled,
     dialogueVoiceMode,

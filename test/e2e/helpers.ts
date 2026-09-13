@@ -4,8 +4,11 @@ import fsp from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import { currentCoreNodeVersions } from '../../src/nodes/nodeVersion';
+import { bundledDefaultWorkflowFileNames } from '../../electron/workflowDefaults.cjs';
+import type { AppSettings } from '../../src/types';
 
 const repoRoot = path.resolve(__dirname, '..', '..');
+const defaultWorkflowsDirectory = path.join(repoRoot, 'default_workflows');
 
 export type WorkflowFixture = {
   format: 'rpgraph-workflow';
@@ -28,13 +31,9 @@ export type LaunchedApp = {
 // is skipped (otherwise it clobbers lastWorkflowFileName and the default loads instead
 // of our fixture).
 function bundledDefaultBasename(): string {
-  const pattern = /^workflow\.default.*\.json$/i;
-  const names = fs
-    .readdirSync(repoRoot)
-    .filter((name) => pattern.test(name))
-    .sort((a, b) => a.localeCompare(b, undefined, { numeric: true }));
+  const names = bundledDefaultWorkflowFileNames(fs.readdirSync(defaultWorkflowsDirectory));
   if (names.length === 0) {
-    throw new Error('No workflow.default*.json found in the app directory.');
+    throw new Error('No workflow.default*.json found in default_workflows/.');
   }
   return names[names.length - 1];
 }
@@ -44,13 +43,14 @@ function bundledDefaultBasename(): string {
  * so there is no race) with `workflow` as the startup workflow. Dismisses the welcome
  * dialog. The caller must `cleanup()` in afterEach.
  */
-export async function launchAppWithWorkflow(workflow: WorkflowFixture): Promise<LaunchedApp> {
+export async function launchAppWithWorkflow(workflow: WorkflowFixture, settings?: AppSettings): Promise<LaunchedApp> {
   const distIndex = path.join(repoRoot, 'dist', 'index.html');
   if (!fs.existsSync(distIndex)) {
     throw new Error('dist/index.html is missing — run "npm run build" before the e2e suite.');
   }
 
   const profile = await fsp.mkdtemp(path.join(os.tmpdir(), 'rpgraph-e2e-'));
+  if (settings) await fsp.writeFile(path.join(profile, 'settings.json'), JSON.stringify(settings), 'utf8');
   await fsp.mkdir(path.join(profile, 'files'), { recursive: true });
   await fsp.writeFile(
     path.join(profile, 'files', 'fixture.json'),
@@ -61,6 +61,20 @@ export async function launchAppWithWorkflow(workflow: WorkflowFixture): Promise<
     path.join(profile, 'workflow-state.json'),
     JSON.stringify(
       { lastWorkflowFileName: 'fixture.json', importedDefaultFileName: bundledDefaultBasename() },
+      null,
+      2,
+    ),
+    'utf8',
+  );
+  // A fresh --user-data-dir has no window-state.json yet, and the app's own
+  // loadWindowState() fallback for that case is `isMaximized: true` (a reasonable default
+  // for a genuine first-time user, not something to change) — so every e2e run would
+  // otherwise briefly flash full-screen before the post-launch resize below ever runs.
+  // Seed a small, non-maximized state so the window is created at this size from the start.
+  await fsp.writeFile(
+    path.join(profile, 'window-state.json'),
+    JSON.stringify(
+      { bounds: { x: 0, y: 0, width: 1024, height: 700 }, isMaximized: false, isFullScreen: false },
       null,
       2,
     ),
@@ -80,9 +94,19 @@ export async function launchAppWithWorkflow(workflow: WorkflowFixture): Promise<
   await electronApp.evaluate(({ BrowserWindow }) => {
     for (const window of BrowserWindow.getAllWindows()) {
       window.webContents.setBackgroundThrottling(false);
+      // Defensive belt-and-suspenders on top of the seeded window-state.json above, in
+      // case anything ever calls maximize()/setFullScreen() before this runs.
+      if (window.isMaximized()) {
+        window.unmaximize();
+      }
+      if (window.isFullScreen()) {
+        window.setFullScreen(false);
+      }
+      window.setBounds({ x: 0, y: 0, width: 1024, height: 700 });
       // Tests can reach DOM controls before ready-to-show delivers the first
-      // paint. A visible window is required for Playwright's frame-based checks.
-      window.show();
+      // paint. A visible window is required for Playwright's frame-based checks, but
+      // it doesn't need OS focus — showInactive() avoids stealing the foreground.
+      window.showInactive();
     }
   });
 

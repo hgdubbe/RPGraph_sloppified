@@ -233,21 +233,29 @@ import {
 } from './variables';
 
 const bundledDefaultWorkflows = import.meta.glob<{ default: unknown }>(
-  '../../workflow.default*.json',
+  '../../default_workflows/workflow.default*.json',
   { eager: true },
 );
 const bundledDefaultWorkflowPaths = Object.keys(bundledDefaultWorkflows)
   .sort((left, right) => left.localeCompare(right, undefined, { numeric: true }));
 if (bundledDefaultWorkflowPaths.length === 0) {
-  throw new Error('No workflow.default*.json file was found in the project root.');
+  throw new Error('No workflow.default*.json file was found in default_workflows/.');
 }
 const planningDefaultWorkflowPath = [...bundledDefaultWorkflowPaths]
   .reverse()
-  .find((filePath) => /planning/i.test(filePath));
+  .find((filePath) => /planning/i.test(filePath) && !/decision/i.test(filePath));
 if (!planningDefaultWorkflowPath) {
   throw new Error('No planning bundled workflow was found in the project root.');
 }
+const decisionDefaultWorkflowPath = [...bundledDefaultWorkflowPaths]
+  .reverse()
+  .find((filePath) => /decision/i.test(filePath));
+if (!decisionDefaultWorkflowPath) {
+  throw new Error('No decision bundled workflow was found in the project root.');
+}
 const currentWorkflow = bundledDefaultWorkflows[planningDefaultWorkflowPath]
+  .default as WorkflowFile;
+const decisionWorkflow = bundledDefaultWorkflows[decisionDefaultWorkflowPath]
   .default as WorkflowFile;
 const allBundledDefaultWorkflows = bundledDefaultWorkflowPaths.map((filePath) => ({
   filePath,
@@ -1910,15 +1918,32 @@ export function verifyWorkflowValidationFixtures() {
   );
 
   assertFixture(
-    allBundledDefaultWorkflows.length === 2 &&
+    allBundledDefaultWorkflows.length === 3 &&
       allBundledDefaultWorkflows.every(({ workflow }) => isWorkflowFile(workflow)),
-    'both bundled default workflows must load',
+    'all three bundled default workflows must load',
   );
   assertFixture(
     allBundledDefaultWorkflows.every(
       ({ workflow }) => workflow.formatVersion === currentWorkflowFormatVersion,
     ),
-    'both bundled default workflows must declare the current format version',
+    'all three bundled default workflows must declare the current format version',
+  );
+  const decisionRouterNode = decisionWorkflow.nodes.find(
+    (node) => node.data.nodeType === 'decision-router',
+  );
+  assertFixture(
+    !!decisionRouterNode,
+    'the decision bundled workflow must include a Decision Router node',
+  );
+  const decisionRouterInputSources = new Set(
+    decisionWorkflow.edges
+      .filter((edge) => edge.target === decisionRouterNode?.id)
+      .map((edge) => edge.targetHandle),
+  );
+  assertFixture(
+    ['storybook-json', 'storybook-text', 'storybook-characters', 'history', 'context-compression', 'last-input', 'event-manager']
+      .every((handle) => decisionRouterInputSources.has(handle)),
+    'the decision bundled workflow must wire all 7 Decision Router input ports',
   );
   const currentPromptSwitch = currentWorkflow.nodes.find(
     (node) => node.data.nodeType === 'llm-prompt-switch',
@@ -4739,6 +4764,12 @@ export function verifyWorkflowValidationFixtures() {
     })),
   };
   assertFixture(isWorkflowFile(persistedWorkflow), 'registry-saved workflow must load');
+  const decisionV1PersistedWorkflow = {
+    ...persistedWorkflow,
+    nodes: persistedWorkflow.nodes.map((node) => node.data.nodeType === 'output'
+      ? { ...node, data: { ...node.data, actionProtocol: 'decision-v1' } } : node),
+  };
+  assertFixture(isWorkflowFile(decisionV1PersistedWorkflow), 'a saved workflow with a decision-v1 output node must load');
   assertFixture(
     persistedWorkflow.nodes.every((node) => typeof node.data.nodeDataVersion === 'string'),
     'all saved core nodes must carry their data version',

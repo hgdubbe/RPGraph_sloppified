@@ -45,7 +45,7 @@ Implementation contracts: versioned router configuration with stable output/rout
 
 ## Delivered Catch-up
 
-H1-H3 and original Task 9 are implemented. H4a adds the action compiler; H4b adds an isolated execution boundary, handler/result validation and a compiler-checked prompt migration guide. Neither is connected to live workflows. Resume at shared model-facing schemas, authoritative production catalogs/adapters and opt-in execution ownership. The broader provider work in Task 5 remains partial. See [implementation and remaining H4 work](action-runtime-progress.md).
+H1-H3 and original Task 9 are implemented. H4 now includes the compiler, execution boundary and experimental live RP opt-in with real catalogs/image/phone adapters. Router technical action rules are application-managed and automatically injected; creative sections remain user-editable. Shared machine-readable schemas, other app/direct/legacy adapters and durable recovery remain open. The broader provider work in Task 5 remains partial. See [implementation, current verification and remaining H4 work](action-runtime-progress.md). Verification below records the historical H1-H3 catch-up, not the latest action-runtime gate.
 
 Checkpoint commits: `254b55f` records the source handoff, roadmap and audit; `ff99677` implements the Response Router catch-up and regression checks.
 

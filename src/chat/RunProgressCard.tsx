@@ -37,7 +37,7 @@ export function RunProgressCard({
     return null;
   }
   const node = currentRuntimeNode(nodes);
-  const runtimeData = node?.data.kind === undefined ? node.data : undefined;
+  const runtimeData = node && node.data.kind === undefined ? node.data : undefined;
   const route = runtimeData ? promptSwitchRouteLabel(runtimeData) : undefined;
   const stage = runtimeData
     ? runtimeData.llmActiveCallLabel

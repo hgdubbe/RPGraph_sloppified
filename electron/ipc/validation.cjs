@@ -30,6 +30,9 @@ function assertProviderConnection(value) {
 
 function assertChatCompletionRequest(value) {
   const request = assertObject(value, 'chat completion request');
+  if (request.responseContract !== undefined && request.responseContract !== 'actions-v1') {
+    throw new Error('Invalid response contract: expected actions-v1.');
+  }
   if (!request.connection) {
     throw new Error('Invalid chat completion request: missing connection.');
   }

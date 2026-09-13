@@ -4,7 +4,7 @@ import { buildPromptStepChain } from '../shared/promptSteps';
 import { addSection, assembleSections, splitPromptSections, validateSections, copySection, sectionFields, promptSectionSteps, mergeSectionWithPrevious } from './promptSections';
 
 describe('structured prompt sections', () => {
-  for (const file of ['workflow.default_v25.json', 'workflow.default_planning_v25.json']) {
+  for (const file of ['default_workflows/workflow.default_v26.json', 'default_workflows/workflow.default_planning_v26.json']) {
     it(`preserves every character and execution step in ${file}`, () => {
       const workflow = JSON.parse(readFileSync(file, 'utf8'));
       let count = 0;

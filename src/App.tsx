@@ -132,8 +132,10 @@ import {
   useGraphRun,
   type OutputAttribution,
   type PhoneMessageSound,
+  type StagedRetryPrompt,
 } from './app/useGraphRun';
 import { useDirectAppActions } from './app/useDirectAppActions';
+import { readStagedRecovery, clearStagedRecovery } from './staged-workflow/stagedRetryPersistence';
 import {
   latestHistoryRpDateTime,
   phoneConversationKey,
@@ -211,6 +213,7 @@ import { isComfyVoiceConnection } from './comfy/connectionRole';
 import { useDialogueVoice } from './chat/useDialogueVoice';
 import { latestOutputTurnMessages } from './chat/dialogueVoiceSegments';
 import { WelcomeDialog } from './components/WelcomeDialog';
+import { TurnAutosaveChoiceDialog } from './components/TurnAutosaveChoiceDialog';
 import { WorkflowCapabilityStrip } from './components/WorkflowCapabilityStrip';
 import {
   withSourceNodeStatusConnectionColors,
@@ -225,7 +228,7 @@ import {
   isGeminiConnection,
   isLmStudioConnection,
   isOllamaConnection,
-  isLlamaCppConnection,
+  isManagedLocalConnection,
   isOpenRouterConnection,
   isVeniceConnection,
 } from './llm/providerKind';
@@ -258,6 +261,7 @@ import {
 import {
   defaultChatPanelWidth,
   defaultConnection,
+  maxStagedAutoRetryAttempts,
   useAppSettings,
 } from './settings';
 import {
@@ -734,6 +738,8 @@ function App() {
     setUiScale,
     retryFormatErrorsEnabled,
     setRetryFormatErrorsEnabled,
+    stagedAutoRetryAttempts,
+    setStagedAutoRetryAttempts,
     turnAutosaveEnabled,
     setTurnAutosaveEnabled,
     dialogueVoiceMode,
@@ -902,6 +908,19 @@ function App() {
   const flowInstanceRef = useRef<ReactFlowInstance<WorkflowNode> | null>(null);
   const imageInputRef = useRef<HTMLInputElement | null>(null);
   const lastTurnAutosaveIdRef = useRef<string | null>(null);
+  /**
+   * The on-disk file a staged-turn recovery record (S8, see
+   * docs/handoff/2026-09-12-s8-restart-reconciliation-scoping.md) should be keyed against.
+   * Deliberately NOT the same as `activeSessionFileName`: that stays `null` for a live
+   * session the user has never explicitly saved, even while the background rolling turn
+   * autosave (`turn-autosave-a`/`-b.rpgraph.json`) is actively writing snapshots for it —
+   * using `activeSessionFileName` here would mean recovery silently never engages for the
+   * most common case (playing without an explicit "Save RP"). This ref instead mirrors
+   * whichever on-disk file — an explicit save, or the rolling autosave slot most recently
+   * written/loaded — the current conversation is actually anchored to right now, so a
+   * recovery record always correlates with a real, specific backup on disk.
+   */
+  const stagedRecoveryAnchorRef = useRef<string | null>(null);
   useEffect(() => {
     if (!topbarMenuOpen) {
       return undefined;
@@ -1048,8 +1067,10 @@ function App() {
     addSocialConnection,
     phoneNotesByCharacter,
     setPhoneNotesByCharacter,
+    phoneNotesByCharacterRef,
     chatGpdChatsByCharacter,
     setChatGpdChatsByCharacter,
+    chatGpdChatsByCharacterRef,
     toggleSocialLike,
     onlyFriendsPurchasesByCharacter,
     setOnlyFriendsPurchasesByCharacter,
@@ -1392,6 +1413,9 @@ function App() {
     stopDialogueVoice,
   ]);
   const {
+    turnAutosaveChoices,
+    chooseTurnAutosave,
+    declineTurnAutosaveChoices,
     showFiles,
     setShowFiles,
     savedFiles,
@@ -1476,6 +1500,9 @@ function App() {
     setActiveStorybookProtection,
     clearWorkspaceForLockedStartup,
   });
+  useEffect(() => {
+    stagedRecoveryAnchorRef.current = activeSessionFileName;
+  }, [activeSessionFileName]);
   const nodeLlm = useNodeLlmApi({
     resolveConnection,
     recordCall: recordNodeLlmCall,
@@ -2334,6 +2361,26 @@ function App() {
   }, [settingsLoadComplete]);
 
   useEffect(() => {
+    if (!settingsLoadComplete) {
+      return;
+    }
+    // H7 effect journal: surfaces (once) any real effects recorded from a turn that
+    // never reached a commit, e.g. after a crash — no automatic reconciliation is
+    // attempted yet, so the journal is cleared after reporting rather than left stale.
+    void window.rpgraph.readEffectJournal()
+      .then((entries) => {
+        if (!entries.length) return;
+        const actionTypes = [...new Set(entries.map((entry) => entry.actionType))].join(', ');
+        notifySystem('warning',
+          `Found ${entries.length} recorded operation(s) (${actionTypes}) from a turn that was interrupted before finishing. `
+          + 'They may have already taken effect outside your visible history — check your Phone/Gallery apps if something looks unexpected.');
+        return window.rpgraph.clearAllEffectJournal();
+      })
+      .catch(() => {});
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [settingsLoadComplete]);
+
+  useEffect(() => {
     if (!settingsLoadComplete || !turnAutosaveEnabled) {
       return;
     }
@@ -2346,6 +2393,10 @@ function App() {
     void currentSession(name)
       .then((session) => window.rpgraph.saveTurnAutosave(session))
       .then((result) => {
+        // Rotation may have just flipped which slot is "current" — keep the staged-recovery
+        // anchor pointed at the specific on-disk file this conversation now lives in,
+        // independent of `activeSessionFileName` (see stagedRecoveryAnchorRef's own comment).
+        stagedRecoveryAnchorRef.current = result.fileName;
         setFileStorageStatus(`Autosaved RP recovery: ${result.fileName}`);
       })
       .catch((error) => {
@@ -2562,8 +2613,11 @@ function App() {
       onlyFriendsPurchasesByCharacter,
       phoneDividerAfterByConversation,
       recentlyUsedEmojis,
-      phoneNotesByCharacter,
-      chatGpdChatsByCharacter,
+      // Refs, not the state closures: see the comment on their declaration in
+      // useRoleplayPanelRuntime.ts - a session snapshot taken synchronously (or from a
+      // useEffect right after a commit) must not risk a stale value.
+      phoneNotesByCharacter: phoneNotesByCharacterRef.current,
+      chatGpdChatsByCharacter: chatGpdChatsByCharacterRef.current,
     };
   }
 
@@ -2825,6 +2879,7 @@ function App() {
     replaceWorkflowSettingsValues(sessionState.workflowVariables);
     commitNodes(loadedRuntimeNodes);
     setActiveSessionFileName(fileName);
+    void checkStagedRecoveryForSession(fileName);
     setActiveSessionSavedTurn(latestSessionTurnNumber(session));
     activeSessionPathRef.current = filePath;
     setActiveSessionProtection(protection === 'encrypted' ? 'encrypted' : 'plain');
@@ -3796,6 +3851,7 @@ function App() {
       }];
     });
   }
+  const [stagedRetryPrompt, setStagedRetryPrompt] = useState<StagedRetryPrompt | null>(null);
   const { runGraph, runGraphFromRequest } = useGraphRun({
     messages,
     setMessages,
@@ -3822,6 +3878,7 @@ function App() {
     nodeHasVision,
     checkProviderConnections,
     notifySystem,
+    stagedRecoveryAnchorRef,
     onRunStarting: autoplay.cancelPendingAutoplay,
     onRunCommitted: autoplay.onRunCommitted,
     onRpOutputReady:
@@ -3863,6 +3920,8 @@ function App() {
     rpDateTimeFormat,
     rpWeekdayLanguage,
     retryFormatErrorsEnabled,
+    stagedAutoRetryAttempts,
+    setStagedRetryPrompt,
     nodeLlm,
     activeTokenEstimateBytesPerToken,
     autoCalibrateTokenEstimate,
@@ -3901,6 +3960,31 @@ function App() {
     setRunLlmReport,
     activeRunCancelReason: activeRunCancelReasonRef,
   });
+
+  // S8 restart recovery (second slice): offers to resume a durably persisted, previously
+  // interrupted staged/decision turn — see docs/handoff/2026-09-12-s8-restart-reconciliation-
+  // scoping.md. Called from applySessionFile below, which is the one function every load of a
+  // session with a known file name funnels through (explicit open, single-autosave startup
+  // restore, and the multi-autosave choice dialog alike), so "every app launch" is satisfied
+  // without a separate startup-specific hook. Reuses the exact same StagedRetryPrompt banner
+  // the in-session manual retry already shows — no new UI.
+  async function checkStagedRecoveryForSession(sessionFileName: string) {
+    const recovered = await readStagedRecovery(sessionFileName);
+    if (!recovered) {
+      return;
+    }
+    setStagedRetryPrompt({
+      error: recovered.error,
+      onRetry: () => {
+        setStagedRetryPrompt(null);
+        void runGraphFromRequest({ inputText: '', resumeStagedRetry: { retry: recovered.retry, sessionFileName } });
+      },
+      onDismiss: () => {
+        setStagedRetryPrompt(null);
+        void clearStagedRecovery(sessionFileName);
+      },
+    });
+  }
 
   useEffect(() => {
     autoplayGraphRunRef.current = (request) => runGraph(
@@ -5049,6 +5133,7 @@ function App() {
     { label: 'Event prompt', value: selectedGraphNode.data.eventLastPrompt },
     { label: 'Character stats prompt', value: selectedGraphNode.data.characterStatsLastPrompt },
     { label: 'Speaker prompt', value: selectedGraphNode.data.outputSpeakerPrompt?.customText },
+    { label: 'Staged instructions', value: selectedGraphNode.data.stagedInstructions?.customText },
     { label: 'Memory text', value: selectedGraphNode.data.memorySlotText },
     { label: 'Loaded text', value: selectedGraphNode.data.loadedText },
     { label: 'Note', value: selectedGraphNode.data.noteText },
@@ -5348,6 +5433,18 @@ function App() {
           updateNodeData={updateRuntimeNode}
         />
         <WorkflowCapabilityStrip indicators={workflowCapabilityIndicators} />
+        {stagedRetryPrompt && (
+          <div className="graph-staged-retry-banner" role="alert">
+            <strong>Staged turn failed</strong>
+            <span>{stagedRetryPrompt.error}</span>
+            <div className="graph-staged-retry-banner-actions">
+              <button type="button" onClick={stagedRetryPrompt.onDismiss}>Dismiss</button>
+              <button type="button" className="primary" onClick={stagedRetryPrompt.onRetry}>
+                Retry without regenerating
+              </button>
+            </div>
+          </div>
+        )}
         {visibleLogEntry && (
           <div
             key={visibleLogEntry.id}
@@ -6167,6 +6264,18 @@ function App() {
           panelWidth={chatWidth}
           onResizeStart={() => setIsResizing(true)}
         >
+          {stagedRetryPrompt && (
+            <div className="graph-staged-retry-banner" role="alert">
+              <strong>Staged turn failed</strong>
+              <span>{stagedRetryPrompt.error}</span>
+              <div className="graph-staged-retry-banner-actions">
+                <button type="button" onClick={stagedRetryPrompt.onDismiss}>Dismiss</button>
+                <button type="button" className="primary" onClick={stagedRetryPrompt.onRetry}>
+                  Retry without regenerating
+                </button>
+              </div>
+            </div>
+          )}
           <div className="chat-lockable roleplay-dual-pane">
           <div className="roleplay-chat-pane" hidden={chatPanelView === 'events'} onFocusCapture={() => {
             if (chatPanelView === 'phone') selectChatPanelView('chat');
@@ -6781,6 +6890,8 @@ function App() {
         glassDesignOpacity={glassDesignOpacity}
         nodeTextSize={nodeTextSize}
         retryFormatErrorsEnabled={retryFormatErrorsEnabled}
+        stagedAutoRetryAttempts={stagedAutoRetryAttempts}
+        maxStagedAutoRetryAttempts={maxStagedAutoRetryAttempts}
         turnAutosaveEnabled={turnAutosaveEnabled}
         uiScale={appliedUiScale}
         minUiScale={minimumAllowedUiScale}
@@ -6810,6 +6921,7 @@ function App() {
         onNodeTextSizeChange={setNodeTextSize}
         onUiScaleChange={changeUiScale}
         onRetryFormatErrorsChange={setRetryFormatErrorsEnabled}
+        onStagedAutoRetryAttemptsChange={setStagedAutoRetryAttempts}
         onTurnAutosaveEnabledChange={setTurnAutosaveEnabled}
         showFiles={showFiles}
         savedFiles={savedFiles}
@@ -7010,7 +7122,7 @@ function App() {
         onLoadLmStudioModel={() => void loadLmStudioModel()}
         onUnloadLmStudioModels={() => void unloadLmStudioModels()}
         ollamaToolsAvailable={isOllamaConnection(editingConnection)}
-        llamaCppToolsAvailable={isLlamaCppConnection(editingConnection)}
+        llamaCppToolsAvailable={isManagedLocalConnection(editingConnection)}
         ollamaModelActionActive={ollamaModelActionActive}
         onLoadOllamaModel={() => void loadOllamaModel()}
         onUnloadOllamaModels={() => void unloadOllamaModels()}
@@ -7019,6 +7131,14 @@ function App() {
         onApplyConnectionToAllNodes={applyConnectionToAllNodes}
         onSetNarratorOnlyProvider={setDialogueNarratorProviderId}
       />
+      {turnAutosaveChoices && (
+        <TurnAutosaveChoiceDialog
+          choices={turnAutosaveChoices}
+          latestSessionTurnNumber={latestSessionTurnNumber}
+          onChoose={(choice) => void chooseTurnAutosave(choice)}
+          onDecline={() => void declineTurnAutosaveChoices()}
+        />
+      )}
       {showSystemLog && (
         <SystemLogDialog
           entries={systemLog}

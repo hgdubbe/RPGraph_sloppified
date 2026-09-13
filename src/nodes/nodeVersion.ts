@@ -23,6 +23,7 @@ export const currentCoreNodeVersions: Record<CoreNodeType, NodeVersion> = {
   'phone-message-router': '1.1.0',
   'text-selector': '1.1.0',
   'llm-prompt-switch': '1.3.2',
+  'decision-router': '1.0.0',
   'llm-prompt': '1.2.1',
   combiner: '1.0.0',
   'text-replace': '1.0.0',
@@ -39,7 +40,7 @@ export const currentCoreNodeVersions: Record<CoreNodeType, NodeVersion> = {
   'settings-value': '1.0.1',
   'rp-storybook': '2.1.0',
   'rp-storybook-editor': '1.0.0',
-  output: '1.6.0',
+  output: '1.7.1',
   'phone-apps': '1.0.0',
 };
 

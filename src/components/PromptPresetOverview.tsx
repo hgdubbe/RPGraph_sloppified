@@ -17,6 +17,10 @@ import {
   outputSpeakerPromptSettings,
 } from '../nodes/output/speakerPrompt';
 import {
+  defaultStagedInstructionsText,
+  stagedInstructionsSettings,
+} from '../staged-workflow/stagedInstructionsPrompt';
+import {
   defaultRpStorybookImageDescriptionPrompt,
   parseNodeStorybookJson,
   rpStorybookImageDescriptionPromptSettings,
@@ -289,6 +293,16 @@ function promptEntries(
         setting: outputSpeakerPromptSettings(node.data.outputSpeakerPrompt),
         defaultText: defaultOutputSpeakerPromptText,
         update: (setting) => updateNodeData(node.id, { outputSpeakerPrompt: setting }),
+      });
+      groupForNode(node).prompts.push({
+        id: `${node.id}:staged-instructions`,
+        nodeId: node.id,
+        nodeLabel: node.data.label,
+        label: 'Staged Instructions',
+        presetKey: 'output.staged-instructions',
+        setting: stagedInstructionsSettings(node.data.stagedInstructions),
+        defaultText: defaultStagedInstructionsText,
+        update: (setting) => updateNodeData(node.id, { stagedInstructions: setting }),
       });
     }
     if (node.data.nodeType === 'llm-prompt' || node.data.nodeType === 'llm-prompt-switch') {

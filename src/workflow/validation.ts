@@ -220,6 +220,14 @@ function isOutputSpeakerPromptSettings(value: unknown) {
   );
 }
 
+function isStagedInstructionsSettings(value: unknown) {
+  return (
+    isRecord(value) &&
+    (value.mode === 'default' || value.mode === 'custom') &&
+    isOptionalString(value.customText)
+  );
+}
+
 function isPortSnapshot(value: unknown) {
   return (
     isRecord(value) &&
@@ -283,6 +291,7 @@ function isWorkflowNodeData(value: unknown): value is WorkflowNodeData {
     !isOptionalBoolean(value.runPrepared) ||
     !isOptionalString(value.runError) ||
     !isOptionalBoolean(value.streamOutputEnabled) ||
+    (value.actionProtocol !== undefined && value.actionProtocol !== 'legacy' && value.actionProtocol !== 'actions-v1' && value.actionProtocol !== 'staged-v1' && value.actionProtocol !== 'decision-v1') ||
     !isOptionalBoolean(value.speakerAnalysisEnabled) ||
     !isOptionalBoolean(value.dialogueHighlightEnabled) ||
     (value.outputSpeakerResponseFormat !== undefined &&
@@ -290,6 +299,16 @@ function isWorkflowNodeData(value: unknown): value is WorkflowNodeData {
       value.outputSpeakerResponseFormat !== 'json') ||
     (value.outputSpeakerPrompt !== undefined &&
       !isOutputSpeakerPromptSettings(value.outputSpeakerPrompt)) ||
+    (value.stagedInstructions !== undefined &&
+      !isStagedInstructionsSettings(value.stagedInstructions)) ||
+    !isOptionalFiniteNumber(value.stagedBeatsLimit) ||
+    !isOptionalFiniteNumber(value.stagedCallsLimit) ||
+    !isOptionalFiniteNumber(value.stagedGenerationsLimit) ||
+    (value.stagedAllowedRecipes !== undefined && !isStringArray(value.stagedAllowedRecipes)) ||
+    !isOptionalFiniteNumber(value.decisionNarrativeness) ||
+    !isOptionalFiniteNumber(value.decisionDefaultActiveness) ||
+    !isOptionalFiniteNumber(value.decisionMaxActionsPerTurn) ||
+    !isOptionalBoolean(value.decisionRespectUserAgency) ||
     !isOptionalString(value.inputAPreview) ||
     !isOptionalString(value.inputBPreview) ||
     !isOptionalString(value.writeTextValue) ||

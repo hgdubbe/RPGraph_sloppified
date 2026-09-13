@@ -43,6 +43,25 @@ import type { usePhoneReply } from '../chat/usePhoneReply';
 import { normalizeRunGraphRequest, type RunGraphRequest } from './runGraphRequest';
 import { applyPhoneOutputCommits, buildPhoneOutputCommits } from './phoneOutputCommits';
 import { buildSocialCommentCommit, buildSocialDirectMessageCommit } from './socialOutputCommits';
+import { createLiveActionBridge } from '../actions/liveBridge';
+import { parseActionReply } from '../actions/parseReply';
+import { clearEffectJournalForScope, createLiveEffectJournal } from '../actions/effectJournal';
+import type { ActionScope } from '../actions/contracts';
+import { runLiveStagedTurn, type StagedRetryState } from '../staged-workflow/runLiveStagedTurn';
+import { runDecisionStagedTurn } from '../staged-workflow/runDecisionStagedTurn';
+import { resolveDecisionBlockExtras } from '../nodes/decision-router/decisionRouterModel';
+import { parseDecisionRoutedContext } from '../nodes/decision-router/execute';
+import { runtimePortValueKey } from '../nodes/shared/portRuntime';
+import { resolveStagedInstructionsText } from '../staged-workflow/stagedInstructionsPrompt';
+import { resolveStagedLimits } from '../staged-workflow/stagedLimits';
+import { resolveDecisionComposition } from '../staged-workflow/decisionSequence';
+import { responseLengthOptionKey } from '../workflow/defaults';
+import { defaultWorkflowVariableValue } from '../workflow/variables';
+import { formatStagedPlanDebug, stagedPlanDebugSnapshot } from '../staged-workflow/stagedPlanDebug';
+import { clearStagedRecovery, writeStagedRecovery } from '../staged-workflow/stagedRetryPersistence';
+import type { CreateComfyImageForCharacterRunner } from '../nodes/runScratch';
+import { isComfyImageConnection } from '../comfy/connectionRole';
+import { missingComfySetupFields } from '../settings';
 import {
   applyTimeCommandsToWorkflowNodes,
   commandInputCommandsFromStructured,
@@ -78,7 +97,6 @@ import {
   parseOutputActions,
   type OutputActionChatMessage,
   type OutputActionContextCapacityRequest,
-  type OutputActionUiItem,
   type ParsedOutputActions,
 } from '../chat/outputActions';
 import {
@@ -87,10 +105,12 @@ import {
   bankTransferPartyMatches,
 } from '../chat/bankTransfers';
 import {
+  nextSocialPostId,
   parseSocialReactionsOutput,
   parseSocialDirectMessageOutput,
   socialDirectMessageHistoryText,
   socialDirectMessageInputText,
+  socialHandleForCharacter,
   socialPostInputText,
   socialPostHistoryText,
   socialPostTextFromInput,
@@ -123,6 +143,7 @@ import {
   stripPlanBlocks,
 } from '../chat/messageFormats';
 import { executeGraph } from '../graph/executeGraph';
+import { createComfyImageRunner } from '../graph/comfyImageRunner';
 import { TextMetricsApi } from '../llm/tokenMetrics';
 import type { NodeLlmApi } from '../llm/NodeLlmApi';
 import {
@@ -180,6 +201,15 @@ function mergeOutputActions(
 
 type ExecuteGraphOptions = Parameters<typeof executeGraph>[0];
 type TurnRecordApi = ReturnType<typeof useTurnRecordState>;
+
+/** A persistent "the staged turn failed, want to retry without regenerating?" prompt
+ * (S8, first slice). `onRetry` resumes from the exact stage that failed; `onDismiss`
+ * gives up and ends the run like any other failure. */
+export type StagedRetryPrompt = {
+  error: string;
+  onRetry: () => void;
+  onDismiss: () => void;
+};
 
 type UseGraphRunOptions = Pick<
   TurnRecordApi,
@@ -239,6 +269,24 @@ type UseGraphRunOptions = Pick<
   rpDateTimeFormat: RpDateTimeFormat;
   rpWeekdayLanguage: RpWeekdayLanguage;
   retryFormatErrorsEnabled: boolean;
+  /** How many times a failed Staged Workflow v1 turn retries automatically, reusing
+   * already-realized effects (no regeneration), before falling back to a manual Retry
+   * prompt. 0 means always ask. */
+  stagedAutoRetryAttempts: number;
+  /** Surfaces a persistent "Staged turn failed, Retry?" prompt once automatic retries are
+   * exhausted; pass `null` to dismiss it. The caller (App.tsx) owns the actual banner UI. */
+  setStagedRetryPrompt: (prompt: StagedRetryPrompt | null) => void;
+  /**
+   * The on-disk file the current conversation is anchored to right now (S8 restart-recovery
+   * groundwork) — an explicit save's file name, or whichever rolling turn-autosave slot
+   * (`turn-autosave-a`/`-b.rpgraph.json`) was most recently loaded or written. `null` only
+   * when nothing has ever been saved/autosaved yet for this conversation, in which case
+   * there's no durable backup to correlate a recovery record with. Deliberately not the
+   * same as `activeSessionFileName` (App.tsx) — that stays `null` for a live, never-saved
+   * session even while turn-autosave is actively running for it. A ref because it can change
+   * mid-run (turn-autosave rotates slots on every successful commit).
+   */
+  stagedRecoveryAnchorRef: Ref<string | null>;
   nodeLlm: NodeLlmApi;
   activeTokenEstimateBytesPerToken: number;
   autoCalibrateTokenEstimate: boolean;
@@ -348,6 +396,22 @@ function currentStorybookImageAttachmentById(
   return source ? chatAttachmentFromStorybookImage(source.image) : undefined;
 }
 
+/**
+ * decision-v1/staged-v1's `primaryCharacterId` decides whose turn gets generated. For a
+ * genuine human-typed phone message (`turnMode === 'user'`) addressed to a resolvable
+ * recipient, that's the recipient — the model should reply as them, not extend the sender's
+ * own turn. For every other turn kind (`auto-turn`, `narrator`, ...) the sender is correct:
+ * Auto Turn's own instruction template is literally "<Sender> texts <Recipient>," i.e. it asks
+ * the model to autonomously write the *sender's* own outgoing action, not the recipient's reply.
+ */
+export function resolveDecisionPrimaryCharacterId(
+  turnMode: TurnRecordMode,
+  inputCharacter: StorybookCharacter | undefined,
+  phoneRecipientCharacter: StorybookCharacter | undefined,
+): string | undefined {
+  return turnMode === 'user' && phoneRecipientCharacter ? phoneRecipientCharacter.id : inputCharacter?.id;
+}
+
 export function useGraphRun(options: UseGraphRunOptions) {
   // React Compiler explicitly opted out: runGraph writes options-provided refs
   // (nodesRef, activeRun, messagesRef, ...) manually mid-run by design so async
@@ -410,6 +474,9 @@ export function useGraphRun(options: UseGraphRunOptions) {
     rpDateTimeFormat,
     rpWeekdayLanguage,
     retryFormatErrorsEnabled,
+    stagedAutoRetryAttempts,
+    setStagedRetryPrompt,
+    stagedRecoveryAnchorRef,
     nodeLlm,
     activeTokenEstimateBytesPerToken,
     autoCalibrateTokenEstimate,
@@ -475,6 +542,10 @@ export function useGraphRun(options: UseGraphRunOptions) {
     directActionOnly = false,
     socialDirectMessage?: SocialDirectMessageRecord,
     draftContextComment?: string,
+    // S8 restart recovery (second slice): resumes a durably persisted, previously-failed
+    // staged/decision turn instead of planning a fresh one — see RunGraphRequest's own doc
+    // comment and App.tsx's checkStagedRecoveryForSession, the only real caller.
+    resumeStagedRetry?: { retry: StagedRetryState; sessionFileName: string },
   ) {
     onRunStarting?.();
     const isAutoTurn = turnMode === 'auto-turn';
@@ -483,6 +554,7 @@ export function useGraphRun(options: UseGraphRunOptions) {
       !directActionOnly &&
       !isAutoTurn &&
       !narratorAutoTurn &&
+      !resumeStagedRetry &&
       messageFormatOverride !== socialMediaMessageFormat &&
       messageFormatOverride !== autoplayMessageFormat;
     const runtimeNodes = nodesRef.current;
@@ -491,7 +563,44 @@ export function useGraphRun(options: UseGraphRunOptions) {
       notifySystem('error', 'The graph requires exactly one User Input and one RP Output.');
       return false;
     }
-    if (characterStorybookNodes.length === 0) {
+    const useStructuredActions = outputNode.data.actionProtocol === 'actions-v1' && !directActionOnly
+      && messageFormatOverride !== socialMediaMessageFormat && messageFormatOverride !== autoplayMessageFormat
+      && !socialDirectMessage && !socialPost && !socialThreadAction;
+    const useStagedActions = (outputNode.data.actionProtocol === 'staged-v1' && !directActionOnly)
+      // S8 restart recovery: a resumed turn always takes this branch regardless of the
+      // route's configured protocol — see runSelectedStagedTurn's own resume handling below,
+      // which never needs to know which protocol originally produced the persisted plan.
+      || !!resumeStagedRetry;
+    // Decision workflow now activates via a Decision Router node's presence in the graph
+    // (singleton, like Chat History/Event Manager) rather than the Action protocol dropdown —
+    // the node owns its own context routing/settings (src/nodes/decision-router/). If a route
+    // somehow still has both a Decision Router node and a legacy `actionProtocol` value set,
+    // the node wins.
+    const decisionRouterNode = runtimeNodes.find((node) => node.data.kind === undefined && node.data.nodeType === 'decision-router');
+    const useDecisionActions = !!decisionRouterNode && !directActionOnly;
+    // A direct-user UI action (banking, etc.) never involves the model, but when the RP
+    // Output node has opted into the shared executor for narrative turns, direct-user
+    // effects reuse that same executor too, gaining catalog re-validation and H7 journal
+    // coverage instead of the older separate direct-app-action commit path.
+    const useDirectStructuredAction = directActionOnly &&
+      (outputNode.data.actionProtocol === 'actions-v1' || outputNode.data.actionProtocol === 'staged-v1');
+    if (useStructuredActions && (replacement || replacedMessageIds?.size)) {
+      notifySystem('warning', 'Structured-action turn replacement is disabled until action-preserving regeneration is available.');
+      return false;
+    }
+    if (useStagedActions && (replacement || replacedMessageIds?.size)) {
+      notifySystem('warning', 'Staged Workflow v1 turn replacement is disabled until action-preserving regeneration is available.');
+      return false;
+    }
+    if (useDecisionActions && (replacement || replacedMessageIds?.size)) {
+      notifySystem('warning', 'Decision workflow turn replacement is disabled until action-preserving regeneration is available.');
+      return false;
+    }
+    // S8 restart recovery: `characterStorybookNodes` reflects the graph canvas's own
+    // currently-rendered node list, which a resumed retry has no need of (the persisted
+    // plan already references real character ids) and which may not even be populated
+    // yet if the app restarted straight into Play Mode without the canvas mounting.
+    if (!resumeStagedRetry && characterStorybookNodes.length === 0) {
       notifySystem('error', 'The graph requires at least one Storybook character.');
       return false;
     }
@@ -513,14 +622,21 @@ export function useGraphRun(options: UseGraphRunOptions) {
     const runPromptSwitchVisionFeaturesEnabled = runtimeNodes.some(
       (node) => node.data.kind === undefined && node.data.nodeType === 'llm-prompt-switch' && nodeHasVision(node),
     );
-    if (!existingInputMessage && !isNarratorTurn && !isAutoTurn && !isAutoplayRun && !inputCharacter) {
+    if (!resumeStagedRetry && !existingInputMessage && !isNarratorTurn && !isAutoTurn && !isAutoplayRun && !inputCharacter) {
       notifySystem('warning', 'Select a Storybook character to play as.');
       return false;
     }
-    const runId = createRunId();
+    // S8 restart recovery: reuse the exact scope/catalog identity the persisted plan's own
+    // variable/action references are already pinned to, instead of a fresh id that would
+    // desync the resumed action bridge's catalog scope from the plan it is executing.
+    const runId = resumeStagedRetry?.retry.plan.context.scope.saveId ?? createRunId();
     const runController = new AbortController();
     const runSignal = runController.signal;
     const retryRun = () => {
+      if (useStructuredActions || useStagedActions || useDecisionActions) {
+        notifySystem('warning', 'Automatic restart is disabled for structured/staged actions to prevent repeating committed effects.');
+        return;
+      }
       void runGraph(
         displayText,
         inputImages,
@@ -647,9 +763,14 @@ export function useGraphRun(options: UseGraphRunOptions) {
         notifySystem('info', `RP Time set to ${timeCommandResult.appliedDateTime}.`);
       }
     }
-    const turnNumber =
-      replacement?.turn.number ?? (turnsRef.current[turnsRef.current.length - 1]?.number ?? 0) + 1;
-    const turnId = replacement?.turn.id ?? createTurnId(turnNumber);
+    // S8 restart recovery: reuse the exact turn identity the persisted plan was built under
+    // (turnId embeds turnNumber, `turn-<number>-<timestamp>`, per createTurnId below) rather
+    // than allocating a new one — this is the same turn continuing, not a new one starting.
+    const resumedTurnId = resumeStagedRetry?.retry.plan.context.scope.turnId;
+    const resumedTurnNumber = resumedTurnId ? Number(/^turn-(\d+)-/.exec(resumedTurnId)?.[1]) : undefined;
+    const turnNumber = resumedTurnNumber && Number.isFinite(resumedTurnNumber) ? resumedTurnNumber
+      : replacement?.turn.number ?? (turnsRef.current[turnsRef.current.length - 1]?.number ?? 0) + 1;
+    const turnId = resumedTurnId ?? replacement?.turn.id ?? createTurnId(turnNumber);
     const resetReplacementInputRpTime = replacement?.replaceInput === false && isAutoTurn;
     const replacementInputMessages =
       replacement && !replacement.replaceInput
@@ -1036,11 +1157,21 @@ export function useGraphRun(options: UseGraphRunOptions) {
     }
 
     const inputCharacterName = existingInputMessage?.speakerName ??
-      (isAutoplayRun || isNarratorTurn || (isAutoTurn && !inputCharacter)
+      // S8 restart recovery: a resumed retry has no real input character (the guard that
+      // would otherwise guarantee `inputCharacter` here is bypassed for it) — this value is
+      // never read by the resume branch below anyway, so any placeholder is harmless.
+      (isAutoplayRun || isNarratorTurn || resumeStagedRetry || (isAutoTurn && !inputCharacter)
         ? narratorSpeakerName
         : inputCharacter!.name);
-    const phoneRecipientName =
-      existingInputMessage?.phoneTo ?? phoneRecipientCharacterOverride?.name ?? selectedPhoneContact?.character.name;
+    // Resolved as a character object (not just a name) so decision-v1/staged-v1 can tell it
+    // apart from `inputCharacter` (the sender) below — see `resolveDecisionPrimaryCharacterId`.
+    // `existingInputMessage?.phoneTo` (a persisted name) is looked up the same way
+    // `inputCharacterName`'s `speakerName` branch above resolves the sender, so a regenerate/
+    // reflavor of a past phone turn keeps pointing at the original recipient.
+    const phoneRecipientCharacter = existingInputMessage?.phoneTo
+      ? phoneCharacters.find((character) => phoneNamesMatch(character.name, existingInputMessage.phoneTo ?? ''))
+      : phoneRecipientCharacterOverride ?? selectedPhoneContact?.character;
+    const phoneRecipientName = existingInputMessage?.phoneTo ?? phoneRecipientCharacter?.name;
     const rawSentPhoneImages = existingInputMessage?.imageAttachments ?? inputImages;
     const sentPhoneImages =
       isPhoneMessage && phoneRecipientName && rawSentPhoneImages.length
@@ -1430,9 +1561,540 @@ export function useGraphRun(options: UseGraphRunOptions) {
           socialDirectMessage: persistedReply,
         });
       };
+      const prepareNextTurn = async (rpOutput: string) => {
+        const collectedTurn = activeTurnCollectorRef.current;
+        const completedHistoryMessages: MessageRecord[] = [
+          ...historyMessages,
+          ...(collectedTurn?.inputMessages ?? []),
+          ...(collectedTurn?.outputMessages ?? []),
+        ];
+        const completedOriginalHistory = formatChatHistory(
+          completedHistoryMessages,
+          false,
+          rpDateTimeFormat,
+          rpWeekdayLanguage,
+        );
+        const completedTranslatedHistory = formatChatHistory(
+          completedHistoryMessages,
+          true,
+          rpDateTimeFormat,
+          rpWeekdayLanguage,
+        );
+        if (!directActionOnly) {
+          try {
+            const recentTurns = turnsRef.current
+              .filter((turn) => turn.id !== collectedTurn?.turnId)
+              .slice(-5);
+            await executeGraph({
+              outputNodeId: outputNode.id,
+              postOutputRun: true,
+              legacyActionsDisabled: useStructuredActions,
+              postOutputNodeIds: nodesPreparedAfterOutput(nodesRef.current, edges),
+              nodes: nodesRef.current,
+              edges,
+              originalInput,
+              visibleInput,
+              lastRpOutput: lastMessageText(completedHistoryMessages, 'output') || rpOutput,
+              inputImages: activeInputImages,
+              phoneMessage: isPhoneMessage,
+              originalHistory: completedOriginalHistory,
+              translatedHistory: completedTranslatedHistory,
+              historyMessages: completedHistoryMessages,
+              recentTurns,
+              currentTurnId: collectedTurn?.turnId,
+              updateHistoryMessageTimes,
+              userControlledCharacterId: (isAutoplayRun || isAutoTurn || isNarratorTurn) ? undefined : inputCharacter?.id,
+              llm: nodeLlm.withAbortSignal(runSignal),
+              textMetrics: new TextMetricsApi(activeTokenEstimateBytesPerToken),
+              updateRuntimeNode,
+              connections,
+              onComfyGenerationActive: updateWorkflowComfyGenerationActive,
+              onWarning: reportRunWarning,
+              onFormatResult: (result) => {
+                runTraceEvents.push({ kind: 'format', ...result });
+              },
+              settingsValues: workflowSettingsValuesForGraph(),
+              settingsValueDefinitions: settingsValueDefinitionsRef.current,
+              promptActionSettings,
+              onWorkflowVariablesSet: setWorkflowVariablesFromCommands,
+              rpDateTimeFormat,
+              rpWeekdayLanguage,
+              referenceImages: runReferenceImageOptions,
+              retryFormatErrorsEnabled,
+              trackRunCompletion: true,
+              signal: runSignal,
+            });
+          } catch (error) {
+            if (isRunCancelledError(error)) {
+              // The visible reply is already delivered at this point. Only a
+              // restart may roll the turn back for its re-run; a plain cancel
+              // keeps the turn and just skips the remaining preparation.
+              if (!useStructuredActions && !useStagedActions && !useDecisionActions && (activeRunCancelReason.current as CancelReason) === 'restart') {
+                throw error;
+              }
+              notifySystem('info', 'Next-turn preparation cancelled; the delivered reply was kept.');
+            } else {
+              reportRunWarning(
+                `Next-turn preparation failed: ${error instanceof Error ? error.message : String(error)}`,
+              );
+            }
+          }
+        }
+      };
+      // Built eagerly (not left `undefined` until `executeGraph`'s `onImageRunnerReady`
+      // fires) so `image.generate` also works for staged-v1, which never calls
+      // `executeGraph` at all. For every other protocol, `executeGraph` below still runs
+      // and immediately overwrites this with its own run-scoped instance (identical
+      // behavior to before this existed) - this is purely additive for staged mode.
+      let imageRunner: CreateComfyImageForCharacterRunner | undefined = createComfyImageRunner({
+        getNodes: () => nodesRef.current,
+        connections,
+        providerHealthById: providerHealthForRun,
+        llm: nodeLlm.withAbortSignal(runSignal),
+        updateRuntimeNode,
+        onComfyGenerationActive: updateWorkflowComfyGenerationActive,
+        signal: runSignal,
+      });
+      const actionImageProvider = connections.find((connection) => isComfyImageConnection(connection)
+        && !missingComfySetupFields(connection).length
+        && !['offline', 'warning'].includes(providerHealthForRun[connection.id]?.status ?? ''));
+      // H7 effect journal: durably records real effects (WhatsUp sends/image generations)
+      // as they happen, so a crash between "effect fired" and "turn committed" cannot
+      // silently lose all evidence of it. Cleared once this attempt's own turn commits
+      // (see the two `clearEffectJournalForScope` calls below); reconciliation/retry is
+      // not implemented yet.
+      const actionScope: ActionScope = { saveId: runId, branchId: runId, turnId, catalogId: `${runId}:catalog` };
+      // A model-authored note.write commits into the phone Notes store, not the chat
+      // timeline, and that store's commit function is turn-scoped (one call per turn),
+      // unlike appendMessage; the adapter below accumulates here for a single commit
+      // once the turn is known to succeed (see the actionBridge execution block).
+      const liveNoteWriteCommits: CreatedPhoneNoteCommit[] = [];
+      const liveSimulatedAiChatCommits: SimulatedAiChatCommit[] = [];
+      const actionBridge = (useStructuredActions || useStagedActions || useDecisionActions || useDirectStructuredAction) ? createLiveActionBridge({
+        scope: actionScope,
+        getNodes: () => nodesRef.current,
+        canGenerate: () => !!actionImageProvider,
+        generateImage: async (character, description) => {
+          if (!imageRunner) throw new Error('The graph image-generation adapter is unavailable.');
+          const result = await imageRunner({ phoneOwnerName: character.name, phoneOwnerId: character.id,
+            comfyProviderId: actionImageProvider?.id,
+            prompt: description, llmConnectionId: outputNode.data.connectionId ?? defaultConnectionId, llmNodeId: outputNode.id,
+          }, (warning) => reportRunWarning(warning, outputNodeTraceInfo));
+          return result.images;
+        },
+        appendPhoneMessage: (message) => appendPhoneMessage({ ...message, turnContext }, 'received', 'output'),
+        postSocial: async (character, app, caption) => {
+          const postId = nextSocialPostId(app, messagesRef.current);
+          const record: SocialPostRecord = {
+            app, postId, author: character.name, authorHandle: socialHandleForCharacter(character, app), caption, textOnly: true,
+          };
+          appendMessage({ role: 'output', originalText: socialPostHistoryText(record), includeInHistory: true, turnContext, socialPost: record });
+          return { postId };
+        },
+        commentOnSocial: async (character, app, postId, text) => {
+          const result = buildSocialCommentCommit({
+            incoming: { app, postId, from: character.name, text },
+            characters: storyCharacters,
+            messages: messagesRef.current,
+          });
+          result.warnings.forEach((warning) => reportRunWarning(warning, outputNodeTraceInfo));
+          if (!result.commit) throw new Error(`The comment could not be recorded${result.warnings[0] ? `: ${result.warnings[0]}` : '.'}`);
+          appendMessage({ role: 'output', originalText: result.commit.historyText, includeInHistory: true, turnContext, socialReactions: result.commit.reactions });
+        },
+        transferFunds: async (from, to, amount, note) => {
+          const record: BankTransferRecord = { from: from.name, to: to.name, amount, ...(note ? { note } : {}) };
+          appendMessage({ role: 'output', originalText: bankTransferHistoryText(record), includeInHistory: true, turnContext, bankTransfer: record });
+        },
+        bankBalanceForCharacter: (character) => bankingBalanceForCharacter(character, messagesRef.current),
+        writeNote: async (owner, title, body, noteId) => {
+          const id = noteId ?? crypto.randomUUID();
+          const dayLabel = formatRpDayLabel(
+            nodesRef.current.find((node) => node.data.kind === undefined && node.data.nodeType === 'history')
+              ?.data.historyCurrentRpDateTime ?? activeTurnCollectorRef.current?.createdAt,
+            rpDateTimeFormat,
+            rpWeekdayLanguage,
+          );
+          liveNoteWriteCommits.push({
+            characterId: owner.id, characterName: owner.name, operation: noteId ? 'update' : 'create',
+            note: { id, title, text: body, dayLabel, color: 'neutral' },
+          });
+          return { noteId: id };
+        },
+        simulateAssistantChat: async (owner, messages) => {
+          const id = `${simulatedAiChatIdPrefix(turnId)}${liveSimulatedAiChatCommits.length + 1}`;
+          liveSimulatedAiChatCommits.push({
+            characterId: owner.id, characterName: owner.name,
+            chat: {
+              id, title: chatGpdFallbackTitle(messages[0]?.text ?? 'AI conversation'),
+              createdAt: activeTurnCollectorRef.current?.createdAt ?? new Date().toISOString(),
+              messages: structuredClone(messages),
+            },
+          });
+          return { chatId: id };
+        },
+        journal: createLiveEffectJournal(),
+        signal: runSignal,
+      }) : undefined;
+      // Choices/info-boxes/progress-bars/context-capacity bars and tab/player controls
+      // are pure local rendering and UI-state changes with no backend effect to execute
+      // or journal, unlike bank.transfer/note.write/assistant.chat above - so they were
+      // never ported into the shared actions-v1 executor; they still arrive from the
+      // legacy "Output Actions" auxiliary prompt channel regardless of the RP Output's
+      // action protocol. Defined here (rather than only later, where the legacy flow
+      // already used it inline) so the actions-v1 model-authored early return below can
+      // apply the same auxiliary channel instead of silently dropping it.
+      const applyOutputActionControls = (controls: ParsedOutputActions['controls']) => {
+        controls.forEach((control) => {
+          if (control.type === 'setTab') {
+            selectChatPanelView(control.tab);
+            return;
+          }
+          if (control.name.toLocaleLowerCase() === 'current') {
+            return;
+          }
+          const character =
+            phoneNamesMatch(control.name, narratorSpeakerName)
+              ? { id: narratorCharacterId }
+              : storyCharacters.find(
+                  (entry) => entry.id === control.name || phoneNamesMatch(entry.name, control.name),
+                );
+          if (character) {
+            selectChatCharacter(character.id);
+          } else {
+            setSelectedCharacterId(narratorCharacterId);
+            notifySystem('warning', `Output Actions could not find player "${control.name}". Falling back to Narrator.`);
+          }
+        });
+      };
+      const applyOutputActionUiItems = (uiItems: ParsedOutputActions['uiItems']) => {
+        uiItems.forEach((item) => {
+          if (item.type === 'choiceGroup') {
+            appendMessage({
+              role: 'output',
+              originalText: item.value.prompt?.trim() ?? '',
+              includeInHistory: false,
+              outputActionChoices: [item.value],
+            });
+            return;
+          }
+          if (item.type === 'infoBox') {
+            appendMessage({
+              role: 'output',
+              originalText: [item.value.title, item.value.text].filter(Boolean).join(': '),
+              includeInHistory: false,
+              outputActionInfoBoxes: [item.value],
+            });
+            return;
+          }
+          if (item.type === 'progressBar') {
+            appendMessage({
+              role: 'output',
+              originalText: `${item.value.title}: ${item.value.value}/${item.value.max}`,
+              includeInHistory: false,
+              outputActionProgressBars: [item.value],
+            });
+            return;
+          }
+          const contextCapacityBars = resolveOutputActionContextCapacityBars([item.value]);
+          if (contextCapacityBars.length === 0) {
+            return;
+          }
+          appendMessage({
+            role: 'output',
+            originalText: contextCapacityBars
+              .map(
+                (bar) =>
+                  `${bar.title}: trimmed context ${bar.replacedTokens} / summary ${bar.summaryTokens} / active ${bar.activeTokens} / max ${bar.maxTokens}`,
+              )
+              .join('\n'),
+            includeInHistory: false,
+            outputActionContextCapacityBars: contextCapacityBars,
+          });
+        });
+      };
+      if (useStagedActions || useDecisionActions) {
+        // S6/S7: compiles a real plan against live context, drafts content and runs real
+        // effects through the same live action bridge/executor as `actions-v1`, then
+        // deterministically composes the result and commits through the same helpers as
+        // the structured-actions path below. `image.generate` works here too: `imageRunner`
+        // is now built eagerly above (not only supplied by `executeGraph`, which staged mode
+        // never calls) via the shared `createComfyImageRunner` factory.
+        // See docs/superpowers/plans/2026-09-09-staged-workflow.md.
+        // decision-v1 is an additive alternative planner sharing this exact same execution
+        // path (scheduler/action bridge/effect journal/composer/S8 retry/S9 plan-debug are
+        // all identical) — only which function produces the initial/resumed plan differs.
+        const runSelectedStagedTurn = useDecisionActions ? runDecisionStagedTurn : runLiveStagedTurn;
+        notifySystem('info', useDecisionActions ? 'Running a Decision workflow turn...' : 'Running a Staged Workflow v1 turn...');
+        // Resolves the Decision Router node's own input ports through the real `executeGraph`
+        // engine (same recursion Response Router's text input already goes through), targeting
+        // the router node itself as `outputNodeId` instead of RP Output — this is the fix for a
+        // real gap: without it, decision-v1's only view of "what's happening" was the turn's
+        // literal current-input text (see decisionSceneContext.ts's `DecisionRoutedContext` doc
+        // comment). A resolution failure (a broken upstream node) is a warning, not a hard
+        // failure — the turn still runs with no routed context, exactly as it did before this
+        // node existed.
+        let decisionRoutedContext: ReturnType<typeof parseDecisionRoutedContext>;
+        if (useDecisionActions && decisionRouterNode) {
+          try {
+            const routedBundleText = await executeGraph({
+              outputNodeId: decisionRouterNode.id,
+              legacyActionsDisabled: true,
+              nodes: runtimeNodes,
+              edges,
+              originalInput,
+              visibleInput,
+              inputImages: activeInputImages,
+              phoneMessage: isPhoneMessage,
+              originalHistory,
+              translatedHistory,
+              historyMessages,
+              currentTurnId: turnId,
+              updateHistoryMessageTimes,
+              llm: nodeLlm.withAbortSignal(runSignal),
+              textMetrics: new TextMetricsApi(activeTokenEstimateBytesPerToken),
+              updateRuntimeNode,
+              connections,
+              settingsValues: workflowSettingsValuesForGraph(),
+              settingsValueDefinitions: settingsValueDefinitionsRef.current,
+              promptActionSettings,
+              rpDateTimeFormat,
+              rpWeekdayLanguage,
+              retryFormatErrorsEnabled,
+              signal: runSignal,
+            });
+            decisionRoutedContext = parseDecisionRoutedContext(routedBundleText);
+            // Inspection-only (see coreDefinitions.ts's `decision-context` port doc comment):
+            // this never feeds back into the turn — decisionRoutedContext above already came
+            // straight off this same call — it only surfaces the resolved bundle on both
+            // nodes' ports for anyone inspecting the graph.
+            updateRuntimeNode(decisionRouterNode.id, {
+              runtimePortValues: {
+                ...decisionRouterNode.data.runtimePortValues,
+                [runtimePortValueKey('output', 'default')]: routedBundleText,
+              },
+            });
+            const decisionContextEdge = edges.find((edge) =>
+              edge.source === decisionRouterNode.id && edge.target === outputNode.id && (edge.targetHandle ?? 'default') === 'decision-context');
+            if (decisionContextEdge) {
+              updateRuntimeNode(outputNode.id, {
+                runtimePortValues: {
+                  ...outputNode.data.runtimePortValues,
+                  [runtimePortValueKey('input', 'decision-context')]: routedBundleText,
+                },
+              });
+            }
+          } catch (error) {
+            reportRunWarning(`Decision Router context resolution failed: ${error instanceof Error ? error.message : String(error)}`);
+          }
+        }
+        const stagedTurnBase = {
+          nodes: runtimeNodes,
+          messages: historyMessages,
+          currentInputText: displayText,
+          primaryCharacterId: resolveDecisionPrimaryCharacterId(turnMode, inputCharacter, phoneRecipientCharacter),
+          scope: { saveId: runId, branchId: runId, turnId },
+          llm: nodeLlm.withAbortSignal(runSignal),
+          actionBridge,
+          signal: runSignal,
+          instructionsText: resolveStagedInstructionsText(outputNode.data.stagedInstructions),
+          limits: resolveStagedLimits(outputNode.data),
+          allowedRecipeIds: outputNode.data.stagedAllowedRecipes,
+          decisionComposition: resolveDecisionComposition(
+            decisionRouterNode?.data ?? outputNode.data,
+            workflowSettingsValuesForGraph()[responseLengthOptionKey] ?? defaultWorkflowVariableValue(responseLengthOptionKey),
+          ),
+          decisionRoutedContext,
+          decisionExtras: decisionRouterNode ? resolveDecisionBlockExtras(decisionRouterNode.data) : undefined,
+          decisionSequenceGuidance: decisionRouterNode?.data.decisionSequenceGuidance,
+        };
+        // S8 restart recovery: for a resumed retry, use the exact file its persisted record
+        // was read from (`resumeStagedRetry.sessionFileName`), not `stagedRecoveryAnchorRef`
+        // — the ref can (and, on restart, reliably does) rotate to a different slot before
+        // the user even clicks Retry, since a redundant autosave fires almost immediately
+        // after a restore in a fresh renderer where `lastTurnAutosaveIdRef` has reset to
+        // null. Using the ref here would silently clear/write the wrong file and leave the
+        // real record orphaned. For a fresh (non-resume) run the ref is still correct, since
+        // nothing has rotated it away yet relative to *this* run's own failures.
+        const recoveryAnchor = resumeStagedRetry?.sessionFileName ?? stagedRecoveryAnchorRef.current;
+        // S8 restart recovery: a persisted resume always goes through runLiveStagedTurn's own
+        // `resume` branch regardless of which protocol originally produced the plan — that
+        // branch never re-plans, it only re-runs the scheduler against the persisted
+        // plan/store, and decision-v1's own resume handling (runDecisionStagedTurn.ts) is
+        // behaviorally identical for that case (its `priorItems` is always empty already).
+        let staged = resumeStagedRetry
+          ? await runLiveStagedTurn({ ...stagedTurnBase, resume: resumeStagedRetry.retry })
+          : await runSelectedStagedTurn(stagedTurnBase);
+        updateRuntimeNode(outputNode.id, { stagedLastPlanDebug: formatStagedPlanDebug(stagedPlanDebugSnapshot(staged)) });
+        // S8, first slice: a stage that already committed a real effect (an image already
+        // generated, a message already sent) is never repeated on retry - `staged.retry`
+        // carries the same compiled plan/store plus which stages already succeeded, and
+        // `resume` below picks up exactly where the failed attempt stopped.
+        let autoRetries = 0;
+        const autoRetryLimit = Math.max(0, stagedAutoRetryAttempts);
+        while (staged.status === 'run-failed' && autoRetries < autoRetryLimit) {
+          autoRetries += 1;
+          notifySystem('info', `Staged Workflow v1 turn failed; retrying automatically without regenerating completed effects (${autoRetries}/${autoRetryLimit})...`);
+          staged = await runSelectedStagedTurn({ ...stagedTurnBase, resume: staged.retry });
+          updateRuntimeNode(outputNode.id, { stagedLastPlanDebug: formatStagedPlanDebug(stagedPlanDebugSnapshot(staged)) });
+        }
+        while (staged.status === 'run-failed') {
+          const failure = staged;
+          // S8 restart recovery: durably record the retry state (plus the error text, so a
+          // resume-on-launch prompt has something real to show) once a human needs to
+          // decide (the manual banner below), so it survives an app restart —
+          // App.tsx's checkStagedRecoveryForSession reads this back on next load. Skipped
+          // only when nothing has ever been saved/autosaved yet for this conversation.
+          if (recoveryAnchor) {
+            void writeStagedRecovery(recoveryAnchor, failure.retry, failure.error);
+          }
+          const proceed = runSignal.aborted ? false : await new Promise<boolean>((resolve) => {
+            const onAbort = () => { setStagedRetryPrompt(null); resolve(false); };
+            runSignal.addEventListener('abort', onAbort, { once: true });
+            setStagedRetryPrompt({
+              error: failure.error,
+              onRetry: () => { runSignal.removeEventListener('abort', onAbort); setStagedRetryPrompt(null); resolve(true); },
+              onDismiss: () => { runSignal.removeEventListener('abort', onAbort); setStagedRetryPrompt(null); resolve(false); },
+            });
+          });
+          if (!proceed) {
+            if (recoveryAnchor) {
+              void clearStagedRecovery(recoveryAnchor);
+            }
+            notifySystem('warning', `Staged Workflow v1 run stopped: ${failure.error}`);
+            return false;
+          }
+          notifySystem('info', 'Retrying the staged turn without regenerating completed effects...');
+          staged = await runSelectedStagedTurn({ ...stagedTurnBase, resume: failure.retry });
+          updateRuntimeNode(outputNode.id, { stagedLastPlanDebug: formatStagedPlanDebug(stagedPlanDebugSnapshot(staged)) });
+        }
+        // Both loops above only exit once `staged.status` is no longer 'run-failed', so any
+        // durably recorded retry state for this session is now stale — clear it. Uses the
+        // same `recoveryAnchor` captured at the top of this branch, not a fresh read of the
+        // ref (see that comment for why re-reading it here would be wrong).
+        if (recoveryAnchor) {
+          void clearStagedRecovery(recoveryAnchor);
+        }
+        if (staged.status === 'compile-failed') {
+          notifySystem('warning', `Staged Workflow v1 plan did not compile after ${staged.attempts} attempt(s): ${staged.issues.map((issue) => issue.message).join('; ') || 'unknown issue'}.`);
+          return false;
+        }
+        if (staged.status === 'incomplete') {
+          reportRunWarning(`Staged Workflow v1 run reported success but left ${staged.incompleteBeatIds.length} beat(s) unrealized; nothing was committed.`, outputNodeTraceInfo);
+          return false;
+        }
+        const storyParts: string[] = [];
+        for (const item of staged.items) {
+          if (item.kind === 'text') {
+            storyParts.push(item.text);
+            let translatedText: string | undefined;
+            if (runEnglishProcessing && !runSignal.aborted) {
+              try {
+                translatedText = await translateText(item.text, 'to-display', outputNode.data.connectionId ?? defaultConnectionId,
+                  outputNode.id, undefined, turnContext.displayLanguage, runSignal, inputHistoryContext);
+              } catch { /* Preserve the committed original if translation is interrupted. */ }
+            }
+            appendMessage({ role: 'output', originalText: item.text, translatedText, includeInHistory: true, turnContext });
+            continue;
+          }
+          if (item.receiptId.startsWith('social:') || item.receiptId.startsWith('note:') || item.receiptId.startsWith('bank:') || item.receiptId.startsWith('chat:')) {
+            // The postSocial/commentOnSocial/writeNote/transferFunds/simulateAssistantChat
+            // adapter already recorded the post/comment/note/transfer/chat at execution
+            // time; nothing further to render here.
+            continue;
+          }
+          const messageId = /^message:(\d+)$/.exec(item.receiptId)?.[1];
+          const message = messageId !== undefined
+            ? [...messagesRef.current, ...(activeTurnCollectorRef.current?.outputMessages ?? [])].find((entry) => entry.id === Number(messageId))
+            : undefined;
+          if (message) {
+            appendMessage({ role: 'output', originalText: '', includeInHistory: false, turnContext,
+              embeddedPhoneMessages: [{ phoneMessageId: message.id, from: message.phoneFrom ?? '', to: message.phoneTo ?? '', message: message.originalText ?? '' }],
+            });
+          } else {
+            reportRunWarning(`Staged Workflow v1 delivered receipt "${item.receiptId}" could not be found to render.`, outputNodeTraceInfo);
+          }
+        }
+        // Neither staged-v1 nor decision-v1 has its own choice/info-box/progress-bar
+        // concept yet - both reuse the legacy "Output Actions" auxiliary prompt channel,
+        // the same one actions-v1/legacy already reach below. That channel is otherwise
+        // only ever evaluated as a side effect of the main `executeGraph` call those
+        // protocols make for their reply text - staged/decision never make that call at
+        // all - so it needs its own narrowly scoped call here, with the main handle
+        // skipped (`skipPrimaryOutput`) so this never generates a second, unused reply.
+        let stagedOutputActionsText = '';
+        try {
+          await executeGraph({
+            outputNodeId: outputNode.id,
+            skipPrimaryOutput: true,
+            auxiliaryOutputHandles: ['output-actions'],
+            onAuxiliaryOutput: (handle, text) => { if (handle === 'output-actions') stagedOutputActionsText = text; },
+            nodes: executionNodes,
+            edges,
+            originalInput: executionOriginalInput,
+            visibleInput,
+            lastRpOutput,
+            inputImages: activeInputImages,
+            phoneMessage: isPhoneMessage,
+            messageFormat,
+            promptSlot,
+            originalHistory,
+            translatedHistory,
+            historyMessages,
+            userControlledCharacterId: (isAutoplayRun || isAutoTurn || isNarratorTurn) ? undefined : inputCharacter?.id,
+            llm: nodeLlm.withAbortSignal(runSignal),
+            textMetrics: new TextMetricsApi(activeTokenEstimateBytesPerToken),
+            updateRuntimeNode,
+            connections,
+            settingsValues: workflowSettingsValuesForGraph(),
+            settingsValueDefinitions: settingsValueDefinitionsRef.current,
+            promptActionSettings,
+            rpDateTimeFormat,
+            rpWeekdayLanguage,
+            retryFormatErrorsEnabled,
+            providerHealthById: providerHealthForRun,
+            onWarning: reportRunWarning,
+            signal: runSignal,
+          });
+        } catch (error) {
+          if (isRunCancelledError(error)) throw error;
+          reportRunWarning(`Output Actions channel failed: ${error instanceof Error ? error.message : String(error)}`, outputNodeTraceInfo);
+        }
+        const stagedAuxiliaryOutputActions = parseOutputActions(stagedOutputActionsText);
+        stagedAuxiliaryOutputActions.warnings.forEach((warning) => reportRunWarning(warning, outputNodeTraceInfo));
+        applyOutputActionControls(stagedAuxiliaryOutputActions.controls);
+        applyOutputActionUiItems(stagedAuxiliaryOutputActions.uiItems);
+        const structuredText = storyParts.join('\n\n');
+        onRpOutputReady?.(structuredText);
+        await prepareNextTurn(structuredText);
+        onSuccessfulRunBeforeCommit?.();
+        // Must run before commitCollectedTurn - see the identical comment on the
+        // actions-v1 commit block below for why (turn-autosave race).
+        if (liveNoteWriteCommits.length) commitCreatedPhoneNotes(turnId, liveNoteWriteCommits);
+        if (liveSimulatedAiChatCommits.length) commitSimulatedAiChats(turnId, liveSimulatedAiChatCommits);
+        const committed = commitCollectedTurn(storedInputGraphText, structuredText, checkpointBeforeNodes,
+          checkpointBeforeWorkflowVariables, undefined, turnMode, { messageFormat, promptSlot, directAction: false });
+        if (committed) {
+          // The turn now durably reflects these effects (via the next autosave); the
+          // journal only needs to cover the window before a commit lands.
+          void clearEffectJournalForScope(actionScope).catch(() => {});
+          onRunCommitted?.({ messageFormat, playerCharacterName: inputCharacter?.name ?? narratorSpeakerName });
+          const runReport = activeRunLlmReport.current;
+          if (runReport) recordTurnTrace({ turn: committed, run: runReport, nodes: nodesRef.current,
+            status: 'completed', warnings: runWarnings, traceEvents: runTraceEvents });
+        }
+        clearTemporaryReferenceImages();
+        pruneStorybookExternalImagesForMessages();
+        return true;
+      }
+      // Only a model-authored turn needs the catalog injected into the prompt; a direct
+      // action never calls the LLM, and a truthy structuredActionContext here would tell
+      // executeGraph to disable its legacy/direct-actions handling by default.
+      const structuredActionContext = directActionOnly ? undefined : actionBridge?.promptContext();
       const executedOutput = await executeGraph({
+        structuredActionContext,
+        onImageRunnerReady: (runner) => { imageRunner = runner; },
         outputNodeId: outputNode.id,
-        outputSourceHandle: directActionOnly ? 'direct-actions' : undefined,
+        outputSourceHandle: directActionOnly ? 'direct-actions' : useStructuredActions && isPhoneMessage ? 'phone-message' : undefined,
         nodes: executionNodes,
         edges,
         originalInput: executionOriginalInput,
@@ -1492,7 +2154,7 @@ export function useGraphRun(options: UseGraphRunOptions) {
             autoplayOutputText = text;
           }
         },
-        streamOutput:
+        streamOutput: useStructuredActions ? undefined :
           messageFormat !== socialMediaMessageFormat &&
           !isPhoneMessage &&
           outputNode.data.streamOutputEnabled &&
@@ -1503,6 +2165,85 @@ export function useGraphRun(options: UseGraphRunOptions) {
             : undefined,
         signal: runSignal,
       });
+      if (actionBridge && !directActionOnly) {
+        const report = await actionBridge.execute(parseActionReply(executedOutput));
+        const outcomes = new Map(report.operations.map((operation) => [operation.id, operation]));
+        const storyParts: string[] = [];
+        const failed = report.error || report.operations.some((operation) => operation.status !== 'committed');
+        for (const block of report.blocks) {
+          if (block.type === 'text') {
+            // Action-dependent prose remains provisional when any operation failed.
+            if (failed || !block.text.trim()) continue;
+            storyParts.push(block.text);
+            let translatedText: string | undefined;
+            if (runEnglishProcessing && !runSignal.aborted) {
+              try {
+                translatedText = await translateText(block.text, 'to-display', outputNode.data.connectionId ?? defaultConnectionId,
+                  outputNode.id, undefined, turnContext.displayLanguage, runSignal, inputHistoryContext);
+              } catch { /* Preserve the committed original if translation is interrupted. */ }
+            }
+            appendMessage({ role: 'output', originalText: block.text, translatedText, includeInHistory: true, turnContext });
+            continue;
+          }
+          const outcome = outcomes.get(block.operationId);
+          if (outcome?.status === 'committed' && outcome.result?.type === 'messenger.sent') {
+            const result = outcome.result;
+            const message = [...messagesRef.current, ...(activeTurnCollectorRef.current?.outputMessages ?? [])].find((entry) => entry.id === result.messageId);
+            if (message) {
+              appendMessage({ role: 'output', originalText: '', includeInHistory: false, turnContext,
+                embeddedPhoneMessages: [{ phoneMessageId: result.messageId, from: message.phoneFrom ?? '', to: message.phoneTo ?? '', message: result.text }],
+              });
+            }
+          } else if (outcome?.status === 'committed' && outcome.result?.type === 'image.generated') {
+            const image = currentStorybookImageAttachmentById(nodesRef.current, outcome.result.artifactId);
+            if (image) appendMessage({ role: 'output', originalText: '', imageAttachments: [image], includeInHistory: true, turnContext });
+          } else if (outcome?.status === 'committed' && (outcome.result?.type === 'social.posted' || outcome.result?.type === 'social.commented' || outcome.result?.type === 'bank.transferred' || outcome.result?.type === 'note.written' || outcome.result?.type === 'assistant.chatted')) {
+            // The postSocial/commentOnSocial/transferFunds/writeNote/simulateAssistantChat
+            // adapter already recorded the post/comment/transfer/note/chat at execution
+            // time; nothing further to render here.
+          } else if (outcome) {
+            const detail = `Action ${outcome.status}: ${outcome.error ?? 'Not completed.'}`;
+            reportRunWarning(detail, outputNodeTraceInfo);
+            appendMessage({ role: 'output', originalText: detail, includeInHistory: true, turnContext });
+          }
+        }
+        if (report.error) reportRunWarning(report.error, outputNodeTraceInfo);
+        // The legacy "Output Actions" auxiliary prompt channel (choices, info boxes,
+        // progress bars, context-capacity bars, tab/player controls) is independent of
+        // the actions-v1 JSON envelope above - a separate prompt output the graph may
+        // still wire up regardless of protocol - and previously went unrendered here
+        // because this branch returned before the shared legacy processing below.
+        const auxiliaryOutputActions = parseOutputActions(outputActionsText);
+        auxiliaryOutputActions.warnings.forEach((warning) => reportRunWarning(warning, outputNodeTraceInfo));
+        applyOutputActionControls(auxiliaryOutputActions.controls);
+        applyOutputActionUiItems(auxiliaryOutputActions.uiItems);
+        const structuredText = storyParts.join('\n\n');
+        onRpOutputReady?.(structuredText);
+        await prepareNextTurn(structuredText);
+        onSuccessfulRunBeforeCommit?.();
+        // Must run before commitCollectedTurn, matching the legacy commit order below:
+        // turn-autosave triggers off `turns` changing, so committing these note/chat
+        // stores afterward risks the autosave effect capturing a snapshot from before
+        // this update lands, permanently missing it for that turn (observed as a real,
+        // reproducible intermittent failure - not the unrelated pre-existing Electron
+        // flake - before this reordering).
+        if (liveNoteWriteCommits.length) commitCreatedPhoneNotes(turnId, liveNoteWriteCommits);
+        if (liveSimulatedAiChatCommits.length) commitSimulatedAiChats(turnId, liveSimulatedAiChatCommits);
+        const committed = commitCollectedTurn(storedInputGraphText, structuredText, checkpointBeforeNodes,
+          checkpointBeforeWorkflowVariables, undefined, turnMode, { messageFormat, promptSlot, directAction: false });
+        if (committed) {
+          void clearEffectJournalForScope(actionScope).catch(() => {});
+          onRunCommitted?.({ messageFormat, playerCharacterName: inputCharacter?.name ?? narratorSpeakerName });
+          const runReport = activeRunLlmReport.current;
+          if (runReport) recordTurnTrace({ turn: committed, run: runReport, nodes: nodesRef.current,
+            status: failed ? 'error' : 'completed', warnings: runWarnings, traceEvents: runTraceEvents,
+            ...(failed ? { error: report.error ?? 'One or more structured actions did not commit.' } : {}),
+          });
+        }
+        clearTemporaryReferenceImages();
+        pruneStorybookExternalImagesForMessages();
+        return true;
+      }
       const graphOutput = directActionOnly
         ? ''
         : isAutoplayRun
@@ -2163,27 +2904,7 @@ export function useGraphRun(options: UseGraphRunOptions) {
           }
         };
 
-        appliedActions.controls.forEach((control) => {
-          if (control.type === 'setTab') {
-            selectChatPanelView(control.tab);
-            return;
-          }
-          if (control.name.toLocaleLowerCase() === 'current') {
-            return;
-          }
-          const character =
-            phoneNamesMatch(control.name, narratorSpeakerName)
-              ? { id: narratorCharacterId }
-              : storyCharacters.find(
-                  (entry) => entry.id === control.name || phoneNamesMatch(entry.name, control.name),
-                );
-          if (character) {
-            selectChatCharacter(character.id);
-          } else {
-            setSelectedCharacterId(narratorCharacterId);
-            notifySystem('warning', `Output Actions could not find player "${control.name}". Falling back to Narrator.`);
-          }
-        });
+        applyOutputActionControls(appliedActions.controls);
 
         for (const chatMessage of appliedActions.chatMessages) {
           const translatedText = await translateOutputActionText(chatMessage.text, chatMessage);
@@ -2202,52 +2923,7 @@ export function useGraphRun(options: UseGraphRunOptions) {
           });
         }
 
-        const appendOutputActionUiItem = (item: OutputActionUiItem) => {
-          if (item.type === 'choiceGroup') {
-            appendMessage({
-              role: 'output',
-              originalText: item.value.prompt?.trim() ?? '',
-              includeInHistory: false,
-              outputActionChoices: [item.value],
-            });
-            return;
-          }
-          if (item.type === 'infoBox') {
-            appendMessage({
-              role: 'output',
-              originalText: [item.value.title, item.value.text].filter(Boolean).join(': '),
-              includeInHistory: false,
-              outputActionInfoBoxes: [item.value],
-            });
-            return;
-          }
-          if (item.type === 'progressBar') {
-            appendMessage({
-              role: 'output',
-              originalText: `${item.value.title}: ${item.value.value}/${item.value.max}`,
-              includeInHistory: false,
-              outputActionProgressBars: [item.value],
-            });
-            return;
-          }
-          const contextCapacityBars = resolveOutputActionContextCapacityBars([item.value]);
-          if (contextCapacityBars.length === 0) {
-            return;
-          }
-          appendMessage({
-            role: 'output',
-            originalText: contextCapacityBars
-              .map(
-                (bar) =>
-                  `${bar.title}: trimmed context ${bar.replacedTokens} / summary ${bar.summaryTokens} / active ${bar.activeTokens} / max ${bar.maxTokens}`,
-              )
-              .join('\n'),
-            includeInHistory: false,
-            outputActionContextCapacityBars: contextCapacityBars,
-          });
-        };
-
-        appliedActions.uiItems.forEach(appendOutputActionUiItem);
+        applyOutputActionUiItems(appliedActions.uiItems);
 
         for (const [index, actionPhoneMessage] of [
           ...appliedActions.phoneMessages,
@@ -2283,6 +2959,40 @@ export function useGraphRun(options: UseGraphRunOptions) {
           }), { appendPhoneMessage });
         }
 
+        // A direct-user transfer on the new action protocols reuses the shared executor
+        // (catalog re-validation, H7 journal coverage) instead of this file's own
+        // balance/identity checks below, which remain exactly as before for every other
+        // bank-transfer source (all of them narrative/model-authored, never direct-user).
+        if (useDirectStructuredAction && actionBridge) {
+          for (const bankTransfer of appliedActions.bankTransfers) {
+            const canonicalTransfer = {
+              ...bankTransfer,
+              from: canonicalPhoneName(phoneCharacters, bankTransfer.from),
+              to: canonicalPhoneName(phoneCharacters, bankTransfer.to),
+            };
+            const sender = storyCharacters.find((character) => bankTransferPartyMatches(character, canonicalTransfer.from));
+            const recipient = storyCharacters.find((character) => bankTransferPartyMatches(character, canonicalTransfer.to));
+            const catalog = actionBridge.getCatalog();
+            const senderHandle = sender && catalog.entries.find((entry) => entry.kind === 'character' && entry.id === sender.id)?.handle;
+            const recipientHandle = recipient && catalog.entries.find((entry) => entry.kind === 'character' && entry.id === recipient.id)?.handle;
+            if (!senderHandle || !recipientHandle) {
+              reportRunWarning(
+                `Bank transfer from "${canonicalTransfer.from}" to "${canonicalTransfer.to}" was ignored because both parties must have a Storybook bank account.`,
+                outputNodeTraceInfo,
+              );
+              continue;
+            }
+            const report = await actionBridge.execute({
+              version: 1, catalogId: catalog.scope.catalogId,
+              blocks: [{ type: 'action', intent: { type: 'bank.transfer', from: senderHandle, to: recipientHandle,
+                amount: canonicalTransfer.amount, ...(canonicalTransfer.note ? { note: canonicalTransfer.note } : {}) } }],
+            });
+            const outcome = report.operations[0];
+            if (outcome?.status !== 'committed') {
+              reportRunWarning(`Bank transfer was not completed: ${outcome?.error ?? report.error ?? 'unknown error'}.`, outputNodeTraceInfo);
+            }
+          }
+        } else {
         for (const bankTransfer of [
           ...appliedActions.bankTransfers,
           ...embeddedPhoneResult.bankTransfers,
@@ -2330,6 +3040,7 @@ export function useGraphRun(options: UseGraphRunOptions) {
             includeInHistory: true,
             bankTransfer: canonicalTransfer,
           });
+        }
         }
 
         for (const createdPhoneNote of allCreatedPhoneNoteCommits) {
@@ -2574,83 +3285,7 @@ export function useGraphRun(options: UseGraphRunOptions) {
           }
         }
       }
-      const collectedTurn = activeTurnCollectorRef.current;
-      const completedHistoryMessages: MessageRecord[] = [
-        ...historyMessages,
-        ...(collectedTurn?.inputMessages ?? []),
-        ...(collectedTurn?.outputMessages ?? []),
-      ];
-      const completedOriginalHistory = formatChatHistory(
-        completedHistoryMessages,
-        false,
-        rpDateTimeFormat,
-        rpWeekdayLanguage,
-      );
-      const completedTranslatedHistory = formatChatHistory(
-        completedHistoryMessages,
-        true,
-        rpDateTimeFormat,
-        rpWeekdayLanguage,
-      );
-      if (!directActionOnly) {
-        try {
-          const recentTurns = turnsRef.current
-            .filter((turn) => turn.id !== collectedTurn?.turnId)
-            .slice(-5);
-          await executeGraph({
-          outputNodeId: outputNode.id,
-          postOutputRun: true,
-          postOutputNodeIds: nodesPreparedAfterOutput(nodesRef.current, edges),
-          nodes: nodesRef.current,
-          edges,
-          originalInput,
-          visibleInput,
-          lastRpOutput: lastMessageText(completedHistoryMessages, 'output') || rpOutput,
-          inputImages: activeInputImages,
-          phoneMessage: isPhoneMessage,
-          originalHistory: completedOriginalHistory,
-          translatedHistory: completedTranslatedHistory,
-          historyMessages: completedHistoryMessages,
-          recentTurns,
-          currentTurnId: collectedTurn?.turnId,
-          updateHistoryMessageTimes,
-          userControlledCharacterId: (isAutoplayRun || isAutoTurn || isNarratorTurn) ? undefined : inputCharacter?.id,
-          llm: nodeLlm.withAbortSignal(runSignal),
-          textMetrics: new TextMetricsApi(activeTokenEstimateBytesPerToken),
-          updateRuntimeNode,
-          connections,
-          onComfyGenerationActive: updateWorkflowComfyGenerationActive,
-          onWarning: reportRunWarning,
-          onFormatResult: (result) => {
-            runTraceEvents.push({ kind: 'format', ...result });
-          },
-          settingsValues: workflowSettingsValuesForGraph(),
-          settingsValueDefinitions: settingsValueDefinitionsRef.current,
-          promptActionSettings,
-          onWorkflowVariablesSet: setWorkflowVariablesFromCommands,
-          rpDateTimeFormat,
-          rpWeekdayLanguage,
-          referenceImages: runReferenceImageOptions,
-          retryFormatErrorsEnabled,
-          trackRunCompletion: true,
-          signal: runSignal,
-          });
-        } catch (error) {
-          if (isRunCancelledError(error)) {
-            // The visible reply is already delivered at this point. Only a
-            // restart may roll the turn back for its re-run; a plain cancel
-            // keeps the turn and just skips the remaining preparation.
-            if ((activeRunCancelReason.current as CancelReason) === 'restart') {
-              throw error;
-            }
-            notifySystem('info', 'Next-turn preparation cancelled; the delivered reply was kept.');
-          } else {
-            reportRunWarning(
-              `Next-turn preparation failed: ${error instanceof Error ? error.message : String(error)}`,
-            );
-          }
-        }
-      }
+      await prepareNextTurn(rpOutput);
       onSuccessfulRunBeforeCommit?.();
       commitSimulatedAiChats(turnId, allSimulatedAiChatCommits);
       commitCreatedPhoneNotes(turnId, allCreatedPhoneNoteCommits);
@@ -2665,6 +3300,7 @@ export function useGraphRun(options: UseGraphRunOptions) {
         { messageFormat, promptSlot, directAction: directActionOnly },
       );
       if (committedTurn) {
+        if (actionBridge) void clearEffectJournalForScope(actionScope).catch(() => {});
         onRunCommitted?.({
           messageFormat,
           playerCharacterName: inputCharacter?.name ?? narratorSpeakerName,
@@ -2798,6 +3434,7 @@ export function useGraphRun(options: UseGraphRunOptions) {
       normalized.directActionOnly,
       normalized.socialDirectMessage,
       normalized.contextComment,
+      normalized.resumeStagedRetry,
     );
   }
 

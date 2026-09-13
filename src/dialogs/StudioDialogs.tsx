@@ -152,6 +152,8 @@ type StudioDialogsProps = {
   minUiScale: number;
   maxUiScale: number;
   retryFormatErrorsEnabled: boolean;
+  stagedAutoRetryAttempts: number;
+  maxStagedAutoRetryAttempts: number;
   turnAutosaveEnabled: boolean;
   onCloseOptions: () => void;
   onEnglishProcessingChange: (enabled: boolean) => void;
@@ -178,6 +180,7 @@ type StudioDialogsProps = {
   onNodeTextSizeChange: (size: 'small' | 'normal' | 'big') => void;
   onUiScaleChange: (scale: number) => void;
   onRetryFormatErrorsChange: (enabled: boolean) => void;
+  onStagedAutoRetryAttemptsChange: (value: number) => void;
   onTurnAutosaveEnabledChange: (enabled: boolean) => void;
   showFiles: boolean;
   savedFiles: SavedFileSummary[];
@@ -479,6 +482,17 @@ function ProviderCapabilityBadges({
 }
 
 const providerPresets = [
+  {
+    label: 'Unsloth',
+    kind: 'llm',
+    providerKind: 'unsloth',
+    baseUrl: 'http://127.0.0.1:8888/v1',
+    apiKey: '',
+    model: '',
+    reasoningEffort: 'none',
+    models: [''],
+    description: 'Local Unsloth Studio server',
+  },
   {
     label: 'LM Studio',
     kind: 'llm',
@@ -812,6 +826,8 @@ export function StudioDialogs({
   minUiScale,
   maxUiScale,
   retryFormatErrorsEnabled,
+  stagedAutoRetryAttempts,
+  maxStagedAutoRetryAttempts,
   turnAutosaveEnabled,
   onCloseOptions,
   onEnglishProcessingChange,
@@ -838,6 +854,7 @@ export function StudioDialogs({
   onNodeTextSizeChange,
   onUiScaleChange,
   onRetryFormatErrorsChange,
+  onStagedAutoRetryAttemptsChange,
   onTurnAutosaveEnabledChange,
   showFiles,
   savedFiles,
@@ -2326,6 +2343,34 @@ export function StudioDialogs({
                         Applies to RP Output speaker analysis, Chat History RP time, and
                         Event Manager responses.
                       </p>
+                      <div className="option-info">
+                        <strong>Staged Workflow auto-retry</strong>
+                        <p>
+                          When a Staged Workflow v1 turn fails partway through (for example, a message
+                          send fails after its photo already generated), automatically retry without
+                          regenerating anything already committed. Once these attempts are used up,
+                          you get a Retry button instead.
+                        </p>
+                      </div>
+                      <label className="option-field" htmlFor="staged-auto-retry-attempts">
+                        AUTOMATIC RETRIES BEFORE ASKING
+                        <div className="option-range-row">
+                          <input
+                            id="staged-auto-retry-attempts"
+                            type="range"
+                            min={0}
+                            max={maxStagedAutoRetryAttempts}
+                            step={1}
+                            value={stagedAutoRetryAttempts}
+                            onChange={(event) => onStagedAutoRetryAttemptsChange(Number(event.target.value))}
+                          />
+                          <span>
+                            {stagedAutoRetryAttempts === 0
+                              ? 'Manual only'
+                              : `${stagedAutoRetryAttempts} attempt${stagedAutoRetryAttempts === 1 ? '' : 's'}`}
+                          </span>
+                        </div>
+                      </label>
                     </div>
                   </div>
                 )}
@@ -3796,10 +3841,10 @@ export function StudioDialogs({
                         </div>
                       )}
                       {llamaCppToolsAvailable && (
-                        <div className="connection-provider-tools" aria-label="llama.cpp model tools">
+                        <div className="connection-provider-tools" aria-label={`${editingConnection.providerKind === 'unsloth' ? 'Unsloth' : 'llama.cpp'} model tools`}>
                           <div>
-                            <strong>llama.cpp</strong>
-                            <span>{editingConnectionHealth.detail ?? 'Router model state is read from /models.'}</span>
+                            <strong>{editingConnection.providerKind === 'unsloth' ? 'Unsloth' : 'llama.cpp'}</strong>
+                            <span>{editingConnectionHealth.detail ?? (editingConnection.providerKind === 'unsloth' ? 'Local model residency from Unsloth Studio.' : 'Router model state is read from /models.')}</span>
                           </div>
                           <div className="connection-provider-actions">
                             <button type="button" onClick={onLoadLlamaCppModel} disabled={ollamaModelActionActive !== null}>

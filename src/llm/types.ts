@@ -7,6 +7,7 @@ import type {
 } from '../types';
 
 export type NodeLlmRequest = {
+  responseContract?: 'actions-v1';
   connectionId?: string;
   prompt: string;
   images?: ChatImageAttachment[];

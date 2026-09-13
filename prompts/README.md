@@ -1,17 +1,22 @@
 # Response Router Prompt Imports
 
-For the forthcoming typed action protocol, see the [legacy prompt migration guide](../docs/guides/action-prompt-migration.md). It includes compiler-checked examples and an explicit readiness checklist. The action runtime is not enabled in these imports; do not replace working prompts with the new envelopes yet.
+For the experimental typed action protocol, see the [legacy prompt migration guide](../docs/guides/action-prompt-migration.md). The imports below retain Legacy. A separate RP-only copy can opt in on RP Output; technical action instructions are supplied automatically, not pasted into each route.
 
 ## Complete Workflows
 
+- **New action-system baseline:** [default-actions-v1.json](../workflows/default-actions-v1.json), a complete default-workflow conversion with 12 managed RP/WhatsUp routes and 10 preserved social/autoplay compatibility routes. [Setup and limitations](../workflows/README.md).
+
 Open either file through the app's existing workflow-open command:
 
-- [Default workflow](../workflow.default_v25.json): 22 routes with thematic prompt sections.
-- [Planning workflow](../workflow.default_planning_v25.json): 22 routes, with planning and main-response sections separated where those execution steps already exist.
+- [Default workflow](../default_workflows/workflow.default_v26.json): 22 routes with thematic prompt sections.
+- [Planning workflow](../default_workflows/workflow.default_planning_v26.json): 22 routes, with planning and main-response sections separated where those execution steps already exist.
+- [Decision workflow](../default_workflows/workflow.default_decision_v26.json): the planning workflow plus a Decision Router node (decision-v1), the local-model-friendly protocol.
 
 All original prompt text, step markers, actions, selector numbers and connections are retained. The migration adds structured router data; it does not change story behavior or enable a new action runtime. Loading these files replaces the active workflow, so save your own workflow first. They do not contain unsaved edits from an already-open app instance.
 
 ## Prompt-Only Files
+
+- [Action-baseline prompts](default-actions-v1.prompts.json), matching the new baseline. This is for prompt merge/export tools, not direct workflow import.
 
 - [Default prompts](default-response-router.prompts.json)
 - [Planning prompts](default-planning-response-router.prompts.json)
@@ -19,8 +24,8 @@ All original prompt text, step markers, actions, selector numbers and connection
 These use prompt-document version 2, not the workflow file format. Merge them with the existing command-line tool; do not open them as complete workflows:
 
 ```powershell
-node scripts/workflow-prompts.mjs merge prompts/default-response-router.prompts.json workflow.default_v25.json workflow.imported.json
-node scripts/workflow-prompts.mjs merge prompts/default-planning-response-router.prompts.json workflow.default_planning_v25.json workflow.planning.imported.json
+node scripts/workflow-prompts.mjs merge prompts/default-response-router.prompts.json default_workflows/workflow.default_v26.json workflow.imported.json
+node scripts/workflow-prompts.mjs merge prompts/default-planning-response-router.prompts.json default_workflows/workflow.default_planning_v26.json workflow.planning.imported.json
 ```
 
 Then open the resulting workflow file in the app. Existing version-1 text-only prompt documents remain supported. Stable route identities prevent presentation reordering from applying text to the wrong route. Version-2 section text is authoritative; the merger generates the raw before/after projections.
@@ -37,7 +42,7 @@ Regroup by topic rebuilds an older over-fragmented layout without changing promp
 
 The output/prompt selector pair picks which prompt runs. Legacy recovers some invalid values by truncating/clamping/falling back; Strict rejects invalid or unmatched values. Both behave the same for a valid pair. Keep Legacy for existing workflows until their selector sources have been checked.
 
-Neither option changes how the LLM selects actions. The typed action runtime described by H4 in the cleanup roadmap is still pending. These sections continue through the existing prompt/action executor, without additional model calls.
+Neither selector-policy option changes how the LLM selects actions. RP Output's separate Action protocol option enables the experimental runtime for supported RP replies. Connected router response sections then show application-managed, read-only rules for reply structure, character access, images and delivery. Creative fields remain editable. The default imports still use the existing legacy executor.
 
 ## Verification (2026-09-07)
 
@@ -48,3 +53,6 @@ Neither option changes how the LLM selects actions. The typed action runtime des
 - Node 24 currently reports a benign module-type detection warning when CLI tools import the shared TypeScript section model; execution and validation succeed.
 
 To mechanically regenerate grouping from the bundled raw texts, use `node scripts/structure-default-prompts.mjs <workflow-path>`, then re-extract with `node scripts/workflow-prompts.mjs extract <workflow-path> <prompt-path>`. The regrouping script intentionally replaces custom grouping in the named file; run it only on the intended defaults or a saved copy.
+# Planning Action-System Baseline
+
+For the two-pass version, import the complete [planning workflow](../workflows/default-planning-actions-v1.json). [default-planning-actions-v1.prompts.json](default-planning-actions-v1.prompts.json) is its prompt-only companion, not the full graph. See [usage and limitations](../workflows/README.md). Planning and final-response steps are preserved; migrated RP/WhatsUp fields no longer contain legacy action calls or messenger schemas.

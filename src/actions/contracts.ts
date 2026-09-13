@@ -5,7 +5,17 @@ export type ActionScope = {
   catalogId: string;
 };
 
-export type ActionCapability = 'whatsup.send' | 'whatsup.receive' | 'image.generate';
+export type SocialApp = 'fotogram' | 'onlyfriends';
+
+export type ActionCapability =
+  | 'whatsup.send' | 'whatsup.receive' | 'image.generate'
+  // Presence means the character has an actual configured account on that app —
+  // mirrors the existing legacy rule that a missing account cannot be invented.
+  | 'fotogram.social' | 'onlyfriends.social';
+
+export function socialCapability(app: SocialApp): 'fotogram.social' | 'onlyfriends.social' {
+  return app === 'fotogram' ? 'fotogram.social' : 'onlyfriends.social';
+}
 
 type CatalogReference = {
   handle: string;
@@ -16,7 +26,9 @@ type CatalogReference = {
 };
 
 export type ActionCatalogEntry = CatalogReference & (
-  | { kind: 'character'; capabilities: ActionCapability[] }
+  | { kind: 'character'; capabilities: ActionCapability[]; allowedRecipientIds?: string[];
+      /** Current bank balance, when the caller supplies one; absent means unchecked. */
+      bankBalance?: number }
   | { kind: 'image'; accessibleTo: string[] }
 );
 
@@ -43,9 +55,55 @@ export type MessengerSendAction = {
   toId: string;
   text: string;
   attachment?: ImageBinding;
+  /** Renders as a lazily-synthesized spoken clip instead of plain text; delivery is unchanged. */
+  isVoiceMessage?: boolean;
 };
 
-export type CanonicalAction = ImageGenerationAction | MessengerSendAction;
+export type SocialPostAction = {
+  type: 'social.post';
+  app: SocialApp;
+  authorId: string;
+  caption: string;
+};
+
+export type SocialCommentAction = {
+  type: 'social.comment';
+  app: SocialApp;
+  authorId: string;
+  // Not catalog-validated at compile time (unlike character/image references):
+  // existing-post identity is checked by the adapter against live app state at
+  // execution time, since posts aren't (yet) enumerated in the compact catalog.
+  postId: string;
+  text: string;
+};
+
+export type BankTransferAction = {
+  type: 'bank.transfer';
+  fromId: string;
+  toId: string;
+  amount: number;
+  note?: string;
+};
+
+export type NoteWriteAction = {
+  type: 'note.write';
+  ownerId: string;
+  title: string;
+  body: string;
+  /** Omitted creates a new note; supplied updates the owner's existing note with this id. */
+  noteId?: string;
+};
+
+export type AssistantChatMessage = { role: 'user' | 'assistant'; text: string };
+
+export type AssistantChatAction = {
+  type: 'assistant.chat';
+  ownerId: string;
+  /** 2 to 8 messages (1 to 4 exchanges), strictly alternating and starting with 'user'. */
+  messages: AssistantChatMessage[];
+};
+
+export type CanonicalAction = ImageGenerationAction | MessengerSendAction | SocialPostAction | SocialCommentAction | BankTransferAction | NoteWriteAction | AssistantChatAction;
 
 export type ValidatedOperation = {
   id: string;

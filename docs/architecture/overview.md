@@ -56,7 +56,7 @@ At a high level, the app works like this:
 6. The runtime resolves connected nodes, calls LLM or utility nodes as needed, and updates runtime node state.
 7. The output is appended back into the chat/session timeline and shown in the UI.
 
-The two bundled default workflows are ready-to-use roleplay graphs rather than minimal three-node examples. Both combine `User Input`, `RP Output`, `Chat History`, `Context Compression`, `Event Manager`, `RP Storybook V2`, an `LLM Prompt Switch`, text combiners, a workflow-variable input, and Wire Links. The Prompt Switch routes Normal RP, Messenger Apps, and Social Media runs into the matching `RP Output` inputs. It also provides an Autoplay output that can be connected to the dedicated RP Output Autoplay input. The classic `workflow.default_vNN.json` family keeps the single-pass prompts, while `workflow.default_planning_vNN.json` uses multistep planning for Normal RP and Messenger prompts. Shared graph and format changes are maintained in both families.
+The three bundled default workflows are ready-to-use roleplay graphs rather than minimal three-node examples. All three combine `User Input`, `RP Output`, `Chat History`, `Context Compression`, `Event Manager`, `RP Storybook V2`, an `LLM Prompt Switch`, text combiners, a workflow-variable input, and Wire Links. The Prompt Switch routes Normal RP, Messenger Apps, and Social Media runs into the matching `RP Output` inputs. It also provides an Autoplay output that can be connected to the dedicated RP Output Autoplay input. The classic `workflow.default_vNN.json` family keeps the single-pass prompts, `workflow.default_planning_vNN.json` uses multistep planning for Normal RP and Messenger prompts, and `workflow.default_decision_vNN.json` is the planning graph with its Prompt Switch removed and a Decision Router node in its place, driving decision-v1 instead. Shared graph and format changes are maintained across all three families.
 
 ## Prompt Routing
 
@@ -220,7 +220,7 @@ Important file actions:
 - `openStoredFile`, `requestOpenFile`, and `loadStoredFile` route plain or encrypted loads through the correct unlock path.
 - `resetWorkflow` reloads the active workflow file, restores an embedded workflow snapshot, or restores both bundled workflow families and opens the planning workflow.
 
-Bundled workflow names are versioned independently in the classic `workflow.default_vNN.json` and multistep `workflow.default_planning_vNN.json` families. On startup the Electron layer imports every bundled filename not already recorded in `workflow-state.json`. It never overwrites an existing local file, so an updated classic or planning workflow appears alongside previously imported versions. On a fresh installation the planning family is selected as the primary default; an existing installation keeps its last active workflow.
+Bundled workflow names live in `default_workflows/` and are versioned independently across three families: the classic `workflow.default_vNN.json`, multistep `workflow.default_planning_vNN.json`, and `workflow.default_decision_vNN.json` (planning plus a Decision Router node, for decision-v1). On startup the Electron layer imports every bundled filename not already recorded in `workflow-state.json`. It never overwrites an existing local file, so an updated classic, planning, or decision workflow appears alongside previously imported versions. On a fresh installation the decision family is selected as the primary default; an existing installation keeps its last active workflow. `default_workflows/` also holds bundled `sample.default*.json` session files, seeded once into the user's files directory by exact target name (never re-activated or restored).
 
 ## Node System
 
@@ -229,11 +229,13 @@ Nodes are registered through a central registry. Each core node definition inclu
 Node palette groups in the current UI:
 
 - **Input & Output**: `input`, `last-user-input`, `last-rp-output`, `history`, `output`, `text-preview`, `load-text`
-- **LLM & Logic**: `custom`, `llm-prompt`, `llm-prompt-switch`, `llm-decision`, `context-compression`, `event-manager`, `character-stats`
+- **LLM & Logic**: `custom`, `llm-prompt`, `llm-prompt-switch`, `decision-router`, `llm-decision`, `context-compression`, `event-manager`, `character-stats`
 - **Text & Values**: `note`, `group`, `combiner`, `memory-slot`, `phone-message-router`, `text-selector`, `write-text`, `fixed-number`, `fixed-bool`, `settings-value`
 - **Story Context**: `rp-storybook`, `rp-storybook-editor`, `context-builder`
 
-Singleton nodes are `User Input`, `Chat History`, `Event Manager`, `RP Storybook V2`, and `RP Output`.
+Singleton nodes are `User Input`, `Chat History`, `Event Manager`, `RP Storybook V2`, `Decision Router`, and `RP Output`.
+
+`decision-router` is the Decision workflow's (decision-v1) own context/settings node — not consulted by any other protocol. Unlike most nodes, its input ports are resolved directly by `useGraphRun.ts` (calling `executeGraph` with the router's own node id as `outputNodeId`) rather than by the RP Output node's own execution walking the graph — decision-v1 bypasses `executeGraph`'s primary-reply resolution entirely, so this node's presence in the graph (not a dropdown value) is what activates decision-v1 for a route.
 
 ## Execution Runtime
 

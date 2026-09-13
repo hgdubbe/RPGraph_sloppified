@@ -712,6 +712,67 @@ input[type="radio"]:focus-visible {
   white-space: nowrap;
 }
 
+.graph-staged-retry-banner {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  width: fit-content;
+  max-width: 100%;
+  margin: 8px 12px 0;
+  padding: 8px 12px;
+  border-radius: 8px;
+  background: #3a2f16;
+  border: 1px solid #dec665;
+  color: #eee6c4;
+}
+
+.graph-staged-retry-banner strong {
+  flex: none;
+  font-size: 11px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: #dec665;
+}
+
+.graph-staged-retry-banner span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-size: 13px;
+  font-weight: 500;
+}
+
+.graph-staged-retry-banner-actions {
+  display: flex;
+  gap: 8px;
+  flex: none;
+}
+
+.graph-staged-retry-banner button {
+  border: 1px solid #dec665;
+  border-radius: 6px;
+  background: transparent;
+  color: #eee6c4;
+  font-size: 12px;
+  font-weight: 600;
+  padding: 4px 10px;
+  cursor: pointer;
+}
+
+.graph-staged-retry-banner button:hover {
+  background: rgba(222, 198, 101, 0.16);
+}
+
+.graph-staged-retry-banner button.primary {
+  background: #dec665;
+  color: #2b2408;
+}
+
+.graph-staged-retry-banner button.primary:hover {
+  background: #e9d581;
+}
+
 @keyframes graph-toast-slide-open {
   from {
     max-width: 0;
@@ -4977,6 +5038,16 @@ input[type="number"]::-webkit-outer-spin-button {
   margin-top: 13px;
 }
 
+.node-inline-fields {
+  display: flex;
+  gap: 6px;
+}
+
+.node-inline-fields .node-number-input {
+  width: 0;
+  flex: 1;
+}
+
 .node-toggle {
   display: flex;
   align-items: center;
@@ -6174,6 +6245,7 @@ input[type="number"]::-webkit-outer-spin-button {
 
 .node-actions {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   justify-content: space-between;
   gap: 9px;

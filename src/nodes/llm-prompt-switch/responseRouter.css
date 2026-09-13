@@ -52,6 +52,10 @@
 .router-error { color: var(--danger); }
 .router-editor footer { border-top: 1px solid var(--line); border-bottom: 0; font-size: 13px; }
 .router-sections { min-width: 0; width: 100%; }
+.router-managed-actions { margin-top: 18px; border-top: 1px solid var(--line); padding-top: 12px; }
+.router-managed-actions h3 { font-size: 13px; }
+.router-managed-actions h3 small { color: var(--muted); font-weight: 400; margin-left: 8px; }
+.router-managed-actions pre { white-space: pre-wrap; overflow-wrap: anywhere; font: inherit; line-height: 1.5; }
 .router-step-tabs { display: flex; flex-wrap: wrap; gap: 6px; margin: 12px 0; }
 .router-step-tabs button { text-align: left; }
 .router-step-tabs button[aria-selected=true] { border-color: var(--accent-light); background: var(--surface-soft); }

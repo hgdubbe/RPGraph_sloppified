@@ -5,6 +5,12 @@ import {
   defaultOutputSpeakerPromptSettings,
   defaultOutputSpeakerResponseFormat,
 } from '../nodes/output/speakerPrompt';
+import { defaultStagedInstructionsSettings } from '../staged-workflow/stagedInstructionsPrompt';
+import {
+  defaultStagedBeatsLimit,
+  defaultStagedCallsLimit,
+  defaultStagedGenerationsLimit,
+} from '../staged-workflow/stagedLimits';
 import type { CharacterStatDefinition, WorkflowNode } from '../types';
 
 export const defaultContextCompressionTokenLimit = 10000;
@@ -119,6 +125,10 @@ export function createInitialNodes(): WorkflowNode[] {
         dialogueHighlightEnabled: false,
         outputSpeakerResponseFormat: defaultOutputSpeakerResponseFormat,
         outputSpeakerPrompt: defaultOutputSpeakerPromptSettings(),
+        stagedInstructions: defaultStagedInstructionsSettings(),
+        stagedBeatsLimit: defaultStagedBeatsLimit,
+        stagedCallsLimit: defaultStagedCallsLimit,
+        stagedGenerationsLimit: defaultStagedGenerationsLimit,
       },
     },
   ];

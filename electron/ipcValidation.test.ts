@@ -3,6 +3,13 @@ import { describe, expect, it } from 'vitest';
 const validation = await import('./ipc/validation.cjs');
 
 describe('IPC validation', () => {
+  it('accepts only registered response contract identifiers', () => {
+    const request = { connection: {}, prompt: 'Hello', responseContract: 'actions-v1' };
+    expect(validation.assertChatCompletionRequest(request)).toBe(request);
+    for (const responseContract of ['unknown', {}, null]) {
+      expect(() => validation.assertChatCompletionRequest({ ...request, responseContract })).toThrow('response contract');
+    }
+  });
   it('rejects missing chat prompt and connection', () => {
     expect(() => validation.assertChatCompletionRequest(null)).toThrow('chat completion');
     expect(() => validation.assertChatCompletionRequest({ prompt: 'hi' })).toThrow('connection');

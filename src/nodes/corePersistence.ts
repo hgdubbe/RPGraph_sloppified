@@ -29,6 +29,15 @@ import {
   outputSpeakerResponseFormat,
 } from './output/speakerPrompt';
 import {
+  stagedInstructionsSaveSettings,
+  stagedInstructionsSettings,
+} from '../staged-workflow/stagedInstructionsPrompt';
+import {
+  defaultStagedBeatsLimit,
+  defaultStagedCallsLimit,
+  defaultStagedGenerationsLimit,
+} from '../staged-workflow/stagedLimits';
+import {
   defaultContextCompressionLengthWords,
   defaultContextCompressionRatio,
   defaultContextCompressionTokenLimit,
@@ -234,6 +243,26 @@ export const corePersistence: Record<CoreNodeType, CorePersistence> = {
       llmPromptCommands: promptCommandConfigs(data.llmPromptCommands),
       connectionId: connectionId(data, context),
       runAfterRpOutput: data.runAfterRpOutput ?? false,
+    }),
+  },
+  'decision-router': {
+    saveData: (data) => preservedData(data, 'Not run yet', {
+      decisionNarrativeness: data.decisionNarrativeness ?? 2,
+      decisionDefaultActiveness: data.decisionDefaultActiveness ?? 2,
+      decisionMaxActionsPerTurn: data.decisionMaxActionsPerTurn ?? 3,
+      decisionRespectUserAgency: data.decisionRespectUserAgency ?? true,
+      decisionStyleTone: data.decisionStyleTone,
+      decisionSequenceGuidance: data.decisionSequenceGuidance,
+      decisionBlockPromptOverrides: data.decisionBlockPromptOverrides,
+    }),
+    hydrateData: (data) => preservedData(data, 'Not run yet', {
+      decisionNarrativeness: data.decisionNarrativeness ?? 2,
+      decisionDefaultActiveness: data.decisionDefaultActiveness ?? 2,
+      decisionMaxActionsPerTurn: data.decisionMaxActionsPerTurn ?? 3,
+      decisionRespectUserAgency: data.decisionRespectUserAgency ?? true,
+      decisionStyleTone: data.decisionStyleTone,
+      decisionSequenceGuidance: data.decisionSequenceGuidance,
+      decisionBlockPromptOverrides: data.decisionBlockPromptOverrides,
     }),
   },
   combiner: {
@@ -446,6 +475,7 @@ export const corePersistence: Record<CoreNodeType, CorePersistence> = {
   },
   output: {
     saveData: (data) => preservedData(data, 'No output yet', {
+      actionProtocol: data.actionProtocol ?? 'legacy',
       connectionId: data.connectionId,
       streamOutputEnabled: data.streamOutputEnabled ?? false,
       speakerAnalysisEnabled: data.speakerAnalysisEnabled ?? false,
@@ -453,8 +483,18 @@ export const corePersistence: Record<CoreNodeType, CorePersistence> = {
         (data.speakerAnalysisEnabled ?? false) && (data.dialogueHighlightEnabled ?? false),
       outputSpeakerResponseFormat: outputSpeakerResponseFormat(data.outputSpeakerResponseFormat),
       outputSpeakerPrompt: outputSpeakerPromptSaveSettings(data.outputSpeakerPrompt),
+      stagedInstructions: stagedInstructionsSaveSettings(data.stagedInstructions),
+      stagedBeatsLimit: data.stagedBeatsLimit,
+      stagedCallsLimit: data.stagedCallsLimit,
+      stagedGenerationsLimit: data.stagedGenerationsLimit,
+      stagedAllowedRecipes: data.stagedAllowedRecipes,
+      decisionNarrativeness: data.decisionNarrativeness,
+      decisionDefaultActiveness: data.decisionDefaultActiveness,
+      decisionMaxActionsPerTurn: data.decisionMaxActionsPerTurn,
+      decisionRespectUserAgency: data.decisionRespectUserAgency,
     }),
     hydrateData: (data, context) => preservedData(data, 'No output yet', {
+      actionProtocol: data.actionProtocol ?? 'legacy',
       connectionId: connectionId(data, context),
       streamOutputEnabled: data.streamOutputEnabled ?? false,
       speakerAnalysisEnabled: data.speakerAnalysisEnabled ?? false,
@@ -462,6 +502,15 @@ export const corePersistence: Record<CoreNodeType, CorePersistence> = {
         (data.speakerAnalysisEnabled ?? false) && (data.dialogueHighlightEnabled ?? false),
       outputSpeakerResponseFormat: outputSpeakerResponseFormat(data.outputSpeakerResponseFormat),
       outputSpeakerPrompt: outputSpeakerPromptSettings(data.outputSpeakerPrompt),
+      stagedInstructions: stagedInstructionsSettings(data.stagedInstructions),
+      stagedBeatsLimit: data.stagedBeatsLimit ?? defaultStagedBeatsLimit,
+      stagedCallsLimit: data.stagedCallsLimit ?? defaultStagedCallsLimit,
+      stagedGenerationsLimit: data.stagedGenerationsLimit ?? defaultStagedGenerationsLimit,
+      stagedAllowedRecipes: data.stagedAllowedRecipes,
+      decisionNarrativeness: data.decisionNarrativeness,
+      decisionDefaultActiveness: data.decisionDefaultActiveness,
+      decisionMaxActionsPerTurn: data.decisionMaxActionsPerTurn,
+      decisionRespectUserAgency: data.decisionRespectUserAgency,
     }),
   },
   'phone-apps': {

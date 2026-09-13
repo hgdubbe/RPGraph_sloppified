@@ -5,6 +5,8 @@ import {
   type ReferenceImage,
 } from '../../chat/referenceImages';
 import type { ChatImageAttachment, WorkflowNode } from '../../types';
+import { managedActionPromptText } from '../../actions/promptPreset';
+import { finalReplyText } from '../../llm/finalReply';
 import {
   formatChatHistorySegments,
   type FormattedChatHistorySegment,
@@ -252,6 +254,54 @@ export async function runActionAwarePrompt({
   callLabel: (actionReplayCount: number) => string;
   random?: () => number;
 }) {
+  if (context.legacyActionsDisabled && /@(?:action|command)\s*:/i.test(`${promptBeforeInput}\n${promptAfterInput}`)) {
+    throw new Error('Structured actions require migrated prompts. Legacy @action/@command declarations cannot run on this path.');
+  }
+  if (context.structuredActionContext || context.legacyActionsDisabled) {
+    const steps = buildPromptStepChain(promptBeforeInput, promptAfterInput);
+    const vision = await context.llm.supportsVision(node.data.connectionId, `${node.data.label} images`);
+    let generatedText = '';
+    let connectionLabel = '';
+    let combinedPrompt = '';
+    for (const [index, step] of steps.entries()) {
+      for (const field of ['before', 'after'] as const) {
+        for (const name of stepOutputTokenNames(step[field])) {
+          context.reportWarning(`${node.data.label}: unresolved @output:${name} was removed.`);
+          step[field] = injectStepOutput(step[field], name, '').text;
+        }
+      }
+      const final = index === steps.length - 1 && !!context.structuredActionContext;
+      combinedPrompt = [step.before, inputValue, step.after,
+        context.structuredActionContext ? `Current action catalog (application state):\n${context.structuredActionContext}` : '',
+        final ? managedActionPromptText
+          : 'Return only the requested context or planning output. Do not execute actions or emit legacy action markers.',
+      ].filter(Boolean).join('\n\n');
+      const result = await context.llm.complete({ connectionId: node.data.connectionId, nodeId: node.id,
+        label: `${callLabel(0)} / ${final ? 'Structured response' : step.name}`, prompt: combinedPrompt,
+        images: vision ? [...images, ...referenceImageAttachments(referenceImages)] : [],
+        contributesToTokenCalibration, useConnectionSampling: true,
+        ...(final ? { responseContract: 'actions-v1' as const } : {}),
+      });
+      generatedText = finalReplyText(result.text);
+      connectionLabel = result.connection.label;
+      const laterSteps = steps.slice(index + 1);
+      if (laterSteps.length) {
+        const planningText = rollPlanOutcomes(generatedText, random).text.trim();
+        let injected = false;
+        for (const later of laterSteps) {
+          for (const field of ['before', 'after'] as const) {
+            const result = injectStepOutput(later[field], step.name, planningText);
+            later[field] = result.text;
+            injected ||= result.injected;
+          }
+        }
+        if (!injected) laterSteps[0].before = [planningText, laterSteps[0].before].filter(Boolean).join('\n\n');
+      }
+    }
+    return { generatedText, connectionLabel, referenceImageCount: vision ? referenceImages.length : 0,
+      debug: { inputValue, promptBefore: promptBeforeInput, promptAfter: promptAfterInput, combinedPrompt, generatedText },
+    };
+  }
   // @step: markers split a prompt into an ordered chain of named passes. Every
   // step before the last runs as an intermediate pass whose diced output is
   // injected into later steps at @output:<name> tokens (or prepended to the

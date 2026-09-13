@@ -114,6 +114,7 @@ export class NodeLlmApi {
         ? await window.rpgraph.streamChatCompletion(
             {
               connection: requestConnection,
+              ...(request.responseContract ? { responseContract: request.responseContract } : {}),
               prompt: request.prompt,
               images,
               maxTokens: request.maxTokens,
@@ -127,6 +128,7 @@ export class NodeLlmApi {
         : await window.rpgraph.chatCompletion(
             {
               connection: requestConnection,
+              ...(request.responseContract ? { responseContract: request.responseContract } : {}),
               prompt: request.prompt,
               images,
               maxTokens: request.maxTokens,

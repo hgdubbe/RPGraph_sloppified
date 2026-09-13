@@ -56,6 +56,8 @@ import {
   promptSwitchPromptSlotHandle,
   promptSwitchTextHandle,
 } from './llm-prompt-switch/execute';
+import { DecisionRouterCard } from './decision-router/DecisionRouterCard';
+import { decisionRouterInputHandles, executeDecisionRouterNode } from './decision-router/execute';
 import { HistoryNodeCard } from './history/Card';
 import { executeHistoryNode } from './history/execute';
 import { defaultHistoryRpTimePromptSettings } from './history/rpTimePrompt';
@@ -93,6 +95,12 @@ import {
   defaultOutputSpeakerPromptSettings,
   defaultOutputSpeakerResponseFormat,
 } from './output/speakerPrompt';
+import { defaultStagedInstructionsSettings } from '../staged-workflow/stagedInstructionsPrompt';
+import {
+  defaultStagedBeatsLimit,
+  defaultStagedCallsLimit,
+  defaultStagedGenerationsLimit,
+} from '../staged-workflow/stagedLimits';
 import { LlmPromptNodeCard } from './llm-prompt/Card';
 import { runLlmPromptNode } from './llm-prompt/run';
 import { RpStorybookNodeCard } from './rp-storybook/Card';
@@ -142,6 +150,7 @@ export const coreNodeLayout = {
   contextBuilderHeight: 620,
   llmDecisionWidth: 390,
   customNodeWidth: 365,
+  decisionRouterWidth: 430,
 } as const;
 
 const legacyPromptTokenSettingsNodeHeight = 660;
@@ -527,6 +536,47 @@ const coreNodeCreationDefinitions: Array<Omit<CoreNodeCreationDefinition, 'saveD
         llmPromptCommands: [],
         runAfterRpOutput: false,
         connectionId: defaultConnectionId,
+      },
+    }),
+  },
+  {
+    type: 'decision-router',
+    dataVersion: currentCoreNodeVersions['decision-router'],
+    label: 'Decision Router',
+    description: 'Routes context and settings to the Decision workflow',
+    menuDescription: 'Context/settings hub for the Decision workflow (decision-v1)',
+    origin: 'core',
+    singleton: true,
+    ports: () => [
+      // Each label/valueType pair below matches its intended source port exactly (node:
+      // output-label) — port compatibility checking (src/graph/portCompatibility.ts) requires
+      // an exact valueType match (or 'mixed'/'any'), so `storybook-json` must stay 'json', not
+      // 'text', to accept RP Storybook's `json` output.
+      input(decisionRouterInputHandles.storybookJson, 'json', 'Storybook: JSON'),
+      input(decisionRouterInputHandles.storybookText, 'text', 'Storybook: Formatted Text'),
+      input(decisionRouterInputHandles.storybookCharacters, 'text', 'Storybook: Character Info'),
+      input(decisionRouterInputHandles.history, 'text', 'History: Last X Turns'),
+      input(decisionRouterInputHandles.contextCompression, 'text', 'Context Compression: Text'),
+      input(decisionRouterInputHandles.lastInput, 'text', 'Last User Input: Text'),
+      input(decisionRouterInputHandles.eventManager, 'text', 'Event Manager: Events'),
+      output('default', 'json', 'Decision Context'),
+    ],
+    Component: DecisionRouterCard,
+    execute: executeDecisionRouterNode,
+    create: ({ position, createId }) => ({
+      id: createId('decision-router'),
+      type: 'workflow',
+      position,
+      style: { width: coreNodeLayout.decisionRouterWidth },
+      data: {
+        label: 'Decision Router',
+        description: 'Routes context and settings to the Decision workflow',
+        preview: 'Not run yet',
+        nodeType: 'decision-router',
+        decisionNarrativeness: 2,
+        decisionDefaultActiveness: 2,
+        decisionMaxActionsPerTurn: 3,
+        decisionRespectUserAgency: true,
       },
     }),
   },
@@ -1136,6 +1186,12 @@ const coreNodeCreationDefinitions: Array<Omit<CoreNodeCreationDefinition, 'saveD
       input('output-actions', 'mixed', 'Output Actions'),
       input('highlighting-context', 'text', 'Highlighting Context'),
       input('direct-actions', 'mixed', 'Direct Actions'),
+      // Inspection-only: decision-v1 already resolves the Decision Router node's context
+      // directly (useGraphRun.ts calls executeGraph against the router's own id, bypassing
+      // RP Output entirely for that resolution), so nothing here reads this edge — it exists
+      // purely so wiring Decision Router -> RP Output shows the live resolved bundle on both
+      // nodes' ports for debugging (see useGraphRun.ts's decisionRoutedContext handling).
+      input('decision-context', 'json', 'Decision Context (debug)'),
     ],
     Component: OutputNodeCard,
     execute: executeOutputNode,
@@ -1154,6 +1210,10 @@ const coreNodeCreationDefinitions: Array<Omit<CoreNodeCreationDefinition, 'saveD
         dialogueHighlightEnabled: false,
         outputSpeakerResponseFormat: defaultOutputSpeakerResponseFormat,
         outputSpeakerPrompt: defaultOutputSpeakerPromptSettings(),
+        stagedInstructions: defaultStagedInstructionsSettings(),
+        stagedBeatsLimit: defaultStagedBeatsLimit,
+        stagedCallsLimit: defaultStagedCallsLimit,
+        stagedGenerationsLimit: defaultStagedGenerationsLimit,
       },
     }),
   },
