@@ -1,7 +1,9 @@
 # Sloppified Fork of RPGraph Studio
 
 Currently just a mirror of 0.5 Upstream
-local work status here: https://claude.ai/code/artifact/caebaccf-f75c-47cb-8e9c-a197a2578d3c
+
+local work status here: [History](https://claude.ai/code/artifact/caebaccf-f75c-47cb-8e9c-a197a2578d3c)
+
 Current state: Port Changes to 0.5 Upstream Version
 
 ## TL;DR: 
