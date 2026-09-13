@@ -1,0 +1,792 @@
+{
+  "format": "rpgraph-workflow",
+  "formatVersion": "1.2",
+  "savedAt": "2026-09-08T21:10:49.074Z",
+  "viewport": {
+    "x": 591.1108794133017,
+    "y": 527.6421907520548,
+    "zoom": 0.41179550863378633
+  },
+  "nodes": [
+    {
+      "id": "user-input",
+      "type": "workflow",
+      "position": {
+        "x": 488.9859454809267,
+        "y": 73.56963606892026
+      },
+      "data": {
+        "nodeType": "input",
+        "label": "User Input",
+        "description": "Chat message",
+        "preview": "Waiting for input ...",
+        "connectionId": "lm-studio-default",
+        "autoTurnInstructions": {
+          "character-rp": {
+            "mode": "default",
+            "customText": ""
+          },
+          "character-phone": {
+            "mode": "default",
+            "customText": ""
+          },
+          "narrator-rp": {
+            "mode": "default",
+            "customText": ""
+          },
+          "narrator-phone": {
+            "mode": "default",
+            "customText": ""
+          }
+        },
+        "nodeDataVersion": "1.8.1"
+      },
+      "measured": {
+        "width": 365,
+        "height": 485
+      },
+      "selected": false,
+      "dragging": false
+    },
+    {
+      "id": "rp-output",
+      "type": "workflow",
+      "position": {
+        "x": 2104.641473766778,
+        "y": 103.87169407217588
+      },
+      "data": {
+        "nodeType": "output",
+        "label": "RP Output",
+        "description": "Roleplay response",
+        "preview": "No output yet",
+        "connectionId": "lm-studio-default",
+        "streamOutputEnabled": true,
+        "speakerAnalysisEnabled": true,
+        "dialogueHighlightEnabled": true,
+        "outputSpeakerResponseFormat": "toon",
+        "outputSpeakerPrompt": {
+          "mode": "default",
+          "customText": ""
+        },
+        "nodeDataVersion": "1.7.1"
+      },
+      "measured": {
+        "width": 365,
+        "height": 736
+      },
+      "selected": false,
+      "dragging": false
+    },
+    {
+      "id": "chat-history",
+      "type": "workflow",
+      "position": {
+        "x": -994.6057672660124,
+        "y": -424.691924415471
+      },
+      "data": {
+        "nodeType": "history",
+        "label": "Chat History",
+        "description": "Previous conversation context",
+        "preview": "No conversation yet",
+        "connectionId": "lm-studio-default",
+        "historyTimeTrackingEnabled": true,
+        "historyTimeStatus": "Waiting for RP time update",
+        "historyLastTurnsCount": 5,
+        "historyRpTimePrompt": {
+          "mode": "default",
+          "customText": ""
+        },
+        "runAfterRpOutput": true,
+        "nodeDataVersion": "1.8.2"
+      },
+      "measured": {
+        "width": 365,
+        "height": 579
+      },
+      "selected": false,
+      "dragging": false
+    },
+    {
+      "id": "context-compression-default",
+      "type": "workflow",
+      "position": {
+        "x": -487.95253619425756,
+        "y": -123.89964944982847
+      },
+      "style": {
+        "width": 365
+      },
+      "data": {
+        "nodeType": "context-compression",
+        "label": "Context Compression",
+        "description": "Summarize text when its context budget is reached",
+        "preview": "Waiting for text ...",
+        "connectionId": "lm-studio-default",
+        "contextCompressionMaxTokens": 3000,
+        "contextCompressionRatio": 50,
+        "contextCompressionLengthWords": 200,
+        "runAfterRpOutput": true,
+        "nodeDataVersion": "1.0.3"
+      },
+      "selected": false,
+      "dragging": false,
+      "measured": {
+        "width": 365,
+        "height": 590
+      }
+    },
+    {
+      "id": "text-combiner-1779617525442-2",
+      "type": "workflow",
+      "position": {
+        "x": 2.647308627138756,
+        "y": -415.87230018254314
+      },
+      "data": {
+        "nodeType": "combiner",
+        "label": "Text Combiner",
+        "description": "Merge ordered text inputs",
+        "preview": "Waiting for 2 inputs ...",
+        "combinerInputCount": 2,
+        "combinerPrefixes": [
+          "",
+          ""
+        ],
+        "nodeDataVersion": "1.0.0"
+      },
+      "measured": {
+        "width": 365,
+        "height": 489
+      },
+      "selected": false,
+      "dragging": false
+    },
+    {
+      "id": "event-manager",
+      "type": "workflow",
+      "position": {
+        "x": 491.20831328778934,
+        "y": -470.09099575264474
+      },
+      "style": {
+        "width": 365
+      },
+      "data": {
+        "nodeType": "event-manager",
+        "label": "Event Manager",
+        "description": "Scheduled event tracking and context",
+        "preview": "No event context connected",
+        "connectionId": "lm-studio-default",
+        "eventStatus": "Waiting for event update",
+        "eventManagerPrompt": {
+          "mode": "default",
+          "customText": ""
+        },
+        "runAfterRpOutput": true,
+        "nodeDataVersion": "1.3.0"
+      },
+      "measured": {
+        "width": 365,
+        "height": 473
+      },
+      "selected": false,
+      "dragging": false
+    },
+    {
+      "id": "settings-value-1779837628451-14",
+      "type": "workflow",
+      "position": {
+        "x": -992.3017589184223,
+        "y": 190.6257994489598
+      },
+      "data": {
+        "nodeType": "settings-value",
+        "label": "Workflow Variable",
+        "description": "Output values configured in Options",
+        "preview": "Values are edited in Options",
+        "settingsValueEntries": [
+          {
+            "id": "value-1779837815858-30",
+            "optionKey": "context-length-max",
+            "label": "Context Length Max"
+          }
+        ],
+        "nodeDataVersion": "1.0.1"
+      },
+      "measured": {
+        "width": 365,
+        "height": 185
+      },
+      "selected": false,
+      "dragging": false
+    },
+    {
+      "id": "combiner-copy-1780172796312-18",
+      "type": "workflow",
+      "position": {
+        "x": 972.6994550122592,
+        "y": -131.7574674434419
+      },
+      "data": {
+        "nodeType": "combiner",
+        "label": "Text Combiner",
+        "description": "Merge ordered text inputs",
+        "preview": "Waiting for 2 inputs ...",
+        "combinerInputCount": 2,
+        "combinerPrefixes": [
+          "",
+          ""
+        ],
+        "nodeDataVersion": "1.0.0"
+      },
+      "measured": {
+        "width": 365,
+        "height": 489
+      },
+      "selected": false,
+      "dragging": false
+    },
+    {
+      "id": "rp-storybook-1780769514774-25",
+      "type": "workflow",
+      "position": {
+        "x": -491.68804883769417,
+        "y": -742.4817443706825
+      },
+      "style": {
+        "width": 365
+      },
+      "data": {
+        "nodeType": "rp-storybook",
+        "label": "RP Storybook V3",
+        "description": "Complete roleplay storybook",
+        "preview": "No storybook loaded",
+        "connectionId": "lm-studio-default",
+        "storybookJson": "{\n  \"format\": \"rpgraph-storybook\",\n  \"version\": \"3.0.0\",\n  \"title\": \"\",\n  \"introduction\": \"\",\n  \"imageDescriptionPrompt\": {\n    \"mode\": \"default\"\n  },\n  \"scenario\": {\n    \"summary\": \"\",\n    \"openingSituation\": \"\",\n    \"currentSituation\": \"\"\n  },\n  \"characters\": [],\n  \"phoneContacts\": {\n    \"blocked\": []\n  },\n  \"openingHistory\": {\n    \"npcParticipants\": {},\n    \"summary\": \"\",\n    \"turns\": [],\n    \"checkpoints\": [],\n    \"events\": [],\n    \"voiceMedia\": {},\n    \"socialLikes\": {},\n    \"dynamicSocialUsers\": {},\n    \"socialConnections\": {},\n    \"notes\": {},\n    \"chatGpdChats\": {}\n  }\n}",
+        "storybookStatus": "Ready",
+        "storybookFormattedTextSettings": {
+          "title": true,
+          "introduction": true,
+          "scenario": true,
+          "characters": true,
+          "openingHistory": true,
+          "characterImages": false
+        },
+        "nodeDataVersion": "3.0.0"
+      },
+      "measured": {
+        "width": 365,
+        "height": 511
+      },
+      "selected": false,
+      "dragging": false
+    },
+    {
+      "id": "combiner-copy-1780779304296-21",
+      "type": "workflow",
+      "position": {
+        "x": -4.520277985408484,
+        "y": 145.7034300078516
+      },
+      "data": {
+        "nodeType": "combiner",
+        "label": "Text Combiner",
+        "description": "Merge ordered text inputs",
+        "preview": "Waiting for 2 inputs ...",
+        "combinerInputCount": 2,
+        "combinerPrefixes": [
+          "",
+          ""
+        ],
+        "nodeDataVersion": "1.0.0"
+      },
+      "measured": {
+        "width": 365,
+        "height": 489
+      },
+      "selected": false,
+      "dragging": false
+    },
+    {
+      "id": "memory-slot-34d735ba-b035-44ea-b122-9c14998d63d3",
+      "type": "workflow",
+      "position": {
+        "x": 680.6114242366323,
+        "y": 742.5864972003872
+      },
+      "style": {
+        "width": 97,
+        "height": 50
+      },
+      "data": {
+        "nodeType": "memory-slot",
+        "label": "Wire Link",
+        "description": "Store and reuse text through a linked pair",
+        "preview": "No stored text yet",
+        "memorySlotName": "01",
+        "memorySlotText": "",
+        "memorySlotMode": "input",
+        "fullText": "",
+        "nodeDataVersion": "1.0.0"
+      },
+      "measured": {
+        "width": 97,
+        "height": 50
+      },
+      "selected": false,
+      "dragging": false
+    },
+    {
+      "id": "memory-slot-cb65593c-3a95-44d6-aa0d-43e5574cdd6f",
+      "type": "workflow",
+      "position": {
+        "x": 759.9323573556749,
+        "y": 742.9241623108343
+      },
+      "style": {
+        "width": 97,
+        "height": 50
+      },
+      "data": {
+        "nodeType": "memory-slot",
+        "label": "Wire Link",
+        "description": "Store and reuse text through a linked pair",
+        "preview": "No stored text yet",
+        "memorySlotName": "01",
+        "memorySlotText": "",
+        "memorySlotMode": "output",
+        "fullText": "",
+        "nodeDataVersion": "1.0.0"
+      },
+      "measured": {
+        "width": 97,
+        "height": 50
+      },
+      "selected": false,
+      "dragging": false
+    },
+    {
+      "id": "memory-slot-68192f0a-02cf-4da7-b937-287c4307486e",
+      "type": "workflow",
+      "position": {
+        "x": 1211.7095672962707,
+        "y": 783.1674500073206
+      },
+      "style": {
+        "width": 97,
+        "height": 50
+      },
+      "data": {
+        "nodeType": "memory-slot",
+        "label": "Wire Link",
+        "description": "Store and reuse text through a linked pair",
+        "preview": "No stored text yet",
+        "memorySlotName": "02",
+        "memorySlotText": "",
+        "memorySlotMode": "input",
+        "fullText": "",
+        "nodeDataVersion": "1.0.0"
+      },
+      "measured": {
+        "width": 97,
+        "height": 50
+      },
+      "selected": false,
+      "dragging": false
+    },
+    {
+      "id": "memory-slot-a322e6fc-5b2f-43df-aad2-cafa5b540157",
+      "type": "workflow",
+      "position": {
+        "x": 1292.809787067744,
+        "y": 782.7820614044997
+      },
+      "style": {
+        "width": 97,
+        "height": 50
+      },
+      "data": {
+        "nodeType": "memory-slot",
+        "label": "Wire Link",
+        "description": "Store and reuse text through a linked pair",
+        "preview": "No stored text yet",
+        "memorySlotName": "02",
+        "memorySlotText": "",
+        "memorySlotMode": "output",
+        "fullText": "",
+        "nodeDataVersion": "1.0.0"
+      },
+      "measured": {
+        "width": 97,
+        "height": 50
+      },
+      "selected": false,
+      "dragging": false
+    },
+    {
+      "id": "phone-apps",
+      "type": "workflow",
+      "position": {
+        "x": 967.3935070814778,
+        "y": -469.06190841457874
+      },
+      "style": {
+        "width": 365
+      },
+      "data": {
+        "nodeType": "phone-apps",
+        "label": "Phone Apps",
+        "description": "Providers for direct phone apps",
+        "preview": "Used directly by phone apps",
+        "connectionId": "lm-studio-default",
+        "phoneAppsNotesConnectionId": "lm-studio-default",
+        "nodeDataVersion": "1.0.0"
+      },
+      "selected": false,
+      "measured": {
+        "width": 365,
+        "height": 234
+      },
+      "dragging": false
+    },
+    {
+      "id": "last-user-input-decision",
+      "type": "workflow",
+      "position": {
+        "x": 1448.4749062173457,
+        "y": -1121.8441498127086
+      },
+      "style": {
+        "width": 260
+      },
+      "data": {
+        "label": "Last User Input",
+        "description": "Latest user message",
+        "preview": "No user input yet",
+        "nodeType": "last-user-input",
+        "fullText": "",
+        "includeRpDateTime": false,
+        "nodeDataVersion": "1.1.0"
+      }
+    },
+    {
+      "id": "decision-router-1",
+      "type": "workflow",
+      "position": {
+        "x": 1448.4749062173457,
+        "y": -901.8441498127085
+      },
+      "style": {
+        "width": 320
+      },
+      "data": {
+        "label": "Decision Router",
+        "description": "Routes context and settings to the Decision workflow",
+        "preview": "Not run yet",
+        "nodeType": "decision-router",
+        "decisionNarrativeness": 2,
+        "decisionDefaultActiveness": 2,
+        "decisionMaxActionsPerTurn": 3,
+        "decisionRespectUserAgency": true,
+        "nodeDataVersion": "1.0.0"
+      }
+    }
+  ],
+  "edges": [
+    {
+      "source": "chat-history",
+      "sourceHandle": "original",
+      "target": "context-compression-default",
+      "markerEnd": {
+        "type": "arrowclosed",
+        "color": "#64d1ff"
+      },
+      "style": {
+        "stroke": "#64d1ff",
+        "strokeWidth": 2
+      },
+      "selected": false,
+      "id": "xy-edge__chat-historyoriginal-context-compression-default",
+      "targetHandle": null,
+      "type": "workflow",
+      "animated": false
+    },
+    {
+      "source": "context-compression-default",
+      "target": "text-combiner-1779617525442-2",
+      "targetHandle": "input-b",
+      "markerEnd": {
+        "type": "arrowclosed",
+        "color": "#64d1ff"
+      },
+      "style": {
+        "stroke": "#64d1ff",
+        "strokeWidth": 2
+      },
+      "selected": false,
+      "id": "xy-edge__context-compression-default-text-combiner-1779617525442-2input-b",
+      "sourceHandle": null,
+      "type": "workflow",
+      "animated": false
+    },
+    {
+      "source": "text-combiner-1779617525442-2",
+      "target": "event-manager",
+      "markerEnd": {
+        "type": "arrowclosed",
+        "color": "#64d1ff"
+      },
+      "style": {
+        "stroke": "#64d1ff",
+        "strokeWidth": 2
+      },
+      "selected": false,
+      "sourceHandle": null,
+      "targetHandle": null,
+      "id": "xy-edge__text-combiner-1779617525442-2-event-manager",
+      "type": "workflow",
+      "animated": false
+    },
+    {
+      "source": "rp-storybook-1780769514774-25",
+      "sourceHandle": "formatted-text",
+      "target": "text-combiner-1779617525442-2",
+      "targetHandle": "input-a",
+      "markerEnd": {
+        "type": "arrowclosed",
+        "color": "#64d1ff"
+      },
+      "style": {
+        "stroke": "#64d1ff",
+        "strokeWidth": 2
+      },
+      "id": "xy-edge__rp-storybook-1780769514774-25formatted-text-text-combiner-1779617525442-2input-a",
+      "selected": false,
+      "type": "workflow",
+      "animated": false
+    },
+    {
+      "source": "chat-history",
+      "sourceHandle": "last-turns",
+      "target": "combiner-copy-1780779304296-21",
+      "targetHandle": "input-b",
+      "markerEnd": {
+        "type": "arrowclosed",
+        "color": "#64d1ff"
+      },
+      "style": {
+        "stroke": "#64d1ff",
+        "strokeWidth": 2
+      },
+      "id": "xy-edge__chat-historylast-turns-combiner-copy-1780779304296-21input-b",
+      "selected": false,
+      "type": "workflow",
+      "animated": false
+    },
+    {
+      "source": "rp-storybook-1780769514774-25",
+      "sourceHandle": "character-info",
+      "target": "combiner-copy-1780779304296-21",
+      "targetHandle": "input-a",
+      "markerEnd": {
+        "type": "arrowclosed",
+        "color": "#64d1ff"
+      },
+      "style": {
+        "stroke": "#64d1ff",
+        "strokeWidth": 2
+      },
+      "id": "xy-edge__rp-storybook-1780769514774-25character-info-combiner-copy-1780779304296-21input-a",
+      "selected": false,
+      "type": "workflow",
+      "animated": false
+    },
+    {
+      "source": "text-combiner-1779617525442-2",
+      "target": "combiner-copy-1780172796312-18",
+      "targetHandle": "input-a",
+      "markerEnd": {
+        "type": "arrowclosed",
+        "color": "#64d1ff"
+      },
+      "style": {
+        "stroke": "#64d1ff",
+        "strokeWidth": 2
+      },
+      "selected": false,
+      "id": "xy-edge__text-combiner-1779617525442-2-combiner-copy-1780172796312-18input-a",
+      "sourceHandle": null,
+      "type": "workflow",
+      "animated": false
+    },
+    {
+      "source": "user-input",
+      "target": "combiner-copy-1780172796312-18",
+      "targetHandle": "input-b",
+      "markerEnd": {
+        "type": "arrowclosed",
+        "color": "#64d1ff"
+      },
+      "style": {
+        "stroke": "#64d1ff",
+        "strokeWidth": 2
+      },
+      "selected": false,
+      "id": "xy-edge__user-input-combiner-copy-1780172796312-18input-b",
+      "sourceHandle": null,
+      "type": "workflow",
+      "animated": false
+    },
+    {
+      "source": "settings-value-1779837628451-14",
+      "sourceHandle": "settings-value-1779837815858-30",
+      "target": "context-compression-default",
+      "targetHandle": "max-tokens",
+      "markerEnd": {
+        "type": "arrowclosed",
+        "color": "#64d1ff"
+      },
+      "style": {
+        "stroke": "#64d1ff",
+        "strokeWidth": 2
+      },
+      "id": "xy-edge__settings-value-1779837628451-14settings-value-1779837815858-30-context-compression-defaultmax-tokens",
+      "selected": false,
+      "type": "workflow",
+      "animated": false
+    },
+    {
+      "source": "memory-slot-cb65593c-3a95-44d6-aa0d-43e5574cdd6f",
+      "target": "rp-output",
+      "targetHandle": "highlighting-context",
+      "markerEnd": {
+        "type": "arrowclosed",
+        "color": "#64d1ff"
+      },
+      "style": {
+        "stroke": "#64d1ff",
+        "strokeWidth": 2
+      },
+      "animated": false,
+      "type": "workflow",
+      "sourceHandle": null,
+      "id": "xy-edge__memory-slot-cb65593c-3a95-44d6-aa0d-43e5574cdd6f-rp-outputhighlighting-context",
+      "selected": false
+    },
+    {
+      "source": "combiner-copy-1780779304296-21",
+      "target": "memory-slot-34d735ba-b035-44ea-b122-9c14998d63d3",
+      "markerEnd": {
+        "type": "arrowclosed",
+        "color": "#64d1ff"
+      },
+      "style": {
+        "stroke": "#64d1ff",
+        "strokeWidth": 2
+      },
+      "id": "xy-edge__combiner-copy-1780779304296-21-memory-slot-34d735ba-b035-44ea-b122-9c14998d63d3",
+      "selected": false,
+      "animated": false,
+      "type": "workflow"
+    },
+    {
+      "source": "memory-slot-a322e6fc-5b2f-43df-aad2-cafa5b540157",
+      "target": "rp-output",
+      "targetHandle": "direct-actions",
+      "markerEnd": {
+        "type": "arrowclosed",
+        "color": "#64d1ff"
+      },
+      "style": {
+        "stroke": "#64d1ff",
+        "strokeWidth": 2
+      },
+      "id": "xy-edge__memory-slot-68192f0a-02cf-4da7-b937-287c4307486e-rp-outputdirect-actions",
+      "selected": false,
+      "animated": false,
+      "type": "workflow"
+    },
+    {
+      "source": "user-input",
+      "sourceHandle": "direct-actions",
+      "target": "memory-slot-68192f0a-02cf-4da7-b937-287c4307486e",
+      "markerEnd": {
+        "type": "arrowclosed",
+        "color": "#64d1ff"
+      },
+      "style": {
+        "stroke": "#64d1ff",
+        "strokeWidth": 2
+      },
+      "id": "xy-edge__user-inputdirect-actions-memory-slot-68192f0a-02cf-4da7-b937-287c4307486e",
+      "selected": false,
+      "animated": false,
+      "type": "workflow"
+    },
+    {
+      "id": "edge-combiner-copy-1780172796312-18-rp-output-default",
+      "source": "combiner-copy-1780172796312-18",
+      "sourceHandle": null,
+      "target": "rp-output",
+      "targetHandle": null
+    },
+    {
+      "id": "edge-decision-storybook-json",
+      "source": "rp-storybook-1780769514774-25",
+      "sourceHandle": "json",
+      "target": "decision-router-1",
+      "targetHandle": "storybook-json"
+    },
+    {
+      "id": "edge-decision-storybook-text",
+      "source": "rp-storybook-1780769514774-25",
+      "sourceHandle": "formatted-text",
+      "target": "decision-router-1",
+      "targetHandle": "storybook-text"
+    },
+    {
+      "id": "edge-decision-storybook-characters",
+      "source": "rp-storybook-1780769514774-25",
+      "sourceHandle": "character-info",
+      "target": "decision-router-1",
+      "targetHandle": "storybook-characters"
+    },
+    {
+      "id": "edge-decision-history",
+      "source": "chat-history",
+      "sourceHandle": "last-turns",
+      "target": "decision-router-1",
+      "targetHandle": "history"
+    },
+    {
+      "id": "edge-decision-context-compression",
+      "source": "context-compression-default",
+      "sourceHandle": null,
+      "target": "decision-router-1",
+      "targetHandle": "context-compression"
+    },
+    {
+      "id": "edge-decision-last-input",
+      "source": "last-user-input-decision",
+      "sourceHandle": null,
+      "target": "decision-router-1",
+      "targetHandle": "last-input"
+    },
+    {
+      "id": "edge-decision-event-manager",
+      "source": "event-manager",
+      "sourceHandle": "appointments",
+      "target": "decision-router-1",
+      "targetHandle": "event-manager"
+    },
+    {
+      "id": "edge-decision-context-debug",
+      "source": "decision-router-1",
+      "sourceHandle": null,
+      "target": "rp-output",
+      "targetHandle": "decision-context"
+    }
+  ]
+}
