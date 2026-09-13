@@ -28,6 +28,7 @@ import {
 import {
   inferredProviderKind,
   isCompositeConnection,
+  isLlamaCppConnection,
   isLmStudioConnection,
   isManagedLocalConnection,
   isLocalProviderConnection,

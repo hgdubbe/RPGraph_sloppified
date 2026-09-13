@@ -37,6 +37,11 @@ export function buildSocialDirectMessageCommit({ incoming, characters, messages,
   messageId: string;
   sentAt: string;
 }): BuildResult<SocialDirectMessageCommit> {
+  if (incoming.app === 'matchme') {
+    // MatchMe direct messages go through their own dedicated path (dating-profile
+    // resolution, not the fotogram/onlyfriends public-handle machinery below).
+    return { warnings: ['MatchMe direct messages must go through the dedicated MatchMe path.'] };
+  }
   const warnings: string[] = [];
   const recipientName = incoming.to ?? defaultRecipient?.name;
   if (!recipientName) return { warnings: [`A ${socialAppNames[incoming.app]} direct message from "${incoming.from}" was ignored because it has no recipient.`] };

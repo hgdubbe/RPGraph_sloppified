@@ -32,6 +32,7 @@ import {
   rpStorybookJsonText,
   rpStorybookLogicCheckInstruction,
   estimatedRpStorybookPromptTokens,
+  defaultRpStorybookCharacterSocial,
   rpStorybookPhoneContactAllowed,
   rpStorybookPhoneContactCharacters,
   storybookCharacterImageOwnerIdBase,

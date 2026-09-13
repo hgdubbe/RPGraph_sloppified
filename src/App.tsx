@@ -6358,7 +6358,7 @@ function App() {
 
         {studioMode === 'play' && (
         <ErrorBoundary label="Chat Panel">
-        {isChatPanelOpen && !isResizing && (
+        {!isResizing && (
           <EdgeCharacterPicker
             characters={playerCharacters}
             settingsLoadComplete={settingsLoadComplete}

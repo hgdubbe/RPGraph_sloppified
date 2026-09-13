@@ -1,4 +1,3 @@
-import { postsWithInitialContent } from '../characters/publications';
 import { resolveWhatsUpMessageParticipants } from '../characters/messageIdentity';
 import { matchMeState, matchMeMessageAllowed, incomingMatchMeMessage } from '../chat/matchMe';
 // runGraph orchestration hook, extracted verbatim from App.tsx (Etappe 2, APP_ZERLEGUNG.md).
@@ -96,7 +95,6 @@ import { formatPhoneInput, formatPhoneReplyQuote, whatsUpMessageInputText } from
 import { nextRpPictureName, rpPicturePhoneAttachment } from '../chat/rpPictures';
 import { nodesPreparedAfterOutput } from '../graph/edges';
 import {
-  findOutputActionPlayer,
   parseOutputActions,
   type OutputActionChatMessage,
   type OutputActionContextCapacityRequest,
@@ -109,7 +107,6 @@ import {
 } from '../chat/bankTransfers';
 import {
   nextSocialPostId,
-  parseSocialReactionsOutput,
   parseSocialDirectMessageOutput,
   socialDirectMessageHistoryText,
   socialDirectMessageInputText,
@@ -126,10 +123,7 @@ import {
 import {
   withBundledSocialIdentityContext,
 } from '../chat/socialCatalogs';
-import {
-  establishedSocialHandle,
-} from '../chat/socialDirectory';
-import { parseValidatedSocialReactionsOutput, resolveSocialMessageIdentity } from '../chat/socialMessageValidation';
+import { parseValidatedSocialReactionsOutput } from '../chat/socialMessageValidation';
 import { recentInputHistoryContext } from '../chat/inputTransforms';
 import {
   chatGpdFallbackTitle,
@@ -1560,29 +1554,6 @@ export function useGraphRun(options: UseGraphRunOptions) {
         socialDirectMessage: persistedSocialDirectMessage,
       });
     }
-    if (activeTurnCollectorRef.current) {
-      activeTurnCollectorRef.current.part = 'output';
-    }
-    const visibleInput = originalInput;
-    const lastRpOutput = lastMessageText(historyMessages, 'output');
-    lastRunDebugRef.current = {
-      turnMode,
-      narratorAutoTurn,
-      displayText,
-      originalInput,
-      promptSlot,
-      isAutoTurn,
-      isNarratorTurn,
-      eventDisplayText,
-      phoneMessage: isPhoneMessage,
-      messageFormat,
-      originalHistory,
-      translatedHistory,
-    };
-    updateRuntimeNode(inputNode.id, {
-      preview: (isAutoTurn || isNarratorTurn) ? `${narratorSpeakerName}: ${narratorDisplayInput}` : originalInput,
-    });
-
     try {
       if (socialDirectMessage?.app === 'matchme' && existingInputMessage && translatedSocialDirectMessageText) {
         updateMessage(existingInputMessage.id, {
@@ -2249,7 +2220,7 @@ export function useGraphRun(options: UseGraphRunOptions) {
           void clearEffectJournalForScope(actionScope).catch(() => {});
           onRunCommitted?.({ messageFormat, playerCharacterName: inputCharacter?.name ?? narratorSpeakerName });
           const runReport = activeRunLlmReport.current;
-          if (runReport) recordTurnTrace({ turn: committed, run: runReport, nodes: nodesRef.current,
+          if (runReport) recordTurnTrace({ turn: committed, run: runReport,
             status: 'completed', warnings: runWarnings, traceEvents: runTraceEvents });
         }
         clearTemporaryReferenceImages();
@@ -2408,7 +2379,7 @@ export function useGraphRun(options: UseGraphRunOptions) {
           void clearEffectJournalForScope(actionScope).catch(() => {});
           onRunCommitted?.({ messageFormat, playerCharacterName: inputCharacter?.name ?? narratorSpeakerName });
           const runReport = activeRunLlmReport.current;
-          if (runReport) recordTurnTrace({ turn: committed, run: runReport, nodes: nodesRef.current,
+          if (runReport) recordTurnTrace({ turn: committed, run: runReport,
             status: failed ? 'error' : 'completed', warnings: runWarnings, traceEvents: runTraceEvents,
             ...(failed ? { error: report.error ?? 'One or more structured actions did not commit.' } : {}),
           });
