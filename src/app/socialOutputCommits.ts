@@ -18,7 +18,7 @@ export function buildSocialCommentCommit({ incoming, characters, messages }: Soc
 }): BuildResult<SocialCommentCommit> {
   const post = messages.find((message) => message.socialPost?.app === incoming.app && message.socialPost.postId === incoming.postId)?.socialPost;
   if (!post) return { warnings: [`${socialAppNames[incoming.app]} post comment was ignored because post "${incoming.postId}" does not exist.`] };
-  const commenter = resolveSocialMessageIdentity({ characters, messages, app: incoming.app, identity: incoming.from });
+  const commenter = resolveSocialMessageIdentity({ characters, messages, app: incoming.app, identity: incoming.from, allowNewNpc: true });
   if (!commenter.available) return { warnings: [`${socialAppNames[incoming.app]} post comment was ignored. ${commenter.reason}`] };
   const from = commenter.name;
   const handle = commenter.handle ?? (commenter.character ? socialHandleForCharacter(commenter.character, incoming.app)

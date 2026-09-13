@@ -1,5 +1,6 @@
 import { localModelApi } from '../llm/localModelApi';
 import type { NodeLlmApi } from '../llm/NodeLlmApi';
+import { getRegisteredNode } from '../nodes/registry';
 import {
   defaultComfyCheckpointName,
   defaultComfyDiffusionModelName,
@@ -77,7 +78,7 @@ export type ComfyImageRunnerOptions = {
   getNodes: () => WorkflowNode[];
   connections: ConnectionPreset[];
   providerHealthById: Record<string, ProviderConnectionHealth>;
-  llm: Pick<NodeLlmApi, 'supportsVision' | 'complete'>;
+  llm: Pick<NodeLlmApi, 'supportsVision' | 'complete' | 'resolveConnection'>;
   updateRuntimeNode: (nodeId: string, patch: Partial<WorkflowNodeData>) => void;
   onComfyGenerationActive?: (active: boolean) => void;
   signal?: AbortSignal;
@@ -110,12 +111,21 @@ export function createComfyImageRunner(options: ComfyImageRunnerOptions): Create
         .filter((connectionId): connectionId is string => !!connectionId),
     );
 
-  const activeLocalLlmConnections = (llmConnectionId?: string) => {
+  const isLlmNode = (node: WorkflowNode) =>
+    node.data.kind === undefined && (getRegisteredNode(node.data.nodeType)?.usesLlm ?? false);
+
+  const activeLocalLlmConnections = async (llmConnectionId?: string) => {
     const activeConnectionIds = workflowConnectionIds();
     if (llmConnectionId) {
       activeConnectionIds.add(llmConnectionId);
     }
-    return options.connections.filter((connection) =>
+    const candidates = new Map(options.connections.map((connection) => [connection.id, connection]));
+    if (options.getNodes().some((node) => isLlmNode(node) && node.data.connectionId === undefined)) {
+      const resolved = await options.llm.resolveConnection(undefined, 'ComfyUI memory management', options.signal);
+      activeConnectionIds.add(resolved.id);
+      candidates.set(resolved.id, resolved);
+    }
+    return [...candidates.values()].filter((connection) =>
       activeConnectionIds.has(connection.id) &&
       isLocalProviderConnection(connection) &&
       (isLmStudioConnection(connection) || isOllamaConnection(connection) || isManagedLocalConnection(connection)),
@@ -124,10 +134,10 @@ export function createComfyImageRunner(options: ComfyImageRunnerOptions): Create
 
   const unloadLocalLlmModelsBeforeComfy = async (
     warn: (message: string) => void,
-    llmConnectionId?: string,
+    localConnections: ConnectionPreset[],
   ) => {
     await Promise.all(
-      activeLocalLlmConnections(llmConnectionId)
+      localConnections
         .map(async (connection) => {
           try {
             if (isLmStudioConnection(connection)) {
@@ -155,10 +165,10 @@ export function createComfyImageRunner(options: ComfyImageRunnerOptions): Create
   // meantime and surfaces a warning if the explicit reload itself failed).
   const reloadLocalLlmModelsAfterComfy = async (
     warn: (message: string) => void,
-    llmConnectionId?: string,
+    localConnections: ConnectionPreset[],
   ) => {
     await Promise.all(
-      activeLocalLlmConnections(llmConnectionId)
+      localConnections
         .map(async (connection) => {
           try {
             if (isLmStudioConnection(connection)) {
@@ -236,10 +246,12 @@ export function createComfyImageRunner(options: ComfyImageRunnerOptions): Create
 
     // With only API LLM providers in play, nothing competes with ComfyUI
     // for local VRAM, so its model can stay loaded across generations.
-    const manageModelMemory = (request.manageModelMemory ?? true) &&
-      activeLocalLlmConnections(request.llmConnectionId).length > 0;
+    const localConnections = (request.manageModelMemory ?? true)
+      ? await activeLocalLlmConnections(request.llmConnectionId)
+      : [];
+    const manageModelMemory = localConnections.length > 0;
     if (manageModelMemory) {
-      await unloadLocalLlmModelsBeforeComfy(warn, request.llmConnectionId);
+      await unloadLocalLlmModelsBeforeComfy(warn, localConnections);
     }
 
     const generationPrompt = prompt;
@@ -270,7 +282,7 @@ export function createComfyImageRunner(options: ComfyImageRunnerOptions): Create
         } catch (error) {
           warn(`ComfyUI unload after generation failed: ${error instanceof Error ? error.message : String(error)}`);
         }
-        await reloadLocalLlmModelsAfterComfy(warn, request.llmConnectionId);
+        await reloadLocalLlmModelsAfterComfy(warn, localConnections);
       }
     }
 

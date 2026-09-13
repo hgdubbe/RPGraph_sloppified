@@ -35,6 +35,11 @@ async function runPromptSwitch(node: WorkflowNode, context: ExecuteContext) {
     routeId: '', revision: config.revision, outputValue: '', promptValue: '',
   };
   try {
+    context.updateRuntimeData(node.id, {
+      llmPromptSwitchDebug: undefined,
+      generatedText: '',
+      fullText: '',
+    });
     if (config.policy === 'strict') {
       for (const handle of [promptSwitchTextHandle, promptSwitchOutputChannelHandle, promptSwitchPromptSlotHandle]) {
         if (context.edges.filter((edge) => edge.target === node.id && edge.targetHandle === handle).length > 1) {

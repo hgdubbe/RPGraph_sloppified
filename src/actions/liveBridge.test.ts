@@ -209,7 +209,12 @@ describe('live action bridge', () => {
   it('posts and comments only for a character with a configured account on that app', async () => {
     const story = structuredClone(starterRpStorybook);
     const alice = { ...story.characters[0], name: 'Alice', images: [], social: { fotogramUsername: 'alice_x', onlyfriendsUsername: '' } };
-    const bob = { ...structuredClone(alice), id: 'bob', name: 'Bob', social: { fotogramUsername: '', onlyfriendsUsername: '' } };
+    // Character Container V2 auto-creates a default enabled Fotogram/WhatsUp account for
+    // any character with no `apps` at all, so an explicit disabled entry is required here
+    // to represent "no Fotogram account" (an empty legacy `social.fotogramUsername` alone
+    // no longer suppresses the default).
+    const bob = { ...structuredClone(alice), id: 'bob', name: 'Bob', social: { fotogramUsername: '', onlyfriendsUsername: '' },
+      apps: { fotogram: { accountId: 'character:bob:fotogram', enabled: false, username: '', displayName: 'Bob', bio: '' } } };
     story.characters = [alice, bob];
     const nodes = [{ id: 'story', data: { nodeType: 'rp-storybook-editor', storybookJson: rpStorybookJsonText(story) } }] as WorkflowNode[];
     const postSocial = vi.fn(async () => ({ postId: 'post-1' }));
