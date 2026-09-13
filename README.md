@@ -25,6 +25,7 @@ Current state: Port Changes to 0.5 Upstream Version
   - Character mood selector in phone simulation
   - comments on messages (think: "obviously sarcastic" for the llm to understand intentions better)
   - new Providers
+  - rotating autosaves, prompt tp load autosave on startup
 
 not everything working right now, but planned/started
 
