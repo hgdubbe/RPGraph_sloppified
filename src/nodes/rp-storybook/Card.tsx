@@ -7,6 +7,7 @@ import { runStateClassName, useNodeLayoutSync } from '../shared/CardView';
 import { PortLabel } from '../shared/PortValue';
 import {
   emptyRpStorybook,
+  storybookNeedsUpdate,
   estimatedRpStorybookPromptTokens,
   parseRpStorybookJson,
   type RpStorybook,
@@ -57,13 +58,16 @@ export function RpStorybookNodeCard({ id, data }: NodeProps<WorkflowNode>) {
         <span className="storybook-node-introduction">
           {storybook.introduction || 'No introduction defined.'}
         </span>
-        <span>Charakter: {characterNames.length ? characterNames.join(', ') : 'None'}</span>
+        <span>Characters: {characterNames.length ? characterNames.join(', ') : 'None'}</span>
         {storybookHasContent && (
           <span className="storybook-node-token-estimate">
             ~{estimatedRpStorybookPromptTokens(storybook).toLocaleString('en-US')} tokens (images excluded)
           </span>
         )}
       </div>
+      {storybookNeedsUpdate(data.storybookJson) && (
+        <p className="incompatible-core-node-note">Update Storybook to 3.0.0 before using its characters, chat and phone apps.</p>
+      )}
       <div className="storybook-actions">
         <button
           className="load-text-button nodrag"
@@ -73,7 +77,7 @@ export function RpStorybookNodeCard({ id, data }: NodeProps<WorkflowNode>) {
           Load Storybook
         </button>
         <button className="load-text-button nodrag" type="button" onClick={() => openStorybookCreator(id)}>
-          {storybookHasContent ? 'Edit Storybook' : 'Create Storybook'}
+          {storybookNeedsUpdate(data.storybookJson) ? 'Update Storybook' : storybookHasContent ? 'Edit Storybook' : 'Create Storybook'}
         </button>
       </div>
       <div className="node-actions">

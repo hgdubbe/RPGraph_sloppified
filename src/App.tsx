@@ -1,3 +1,16 @@
+import { shieldTranslationAccountLinks, restoreTranslationAccountLinks } from './chat/accountLinks';
+import { AccountLinkContext } from './chat/accountLinkContext';
+import { npcSeedPostAccountId } from './characters/npcParticipants';
+import { useNpcParticipants } from './characters/useNpcParticipants';
+import { resolveWhatsUpMessageParticipants } from './characters/messageIdentity';
+import { appCharacterImage } from './characters/appRuntime';
+import { removeEdgesConnectedToIncompatibleNodes } from './workflow/persistence';
+import { edgesAfterNodeUpgrade } from './nodes/nodeUpgrade';
+import { useMatchMeMigration } from './chat/useMatchMeMigration';
+import { datingAccountId } from './chat/datingAccounts';
+import { matchMeState, matchMeMessageAllowed, migrateDatingHistory, matchMeLikePolicy, matchMeMatchHistoryText } from './chat/matchMe';
+import { prepareMatchMePromptSlots } from './chat/matchMePrompt';
+import type { DatingProfile } from './chat/datingProfile';
 import {
   type FormEvent,
   useCallback,
@@ -23,6 +36,7 @@ import {
   type AssistantMessage as AssistantChatMessage,
   type DebugSnapshotAssistantSection,
 } from './components/AssistantDialog';
+import { EdgeCharacterPicker } from './components/EdgeCharacterPicker';
 import { ChatConversationPanel } from './components/ChatConversationPanel';
 import { EventsPanel } from './components/EventsPanel';
 import { ErrorBoundary } from './components/ErrorBoundary';
@@ -50,14 +64,13 @@ import {
   eventGraphInputText,
 } from './chat/instructions';
 import {
-  canonicalPhoneName,
   parsePhoneGraphInput,
   phoneNamesMatch,
   type ParsedPhoneMessage,
 } from './chat/phoneMessages';
 import { useNextTurnReferenceImages } from './chat/useNextTurnReferenceImages';
 import { shieldTranslationEmoji, restoreTranslationEmoji } from './chat/translationEmojiShield';
-import { type OutputActionContextCapacityRequest } from './chat/outputActions';
+import { findOutputActionPlayer, type OutputActionContextCapacityRequest } from './chat/outputActions';
 import {
   applyTimeCommandsToWorkflowNodes,
   structuredInputPayload,
@@ -73,7 +86,9 @@ import {
   bankTransferMessages,
 } from './chat/bankTransfers';
 import {
+  socialDirectMessageActor,
   socialDirectMessageInputText,
+  socialDirectMessageHistoryText,
   socialIdentityMatches,
   socialPostInputText,
   socialThreadActionInputText,
@@ -102,7 +117,7 @@ import {
   formatTimelineContext,
 } from './data-management/formatters';
 import {
-  compactDebugNode,
+  debugSnapshotNode,
   type DebugSnapshot,
   compactDebugValue,
   recentTurnDebugSummaries,
@@ -214,6 +229,9 @@ import { useDialogueVoice } from './chat/useDialogueVoice';
 import { latestOutputTurnMessages } from './chat/dialogueVoiceSegments';
 import { WelcomeDialog } from './components/WelcomeDialog';
 import { TurnAutosaveChoiceDialog } from './components/TurnAutosaveChoiceDialog';
+import { npcPromotionCard } from './characters/promotion';
+import { NpcLibraryDialog } from './components/NpcLibraryDialog';
+import { useNpcLibrary } from './characters/useNpcLibrary';
 import { WorkflowCapabilityStrip } from './components/WorkflowCapabilityStrip';
 import {
   withSourceNodeStatusConnectionColors,
@@ -247,6 +265,7 @@ import { contextCompressionCapacitySegments } from './nodes/context-compression/
 import {
   defaultRpStorybookImageDescriptionPrompt,
   emptyRpStorybook,
+  isEmptyRpStorybook,
   parseRpStorybookJson,
   type RpStorybookCharacterImage,
   type RpStorybook,
@@ -450,11 +469,11 @@ function displayStorybookName(
   headerStorybookJson: string | undefined,
   activeSessionFileName: string | null,
 ) {
+  if (!headerStorybookJson || isEmptyRpStorybook(headerStorybookJson)) {
+    return 'not loaded';
+  }
   if (headerStorybookFileName) {
     return `${headerStorybookFileName} (file)`;
-  }
-  if (!headerStorybookJson) {
-    return 'not loaded';
   }
   try {
     const storybook = parseRpStorybookJson(headerStorybookJson);
@@ -616,6 +635,7 @@ type PreviewImageState = {
 };
 
 function App() {
+  const npcLibrary = useNpcLibrary();
   const [nodes, setNodes, onNodesChange] = useNodesState<WorkflowNode>(createInitialNodes());
   const [edges, setEdges, onEdgesChange] = useEdgesState(createInitialEdges());
   const [nodeTextEditorRequest, setNodeTextEditorRequest] = useState<NodeTextEditorRequest | null>(null);
@@ -694,6 +714,10 @@ function App() {
     setPromptActionSettings,
     promptTextCustomPresets,
     setPromptTextCustomPresets,
+    chatTextBrightness,
+    setChatTextBrightness,
+    chatColorIntensity,
+    setChatColorIntensity,
     chatTextSize,
     setChatTextSize,
     phoneChatTextSize,
@@ -748,6 +772,8 @@ function App() {
     setDialogueNarratorProviderId,
     dialogueCloneVoiceProviderId,
     setDialogueCloneVoiceProviderId,
+    edgeCharacterPickerHintSeen,
+    setEdgeCharacterPickerHintSeen,
     phoneNotificationSwitchHintSeen,
     setPhoneNotificationSwitchHintSeen,
   } = useAppSettings();
@@ -906,6 +932,7 @@ function App() {
     });
   }, []);
   const flowInstanceRef = useRef<ReactFlowInstance<WorkflowNode> | null>(null);
+  const npcParticipants = useNpcParticipants(nodesRef, npcLibrary.snapshot);
   const imageInputRef = useRef<HTMLInputElement | null>(null);
   const lastTurnAutosaveIdRef = useRef<string | null>(null);
   /**
@@ -969,7 +996,10 @@ function App() {
     applyTurnCheckpointRuntime,
     removeTurnCheckpoint,
     commitCollectedTurn,
+    commitLocalAppTurn,
   } = useTurnRecordState({
+    appCharacters: npcParticipants.characters,
+    captureNpcMessages: npcParticipants.captureMessages,
     nodesRef,
     setNodes,
     workflowVariablesRef: workflowSettingsValuesRef,
@@ -1025,6 +1055,7 @@ function App() {
     selectedCharacter,
     narratorSelected,
     storyCharacters,
+    playerCharacters,
     phoneCharacters,
     characterColors,
     viewedPhoneCharacter,
@@ -1065,6 +1096,7 @@ function App() {
     socialConnectionsByCharacter,
     setSocialConnectionsByCharacter,
     addSocialConnection,
+    accountLinkContext,
     phoneNotesByCharacter,
     setPhoneNotesByCharacter,
     phoneNotesByCharacterRef,
@@ -1138,6 +1170,8 @@ function App() {
     selectPhoneGalleryImageFromComposer,
     selectPhoneEmoji,
   } = useRoleplayPanelRuntime({
+    appCharacters: npcParticipants.characters(),
+    captureNpcParticipants: npcParticipants.capture,
     nodeViewNodes,
     nodesRef,
     messages,
@@ -1186,6 +1220,17 @@ function App() {
   useEffect(() => {
     notifySystemRef.current = notifySystem;
   }, [notifySystem]);
+  const activeCharacterNameDiagnostics = npcParticipants.registry().diagnostics.filter((diagnostic) =>
+    diagnostic.code === 'shadowed-character-name' || diagnostic.code === 'duplicate-character-name');
+  const activeCharacterNameDiagnosticSignature = JSON.stringify(activeCharacterNameDiagnostics.map((diagnostic) =>
+    diagnostic.message));
+  const previousCharacterNameDiagnosticSignatureRef = useRef('[]');
+  useEffect(() => {
+    if (activeCharacterNameDiagnosticSignature === previousCharacterNameDiagnosticSignatureRef.current) return;
+    previousCharacterNameDiagnosticSignatureRef.current = activeCharacterNameDiagnosticSignature;
+    (JSON.parse(activeCharacterNameDiagnosticSignature) as string[]).forEach((message) =>
+      notifySystem('warning', message));
+  }, [activeCharacterNameDiagnosticSignature, notifySystem]);
   const replaceCurrentChatWithOpeningHistoryRef = useRef(false);
   const {
     updateRuntimeNode,
@@ -1418,6 +1463,8 @@ function App() {
     declineTurnAutosaveChoices,
     showFiles,
     setShowFiles,
+    showStorybookPicker,
+    setShowStorybookPicker,
     savedFiles,
     selectedFile,
     setSelectedFile,
@@ -1453,6 +1500,10 @@ function App() {
     setSessionOverwritePending,
     chooseSaveLocation,
     setChooseSaveLocation,
+    characterSaveLocation,
+    setCharacterSaveLocation,
+    includeCharacterOwnPosts,
+    setIncludeCharacterOwnPosts,
     returnToFilesAfterSaveRef,
     pendingSessionFilePath,
     setPendingSessionFilePath,
@@ -1463,6 +1514,7 @@ function App() {
     activateWorkflowPath,
     refreshFiles,
     openFiles,
+    openStorybookPicker,
     saveNamedWorkflow,
     requestExportWorkflow,
     requestSaveStorybook,
@@ -1479,7 +1531,7 @@ function App() {
     unlockStoredFile,
     saveCurrentSession,
     loadStartupWorkflow,
-    restoreDefaultWorkflow,
+    restoreDefaultFiles,
     resetWorkflow,
     saveCurrentWorkflow,
   } = useRpgraphFiles({
@@ -1506,6 +1558,9 @@ function App() {
   const nodeLlm = useNodeLlmApi({
     resolveConnection,
     recordCall: recordNodeLlmCall,
+    onReasoningTokens: (nodeId, tokenCount) => {
+      updateRuntimeNode(nodeId, { llmActiveReasoningTokens: tokenCount });
+    },
   });
   const customNodeAssistant = useCustomNodeAssistant({
     nodes: nodeViewNodes,
@@ -1522,6 +1577,7 @@ function App() {
     allowPhoneContactPair: allowStorybookPhoneContactPair,
     changePhoneWallpaper: changeStorybookPhoneWallpaper,
     saveSocialUsername: saveStorybookSocialUsername,
+    saveDatingProfile,
     imageIdsFromAttachments,
     imageDescriptionFromAttachments,
     ensureImagesForCharacter: ensureImagesForStorybookCharacter,
@@ -1532,9 +1588,12 @@ function App() {
   } = useStorybookPhoneImages({
     storybooksByNodeId,
     storyCharacters,
+    dynamicSocialUsers,
     messages,
     messagesRef,
     nodesRef,
+    currentCharacterRegistry: npcParticipants.registry,
+    characterRegistryForStorybook: npcParticipants.registryForStorybook,
     currentTurnInputMessages: () => activeTurnCollectorRef.current?.inputMessages ?? [],
     updateRuntimeNode,
     updateMessage,
@@ -1559,6 +1618,7 @@ function App() {
     storybookCreatorMessages,
     storybookCreatorSubmitting,
     openStorybookCreator,
+    ensureCurrentStorybook,
     submitStorybookCreatorMessage,
     updateStorybook,
     commitStorybookToNode,
@@ -1605,6 +1665,10 @@ function App() {
     setActiveStorybookProtection,
     notifySystem,
     usedStorybookImageIds,
+    currentNpcParticipants: npcParticipants.current,
+    currentCharacterRegistry: npcParticipants.registry,
+    characterRegistryForStorybook: npcParticipants.registryForStorybook,
+    currentTimelineMessages: () => messagesRef.current,
     currentSocialLikesByAccount: () => socialLikesByAccount,
     currentDynamicSocialUsers: () => dynamicSocialUsers,
     currentSocialConnectionsByCharacter: () => socialConnectionsByCharacter,
@@ -2487,6 +2551,7 @@ function App() {
           )),
     ];
 
+    npcParticipants.importOpeningHistory(nextNodes, replaceCurrentChat);
     messagesRef.current = nextMessages;
     turnsRef.current = nextTurns;
     turnCheckpointsRef.current = nextTurnCheckpoints;
@@ -2600,6 +2665,7 @@ function App() {
         displayLanguage,
       },
       workflowVariables: workflowSettingsValuesRef.current,
+      npcParticipants: npcParticipants.current(),
       turns: turnsRef.current,
       turnCheckpoints: turnCheckpointsRef.current,
       openingMessages,
@@ -2648,7 +2714,7 @@ function App() {
       nodesRef.current.find((node) => node.id === storybookCreatorNodeId && node.data.nodeType === 'rp-storybook') ??
       nodesRef.current.find((node) => node.data.nodeType === 'rp-storybook');
     if (!storybookNode || storybookNode.data.nodeType !== 'rp-storybook') {
-      throw new Error('Add an RP Storybook V2 node before saving a storybook file.');
+      throw new Error('Add an RP Storybook V3 node before saving a storybook file.');
     }
     const storybook = storybookNode.data.storybookJson
       ? parseRpStorybookJson(storybookNode.data.storybookJson)
@@ -2663,8 +2729,10 @@ function App() {
   }
 
   function clearCurrentSession() {
+    npcParticipants.reset();
     clearTemporaryReferenceImages();
     clearTurnTraces();
+    lastRunDebugRef.current = null;
     messagesRef.current = [];
     setMessages([]);
     turnsRef.current = [];
@@ -2746,7 +2814,7 @@ function App() {
         nodesRef.current.find((node) => node.id === storybookCreatorNodeId && node.data.nodeType === 'rp-storybook') ??
         nodesRef.current.find((node) => node.data.nodeType === 'rp-storybook');
       if (!storybookNode) {
-        throw new Error('Add an RP Storybook V2 node before opening a storybook file.');
+        throw new Error('Add an RP Storybook V3 node before opening a storybook file.');
       }
       const applied = applyStorybookToNode(
         storybookNode.id,
@@ -2772,7 +2840,7 @@ function App() {
         nodesRef.current.find((node) => node.id === storybookCreatorNodeId && node.data.nodeType === 'rp-storybook') ??
         nodesRef.current.find((node) => node.data.nodeType === 'rp-storybook');
       if (!storybookNode) {
-        throw new Error('Add an RP Storybook V2 node before importing a character card.');
+        throw new Error('Add an RP Storybook V3 node before importing a character card.');
       }
       applyCharacterCardToNode(storybookNode.id, result.value, result.fileName);
       setSelectedFile(result.fileName);
@@ -2832,6 +2900,7 @@ function App() {
         : node,
     );
     clearTurnTraces();
+    lastRunDebugRef.current = null;
     setActiveWorkflowProtection(protection === 'encrypted' ? 'encrypted' : 'plain');
     setActiveStorybookProtection('plain');
     commitHydratedWorkflow(
@@ -2842,6 +2911,7 @@ function App() {
       'embedded workflow',
       false,
     );
+    npcParticipants.restore(sessionState.npcParticipants);
     const openingMessages = sessionState.openingMessages;
     const loadedTurns = sessionState.turns;
     const loadedMessages = [
@@ -2960,6 +3030,7 @@ function App() {
     commitNodes(loadedNodes);
     commitEdges(loadedEdges);
     if (hydrateOpeningHistory) {
+      npcParticipants.restore(hydratedWorkflow.openingNpcParticipants);
       const openingTurns = hydratedWorkflow.openingTurns;
       const openingMessages = hydratedWorkflow.openingMessages;
       const openingCheckpoints = hydratedWorkflow.openingCheckpoints;
@@ -3064,12 +3135,14 @@ function App() {
       return;
     }
     const upgraded = result.node;
-    commitNodes(
-      nodesRef.current.map((candidate) => (candidate.id === nodeId ? upgraded : candidate)),
-    );
+    const nextNodes = nodesRef.current.map((candidate) => candidate.id === nodeId ? upgraded : candidate);
+    const nextEdges = edgesAfterNodeUpgrade(nextNodes, edgesRef.current, nodeId);
+    const removedCount = edgesRef.current.length - nextEdges.length;
+    commitNodes(nextNodes);
+    commitEdges(nextEdges);
     notifySystem(
       'info',
-      `Upgraded ${node.data.nodeType} to v${upgraded.data.nodeDataVersion}. Reconnect its wires — edges to incompatible nodes were removed on load.`,
+      `Upgraded ${node.data.nodeType} to v${upgraded.data.nodeDataVersion}. Compatible connections were retained.${removedCount ? ` Removed ${removedCount} connection(s) whose ports no longer match.` : ''}`,
     );
   }
 
@@ -3106,11 +3179,16 @@ function App() {
     setJsonDialogNodeId,
     setOutputFormatHelpKind,
     openStorybookCreator,
-    openStorybookEditor: setStorybookEditorNodeId,
+    openStorybookEditor: (nodeId) => {
+      if (ensureCurrentStorybook(nodeId)) setStorybookEditorNodeId(nodeId);
+    },
     upgradeNode: handleUpgradeNode,
     openCustomNodeAssistant: customNodeAssistant.open,
     runCustomNodeButton: customNodeAssistant.runButton,
-    loadStorybookFile,
+    loadStorybookFile: async () => {
+      await openStorybookPicker();
+      return true;
+    },
     importSillyTavernCharacter,
   });
 
@@ -3358,7 +3436,8 @@ function App() {
     // W11: shield emoji so a weak translation model (e.g. Haiku) cannot mangle
     // them into U+FFFD replacement characters. Translate ASCII placeholders and
     // restore the original emoji afterwards (streamed output restored on the fly).
-    const { shielded, tokens } = shieldTranslationEmoji(text);
+    const accountLinks = shieldTranslationAccountLinks(text, npcParticipants.characters());
+    const { shielded, tokens } = shieldTranslationEmoji(accountLinks.shielded);
     const prompt = translationPrompt({
       text: shielded,
       direction,
@@ -3375,10 +3454,10 @@ function App() {
         prompt,
         fastTask: true,
         onChunk: onChunk
-          ? (streamed) => onChunk(restoreTranslationEmoji(streamed, tokens))
+          ? (streamed) => onChunk(restoreTranslationAccountLinks(restoreTranslationEmoji(streamed, tokens), accountLinks.tokens))
           : undefined,
       });
-      const translated = restoreTranslationEmoji(completion.text, tokens).trim();
+      const translated = restoreTranslationAccountLinks(restoreTranslationEmoji(completion.text, tokens), accountLinks.tokens).trim();
       if (!translated) {
         if (direction === 'to-english') {
           return '';
@@ -3443,42 +3522,44 @@ function App() {
         node.data.kind === undefined &&
         (node.data.nodeType === 'llm-prompt-switch' || node.data.nodeType === 'llm-prompt'),
     );
-    const textMetrics = new TextMetricsApi(activeTokenEstimateBytesPerToken);
     const promptSwitchDebug = promptDebugNodes.map((node) => ({
       id: node.id,
       nodeType: node.data.nodeType,
       label: node.data.label,
-      selectedOutputChannel: node.data.llmPromptSwitchSelectedOutputChannel,
-      selectedPromptSlot: node.data.llmPromptSwitchSelectedPromptSlot,
+      selectedOutputChannel: node.data.llmPromptSwitchDebug?.selectedOutputChannel,
+      selectedPromptSlot: node.data.llmPromptSwitchDebug?.selectedPromptSlot,
       runtimeDebug:
         node.data.nodeType === 'llm-prompt' ? node.data.llmPromptDebug : node.data.llmPromptSwitchDebug,
       preview: node.data.preview,
-      fullText: compactDebugValue(node.data.fullText, textMetrics),
+      fullText: node.data.fullText,
       generatedText: node.data.generatedText,
-      runtimePortValues: compactDebugValue(node.data.runtimePortValues, textMetrics),
+      runtimePortValues: node.data.runtimePortValues,
       runPrepared: node.data.runPrepared,
       runCompleted: node.data.runCompleted,
+      runActive: node.data.runActive,
+      runError: node.data.runError,
     }));
     const eventManagerDebug = currentEventManagerNode
       ? {
           id: currentEventManagerNode.id,
           label: currentEventManagerNode.data.label,
-          events: appointmentsFromEventEntities(currentEventEntities),
           eventEntities: currentEventEntities,
           preview: currentEventManagerNode.data.preview,
-          fullText: compactDebugValue(currentEventManagerNode.data.fullText, textMetrics),
+          fullText: currentEventManagerNode.data.fullText,
           status: currentEventManagerNode.data.eventStatus,
-          runtimePortValues: compactDebugValue(currentEventManagerNode.data.runtimePortValues, textMetrics),
+          runtimePortValues: currentEventManagerNode.data.runtimePortValues,
           runPrepared: currentEventManagerNode.data.runPrepared,
           runCompleted: currentEventManagerNode.data.runCompleted,
-          eventLastPrompt: compactDebugValue(currentEventManagerNode.data.eventLastPrompt, textMetrics),
+          runActive: currentEventManagerNode.data.runActive,
+          runError: currentEventManagerNode.data.runError,
+          eventLastPrompt: currentEventManagerNode.data.eventLastPrompt,
           eventLastResponse: currentEventManagerNode.data.eventLastResponse,
         }
       : {};
 
     return sanitizeDebugSnapshotValue({
       schema: 'rpgraph-debug-snapshot',
-      version: 1,
+      version: 2,
       createdAt: new Date().toISOString(),
       selectedSections: [],
       appState: {
@@ -3522,24 +3603,17 @@ function App() {
         displayLanguage,
         workflowVariables: workflowSettingsValuesRef.current,
       },
-      lastRun: lastRunDebugRef.current
-        ? {
-            ...lastRunDebugRef.current,
-            originalHistory: compactDebugValue(lastRunDebugRef.current.originalHistory, textMetrics),
-            translatedHistory: compactDebugValue(lastRunDebugRef.current.translatedHistory, textMetrics),
-          }
-        : {},
+      lastRun: lastRunDebugRef.current ?? {},
       recentTurns: recentTurnDebugSummaries(
         turnsRef.current,
         turnCheckpointsRef.current,
-        textMetrics,
         2,
       ),
       promptSwitch: {
         nodes: promptSwitchDebug,
       },
       eventManager: eventManagerDebug,
-      nodes: currentNodes.map((node) => compactDebugNode(node, textMetrics)),
+      nodes: currentNodes.map(debugSnapshotNode),
       edges: currentEdges,
       systemLog,
     }) as DebugSnapshot;
@@ -3653,7 +3727,7 @@ function App() {
     ];
     const textMetrics = new TextMetricsApi(activeTokenEstimateBytesPerToken);
     return sectionDefinitions.map((section) => {
-      const json = section.json ?? JSON.stringify(section.value, null, 2);
+      const json = section.json ?? JSON.stringify(compactDebugValue({ [section.id === 'system-log' ? 'systemLog' : 'data']: section.value }, textMetrics, true), null, 2);
       return {
         id: section.id,
         label: section.label,
@@ -3690,20 +3764,24 @@ function App() {
     });
   }
 
-  function storybookPhoneImageAttachment(message: Pick<ParsedPhoneMessage, 'from' | 'imageId'>) {
+  function phoneImageAttachment(
+    message: Pick<ParsedPhoneMessage, 'imageId'>,
+    ownerId: string,
+    ownerName: string,
+  ) {
     const imageId = message.imageId?.trim();
     if (!imageId) {
       return undefined;
     }
-    const source = currentStorybookImageSourceById(imageId);
-    if (!source) {
-      notifySystem('warning', `Phone image ${imageId} was not found in the Storybook image libraries.`);
+    const image = appCharacterImage(npcParticipants.characters(), imageId, ownerId);
+    if (!image) {
+      notifySystem('warning', `Phone image ${imageId} was not found in ${ownerName}'s image library.`);
       return undefined;
     }
     return {
-      attachment: chatAttachmentFromStorybookImage(source.image),
-      description: source.image.description.trim() || undefined,
-      ownerName: source.ownerName,
+      attachment: chatAttachmentFromStorybookImage(image),
+      description: image.description.trim() || undefined,
+      ownerName,
     };
   }
 
@@ -3715,29 +3793,33 @@ function App() {
     workflowVariableSetCommands?: WorkflowVariableSetCommand[],
     inputMetadata: Pick<MessageRecord, 'inputMessageFormat' | 'inputPromptSlot' | 'replyToMessageId' | 'contextComment'> = {},
   ) {
+    const participants = resolveWhatsUpMessageParticipants(npcParticipants.characters(), messagesRef.current, {
+      from: message.fromAccountId ?? message.from,
+      to: message.toAccountId ?? message.to,
+    });
     const canonicalMessage = {
       ...message,
-      from: canonicalPhoneName(phoneCharacters, message.from),
-      to: canonicalPhoneName(phoneCharacters, message.to),
+      from: participants.from.name,
+      to: participants.to.name,
     };
-    const storybookImage = canonicalMessage.imageAttachments?.length
+    const storedImage = canonicalMessage.imageAttachments?.length
       ? undefined
-      : storybookPhoneImageAttachment(canonicalMessage);
+      : phoneImageAttachment(canonicalMessage, participants.from.accountId, participants.from.name);
     const sourceImageAttachments = canonicalMessage.imageAttachments?.length
       ? canonicalMessage.imageAttachments
-      : storybookImage
-        ? [storybookImage.attachment]
+      : storedImage
+        ? [storedImage.attachment]
         : undefined;
     const imageDescription =
       canonicalMessage.imageDescription ??
-      storybookImage?.description ??
+      storedImage?.description ??
       imageDescriptionFromAttachments(sourceImageAttachments);
     const imageAttachments = ensurePhoneImagesInStorybooks(
       canonicalMessage.from,
       canonicalMessage.to,
       sourceImageAttachments,
       imageDescription,
-      storybookImage?.ownerName,
+      storedImage?.ownerName,
     ) ?? sourceImageAttachments;
     const phoneImageIds = imageIdsFromAttachments(imageAttachments);
     allowStorybookPhoneContactPair(canonicalMessage.from, canonicalMessage.to);
@@ -3749,6 +3831,8 @@ function App() {
       includeInHistory: true,
       channel: 'phone',
       phoneMessage: true,
+      phoneFromAccountId: participants.from.accountId,
+      phoneToAccountId: participants.to.accountId,
       phoneFrom: canonicalMessage.from,
       phoneTo: canonicalMessage.to,
       phoneVoiceMessage: canonicalMessage.isVoiceMessage || undefined,
@@ -3853,6 +3937,7 @@ function App() {
   }
   const [stagedRetryPrompt, setStagedRetryPrompt] = useState<StagedRetryPrompt | null>(null);
   const { runGraph, runGraphFromRequest } = useGraphRun({
+    appCharacters: npcParticipants.characters,
     messages,
     setMessages,
     messagesRef,
@@ -4041,6 +4126,10 @@ function App() {
       turn.mode === 'auto-turn' ||
       turn.input.graphText.includes('[AUTO TURN]') ||
       turn.input.graphText.includes('[AUTO PHONE TURN]');
+    if (turn.input.messages.some((message) => message.matchMeMatch)) {
+      notifySystem('info', 'MatchMe matches are application events and cannot be regenerated by the workflow.');
+      return;
+    }
     if (turn.directAction) {
       applyTurnCheckpointRuntime(turn, 'before');
       void runGraph(
@@ -4093,12 +4182,18 @@ function App() {
       const actorHandle = socialPost?.authorHandle ??
         socialThreadAction?.actorHandle ??
         socialDirectMessage?.fromHandle;
-      const actor = storyCharacters.find((character) =>
-        socialIdentityMatches(character.name, actorName ?? '') ||
-        socialIdentityMatches(character.id, actorName ?? '') ||
-        socialIdentityMatches(character.social.fotogramUsername, actorHandle ?? '') ||
-        socialIdentityMatches(character.social.onlyfriendsUsername, actorHandle ?? ''),
-      ) ?? selectedCharacter;
+      const actor = socialDirectMessage
+        ? socialDirectMessageActor(storyCharacters, undefined, socialDirectMessage)
+        : storyCharacters.find((character) =>
+            socialIdentityMatches(character.name, actorName ?? '') ||
+            socialIdentityMatches(character.id, actorName ?? '') ||
+            socialIdentityMatches(character.social.fotogramUsername, actorHandle ?? '') ||
+            socialIdentityMatches(character.social.onlyfriendsUsername, actorHandle ?? ''),
+          ) ?? selectedCharacter;
+      if (socialDirectMessage && !actor) {
+        notifySystem('warning', 'Could not identify a unique account owner for this social conversation.');
+        return;
+      }
       const historyMessages = messagesRef.current.filter(
         (message) => !allTurnMessageIds.has(message.id),
       );
@@ -4120,21 +4215,31 @@ function App() {
               threadContext?.likeCount ?? 0,
             )
           : socialDirectRunMessage
-            ? socialDirectMessageInputText(socialDirectRunMessage, historyMessages)
+            ? socialDirectMessageInputText(socialDirectRunMessage, historyMessages, npcParticipants.characters())
             : turn.input.graphText, !!options.reflavor);
       const imageId = socialPost?.imageId ?? socialDirectMessage?.origin?.postImageId;
       const inputImages = imageId
-        ? [socialImageById(imageId)].filter(
+        ? [socialImageById(imageId, socialPost?.authorAccountId ?? socialPost?.authorCharacterId ?? (socialDirectMessage?.origin ? npcSeedPostAccountId(socialDirectMessage.origin.postId) : undefined))].filter(
             (image): image is ChatImageAttachment => !!image,
           )
         : [];
-      const promptSlot = turn.promptSlot ?? (
+      let promptSlot = turn.promptSlot ?? (
         socialPost
           ? socialPost.app === 'fotogram' ? 0 : 1
           : socialThreadAction
             ? socialThreadAction.app === 'fotogram' ? 2 : 3
-            : socialDirectRunMessage?.app === 'fotogram' ? 4 : 5
+            : { fotogram: 4, onlyfriends: 5, matchme: 6 }[socialDirectRunMessage?.app ?? 'fotogram']
       );
+      if (socialDirectRunMessage?.app === 'matchme') {
+        try {
+          const prepared = prepareMatchMePromptSlots(nodesRef.current);
+          prepared.updates.forEach((update) => updateRuntimeNode(update.id, update.data));
+          promptSlot = prepared.slot;
+        } catch (error) {
+          notifySystem('warning', error instanceof Error ? error.message : String(error));
+          return;
+        }
+      }
       applyTurnCheckpointRuntime(turn, 'before');
       void runGraph(
         displayText,
@@ -4508,9 +4613,7 @@ function App() {
         runNarratorSelected = true;
         runSelectedCharacter = undefined;
       } else {
-        const targetCharacter = storyCharacters.find(
-          (character) => character.id === requestedPlayer || phoneNamesMatch(character.name, requestedPlayer),
-        );
+        const targetCharacter = findOutputActionPlayer(playerCharacters, requestedPlayer);
         if (targetCharacter) {
           runNarratorSelected = false;
           runSelectedCharacter = targetCharacter;
@@ -4673,39 +4776,90 @@ function App() {
     );
   }
 
-  async function submitSocialDirectMessage(message: SocialDirectMessageRecord) {
+  function saveMatchMeProfile(owner: StorybookCharacter, profile: DatingProfile) {
+    if (isRunning || activeTurnCollectorRef.current) return false;
+    const characters = npcParticipants.characters();
+    const currentOwner = characters.find((entry) => entry.id === owner.id);
+    if (!currentOwner) return false;
+    const state = matchMeState(characters, messagesRef.current);
+    const entries = migrateDatingHistory(currentOwner, state, messagesRef.current, new Date().toISOString());
+    state.matches.push(...entries.flatMap((entry) => entry.matchMeMatch ? [entry.matchMeMatch] : []));
+    for (const [id, decision] of Object.entries(profile.decisions)) {
+      if (decision !== 'like' || currentOwner.social.plotTwist?.decisions[id] === 'like') continue;
+      const match = matchMeLikePolicy(datingAccountId(owner), id, state, new Date().toISOString());
+      if (!match) continue;
+      state.matches.push(match);
+      entries.push({ role: 'user', includeInHistory: true, matchMeMatch: match,
+        originalText: matchMeMatchHistoryText(match, state.accounts) });
+    }
+    return commitLocalAppTurn(entries, () => saveDatingProfile(currentOwner, { ...profile, messages: undefined, historyVersion: 1 }));
+  }
+
+  function initializeMatchMe(owner: StorybookCharacter) {
+    const current = storyCharactersFromNodes(nodesRef.current).find((entry) => entry.id === owner.id);
+    if (current?.social.plotTwist && current.social.plotTwist.historyVersion !== 1) saveMatchMeProfile(current, current.social.plotTwist);
+  }
+
+  useMatchMeMigration(storyCharacters, isRunning, initializeMatchMe);
+
+  async function submitSocialDirectMessage(message: SocialDirectMessageRecord, characterId: string) {
     if (isRunning) {
       return false;
     }
-    const actor = storyCharacters.find((character) =>
-      socialIdentityMatches(character.name, message.from) ||
-      socialIdentityMatches(character.id, message.from),
-    ) ?? selectedCharacter;
+    const actor = socialDirectMessageActor(storyCharacters, characterId, message);
     if (!actor) {
-      notifySystem('warning', 'Select a Storybook character before sending a social direct message.');
+      notifySystem('warning', 'The selected character no longer owns this social account. Reopen the app before sending a message.');
       return false;
     }
+    let slot = { fotogram: 4, onlyfriends: 5, matchme: 6 }[message.app];
+    if (message.app === 'matchme') {
+      if (!matchMeMessageAllowed(message, matchMeState(npcParticipants.characters(), messagesRef.current))) {
+        notifySystem('warning', 'MatchMe message blocked: this conversation needs an active match.');
+        return false;
+      }
+      try {
+        const prepared = prepareMatchMePromptSlots(nodesRef.current);
+        prepared.updates.forEach((update) => updateRuntimeNode(update.id, update.data));
+        slot = prepared.slot;
+      } catch (error) {
+        notifySystem('warning', error instanceof Error ? error.message : String(error));
+        return false;
+      }
+    } else message = { ...message, from: actor.name };
+    let existing = messagesRef.current.find((entry) => entry.socialDirectMessage?.messageId === message.messageId);
+    if (message.app === 'matchme' && !existing) {
+      const saved = commitLocalAppTurn([{ role: 'user', originalText: socialDirectMessageHistoryText(message),
+        includeInHistory: true, socialDirectMessage: message,
+        turnContext: { englishProcessingEnabled, inputTranslationOnlyEnabled, displayLanguage } }], () => true,
+        { messageFormat: socialMediaMessageFormat, promptSlot: slot });
+      if (!saved) return false;
+      existing = messagesRef.current.find((entry) => entry.socialDirectMessage?.messageId === message.messageId);
+    }
+    const outgoingTurn = message.app === 'matchme'
+      ? turnsRef.current.find((turn) => turn.input.messages.some((entry) => entry.socialDirectMessage?.messageId === message.messageId))
+      : undefined;
+    if (message.app === 'matchme' && messagesRef.current.some((entry) => entry.socialDirectMessage?.replyToMessageId === message.messageId)) return true;
     return runGraph(
-      socialDirectMessageInputText(message, messagesRef.current),
+      socialDirectMessageInputText(message, messagesRef.current, npcParticipants.characters()),
       message.origin?.postImageId
-        ? [socialImageById(message.origin.postImageId)].filter(
+        ? [socialImageById(message.origin.postImageId, npcSeedPostAccountId(message.origin.postId))].filter(
             (image): image is ChatImageAttachment => !!image,
           )
         : [],
-      undefined,
+      existing,
       messagesRef.current,
-      undefined,
+      outgoingTurn ? new Set(outgoingTurn.output.messages.map((entry) => entry.id)) : undefined,
       actor,
       false,
       undefined,
-      undefined,
+      outgoingTurn ? { turn: outgoingTurn, replaceInput: false } : undefined,
       'user',
       undefined,
       undefined,
       undefined,
       false,
       socialMediaMessageFormat,
-      message.app === 'fotogram' ? 4 : 5,
+      slot,
       undefined,
       undefined,
       undefined,
@@ -4831,7 +4985,7 @@ function App() {
     }
     const eventSpeaker = eventStoryCharacter(eventToRun, storyCharacters);
     if (!eventSpeaker) {
-      notifySystem('warning', 'Event needs at least one playable character.');
+      notifySystem('warning', 'Event needs at least one Storybook participant.');
       return;
     }
     const eventGraphText = eventGraphInputText(eventToRun);
@@ -4923,6 +5077,7 @@ function App() {
   );
   const headerStorybookFileName = headerStorybookNode?.data.storybookFileName;
   const headerStorybookJson = headerStorybookNode?.data.storybookJson;
+  const headerHasStorybook = !!headerStorybookJson && !isEmptyRpStorybook(headerStorybookJson);
   const displayedStorybookName = displayStorybookName(
     headerStorybookFileName,
     headerStorybookJson,
@@ -4947,9 +5102,9 @@ function App() {
     : displayedWorkflowName;
 
   const isStorybookEncrypted =
-    (activeStorybookProtection === 'encrypted' && !!headerStorybookNode?.data.storybookFileName) ||
-    (isSessionEncrypted && !headerStorybookNode?.data.storybookFileName && !!headerStorybookNode?.data.storybookJson) ||
-    (activeWorkflowProtection === 'encrypted' && !headerStorybookNode?.data.storybookFileName && !!headerStorybookNode?.data.storybookJson);
+    (activeStorybookProtection === 'encrypted' && !!headerStorybookNode?.data.storybookFileName && headerHasStorybook) ||
+    (isSessionEncrypted && !headerStorybookNode?.data.storybookFileName && headerHasStorybook) ||
+    (activeWorkflowProtection === 'encrypted' && !headerStorybookNode?.data.storybookFileName && headerHasStorybook);
   const displayedStorybookNameFormatted = isStorybookEncrypted
     ? headerStorybookNode?.data.storybookFileName
       ? formatEncryptedFileName(headerStorybookNode.data.storybookFileName)
@@ -5074,7 +5229,7 @@ function App() {
     settingsValueDefinitions,
   ]);
   const renderedEdges = useMemo(
-    () => withSourceNodeStatusConnectionColors(edges, nodeViewNodes),
+    () => withSourceNodeStatusConnectionColors(removeEdgesConnectedToIncompatibleNodes(nodeViewNodes, edges), nodeViewNodes),
     [edges, nodeViewNodes],
   );
   const workflowCapabilityIndicators = useWorkflowCapabilities({
@@ -5952,6 +6107,7 @@ function App() {
   );
 
   return (
+    <AccountLinkContext.Provider value={accountLinkContext}>
     <div
       className={`studio studio-mode-${studioMode} node-text-${nodeTextSize}${glassDesignEnabled ? ' glass-design-active' : ''}`}
       data-studio-theme={studioTheme}
@@ -6095,6 +6251,16 @@ function App() {
                 >
                   Files
                 </button>
+                <button
+                  type="button"
+                  role="menuitem"
+                  onClick={() => {
+                    setTopbarMenuOpen(false);
+                    npcLibrary.show();
+                  }}
+                >
+                  NPC Library
+                </button>
               </div>
             )}
           </div>
@@ -6192,6 +6358,17 @@ function App() {
 
         {studioMode === 'play' && (
         <ErrorBoundary label="Chat Panel">
+        {isChatPanelOpen && !isResizing && (
+          <EdgeCharacterPicker
+            characters={playerCharacters}
+            settingsLoadComplete={settingsLoadComplete}
+            hintSeen={edgeCharacterPickerHintSeen}
+            onHintSeen={setEdgeCharacterPickerHintSeen}
+            selectedId={narratorSelected ? narratorCharacterId : selectedCharacter?.id}
+            characterColors={characterColors}
+            onSelect={selectChatCharacter}
+          />
+        )}
         <RoleplayStudioShell
           characterPicker={roleplayCharacterPicker}
           composerActions={roleplayComposerActions}
@@ -6348,6 +6525,8 @@ function App() {
               voiceReadAloudActive={readAloudActive}
               onStopVoiceReadAloud={stopDialogueVoice}
               rpTimeTrackingEnabled={rpTimeTrackingEnabled}
+              chatTextBrightness={chatTextBrightness}
+              chatColorIntensity={chatColorIntensity}
               chatTextSize={chatTextSize}
               onChatTextSizeChange={setChatTextSize}
               phoneAuthorBadgesEnabled={phoneAuthorBadgesEnabled}
@@ -6423,6 +6602,7 @@ function App() {
             if (chatPanelView !== 'phone') selectChatPanelView('phone');
           }}>
             <PhonePanel
+              appCharacters={npcParticipants.characters()}
               phoneContacts={phoneContacts}
               storyCharacters={storyCharacters}
               estimatedTokenBytesPerToken={activeTokenEstimateBytesPerToken}
@@ -6438,7 +6618,7 @@ function App() {
               selectedCharacter={viewedPhoneCharacter}
               selectedCharacterPlayable={
                 !!viewedPhoneCharacter &&
-                storyCharacters.some((character) => character.id === viewedPhoneCharacter.id)
+                playerCharacters.some((character) => character.id === viewedPhoneCharacter.id)
               }
               selectedPhoneConversation={selectedPhoneConversation}
               selectedPhoneDividerAfterId={selectedPhoneDividerAfterId}
@@ -6559,11 +6739,12 @@ function App() {
                   !!message.socialPost ||
                   !!message.socialThreadAction ||
                   !!message.socialReactions ||
-                  !!message.socialDirectMessage,
+                  !!message.socialDirectMessage || !!message.matchMeMatch,
               )}
               onSubmitSocialPost={submitSocialPost}
               onSubmitSocialThreadAction={submitSocialThreadAction}
               onSubmitSocialDirectMessage={submitSocialDirectMessage}
+              onSaveDatingProfile={saveMatchMeProfile}
               onCreateSocialAccount={saveStorybookSocialUsername}
               onImportSocialPostImage={importSocialPostImage}
               socialImageById={socialImageById}
@@ -6732,12 +6913,16 @@ function App() {
           node={storybookCreatorNode}
           workflowNodes={nodeViewNodes}
           promptActionSettings={promptActionSettings}
+          identityLocked={messages.length > 0}
           messages={storybookCreatorMessages}
           isSubmitting={storybookCreatorSubmitting}
           connections={connections}
           providerHealthById={providerHealthById}
           onSubmit={submitStorybookCreatorMessage}
-          onLoad={() => loadStorybookFile(storybookCreatorNode.id)}
+          onLoad={async () => {
+            await openStorybookPicker();
+            return true;
+          }}
           onSaveStorybook={() => requestSaveStorybook(false)}
           promptTextCustomPresets={promptTextCustomPresets}
           setPromptTextCustomPresets={setPromptTextCustomPresets}
@@ -6782,6 +6967,9 @@ function App() {
       {storybookEditorNode && storybookEditorNode.data.nodeType === 'rp-storybook-editor' && (
         <StorybookEditorDialog
           node={storybookEditorNode}
+          identityLocked={messages.length > 0}
+          onExportCharacter={(characterId) => exportStorybookCharacter(storybookEditorNode.id, characterId)}
+          onImportCharacter={() => importCharacterCard(storybookEditorNode.id)}
           onCommit={(storybook, status) =>
             commitStorybookToNode(storybookEditorNode.id, storybook, { storybookStatus: status })
           }
@@ -6876,6 +7064,8 @@ function App() {
         activeTokenEstimateBytesPerToken={activeTokenEstimateBytesPerToken}
         settingsValueDefinitions={settingsValueDefinitions}
         settingsValues={resolvedWorkflowSettingsValues}
+        chatTextBrightness={chatTextBrightness}
+        chatColorIntensity={chatColorIntensity}
         chatTextSize={chatTextSize}
         phoneChatTextSize={phoneChatTextSize}
         smoothChatAutoScrollEnabled={smoothChatAutoScrollEnabled}
@@ -6906,6 +7096,8 @@ function App() {
         onSettingsValueChange={changeWorkflowSettingsValue}
         onSettingsValueRename={renameWorkflowSettingsValue}
         onSettingsValueRemove={removeWorkflowSettingsValue}
+        onChatTextBrightnessChange={setChatTextBrightness}
+        onChatColorIntensityChange={setChatColorIntensity}
         onChatTextSizeChange={setChatTextSize}
         onPhoneChatTextSizeChange={setPhoneChatTextSize}
         onSmoothChatAutoScrollEnabledChange={setSmoothChatAutoScrollEnabled}
@@ -6924,6 +7116,7 @@ function App() {
         onStagedAutoRetryAttemptsChange={setStagedAutoRetryAttempts}
         onTurnAutosaveEnabledChange={setTurnAutosaveEnabled}
         showFiles={showFiles}
+        showStorybookPicker={showStorybookPicker}
         savedFiles={savedFiles}
         selectedFile={selectedFile}
         workflowName={workflowNameDraft}
@@ -6943,6 +7136,25 @@ function App() {
           setSessionPassword('');
           setPendingSessionFilePath(null);
           setPendingStorybookLoad(null);
+        }}
+        onCloseStorybookPicker={() => {
+          setShowStorybookPicker(false);
+          setSelectedFile(null);
+          setFileStorageStatus('');
+        }}
+        onRequestOpenStorybookFile={() => {
+          const storybookNode = nodesRef.current.find(
+            (node) => node.data.nodeType === 'rp-storybook',
+          );
+          if (!storybookNode) {
+            setFileStorageStatus('No RP Storybook V3 node is available.');
+            return;
+          }
+          void loadStorybookFile(storybookNode.id).then((loaded) => {
+            if (loaded) {
+              setShowStorybookPicker(false);
+            }
+          });
         }}
         onSelectFile={(file) => {
           setSelectedFile(file.fileName);
@@ -6982,7 +7194,7 @@ function App() {
         onOpenFile={(file) => void openStoredFile(file)}
         onDeleteFile={(file) => void deleteStoredFile(file)}
         onRequestOpenFile={() => void requestOpenFile()}
-        onRestoreDefaultWorkflow={() => void restoreDefaultWorkflow()}
+        onRestoreDefaultFiles={() => void restoreDefaultFiles()}
         onRequestExportWorkflow={() => requestExportWorkflow(true)}
         onRequestSaveStorybook={() => requestSaveStorybook(true)}
         onWorkflowNameChange={(name) => {
@@ -7005,12 +7217,16 @@ function App() {
         fileProtection={fileProtection}
         workflowSaveScope={workflowSaveScope}
         chooseSaveLocation={chooseSaveLocation}
+        characterSaveLocation={characterSaveLocation}
+        includeCharacterOwnPosts={includeCharacterOwnPosts}
         onCloseSessionPassword={() => {
           if (sessionPasswordAction === 'load-character') {
             cancelCharacterCardUnlock();
           }
           setShowFiles(
-            sessionPasswordAction === 'save-workflow' ||
+            showStorybookPicker
+              ? false
+              : sessionPasswordAction === 'save-workflow' ||
               sessionPasswordAction === 'save-session' ||
               sessionPasswordAction === 'save-storybook' ||
               sessionPasswordAction === 'save-character'
@@ -7046,6 +7262,11 @@ function App() {
             setSessionOverwritePending(false);
           }
         }}
+        onCharacterSaveLocationChange={(location) => {
+          setCharacterSaveLocation(location);
+          setSessionOverwritePending(false);
+        }}
+        onIncludeCharacterOwnPostsChange={setIncludeCharacterOwnPosts}
         onSubmitSessionPassword={() =>
           void (
             sessionPasswordAction === 'save-workflow'
@@ -7150,6 +7371,29 @@ function App() {
           onClose={() => setShowSystemLog(false)}
         />
       )}
+      {npcLibrary.open && (
+        <NpcLibraryDialog
+          snapshot={npcLibrary.snapshot}
+          activeRegistry={npcParticipants.registry()}
+          storybookNodeId={nodes.find(isStorybookSourceNode)?.id}
+          onAddToStorybook={(characterId, nodeId) => {
+            const previous = npcParticipants.current();
+            try {
+              const card = npcPromotionCard(npcParticipants.registry(), characterId);
+              npcParticipants.capture([{ kind: 'character', id: characterId }]);
+              applyCharacterCardToNode(nodeId, card, 'NPC Library');
+            } catch (error) {
+              npcParticipants.restore(previous);
+              throw error;
+            }
+          }}
+          loading={npcLibrary.loading}
+          status={npcLibrary.status}
+          onReload={() => void npcLibrary.reload()}
+          onOpenFolder={() => void npcLibrary.openFolder()}
+          onClose={npcLibrary.close}
+        />
+      )}
       {comfyPreview && (
         <ComfyGeneratedImageDialog
           promptId={comfyPreview.promptId}
@@ -7210,6 +7454,7 @@ function App() {
         </div>
       )}
     </div>
+    </AccountLinkContext.Provider>
   );
 }
 

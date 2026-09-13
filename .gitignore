@@ -57,3 +57,7 @@ openspec/
 
 # Local linked git worktrees
 .worktrees/
+
+# Local face detection environment and downloaded model
+.face-tools/
+__pycache__/

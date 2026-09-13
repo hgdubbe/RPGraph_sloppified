@@ -1,4 +1,6 @@
-const { app, BrowserWindow, Menu, dialog, ipcMain, safeStorage } = require('electron');
+const { safeWorkflowBaseName, safeStorybookBaseName, safeCharacterCardBaseName } = require('./fileNames.cjs');
+const { bundledJsonFilesByFormat } = require('./bundledJsonFiles.cjs');
+const { app, BrowserWindow, Menu, dialog, ipcMain, safeStorage, shell } = require('electron');
 const crypto = require('node:crypto');
 const { execFile } = require('node:child_process');
 const fs = require('node:fs/promises');
@@ -26,6 +28,7 @@ const {
 const {
   bundledDefaultWorkflowFileNames,
   importedDefaultFileNamesFromState,
+  missingDefaultFileTypes,
   restoreBundledDefaultWorkflows,
 } = require('./workflowDefaults.cjs');
 const {
@@ -88,6 +91,8 @@ const {
   veniceResponseText,
 } = require('./veniceApi.cjs');
 const lmStudioAdapter = require('./providers/lmStudioAdapter.cjs');
+const { reasoningTextFromChatMessage } = require('./reasoningStream.cjs');
+const { createNpcLibraryService, npcLibraryRoots } = require('./npcLibrary.cjs');
 
 const developmentUrl = 'http://localhost:5173';
 const projectRootPath = path.join(__dirname, '..');
@@ -153,21 +158,30 @@ function resolveProjectPath(relativePath) {
   return resolved;
 }
 
-function defaultWorkflowsDirectory() {
-  return path.join(projectRootPath, 'default_workflows');
+function bundledDefaultContentDirectory() {
+  return app.isPackaged
+    ? path.join(process.resourcesPath, 'default-content')
+    : path.join(projectRootPath, 'resources', 'default-content');
 }
 
 function bundledDefaultWorkflowPaths() {
-  const directory = defaultWorkflowsDirectory();
-  const names = bundledDefaultWorkflowFileNames(fsSync.readdirSync(directory));
+  const directory = bundledDefaultContentDirectory();
+  const names = bundledDefaultWorkflowFileNames(bundledJsonFilesByFormat(directory, 'rpgraph-workflow'));
   if (names.length === 0) {
-    throw new Error('No workflow.default*.json file was found in the app directory.');
+    throw new Error('No bundled workflow JSON file was found in the bundled default content directory.');
   }
   return names.map((name) => {
     const resolved = path.resolve(directory, name);
     approvedWorkflowPaths.add(resolved);
     return resolved;
   });
+}
+
+function bundledDefaultStorybookPaths() {
+  const directory = bundledDefaultContentDirectory();
+  return bundledJsonFilesByFormat(directory, 'rpgraph-storybook')
+    .map((name) => path.resolve(directory, name))
+    .sort((left, right) => left.localeCompare(right, undefined, { numeric: true, sensitivity: 'base' }));
 }
 
 function bundledDefaultWorkflowPath() {
@@ -210,6 +224,16 @@ if (process.platform === 'win32') {
 } else if (process.platform === 'linux') {
   app.setDesktopName('rpgraph-studio.desktop');
 }
+
+const npcLibraryService = createNpcLibraryService({
+  roots: npcLibraryRoots({
+    isPackaged: app.isPackaged,
+    resourcesPath: process.resourcesPath,
+    projectRootPath,
+    userDataPath: app.getPath('userData'),
+  }),
+  openPath: (directory) => shell.openPath(directory),
+});
 
 function normalizedWorkflowPath(filePath) {
   if (
@@ -505,31 +529,8 @@ function safeSessionBaseName(value) {
     : baseName;
 }
 
-function safeWorkflowBaseName(value) {
-  const cleaned = String(value ?? '')
-    .trim()
-    .replace(invalidFileBaseNameCharacters, '-')
-    .replace(/[. ]+$/g, '')
-    .replace(/(\.rpgraph)?\.json$/i, '')
-    .slice(0, 80);
-  const baseName = cleaned || `workflow-${new Date().toISOString().replace(/[:.]/g, '-')}`;
-  return /^(con|prn|aux|nul|com[1-9]|lpt[1-9])$/i.test(baseName)
-    ? `workflow-${baseName}`
-    : baseName;
-}
 
-function safeStorybookBaseName(value) {
-  const cleaned = String(value ?? '')
-    .trim()
-    .replace(invalidFileBaseNameCharacters, '-')
-    .replace(/[. ]+$/g, '')
-    .replace(/(\.rpgraph-storybook)?\.json$/i, '')
-    .slice(0, 80);
-  const baseName = cleaned || `storybook-${new Date().toISOString().replace(/[:.]/g, '-')}`;
-  return /^(con|prn|aux|nul|com[1-9]|lpt[1-9])$/i.test(baseName)
-    ? `storybook-${baseName}`
-    : baseName;
-}
+
 
 function validatedStoredFileName(fileName) {
   if (
@@ -542,18 +543,6 @@ function validatedStoredFileName(fileName) {
   return fileName;
 }
 
-function safeCharacterCardBaseName(value) {
-  const cleaned = String(value ?? '')
-    .trim()
-    .replace(invalidFileBaseNameCharacters, '-')
-    .replace(/[. ]+$/g, '')
-    .replace(/(\.rpgraph-character)?\.json$/i, '')
-    .slice(0, 80);
-  const baseName = cleaned || `character-${new Date().toISOString().replace(/[:.]/g, '-')}`;
-  return /^(con|prn|aux|nul|com[1-9]|lpt[1-9])$/i.test(baseName)
-    ? `${baseName}-file`
-    : baseName;
-}
 
 function storedJsonName(fileName) {
   return fileName.replace(/(\.rpgraph-storybook|\.rpgraph-character|\.rpgraph-session|\.rpgraph)?\.json$/i, '');
@@ -696,8 +685,29 @@ async function restoreDefaultWorkflowFile() {
   return ensureBundledDefaultWorkflowFiles(false);
 }
 
-async function refreshDefaultWorkflowFile() {
-  return ensureBundledDefaultWorkflowFiles(true);
+async function restoreMissingBundledDefaultFiles() {
+  const storedFiles = await listedFilesInDirectory(filesDirectory(), 'files');
+  const missingTypes = missingDefaultFileTypes(storedFiles);
+  const restoredTypes = [];
+  let workflow;
+
+  if (missingTypes.includes('workflows')) {
+    const restored = await ensureBundledDefaultWorkflowFiles(false);
+    workflow = {
+      filePath: restored.filePath,
+      fileName: restored.fileName,
+      value: JSON.parse(await fs.readFile(restored.filePath, 'utf8')),
+    };
+    restoredTypes.push('workflows');
+  }
+  if (missingTypes.includes('Storybooks')) {
+    for (const bundledPath of bundledDefaultStorybookPaths()) {
+      await ensureDefaultStorybookFile(bundledPath);
+    }
+    restoredTypes.push('Storybooks');
+  }
+
+  return { restoredTypes, workflow };
 }
 
 async function ensureDefaultWorkflowFile(
@@ -757,7 +767,7 @@ async function ensureBundledDefaultWorkflowFiles(overwriteExisting) {
 const defaultSampleSessionFileNamePattern = /^sample\.default.*\.json$/i;
 
 function bundledSampleSessionPaths() {
-  const directory = defaultWorkflowsDirectory();
+  const directory = bundledDefaultContentDirectory();
   return fsSync.readdirSync(directory)
     .filter((name) => defaultSampleSessionFileNamePattern.test(name))
     .map((name) => path.resolve(directory, name));
@@ -784,7 +794,45 @@ async function seedBundledSampleSessions() {
   return seeded;
 }
 
-async function importMissingBundledDefaultWorkflows() {
+async function ensureDefaultStorybookFile(bundledPath) {
+  const bundledFileName = path.basename(bundledPath);
+  const directory = filesDirectory();
+  await fs.mkdir(directory, { recursive: true });
+  const baseName = bundledFileName.replace(/\.json$/i, '');
+  let fileName = `${baseName}${jsonFileExtension}`;
+  let filePath = path.join(directory, fileName);
+  for (let index = 2; fsSync.existsSync(filePath); index += 1) {
+    const metadata = await readStoredFileMetadata(filePath);
+    if (metadata.type === 'storybook' && metadata.protection === 'plain' && metadata.compatible) {
+      const state = await loadWorkflowState();
+      await saveWorkflowState({
+        importedDefaultFileNames: Array.from(new Set([
+          ...state.importedDefaultFileNames,
+          bundledFileName,
+        ])),
+      });
+      return { fileName, name: storedJsonName(fileName), filePath };
+    }
+    fileName = `${baseName}-${index}${jsonFileExtension}`;
+    filePath = path.join(directory, fileName);
+  }
+  const contents = await fs.readFile(bundledPath, 'utf8');
+  const metadata = storedFileMetadata(JSON.parse(contents));
+  if (metadata.type !== 'storybook' || metadata.protection !== 'plain' || !metadata.compatible) {
+    throw new Error(`Bundled Storybook is not a compatible plain Storybook: ${bundledFileName}`);
+  }
+  await writeNewTextFileAtomically(filePath, contents);
+  const state = await loadWorkflowState();
+  await saveWorkflowState({
+    importedDefaultFileNames: Array.from(new Set([
+      ...state.importedDefaultFileNames,
+      bundledFileName,
+    ])),
+  });
+  return { fileName, name: storedJsonName(fileName), filePath };
+}
+
+async function importMissingBundledDefaultContent() {
   const bundledPaths = bundledDefaultWorkflowPaths();
   const initialState = await loadWorkflowState();
   const importedNames = new Set(initialState.importedDefaultFileNames);
@@ -798,6 +846,12 @@ async function importMissingBundledDefaultWorkflows() {
   }
   if (!initialState.lastWorkflowFileName && imported.length > 0) {
     await saveLastWorkflowFileName(imported[imported.length - 1].fileName);
+  }
+  for (const bundledPath of bundledDefaultStorybookPaths()) {
+    const bundledFileName = path.basename(bundledPath);
+    if (!importedNames.has(bundledFileName)) {
+      await ensureDefaultStorybookFile(bundledPath);
+    }
   }
   return imported;
 }
@@ -2396,7 +2450,7 @@ async function requestLmStudioChat(request, abort) {
   return { text, usage: result.stats };
 }
 
-async function streamLmStudioChat(request, abort, onText) {
+async function streamLmStudioChat(request, abort, onText, onReasoningToken) {
   const reasoningProfile = await lmStudioReasoningProfile(request.connection, abort);
   const response = await requestLlmResponse(lmStudioEndpoint(request.connection, 'chat'), {
     method: 'POST',
@@ -2417,6 +2471,13 @@ async function streamLmStudioChat(request, abort, onText) {
 
   function consumeEvent(streamEvent) {
     const { type, payload } = streamEvent;
+    if (type === 'reasoning.delta') {
+      const delta = typeof payload?.content === 'string' ? payload.content : '';
+      if (delta) {
+        onReasoningToken?.();
+      }
+      return;
+    }
     if (type === 'message.delta') {
       const delta = typeof payload?.content === 'string' ? payload.content : '';
       if (delta) {
@@ -4532,6 +4593,23 @@ ipcMain.handle('llm:chat-completion-stream', async (event, rawRequest) => {
   const request = assertChatCompletionRequest(rawRequest);
   const startedAt = performance.now();
   const abort = createLlmAbortController(request);
+  const reasoningChannel = `llm:chat-stream-reasoning:${request.requestId}`;
+  let liveReasoningTokens = 0;
+  const sendReasoningToken = () => {
+    liveReasoningTokens += 1;
+    event.sender.send(reasoningChannel, liveReasoningTokens);
+  };
+  const sendFinalReasoningTokens = (usage) => {
+    const finalTokens = usageReasoningTokens(usage);
+    if (
+      liveReasoningTokens > 0 &&
+      finalTokens !== undefined &&
+      finalTokens !== liveReasoningTokens
+    ) {
+      liveReasoningTokens = finalTokens;
+      event.sender.send(reasoningChannel, liveReasoningTokens);
+    }
+  };
   try {
     await freeComfyMemoryForLocalLlm(request.connection);
     await ensureLlamaCppModelLoaded(request.connection, abort);
@@ -4595,6 +4673,7 @@ ipcMain.handle('llm:chat-completion-stream', async (event, rawRequest) => {
       }
       buffered += decoder.decode();
       buffered.split(/\r?\n/).forEach(consumeGeminiLine);
+      sendFinalReasoningTokens(usage);
 
       if (!content) {
         throw new Error(
@@ -4614,7 +4693,9 @@ ipcMain.handle('llm:chat-completion-stream', async (event, rawRequest) => {
         request,
         abort,
         (text) => event.sender.send(`llm:chat-stream-chunk:${request.requestId}`, text),
+        sendReasoningToken,
       );
+      sendFinalReasoningTokens(result.usage);
       return {
         text: result.text,
         stats: llmStatsFromUsage(result.usage, Math.round(performance.now() - startedAt)),
@@ -4826,6 +4907,10 @@ ipcMain.handle('llm:chat-completion-stream', async (event, rawRequest) => {
         return;
       }
       const choice = chunk.choices?.[0];
+      const reasoningDelta = reasoningTextFromChatMessage(choice?.delta);
+      if (reasoningDelta) {
+        sendReasoningToken();
+      }
       const deltaText = textFromChatMessage(choice?.delta) ||
         (!content ? textFromChatChoice(choice) : '');
       if (deltaText) {
@@ -4853,6 +4938,7 @@ ipcMain.handle('llm:chat-completion-stream', async (event, rawRequest) => {
     if (buffered) {
       consumeLine(buffered);
     }
+    sendFinalReasoningTokens(usage);
 
     assertResponseContractFinished(request, finishReason);
     if (!content) {
@@ -5155,12 +5241,27 @@ ipcMain.handle('file:list', async () => {
   return files.sort((left, right) => right.updatedAt.localeCompare(left.updatedAt));
 });
 
+ipcMain.on('character:confirm-v3-migration', (event, summary) => {
+  event.returnValue = dialog.showMessageBoxSync({
+    type: 'question', title: 'Update Storybook / Character Container',
+    message: 'Upgrade Character Containers and Storybooks?',
+    detail: typeof summary === 'string' ? summary.slice(0, 1500) : '',
+    buttons: ['Update', 'Cancel'], defaultId: 0, cancelId: 1,
+  }) === 0;
+});
+
 ipcMain.handle('character:list', async () => {
   const files = await listedFilesInDirectory(charactersDirectory(), 'characters');
   return files
     .filter((file) => file.type === 'character-card')
     .sort((left, right) => right.updatedAt.localeCompare(left.updatedAt));
 });
+
+ipcMain.handle('npc-library:get', async () => npcLibraryService.current());
+
+ipcMain.handle('npc-library:reload', async () => npcLibraryService.reload());
+
+ipcMain.handle('npc-library:open-folder', async () => npcLibraryService.openUserDirectory());
 
 ipcMain.handle('workflow:save-named', async (_event, request) => {
   const directory = filesDirectory();
@@ -5200,7 +5301,7 @@ ipcMain.handle('storybook:save', async (_event, request) => {
   const directory = filesDirectory();
   await fs.mkdir(directory, { recursive: true });
   const baseName = safeStorybookBaseName(request?.name ?? request?.storybook?.title);
-  const fileName = `${baseName}.rpgraph-storybook${jsonFileExtension}`;
+  const fileName = `${baseName}${jsonFileExtension}`;
   const filePath = path.join(directory, fileName);
   if (request.overwrite) {
     await assertOverwriteType(filePath, 'storybook');
@@ -5228,7 +5329,13 @@ ipcMain.handle('storybook:save', async (_event, request) => {
 });
 
 ipcMain.handle('character:save', async (_event, request) => {
-  const directory = charactersDirectory();
+  const destination = request?.destination ?? 'characters';
+  if (destination !== 'characters' && destination !== 'npc-characters') {
+    throw new Error('Choose a valid character export location.');
+  }
+  const directory = destination === 'npc-characters'
+    ? npcLibraryService.current().roots.user
+    : charactersDirectory();
   await fs.mkdir(directory, { recursive: true });
   const card = request?.characterCard;
   if (
@@ -5242,7 +5349,7 @@ ipcMain.handle('character:save', async (_event, request) => {
     );
   }
   const baseName = safeCharacterCardBaseName(request?.name ?? card.character?.name);
-  const fileName = `${baseName}.rpgraph-character${jsonFileExtension}`;
+  const fileName = `${baseName}${jsonFileExtension}`;
   const filePath = path.join(directory, fileName);
   if (request.overwrite) {
     await assertOverwriteType(filePath, 'character-card');
@@ -5266,6 +5373,9 @@ ipcMain.handle('character:save', async (_event, request) => {
     throw error;
   }
   approveFilePath(filePath);
+  if (destination === 'npc-characters') {
+    await npcLibraryService.reload();
+  }
   return { fileName, name: baseName, filePath };
 });
 
@@ -5292,7 +5402,7 @@ ipcMain.handle('file:save-to-path', async (_event, request) => {
     baseName = safeStorybookBaseName(request?.name ?? request?.storybook?.title);
     expectedType = 'storybook';
     title = 'Save Storybook File';
-    defaultFileName = `${baseName}.rpgraph-storybook${jsonFileExtension}`;
+    defaultFileName = `${baseName}${jsonFileExtension}`;
     payload = protection === 'encrypted'
       ? await encryptStorybook(request.storybook, request.password)
       : protection === 'plain'
@@ -5312,7 +5422,7 @@ ipcMain.handle('file:save-to-path', async (_event, request) => {
     baseName = safeCharacterCardBaseName(request?.name ?? request?.characterCard?.character?.name);
     expectedType = 'character-card';
     title = 'Export Character Card';
-    defaultFileName = `${baseName}.rpgraph-character${jsonFileExtension}`;
+    defaultFileName = `${baseName}${jsonFileExtension}`;
     const card = request?.characterCard;
     if (
       !card ||
@@ -5438,21 +5548,13 @@ ipcMain.handle('workflow:load-default', async () => {
   };
 });
 
-ipcMain.handle('workflow:restore-default', async () => {
-  const restored = await refreshDefaultWorkflowFile();
-  const contents = await fs.readFile(restored.filePath, 'utf8');
-  return {
-    filePath: restored.filePath,
-    fileName: restored.fileName,
-    workflow: JSON.parse(contents),
-  };
-});
+ipcMain.handle('defaults:restore-files', async () => restoreMissingBundledDefaultFiles());
 
 ipcMain.handle('workflow:load-startup', async () => {
   try {
-    await importMissingBundledDefaultWorkflows();
+    await importMissingBundledDefaultContent();
   } catch (error) {
-    console.error('Unable to import bundled default workflows:', error);
+    console.error('Unable to import bundled default content:', error);
   }
   try {
     await seedBundledSampleSessions();
@@ -6001,6 +6103,7 @@ async function createWindow() {
 }
 
 app.whenReady().then(async () => {
+  await npcLibraryService.reload();
   await createWindow();
 
   app.on('activate', () => {

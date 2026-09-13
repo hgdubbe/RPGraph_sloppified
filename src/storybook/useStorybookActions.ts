@@ -1,8 +1,17 @@
+import { planCharacterImportToNode } from '../characters/promotion';
+import type { EffectiveCharacterRegistry } from '../characters/registry';
+import { appCharactersFromRegistry } from '../characters/appRuntime';
+import type { NpcParticipantSnapshots } from '../characters/npcParticipants';
+import { validateCandidateCharacterRegistry, validateCharacterAccountDirectory } from '../characters/profiles';
+import { validateCandidateLegacySeedTimeline } from '../characters/publications';
+import { validateCharacterPayload, characterPayload } from '../characters/character';
+import { prepareV3Document, confirmV3Migration } from '../characters/migration';
 import { useRef, useState, type Dispatch, type MutableRefObject, type SetStateAction } from 'react';
 import type { StorybookCreatorMessage } from '../components/AppDialogs';
 import type { NodeLlmApi } from '../llm/NodeLlmApi';
 import {
   emptyRpStorybook,
+  storybookNeedsUpdate,
   parseRpStorybookAssistantResult,
   parseRpStorybookJson,
   rpStorybookEditPrompt,
@@ -30,7 +39,7 @@ import {
   isLegacyRpStorybookValue,
   type StorybookConversionResult,
 } from './conversion';
-import { planCharacterCardImport, rpCharacterCardForCharacter } from './characterCard';
+import { rpCharacterCardForCharacter } from './characterCard';
 import { storybookWithoutCharacter } from './characterManagement';
 import { storybookAssistantConversationContext } from './assistantConversation';
 import {
@@ -76,6 +85,12 @@ type UseStorybookActionsOptions = {
   nodesRef: MutableRefObject<WorkflowNode[]>;
   turnsRef: MutableRefObject<TurnRecord[]>;
   turnCheckpointsRef: MutableRefObject<TurnCheckpoint[]>;
+  currentNpcParticipants: () => NpcParticipantSnapshots;
+  currentCharacterRegistry: () => EffectiveCharacterRegistry;
+  characterRegistryForStorybook: (nodeId: string, characters: RpStorybook['characters'], options?: {
+    replaceExisting?: boolean; openingSnapshots?: NpcParticipantSnapshots;
+  }) => EffectiveCharacterRegistry;
+  currentTimelineMessages: () => import('../types').MessageRecord[];
   currentSocialLikesByAccount: () => Record<string, string[]>;
   currentDynamicSocialUsers: () => DynamicSocialUsers;
   currentSocialConnectionsByCharacter: () => SocialConnectionsByCharacter;
@@ -99,6 +114,7 @@ type UseStorybookActionsOptions = {
   requestSaveCharacter: (
     nodeId: string,
     characterCard: ReturnType<typeof rpCharacterCardForCharacter>,
+    characterCardWithOwnPosts?: ReturnType<typeof rpCharacterCardForCharacter>,
   ) => void;
 };
 
@@ -106,6 +122,10 @@ export function useStorybookActions({
   nodesRef,
   turnsRef,
   turnCheckpointsRef,
+  currentNpcParticipants,
+  currentCharacterRegistry,
+  characterRegistryForStorybook,
+  currentTimelineMessages,
   currentSocialLikesByAccount,
   currentDynamicSocialUsers,
   currentSocialConnectionsByCharacter,
@@ -141,6 +161,9 @@ export function useStorybookActions({
   const [storybookCreatorMessages, setStorybookCreatorMessages] = useState<StorybookCreatorMessage[]>([]);
   const storybookCreatorMessageNodeIdRef = useRef<string | null>(null);
   const [storybookCreatorSubmitting, setStorybookCreatorSubmitting] = useState(false);
+  const creatorRequestActiveRef = useRef(false);
+  const pendingConversionRef = useRef(pendingStorybookConversion);
+  pendingConversionRef.current = pendingStorybookConversion;
   const [pendingCharacterLoad, setPendingCharacterLoad] = useState<{
     nodeId: string;
     filePath?: string;
@@ -179,23 +202,52 @@ export function useStorybookActions({
     options?: { replaceExisting?: boolean },
   ): string | null {
     const node = nodesRef.current.find((entry) => entry.id === nodeId);
-    let committedStorybook = storybook;
+    if (!node || !isStorybookSourceNode(node)) {
+      return 'Cannot update: the Storybook node no longer exists.';
+    }
+    const currentStorybook = !options?.replaceExisting && node.data.storybookJson
+      ? parseRpStorybookJson(node.data.storybookJson)
+      : emptyRpStorybook;
+    const committedStorybook = options?.replaceExisting
+      ? storybook
+      : withChangedStorybookImageDescriptionsSynchronized(
+        currentStorybook,
+        storybook,
+      );
+    let registryWarnings: ReturnType<typeof validateCandidateCharacterRegistry>;
+    try {
+      validateCharacterAccountDirectory(committedStorybook.characters);
+      committedStorybook.characters.forEach((character) => validateCharacterPayload(characterPayload(character)));
+      const currentRegistry = currentCharacterRegistry();
+      const candidateRegistry = characterRegistryForStorybook(nodeId, committedStorybook.characters, {
+        replaceExisting: options?.replaceExisting,
+        openingSnapshots: committedStorybook.openingHistory.npcParticipants,
+      });
+      registryWarnings = validateCandidateCharacterRegistry(currentRegistry, candidateRegistry);
+      const openingMessages = committedStorybook.openingHistory.turns.flatMap((turn) =>
+        [...turn.input.messages, ...turn.output.messages]);
+      validateCandidateLegacySeedTimeline(
+        options?.replaceExisting ? [] : appCharactersFromRegistry(currentRegistry),
+        appCharactersFromRegistry(candidateRegistry),
+        [...(options?.replaceExisting ? [] : currentTimelineMessages()), ...openingMessages],
+        currentTimelineMessages(),
+      );
+    } catch (error) {
+      const message = errorMessage(error);
+      notifySystem('warning', message);
+      return message;
+    }
+    registryWarnings.forEach((warning) => notifySystem('warning', warning.message));
     if (options?.replaceExisting) {
       clearCurrentSession();
+      replaceCurrentChatWithOpeningHistoryRef.current = true;
       updateRuntimeNode(nodeId, {
         ...patch,
-        storybookJson: rpStorybookJsonText(storybook),
+        storybookJson: rpStorybookJsonText(committedStorybook),
       });
       return null;
     }
     if (node && isStorybookSourceNode(node)) {
-      const currentStorybook = node.data.storybookJson
-        ? parseRpStorybookJson(node.data.storybookJson)
-        : emptyRpStorybook;
-      committedStorybook = withChangedStorybookImageDescriptionsSynchronized(
-        currentStorybook,
-        storybook,
-      );
       const removedImageIds = usedStorybookImageIdsRemoved(
         currentStorybook,
         committedStorybook,
@@ -240,7 +292,25 @@ export function useStorybookActions({
     return true;
   }
 
+  function ensureCurrentStorybook(nodeId: string): boolean {
+    const node = nodesRef.current.find((entry) => entry.id === nodeId);
+    if (storybookNeedsUpdate(node?.data.storybookJson)) {
+      try {
+        const updated = prepareV3Document(JSON.parse(node!.data.storybookJson!), confirmV3Migration);
+        const error = commitStorybookToNode(nodeId, parseRpStorybookJson(JSON.stringify(updated)), {
+          storybookStatus: 'Updated to Storybook 3.0.0 with Character Containers 2.0.0.',
+        });
+        if (error) return false;
+      } catch (error) {
+        updateRuntimeNode(nodeId, { storybookStatus: errorMessage(error) });
+        return false;
+      }
+    }
+    return true;
+  }
+
   function openStorybookCreator(nodeId: string) {
+    if (!ensureCurrentStorybook(nodeId)) return;
     setStorybookCreatorNodeId(nodeId);
     if (
       storybookCreatorMessageNodeIdRef.current !== nodeId &&
@@ -254,10 +324,11 @@ export function useStorybookActions({
   async function submitStorybookCreatorMessage(message: string, visibleMessage = message) {
     const nodeId = storybookCreatorNodeId;
     const node = nodesRef.current.find((entry) => entry.id === nodeId);
-    if (!nodeId || !node || node.data.nodeType !== 'rp-storybook') {
+    if (creatorRequestActiveRef.current || !nodeId || !node || node.data.nodeType !== 'rp-storybook') {
       return;
     }
 
+    creatorRequestActiveRef.current = true;
     setStorybookCreatorMessages((current) => [...current, { role: 'user', text: visibleMessage }]);
     setStorybookCreatorSubmitting(true);
     updateRuntimeNode(nodeId, {
@@ -294,12 +365,20 @@ export function useStorybookActions({
         label: 'Storybook Chat',
         prompt: rpStorybookEditPrompt(currentJson, instruction, storyHistoryPresent(currentStorybook)),
       });
+      const latestNode = nodesRef.current.find((entry) => entry.id === nodeId);
+      if (
+        !latestNode || latestNode.data.nodeType !== 'rp-storybook' ||
+        latestNode.data.storybookJson !== node.data.storybookJson ||
+        (conversion ? pendingConversionRef.current !== conversion : pendingConversionRef.current?.nodeId === nodeId)
+      ) {
+        throw new Error('Storybook changed while the assistant was working. The response was not applied. Please send your request again.');
+      }
       const result = parseRpStorybookAssistantResult(completion.text, currentStorybook);
       const changedFields = result.changedFields.slice(0, 4);
       const storybookChanged = JSON.stringify(result.storybook) !== JSON.stringify(currentStorybook);
       const changedSummary = changedFields.length
         ? `edit ${changedFields.join(' + ')}${result.changedFields.length > changedFields.length ? ' + more' : ''}`
-        : 'answer';
+        : result.patchPaths.length ? 'no changes applied' : 'answer';
       if (storybookChanged && conversion) {
         const rows = conversion.result.rows.map((row) => {
           const rowWasChanged = row.allowedPatchPaths.some((allowed) =>
@@ -337,6 +416,7 @@ export function useStorybookActions({
       updateRuntimeNode(nodeId, { storybookStatus: `Error: ${messageText}` });
       setStorybookCreatorMessages((current) => [...current, { role: 'error', text: messageText }]);
     } finally {
+      creatorRequestActiveRef.current = false;
       setStorybookCreatorSubmitting(false);
     }
   }
@@ -544,6 +624,7 @@ export function useStorybookActions({
         summary: hasOpeningContent
           ? `Imported from current RP session: ${historyMessageCount} messages and ${normalizedOpeningEvents.length} events across ${historyTurns.length} turns.${phoneAppSuffix}`
           : '',
+        npcParticipants: structuredClone(currentNpcParticipants()),
         turns: historyTurns,
         checkpoints: historyCheckpoints,
         events: normalizedOpeningEvents,
@@ -638,7 +719,7 @@ export function useStorybookActions({
 
   async function exportStorybookCharacter(nodeId: string, characterId: string) {
     const node = nodesRef.current.find((entry) => entry.id === nodeId);
-    if (!node || node.data.nodeType !== 'rp-storybook') {
+    if (!node || !isStorybookSourceNode(node)) {
       return;
     }
     try {
@@ -650,7 +731,13 @@ export function useStorybookActions({
         updateRuntimeNode(nodeId, { storybookStatus: 'Export failed: character not found.' });
         return;
       }
-      requestSaveCharacter(nodeId, rpCharacterCardForCharacter(character));
+      const posts = [...storybook.openingHistory.turns, ...turnsRef.current].flatMap((turn) =>
+        [...turn.input.messages, ...turn.output.messages].flatMap((message) => message.socialPost ? [message.socialPost] : []));
+      const card = rpCharacterCardForCharacter(character, { includePosts: false, posts,
+        gallery: storybook.characters.flatMap((entry) => entry.images) });
+      const cardWithOwnPosts = rpCharacterCardForCharacter(character, { includePosts: true, posts,
+        gallery: storybook.characters.flatMap((entry) => entry.images) });
+      requestSaveCharacter(nodeId, card, cardWithOwnPosts);
     } catch (error) {
       const messageText = errorMessage(error);
       updateRuntimeNode(nodeId, { storybookStatus: `Character export failed: ${messageText}` });
@@ -660,7 +747,7 @@ export function useStorybookActions({
 
   async function importCharacterCard(nodeId: string) {
     const node = nodesRef.current.find((entry) => entry.id === nodeId);
-    if (!node || node.data.nodeType !== 'rp-storybook') {
+    if (!node || !isStorybookSourceNode(node)) {
       return;
     }
     try {
@@ -771,13 +858,12 @@ export function useStorybookActions({
 
   function applyCharacterCardToNode(nodeId: string, cardValue: unknown, fileName: string) {
     const node = nodesRef.current.find((entry) => entry.id === nodeId);
-    if (!node || node.data.nodeType !== 'rp-storybook') {
-      throw new Error('Add an RP Storybook V2 node before importing a character card.');
+    if (!node || !isStorybookSourceNode(node)) {
+      throw new Error('Add an RP Storybook V3 node before importing a character card.');
     }
-    const currentStorybook = node.data.storybookJson
-      ? parseRpStorybookJson(node.data.storybookJson)
-      : emptyRpStorybook;
-    const plan = planCharacterCardImport(cardValue, currentStorybook);
+    const plan = planCharacterImportToNode({ nodes: nodesRef.current, nodeId,
+      card: prepareV3Document(cardValue, confirmV3Migration),
+      snapshots: currentNpcParticipants(), registry: currentCharacterRegistry() });
     const label = plan.character.name || plan.character.id;
     const action = plan.replacesIndex !== undefined ? 'Replaced' : 'Added';
     const commitError = commitStorybookToNode(nodeId, plan.storybook, {
@@ -827,7 +913,7 @@ export function useStorybookActions({
 
   async function importSillyTavernCharacter(nodeId: string) {
     const node = nodesRef.current.find((entry) => entry.id === nodeId);
-    if (!node || node.data.nodeType !== 'rp-storybook') {
+    if (!node || !isStorybookSourceNode(node)) {
       return;
     }
 
@@ -965,6 +1051,7 @@ export function useStorybookActions({
     storybookCreatorMessages,
     storybookCreatorSubmitting,
     openStorybookCreator,
+    ensureCurrentStorybook,
     submitStorybookCreatorMessage,
     updateStorybook,
     commitStorybookToNode,

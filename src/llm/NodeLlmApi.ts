@@ -1,7 +1,19 @@
 import type { ConnectionPreset, LlmCallStage, LlmCallStats } from '../types';
 import type { CalibrationSample, NodeLlmRequest, NodeLlmResult } from './types';
 
+export type LlmDispatchMetadata = Pick<ConnectionPreset,
+  'model' | 'providerKind' | 'reasoningEffort' | 'temperature' | 'topP' | 'presencePenalty' | 'frequencyPenalty'
+> & { connectionId: string; maxTokens?: number };
+
+export type LlmRequestObserver = (request: NodeLlmRequest, startedAtMs: number) => {
+  dispatched?: (images: NodeLlmRequest['images'], metadata: LlmDispatchMetadata) => void;
+  streamed?: (text: string) => void;
+  completed?: (result: NodeLlmResult) => void;
+  failed?: (error: string, cancelled: boolean) => void;
+};
+
 type NodeLlmApiOptions = {
+  observeRequest?: LlmRequestObserver;
   resolveConnection: (
     connectionId?: string,
     purpose?: string,
@@ -19,6 +31,7 @@ type NodeLlmApiOptions = {
     metadata: { hasImages: boolean; label: string; stage?: LlmCallStage; startedAtMs: number },
   ) => void;
   onCallEnd?: (nodeId: string) => void;
+  onReasoningTokens?: (nodeId: string, tokenCount: number) => void;
   signal?: AbortSignal;
 };
 
@@ -35,13 +48,23 @@ function registerAbortCancel(signal: AbortSignal | undefined, cancel: () => void
 }
 
 export class NodeLlmApi {
-  constructor(private readonly options: NodeLlmApiOptions) {}
+  constructor(
+    private readonly options: NodeLlmApiOptions,
+    private readonly requestObservers = new Map<AbortSignal, LlmRequestObserver>(),
+  ) {}
+
+  observeRequestsForSignal(signal: AbortSignal, observer: LlmRequestObserver) {
+    this.requestObservers.set(signal, observer);
+    return () => {
+      if (this.requestObservers.get(signal) === observer) this.requestObservers.delete(signal);
+    };
+  }
 
   withCalibrationSamples(recordCalibrationSample: (sample: CalibrationSample) => void) {
     return new NodeLlmApi({
       ...this.options,
       recordCalibrationSample,
-    });
+    }, this.requestObservers);
   }
 
   withCallLifecycle(
@@ -50,19 +73,25 @@ export class NodeLlmApi {
       metadata: { hasImages: boolean; label: string; stage?: LlmCallStage; startedAtMs: number },
     ) => void,
     onCallEnd: (nodeId: string) => void,
+    onReasoningTokens?: (nodeId: string, tokenCount: number) => void,
   ) {
     return new NodeLlmApi({
       ...this.options,
       onCallStart,
       onCallEnd,
-    });
+      onReasoningTokens,
+    }, this.requestObservers);
+  }
+
+  withRequestObserver(observeRequest: LlmRequestObserver) {
+    return new NodeLlmApi({ ...this.options, observeRequest }, this.requestObservers);
   }
 
   withAbortSignal(signal: AbortSignal | undefined) {
     return new NodeLlmApi({
       ...this.options,
       signal,
-    });
+    }, this.requestObservers);
   }
 
   resolveConnection(connectionId?: string, purpose?: string, signal?: AbortSignal) {
@@ -76,12 +105,12 @@ export class NodeLlmApi {
 
   async complete(request: NodeLlmRequest): Promise<NodeLlmResult> {
     const signal = request.signal ?? this.options.signal;
-    if (signal?.aborted) {
-      throw new Error('The LLM request was cancelled.');
-    }
     const startedAtMs = performance.now();
+    const observe = this.options.observeRequest ?? (signal ? this.requestObservers.get(signal) : undefined);
+    const observer = observe?.(request, startedAtMs);
     let cleanupAbort: (() => void) | undefined;
     try {
+      if (signal?.aborted) throw new Error('The LLM request was cancelled.');
       const connection = await this.options.resolveConnection(
         request.connectionId,
         request.purpose ?? request.label,
@@ -110,7 +139,35 @@ export class NodeLlmApi {
             frequencyPenalty: connection.frequencyPenalty,
           }
         : { temperature: request.temperature };
-      const completion = request.onChunk
+      let latestReasoningTokens = 0;
+      let lastReasoningUpdateMs = 0;
+      const onReasoningTokens = request.nodeId
+        ? (tokenCount: number) => {
+            latestReasoningTokens = tokenCount;
+            const now = performance.now();
+            if (now - lastReasoningUpdateMs >= 50) {
+              lastReasoningUpdateMs = now;
+              this.options.onReasoningTokens?.(request.nodeId!, tokenCount);
+            }
+          }
+        : undefined;
+      const supportsLiveReasoningStream = [
+        'lm-studio',
+        'llama-cpp',
+        'ollama',
+        'openrouter',
+      ].includes(requestConnection.providerKind ?? '');
+      const shouldStream = !!request.onChunk || (
+        supportsLiveReasoningStream &&
+        !!request.nodeId &&
+        !!this.options.onReasoningTokens
+      );
+      if (signal?.aborted) throw new Error('The LLM request was cancelled.');
+      observer?.dispatched?.(images, {
+        connectionId: connection.id, model: connection.model, providerKind: connection.providerKind,
+        reasoningEffort: requestConnection.reasoningEffort, maxTokens: request.maxTokens, ...sampling,
+      });
+      const completion = shouldStream
         ? await window.rpgraph.streamChatCompletion(
             {
               connection: requestConnection,
@@ -120,10 +177,14 @@ export class NodeLlmApi {
               maxTokens: request.maxTokens,
               ...sampling,
             },
-            request.onChunk,
+            (text) => {
+              observer?.streamed?.(text);
+              request.onChunk?.(text);
+            },
             (cancel) => {
               cleanupAbort = registerAbortCancel(signal, cancel);
             },
+            onReasoningTokens,
           )
         : await window.rpgraph.chatCompletion(
             {
@@ -139,6 +200,14 @@ export class NodeLlmApi {
             },
           );
 
+      const result = { ...completion, connection };
+      observer?.completed?.(result);
+
+      if (request.nodeId && latestReasoningTokens > 0) {
+        const finalReasoningTokens = completion.stats.reasoningTokens ?? latestReasoningTokens;
+        this.options.onReasoningTokens?.(request.nodeId, finalReasoningTokens);
+      }
+
       if (request.nodeId) {
         this.options.recordCall?.(request.nodeId, request.label, completion.stats, {
           startedAtMs,
@@ -149,8 +218,9 @@ export class NodeLlmApi {
         this.options.recordCalibrationSample?.({ prompt: request.prompt, stats: completion.stats });
       }
 
-      return { ...completion, connection };
+      return result;
     } catch (error) {
+      observer?.failed?.(error instanceof Error ? error.message : String(error), !!signal?.aborted);
       throw error instanceof Error ? error : new Error(String(error));
     } finally {
       cleanupAbort?.();

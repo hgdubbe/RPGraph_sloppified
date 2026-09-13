@@ -1,3 +1,6 @@
+import { postsWithInitialContent } from '../characters/publications';
+import { resolveWhatsUpMessageParticipants } from '../characters/messageIdentity';
+import { matchMeState, matchMeMessageAllowed, incomingMatchMeMessage } from '../chat/matchMe';
 // runGraph orchestration hook, extracted verbatim from App.tsx (Etappe 2, APP_ZERLEGUNG.md).
 // Pure move: all component-scope dependencies arrive via the options object; the run
 // body is unchanged. nodesRef discipline: runGraph writes nodesRef.current manually and
@@ -20,7 +23,6 @@ import type {
   RpDateTimeFormat,
   RpWeekdayLanguage,
   TurnContext,
-  TurnRecord,
   TurnRecordMode,
   WorkflowNode,
   WorkflowNodeData,
@@ -35,7 +37,7 @@ import type { RpStorybook } from '../nodes/rp-storybook/model';
 import type { ExecuteTraceFormatResult, ExecuteTraceNodeInfo } from '../nodes/types';
 import type { RunLlmReport, LlmRunHistoryEntry } from '../components/AppDialogs';
 import type { LastRunDebug } from './debugSnapshot';
-import type { TurnTraceEvent } from './turnTrace';
+import { createTurnTraceRecorder, type TurnTraceEvent, type TurnTraceNodeExecution } from './turnTrace';
 import type { useTurnTraceState } from './useTurnTraceState';
 import type { useTurnRecordState, TurnReplacement } from '../chat/useTurnRecordState';
 import type { useNextTurnReferenceImages } from '../chat/useNextTurnReferenceImages';
@@ -90,10 +92,11 @@ import {
   workflowVariablePreviewValues,
   type WorkflowVariableSetCommand,
 } from '../workflow';
-import { formatPhoneInput, formatPhoneReplyInput } from '../chat/phoneReplies';
+import { formatPhoneInput, formatPhoneReplyQuote, whatsUpMessageInputText } from '../chat/phoneReplies';
 import { nextRpPictureName, rpPicturePhoneAttachment } from '../chat/rpPictures';
 import { nodesPreparedAfterOutput } from '../graph/edges';
 import {
+  findOutputActionPlayer,
   parseOutputActions,
   type OutputActionChatMessage,
   type OutputActionContextCapacityRequest,
@@ -123,6 +126,10 @@ import {
 import {
   withBundledSocialIdentityContext,
 } from '../chat/socialCatalogs';
+import {
+  establishedSocialHandle,
+} from '../chat/socialDirectory';
+import { parseValidatedSocialReactionsOutput, resolveSocialMessageIdentity } from '../chat/socialMessageValidation';
 import { recentInputHistoryContext } from '../chat/inputTransforms';
 import {
   chatGpdFallbackTitle,
@@ -257,6 +264,7 @@ type UseGraphRunOptions = Pick<
   promptActionSettings: NonNullable<ExecuteGraphOptions['promptActionSettings']>;
   workflowSettingsValuesRef: Ref<NonNullable<Parameters<typeof captureTurnRuntime>[1]>>;
   characterStorybookNodes: readonly unknown[];
+  appCharacters: () => StorybookCharacter[];
   storyCharacters: StorybookCharacter[];
   phoneCharacters: StorybookCharacter[];
   selectedCharacter: StorybookCharacter | undefined;
@@ -462,6 +470,7 @@ export function useGraphRun(options: UseGraphRunOptions) {
     promptActionSettings,
     workflowSettingsValuesRef,
     characterStorybookNodes,
+    appCharacters,
     storyCharacters,
     phoneCharacters,
     selectedCharacter,
@@ -547,6 +556,12 @@ export function useGraphRun(options: UseGraphRunOptions) {
     // comment and App.tsx's checkStagedRecoveryForSession, the only real caller.
     resumeStagedRetry?: { retry: StagedRetryState; sessionFileName: string },
   ) {
+    if (activeRun.current) return false;
+    if (socialDirectMessage?.app === 'matchme' && !matchMeMessageAllowed(socialDirectMessage,
+      matchMeState(appCharacters(), historyMessages))) {
+      notifySystem('warning', 'MatchMe message blocked: the accounts need an active match.');
+      return false;
+    }
     onRunStarting?.();
     const isAutoTurn = turnMode === 'auto-turn';
     const isNarratorTurn = turnMode === 'narrator';
@@ -615,9 +630,11 @@ export function useGraphRun(options: UseGraphRunOptions) {
         : undefined
     );
     const runReferenceImageOptions = referenceImageOptionsForRun(phoneReplyTo);
-    const inputCharacter = existingInputMessage?.speakerName
-      ? phoneCharacters.find((character) => phoneNamesMatch(character.name, existingInputMessage.speakerName ?? ''))
-      : inputCharacterOverride ?? selectedCharacter;
+    const inputCharacter = socialDirectMessage && inputCharacterOverride
+      ? inputCharacterOverride
+      : existingInputMessage?.speakerName
+        ? phoneCharacters.find((character) => phoneNamesMatch(character.name, existingInputMessage.speakerName ?? ''))
+        : inputCharacterOverride ?? selectedCharacter;
     const isAutoplayRun = messageFormatOverride === autoplayMessageFormat;
     const runPromptSwitchVisionFeaturesEnabled = runtimeNodes.some(
       (node) => node.data.kind === undefined && node.data.nodeType === 'llm-prompt-switch' && nodeHasVision(node),
@@ -625,6 +642,25 @@ export function useGraphRun(options: UseGraphRunOptions) {
     if (!resumeStagedRetry && !existingInputMessage && !isNarratorTurn && !isAutoTurn && !isAutoplayRun && !inputCharacter) {
       notifySystem('warning', 'Select a Storybook character to play as.');
       return false;
+    }
+    const basePhoneMessage = phoneMessageOverride ?? existingInputMessage?.phoneMessage ?? false;
+    const messageFormat = messageFormatOverride ?? (basePhoneMessage ? 1 : 0);
+    const isPhoneMessage = messageFormat === 1;
+    const isNarratorPhoneAutoTurn = narratorAutoTurn && isNarratorTurn && isPhoneMessage;
+    let inputPhoneParticipants: ReturnType<typeof resolveWhatsUpMessageParticipants> | undefined;
+    if (isPhoneMessage && !isNarratorPhoneAutoTurn) {
+      const recipient = phoneRecipientCharacterOverride ?? selectedPhoneContact?.character;
+      try {
+        inputPhoneParticipants = resolveWhatsUpMessageParticipants(appCharacters(), historyMessages, {
+          from: existingInputMessage?.phoneFromAccountId ?? existingInputMessage?.phoneFrom ??
+            inputCharacter?.apps?.whatsup?.accountId ?? inputCharacter?.name ?? '',
+          to: existingInputMessage?.phoneToAccountId ?? existingInputMessage?.phoneTo ??
+            recipient?.apps?.whatsup?.accountId ?? recipient?.name ?? '',
+        });
+      } catch (error) {
+        notifySystem('warning', error instanceof Error ? error.message : String(error));
+        return false;
+      }
     }
     // S8 restart recovery: reuse the exact scope/catalog identity the persisted plan's own
     // variable/action references are already pinned to, instead of a fresh id that would
@@ -664,6 +700,7 @@ export function useGraphRun(options: UseGraphRunOptions) {
       );
     };
     const finishRun = () => {
+      stopObservingRequests();
       if (activeRun.current?.id !== runId) {
         return;
       }
@@ -731,10 +768,10 @@ export function useGraphRun(options: UseGraphRunOptions) {
       return false;
     }
     const turnContext: TurnContext = existingInputMessage?.turnContext ?? {
-      englishProcessingEnabled: existingInputMessage
+      englishProcessingEnabled: existingInputMessage && socialDirectMessage?.app !== 'matchme'
         ? !!existingInputMessage.translatedText
         : englishProcessingEnabled,
-      inputTranslationOnlyEnabled: existingInputMessage
+      inputTranslationOnlyEnabled: existingInputMessage && socialDirectMessage?.app !== 'matchme'
         ? existingInputMessage.turnContext?.inputTranslationOnlyEnabled ?? false
         : inputTranslationOnlyEnabled,
       displayLanguage,
@@ -828,10 +865,14 @@ export function useGraphRun(options: UseGraphRunOptions) {
     };
 
     clearAllRunActiveTimers();
+    lastRunDebugRef.current = null;
     const resetRunNodes = nodesRef.current.map((node) => ({
         ...node,
         data: {
           ...node.data,
+          ...(!node.data.runPrepared && (node.data.nodeType === 'llm-prompt' || node.data.nodeType === 'llm-prompt-switch')
+            ? { llmPromptDebug: undefined, llmPromptSwitchDebug: undefined, generatedText: '', fullText: '' }
+            : {}),
           runActive: false,
           runActiveStartedAtMs: undefined,
           llmActiveCallLabel: undefined,
@@ -871,19 +912,16 @@ export function useGraphRun(options: UseGraphRunOptions) {
       rpDateTimeFormat,
       rpWeekdayLanguage,
     );
-    const basePhoneMessage = phoneMessageOverride ?? existingInputMessage?.phoneMessage ?? false;
-    const messageFormat =
-      messageFormatOverride ??
-      (basePhoneMessage ? 1 : 0);
-    const isPhoneMessage = messageFormat === 1;
     const turnModeOverrideValue = turnModeOverride;
-    const isNarratorPhoneAutoTurn = narratorAutoTurn && isNarratorTurn && isPhoneMessage;
     const shouldAppendInputMessage =
       !existingInputMessage && replacement?.replaceInput !== false;
     if (shouldAppendInputMessage && activeTurnCollectorRef.current) {
       setOutputActionChoicesHiddenByTurn(activeTurnCollectorRef.current.turnId, true);
     }
-    let inputText = displayText;
+    let inputText = socialDirectMessage?.app === 'matchme'
+      ? socialDirectMessageInputText({ ...socialDirectMessage,
+          text: existingInputMessage?.socialDirectMessage?.internalText ?? socialDirectMessage.text }, historyMessages, appCharacters())
+      : displayText;
     let displayInputText = displayText;
     let translatedSocialDirectMessageText: string | undefined;
     let liveOutputMessageId: number | undefined;
@@ -902,9 +940,16 @@ export function useGraphRun(options: UseGraphRunOptions) {
     const responseWorkflowVariableSetCommands: WorkflowVariableSetCommand[] = [];
     const runWarnings: string[] = [];
     const runTraceEvents: TurnTraceEvent[] = [];
+    let tracePhase: 'response' | 'prepare-next-turn' = 'response';
+    const traceRecorder = createTurnTraceRecorder((id) => nodesRef.current.find((node) => node.id === id));
+    const stopObservingRequests = nodeLlm.observeRequestsForSignal(runSignal, traceRecorder.observe('response'));
+    const nodeExecutions: TurnTraceNodeExecution[] = [];
+    const recordNodeExecution = (event: TurnTraceNodeExecution) => {
+      nodeExecutions.push(traceRecorder.captureNodeExecution(event));
+    };
     const reportRunWarning = (message: string, node?: ExecuteTraceNodeInfo) => {
       if (node) {
-        runTraceEvents.push({ kind: 'warning', ...node, message });
+        runTraceEvents.push({ at: new Date().toISOString(), atMs: performance.now(), phase: tracePhase, kind: 'warning', ...node, message });
       } else {
         runWarnings.push(message);
       }
@@ -914,7 +959,25 @@ export function useGraphRun(options: UseGraphRunOptions) {
       result: ExecuteTraceFormatResult,
       node: ExecuteTraceNodeInfo = outputNodeTraceInfo,
     ) => {
-      runTraceEvents.push({ kind: 'format', ...node, ...result });
+      runTraceEvents.push({ at: new Date().toISOString(), atMs: performance.now(), phase: tracePhase, kind: 'format', ...node, ...result });
+    };
+    const recordFailedAttempt = (error: unknown, graphText: string, selectedPromptSlot?: number) => {
+      const collector = activeTurnCollectorRef.current;
+      const report = activeRunLlmReport.current;
+      if (!collector || report?.runId !== runId) return;
+      recordTurnTrace({
+        turn: {
+          id: collector.turnId, number: collector.turnNumber, createdAt: collector.createdAt,
+          mode: turnMode, messageFormat, promptSlot: selectedPromptSlot, directAction: directActionOnly || undefined,
+          input: { graphText, messages: collector.inputMessages },
+          output: { graphText: '', messages: collector.outputMessages },
+        },
+        run: report,
+        status: isRunCancelledError(error) ? 'cancelled' : 'error',
+        warnings: runWarnings, traceEvents: runTraceEvents,
+        capturedSteps: traceRecorder.steps, nodeExecutions,
+        error: error instanceof Error ? error.message : String(error),
+      });
     };
     const setWorkflowVariablesForResponseRun = (commands: WorkflowVariableSetCommand[]) => {
       responseWorkflowVariableSetCommands.push(...structuredClone(commands));
@@ -1035,6 +1098,7 @@ export function useGraphRun(options: UseGraphRunOptions) {
         const cancelled = isRunCancelledError(error);
         const cancelReason = activeRunCancelReason.current as CancelReason;
         const restarting = cancelled && cancelReason === 'restart';
+        recordFailedAttempt(error, inputText);
         restoreReplacedMessages();
         if (replacement) {
           applyTurnCheckpointRuntime(replacement.turn, 'after');
@@ -1070,7 +1134,7 @@ export function useGraphRun(options: UseGraphRunOptions) {
       !directInput &&
       !isAutoTurn &&
       !narratorAutoTurn &&
-      !existingInputMessage &&
+      (!existingInputMessage || (socialDirectMessage?.app === 'matchme' && !existingInputMessage.socialDirectMessage?.internalText)) &&
       displayText.trim()
     ) {
       try {
@@ -1092,6 +1156,7 @@ export function useGraphRun(options: UseGraphRunOptions) {
               ? { ...socialDirectMessage, text: translatedMessage }
               : socialDirectMessage,
             historyMessages,
+            appCharacters(),
           );
         } else if (socialPost) {
           const translatedCaption = await translateSocialText(socialPost.caption);
@@ -1118,6 +1183,7 @@ export function useGraphRun(options: UseGraphRunOptions) {
         const cancelled = isRunCancelledError(error);
         const cancelReason = activeRunCancelReason.current as CancelReason;
         const restarting = cancelled && cancelReason === 'restart';
+        recordFailedAttempt(error, inputText);
         restoreReplacedMessages();
         if (replacement) {
           applyTurnCheckpointRuntime(replacement.turn, 'after');
@@ -1156,7 +1222,7 @@ export function useGraphRun(options: UseGraphRunOptions) {
       displayInputText = 'Attached image.';
     }
 
-    const inputCharacterName = existingInputMessage?.speakerName ??
+    const inputCharacterName = inputPhoneParticipants?.from.name ?? existingInputMessage?.speakerName ??
       // S8 restart recovery: a resumed retry has no real input character (the guard that
       // would otherwise guarantee `inputCharacter` here is bypassed for it) — this value is
       // never read by the resume branch below anyway, so any placeholder is harmless.
@@ -1171,7 +1237,8 @@ export function useGraphRun(options: UseGraphRunOptions) {
     const phoneRecipientCharacter = existingInputMessage?.phoneTo
       ? phoneCharacters.find((character) => phoneNamesMatch(character.name, existingInputMessage.phoneTo ?? ''))
       : phoneRecipientCharacterOverride ?? selectedPhoneContact?.character;
-    const phoneRecipientName = existingInputMessage?.phoneTo ?? phoneRecipientCharacter?.name;
+    const phoneRecipientName =
+      inputPhoneParticipants?.to.name ?? existingInputMessage?.phoneTo ?? phoneRecipientCharacter?.name;
     const rawSentPhoneImages = existingInputMessage?.imageAttachments ?? inputImages;
     const sentPhoneImages =
       isPhoneMessage && phoneRecipientName && rawSentPhoneImages.length
@@ -1203,20 +1270,25 @@ export function useGraphRun(options: UseGraphRunOptions) {
           sentPhoneImages[0],
         )
       : undefined;
-    const formatCurrentPhoneInput = (message: string, translated = false) =>
-      phoneReplyTo
-        ? formatPhoneReplyInput(inputCharacterName, phoneReplyTo, message.trim(), translated)
-        : formatPhoneInput(
+    const phoneContextRecipient = inputPhoneParticipants?.to.characterId
+      ? appCharacters().find((character) => character.sourceId === inputPhoneParticipants.to.characterId)
+      : undefined;
+    const formatCurrentPhoneInput = (message: string, translated = false) => {
+      const context = phoneReplyTo
+        ? formatPhoneReplyQuote(phoneReplyTo, translated)
+        : sentPhoneImages.length ? formatPhoneInput(
             inputCharacterName,
             phoneRecipientName ?? 'Unknown',
-            message,
-            sentPhoneImages.length
-              ? {
-                  id: sentStorybookImage?.id ?? sentPhoneImages[0]?.id,
-                  description: sentStorybookImage?.description ?? sentPhoneImages[0]?.description,
-                }
-              : undefined,
-          );
+            '',
+            {
+              id: sentStorybookImage?.id ?? sentPhoneImages[0]?.id,
+              description: sentStorybookImage?.description ?? sentPhoneImages[0]?.description,
+            },
+          ) : undefined;
+      return whatsUpMessageInputText(
+        inputCharacterName, phoneRecipientName ?? 'Unknown', message, phoneContextRecipient, context,
+      );
+    };
     const promptSlot = turnModeOverrideValue ?? (
       eventDisplayText
         ? 3
@@ -1261,7 +1333,7 @@ export function useGraphRun(options: UseGraphRunOptions) {
           : undefined,
         embeddedSocialMessages: preview.socialDirectMessages.length > 0
           ? preview.socialDirectMessages.flatMap((socialMessage, index) =>
-              socialMessage.to
+              socialMessage.to && socialMessage.app !== 'matchme'
                 ? [{
                     socialMessageId: -(index + 1),
                     app: socialMessage.app,
@@ -1308,7 +1380,7 @@ export function useGraphRun(options: UseGraphRunOptions) {
       directActionOnly,
       isAutoTurn,
     );
-    const originalInput = replacementInputText ??
+    const originalInput = socialDirectMessage?.app === 'matchme' ? inputText : replacementInputText ??
       ((existingInputMessage && isPhoneMessage && phoneRecipientName
         ? formatCurrentPhoneInput(inputText)
         : existingInputMessage?.originalText) ??
@@ -1328,10 +1400,29 @@ export function useGraphRun(options: UseGraphRunOptions) {
     const withDraftContextComment = (text: string) =>
       inputContextComment ? `${text}\nContext note: ${inputContextComment}` : text;
     const socialCatalogApp = socialPost?.app ?? socialThreadAction?.app;
-    const executionOriginalInput = socialCatalogApp
-      ? withDraftContextComment(withBundledSocialIdentityContext(originalInput, socialCatalogApp))
-      : withDraftContextComment(originalInput);
-    const storedInputGraphText = directActionOnly
+    const availableSocialAccounts = socialCatalogApp
+      ? appCharacters().flatMap((character) => {
+          const account = character.apps?.[socialCatalogApp];
+          return account?.enabled && account.username.trim()
+            ? [`- ${character.name} (@${account.username.replace(/^@/, '')})`]
+            : [];
+        })
+      : [];
+    const withKnownSocialAccountsContext = (text: string) =>
+      availableSocialAccounts.length
+        ? [text,
+            '[AVAILABLE SOCIAL ACCOUNTS]',
+            'Use these exact existing name and handle pairs for social participants:',
+            ...availableSocialAccounts,
+            'Keep these existing identities exact. Additional fictional social users may participate without a character container; never assign a missing app account to a known character.',
+            '[/AVAILABLE SOCIAL ACCOUNTS]'].join('\n')
+        : text;
+    const executionOriginalInput = withDraftContextComment(
+      withKnownSocialAccountsContext(
+        socialCatalogApp ? withBundledSocialIdentityContext(originalInput, socialCatalogApp) : originalInput,
+      ),
+    );
+    const storedInputGraphText = socialDirectMessage?.app === 'matchme' ? originalInput : directActionOnly
       ? originalInput
       : replacement && !replacement.replaceInput
         ? replacement.turn.input.graphText
@@ -1383,6 +1474,8 @@ export function useGraphRun(options: UseGraphRunOptions) {
       appendPhoneMessage({
         from: inputCharacterName,
         to: phoneRecipientName,
+        fromAccountId: inputPhoneParticipants?.from.accountId,
+        toAccountId: inputPhoneParticipants?.to.accountId,
         message: inputText.trim() || 'Attached image.',
         translatedMessage: runEnglishProcessing ? displayInputText.trim() || 'Attached image.' : undefined,
         imageAttachments: sentPhoneImages,
@@ -1491,12 +1584,78 @@ export function useGraphRun(options: UseGraphRunOptions) {
     });
 
     try {
+      if (socialDirectMessage?.app === 'matchme' && existingInputMessage && translatedSocialDirectMessageText) {
+        updateMessage(existingInputMessage.id, {
+          translatedText: socialDirectMessageHistoryText({ ...socialDirectMessage, text: translatedSocialDirectMessageText }),
+          socialDirectMessage: { ...socialDirectMessage, internalText: translatedSocialDirectMessageText,
+            displayText: translateInputOnly ? translatedSocialDirectMessageText : socialDirectMessage.displayText },
+        });
+      }
+      if (shouldAppendInputMessage && socialDirectMessage && !messagesRef.current.some((entry) =>
+        entry.socialDirectMessage?.messageId === socialDirectMessage.messageId)) {
+        const persistedSocialDirectMessage = translatedSocialDirectMessageText
+          ? {
+              ...socialDirectMessage,
+              internalText: translatedSocialDirectMessageText,
+              displayText: translateInputOnly
+                ? translatedSocialDirectMessageText
+                : socialDirectMessage.displayText,
+            }
+          : socialDirectMessage;
+        appendMessage({
+          role: 'user',
+          originalText: socialDirectMessageHistoryText(socialDirectMessage),
+          translatedText: translatedSocialDirectMessageText
+            ? socialDirectMessageHistoryText({
+                ...socialDirectMessage,
+                text: translatedSocialDirectMessageText,
+              })
+            : undefined,
+          includeInHistory: true,
+          turnContext,
+          socialDirectMessage: persistedSocialDirectMessage,
+        });
+      }
+      if (activeTurnCollectorRef.current) {
+        activeTurnCollectorRef.current.part = 'output';
+      }
+      const visibleInput = originalInput;
+      const lastRpOutput = lastMessageText(historyMessages, 'output');
+      lastRunDebugRef.current = {
+        runId,
+        startedAt: initialRunLlmReport.startedAt,
+        turnMode,
+        narratorAutoTurn,
+        displayText,
+        originalInput,
+        promptSlot,
+        isAutoTurn,
+        isNarratorTurn,
+        eventDisplayText,
+        phoneMessage: isPhoneMessage,
+        messageFormat,
+        originalHistory,
+        translatedHistory,
+      };
+      updateRuntimeNode(inputNode.id, {
+        preview: availableSocialAccounts.length
+          ? executionOriginalInput
+          : (isAutoTurn || isNarratorTurn)
+            ? `${narratorSpeakerName}: ${narratorDisplayInput}`
+            : originalInput,
+        // The dialog must show the value emitted by the Input node, including
+        // runtime-only context such as the social account catalog. The raw
+        // originalInput remains separate for chat display and persistence.
+        fullText: executionOriginalInput,
+      });
+
       let outputHighlightingContext = '';
       let phoneMessageOutput = '';
       let outputActionsText = '';
       let socialMediaOutputText = '';
       let autoplayOutputText = '';
       let socialDirectMessageOutputPromise: Promise<void> | undefined;
+      let matchMeReplyDelivered = false;
       let directActionsText = '';
       const socialDirectExtras: {
         phoneMessages: ParsedPhoneMessage[];
@@ -1510,6 +1669,7 @@ export function useGraphRun(options: UseGraphRunOptions) {
           text,
           socialDirectMessage,
           new Date().toISOString(),
+          appCharacters(),
         );
         socialDirectExtras.phoneMessages.push(...parsedReply.phoneMessages);
         socialDirectExtras.bankTransfers.push(...parsedReply.bankTransfers);
@@ -1551,6 +1711,14 @@ export function useGraphRun(options: UseGraphRunOptions) {
         const persistedReply = translatedReplyText
           ? { ...parsedReply.message, displayText: translatedReplyText }
           : parsedReply.message;
+        if (persistedReply.app === 'matchme') {
+          if (!matchMeMessageAllowed(persistedReply, matchMeState(appCharacters(), messagesRef.current))) {
+            reportRunWarning('MatchMe reply blocked: the active match is no longer available.', outputNodeTraceInfo);
+            return;
+          }
+          matchMeReplyDelivered = true;
+          if (messagesRef.current.some((entry) => entry.socialDirectMessage?.messageId === persistedReply.messageId)) return;
+        }
         appendMessage({
           role: 'output',
           originalText: socialDirectMessageHistoryText(parsedReply.message),
@@ -1581,6 +1749,7 @@ export function useGraphRun(options: UseGraphRunOptions) {
           rpWeekdayLanguage,
         );
         if (!directActionOnly) {
+          tracePhase = 'prepare-next-turn';
           try {
             const recentTurns = turnsRef.current
               .filter((turn) => turn.id !== collectedTurn?.turnId)
@@ -1604,14 +1773,15 @@ export function useGraphRun(options: UseGraphRunOptions) {
               currentTurnId: collectedTurn?.turnId,
               updateHistoryMessageTimes,
               userControlledCharacterId: (isAutoplayRun || isAutoTurn || isNarratorTurn) ? undefined : inputCharacter?.id,
-              llm: nodeLlm.withAbortSignal(runSignal),
+              llm: nodeLlm.withAbortSignal(runSignal).withRequestObserver(traceRecorder.observe('prepare-next-turn')),
+              onNodeExecution: recordNodeExecution,
               textMetrics: new TextMetricsApi(activeTokenEstimateBytesPerToken),
               updateRuntimeNode,
               connections,
               onComfyGenerationActive: updateWorkflowComfyGenerationActive,
               onWarning: reportRunWarning,
               onFormatResult: (result) => {
-                runTraceEvents.push({ kind: 'format', ...result });
+                runTraceEvents.push({ at: new Date().toISOString(), atMs: performance.now(), phase: tracePhase, kind: 'format', ...result });
               },
               settingsValues: workflowSettingsValuesForGraph(),
               settingsValueDefinitions: settingsValueDefinitionsRef.current,
@@ -2107,8 +2277,11 @@ export function useGraphRun(options: UseGraphRunOptions) {
         originalHistory,
         translatedHistory,
         historyMessages,
+        appCharacters: appCharacters(),
+        matchMeDirectMessage: socialDirectMessage?.app === 'matchme' ? socialDirectMessage : undefined,
         userControlledCharacterId: (isAutoplayRun || isAutoTurn || isNarratorTurn) ? undefined : inputCharacter?.id,
-        llm: nodeLlm.withAbortSignal(runSignal),
+        llm: nodeLlm.withAbortSignal(runSignal).withRequestObserver(traceRecorder.observe('response')),
+        onNodeExecution: recordNodeExecution,
         textMetrics: new TextMetricsApi(activeTokenEstimateBytesPerToken),
         updateRuntimeNode,
         connections,
@@ -2126,7 +2299,7 @@ export function useGraphRun(options: UseGraphRunOptions) {
         onTokenEstimateCalibrated: setCalibratedTokenBytesPerToken,
         onWarning: reportRunWarning,
         onFormatResult: (result) => {
-          runTraceEvents.push({ kind: 'format', ...result });
+          runTraceEvents.push({ at: new Date().toISOString(), atMs: performance.now(), phase: tracePhase, kind: 'format', ...result });
         },
         trackRunCompletion: true,
         // Direct Actions is intentionally absent here: normal, phone, social,
@@ -2512,6 +2685,13 @@ export function useGraphRun(options: UseGraphRunOptions) {
         });
         const appendedPhoneMessageLinks: EmbeddedPhoneMessageLink[] = [];
         for (const [messageIndex, phoneReply] of parsedPhoneMessages.entries()) {
+          let participants;
+          try {
+            participants = resolveWhatsUpMessageParticipants(appCharacters(), messagesRef.current, phoneReply);
+          } catch (error) {
+            reportRunWarning(String(error instanceof Error ? error.message : error), outputNodeTraceInfo);
+            continue;
+          }
           let phoneImageCaptionChange: ImageCaptionChange | undefined;
           const phoneImageAction = runPromptSwitchVisionFeaturesEnabled && messageIndex === 0
             ? phoneReply.incomingImageAction ?? phoneOutputBankResult?.phoneImageActions[0]
@@ -2552,6 +2732,7 @@ export function useGraphRun(options: UseGraphRunOptions) {
             firstSound: messageIndex === 0 ? phoneOutputSoundOverride ?? (isAutoTurn ? 'sent' : 'received') : undefined,
             phoneAutoTurnSource: isNarratorPhoneAutoTurn ? 'narrator' : undefined,
             workflowVariableSetCommands: messageIndex === 0 ? responseWorkflowVariableSetCommands : undefined,
+            resolvedParticipants: participants,
           });
           appendedPhoneMessageLinks.push(...applyPhoneOutputCommits(commits, { appendPhoneMessage }));
         }
@@ -2666,6 +2847,10 @@ export function useGraphRun(options: UseGraphRunOptions) {
           const targetPhoneMessage = embeddedPhoneResult.phoneMessages.find(
             (message) => message.imageId?.trim() === embeddedImageAction.imageId.trim(),
           );
+          if (targetPhoneMessage) {
+            try { resolveWhatsUpMessageParticipants(appCharacters(), messagesRef.current, targetPhoneMessage); }
+            catch { continue; }
+          }
           const embeddedCaptionChange = applyPhoneImageActionFromLlm(
             embeddedImageAction,
             phoneReplyTo,
@@ -2679,10 +2864,14 @@ export function useGraphRun(options: UseGraphRunOptions) {
       const embeddedPhoneMessages: EmbeddedPhoneMessageLink[] = [];
       if (embeddedPhoneResult.phoneMessages.length > 0) {
         for (const [index, embeddedPhoneMessage] of embeddedPhoneResult.phoneMessages.entries()) {
+          let participants;
+          try { participants = resolveWhatsUpMessageParticipants(appCharacters(), messagesRef.current, embeddedPhoneMessage); }
+          catch (error) { reportRunWarning(String(error instanceof Error ? error.message : error), outputNodeTraceInfo); continue; }
           const commits = buildPhoneOutputCommits({
             phoneCharacters, replies: [embeddedPhoneMessage],
             existingMessages: [...messagesRef.current, ...(activeTurnCollectorRef.current?.inputMessages ?? [])],
             resolveRpPictures: true, turnContext, firstSound: index === 0 ? 'received' : undefined, includeSourceOrder: true,
+            resolvedParticipants: participants,
           });
           embeddedPhoneMessages.push(...applyPhoneOutputCommits(commits, { appendPhoneMessage }));
         }
@@ -2929,6 +3118,9 @@ export function useGraphRun(options: UseGraphRunOptions) {
           ...appliedActions.phoneMessages,
           ...socialDirectExtras.phoneMessages,
         ].entries()) {
+          let participants;
+          try { participants = resolveWhatsUpMessageParticipants(appCharacters(), messagesRef.current, actionPhoneMessage); }
+          catch (error) { reportRunWarning(String(error instanceof Error ? error.message : error), outputNodeTraceInfo); continue; }
           let translatedMessage: string | undefined;
           if (runEnglishProcessing) {
             try {
@@ -2956,6 +3148,7 @@ export function useGraphRun(options: UseGraphRunOptions) {
             phoneCharacters, existingMessages: [], firstSound: index === 0 ? 'received' : undefined, turnContext,
             replies: [{ from: actionPhoneMessage.from, to: actionPhoneMessage.to, message: actionPhoneMessage.message,
               translatedMessage, imageId: actionPhoneMessage.imageId, imageDescription: actionPhoneMessage.imageDescription }],
+            resolvedParticipants: participants,
           }), { appendPhoneMessage });
         }
 
@@ -3093,8 +3286,30 @@ export function useGraphRun(options: UseGraphRunOptions) {
           defaultRecipient?: { name: string; handle: string },
           runPost?: SocialPostRecord,
         ): Promise<EmbeddedSocialMessageLink | undefined> => {
+          if (incoming.app === 'matchme') {
+            // Direct runs accept their single bound reply only; commands cannot add another MatchMe message.
+            if (socialDirectMessage?.app === 'matchme') return undefined;
+            const record = incomingMatchMeMessage(incoming.from, incoming.to ?? '', incoming.text,
+              matchMeState(appCharacters(), messagesRef.current),
+              `matchme-incoming-${runId}-${++incomingSocialDmSequence}`, new Date().toISOString());
+            if (!record || incoming.postId || incoming.tip !== undefined) {
+              reportRunWarning('MatchMe message blocked: unknown accounts or no active match.', outputNodeTraceInfo);
+              return undefined;
+            }
+            const displayText = await translateOutputActionText(record.text, { text: record.text });
+            if (!matchMeMessageAllowed(record, matchMeState(appCharacters(), messagesRef.current))) {
+              reportRunWarning('MatchMe message blocked before delivery: match no longer active.', outputNodeTraceInfo);
+              return undefined;
+            }
+            const socialMessageId = appendMessage({ role: 'output', includeInHistory: true,
+              originalText: socialDirectMessageHistoryText(record),
+              translatedText: displayText ? socialDirectMessageHistoryText({ ...record, text: displayText }) : undefined,
+              socialDirectMessage: { ...record, ...(displayText ? { displayText } : {}) } });
+            return { socialMessageId, app: 'matchme', from: record.from, to: record.to,
+              message: record.text, translatedMessage: displayText, sourceOrder: incoming.sourceOrder };
+          }
           const result = buildSocialDirectMessageCommit({
-            incoming, defaultRecipient, runPost, characters: storyCharacters, messages: messagesRef.current,
+            incoming, defaultRecipient, runPost, characters: appCharacters(), messages: messagesRef.current,
             messageId: `${incoming.app}-dm-incoming-${Date.now()}-${incomingSocialDmSequence + 1}`,
             sentAt: new Date().toISOString(),
           });
@@ -3163,7 +3378,10 @@ export function useGraphRun(options: UseGraphRunOptions) {
             includeInHistory: true,
             socialPost: persistedSocialPost,
           });
-          const parsedReactions = parseSocialReactionsOutput(socialMediaOutputText, socialPost);
+          const parsedReactions = parseValidatedSocialReactionsOutput(socialMediaOutputText, socialPost, {
+            characters: appCharacters(),
+            messages: messagesRef.current,
+          });
           reportFormatResult({
             name: 'Social Media JSON',
             status: parsedReactions.reactions && parsedReactions.warnings.length === 0 ? 'ok' : 'error',
@@ -3215,10 +3433,13 @@ export function useGraphRun(options: UseGraphRunOptions) {
                   socialThreadCommentTextFromInput(originalInput) ?? socialThreadAction.commentText,
               }
             : socialThreadAction;
-          const parsedReactions = parseSocialReactionsOutput(socialMediaOutputText, {
+          const parsedReactions = parseValidatedSocialReactionsOutput(socialMediaOutputText, {
             app: persistedThreadAction.app,
             postId: persistedThreadAction.postId,
             append: true,
+          }, {
+            characters: appCharacters(),
+            messages: messagesRef.current,
           });
           reportFormatResult({
             name: 'Social Media Thread JSON',
@@ -3311,50 +3532,22 @@ export function useGraphRun(options: UseGraphRunOptions) {
         recordTurnTrace({
           turn: committedTurn,
           run: completedRunReport,
-          nodes: nodesRef.current,
           status: 'completed',
           warnings: runWarnings,
           traceEvents: runTraceEvents,
+          capturedSteps: traceRecorder.steps,
+          nodeExecutions,
         });
       }
       clearTemporaryReferenceImages();
       pruneStorybookExternalImagesForMessages();
-      return true;
+      return socialDirectMessage?.app === 'matchme' ? matchMeReplyDelivered : true;
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
       const cancelled = isRunCancelledError(error);
       const cancelReason = activeRunCancelReason.current as CancelReason;
       const restarting = cancelled && cancelReason === 'restart';
-      const failedCollector = activeTurnCollectorRef.current;
-      const failedRunReport = activeRunLlmReport.current;
-      if (!cancelled && failedCollector && failedRunReport) {
-        const failedTurn: TurnRecord = {
-          id: failedCollector.turnId,
-          number: failedCollector.turnNumber,
-          createdAt: failedCollector.createdAt,
-          mode: turnMode,
-          messageFormat,
-          promptSlot,
-          directAction: directActionOnly || undefined,
-          input: {
-            graphText: storedInputGraphText,
-            messages: structuredClone(failedCollector.inputMessages),
-          },
-          output: {
-            graphText: '',
-            messages: structuredClone(failedCollector.outputMessages),
-          },
-        };
-        recordTurnTrace({
-          turn: failedTurn,
-          run: failedRunReport,
-          nodes: nodesRef.current,
-          status: 'error',
-          warnings: runWarnings,
-          traceEvents: runTraceEvents,
-          error: message,
-        });
-      }
+      recordFailedAttempt(error, storedInputGraphText, promptSlot);
       pendingLiveOutput = undefined;
       clearLiveOutputFlush();
       if (liveOutputMessageId !== undefined) {

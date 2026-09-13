@@ -1,3 +1,5 @@
+import type { TurnTraceNodeExecution } from '../app/turnTrace';
+import { sanitizeDataUrlsInText } from '../utils/sanitize';
 import type { Edge } from '@xyflow/react';
 import { NodeLlmApi } from '../llm/NodeLlmApi';
 import { PromptTokenCalibration, TextMetricsApi } from '../llm/tokenMetrics';
@@ -50,6 +52,8 @@ type ExecuteGraphOptions = {
   currentTurnId?: string;
   updateHistoryMessageTimes?: (patches: Array<{ id: number; rpDateTime: string }>) => void;
   userControlledCharacterId?: string;
+  appCharacters?: import('../storybook/runtime').StorybookCharacter[];
+  matchMeDirectMessage?: import('../types').SocialDirectMessageRecord;
   llm: NodeLlmApi;
   textMetrics: TextMetricsApi;
   updateRuntimeNode: (nodeId: string, patch: Partial<WorkflowNodeData>) => void;
@@ -85,6 +89,7 @@ type ExecuteGraphOptions = {
    * Running the main handle too would generate a second, unused, wasted completion.
    */
   skipPrimaryOutput?: boolean;
+  onNodeExecution?: (event: TurnTraceNodeExecution) => void;
   onWarning?: (message: string, node?: ExecuteTraceNodeInfo) => void;
   onFormatResult?: (result: ExecuteTraceFormatResult & ExecuteTraceNodeInfo) => void;
   onComfyGenerationActive?: (active: boolean) => void;
@@ -158,6 +163,8 @@ export async function executeGraph({
   currentTurnId,
   updateHistoryMessageTimes = () => {},
   userControlledCharacterId,
+  appCharacters,
+  matchMeDirectMessage,
   llm,
   textMetrics,
   updateRuntimeNode,
@@ -180,6 +187,7 @@ export async function executeGraph({
   providerHealthById = {},
   auxiliaryOutputHandles = [],
   onAuxiliaryOutput,
+  onNodeExecution,
   onWarning = () => {},
   onFormatResult = () => {},
   onComfyGenerationActive,
@@ -205,7 +213,15 @@ export async function executeGraph({
       ),
     ),
   );
-  const resolving = new Set<string>();
+  // Track active waits, including dependencies reached after an await or from
+  // another parallel branch, before reusing an in-flight result.
+  const dependencies = new Map<string, Set<string>>();
+  const dependsOn = (key: string, target: string, visited = new Set<string>()): boolean => {
+    if (key === target) return true;
+    if (visited.has(key)) return false;
+    visited.add(key);
+    return [...(dependencies.get(key) ?? [])].some((next) => dependsOn(next, target, visited));
+  };
   const nodeById = new Map(nodes.map((node) => [node.id, node]));
   let structuredReplySourceId: string | undefined;
   if (structuredActionContext && !postOutputRun) {
@@ -241,6 +257,7 @@ export async function executeGraph({
             llmActiveCallLabel: metadata.label,
             llmActiveCallStage: metadata.stage,
             llmActiveCallStartedAtMs: metadata.startedAtMs,
+            llmActiveReasoningTokens: undefined,
           });
         }
       },
@@ -251,7 +268,13 @@ export async function executeGraph({
             llmActiveCallLabel: undefined,
             llmActiveCallStage: undefined,
             llmActiveCallStartedAtMs: undefined,
+            llmActiveReasoningTokens: undefined,
           });
+        }
+      },
+      (nodeId, tokenCount) => {
+        if (isLlmNode(nodeId)) {
+          updateRuntimeNode(nodeId, { llmActiveReasoningTokens: tokenCount });
         }
       },
     );
@@ -308,6 +331,14 @@ export async function executeGraph({
   // A fresh runner per graph run, closing over this run's own node snapshot (matching the
   // prior inline implementation's exact behavior); shared with the live actions-v1/staged-v1
   // action bridge via `createComfyImageRunner`, see `comfyImageRunner.ts`.
+  //
+  // Known gap vs. upstream's inline version this replaced: upstream falls back to
+  // `graphLlm.resolveConnection(undefined, 'ComfyUI memory management', signal)` to find an
+  // implicit default LLM connection to manage when no node has an explicit `connectionId` at
+  // all. `createComfyImageRunner` doesn't do that fallback resolution (its `llm` option is
+  // narrowed to `supportsVision`/`complete`), so in that narrow all-implicit-connection edge
+  // case it simply won't unload/reload a local model around a Comfy generation — a missed
+  // optimization, not a correctness regression. Worth porting if it turns out to matter.
   const createComfyImageForCharacter = createComfyImageRunner({
     getNodes: () => nodes,
     connections,
@@ -320,9 +351,14 @@ export async function executeGraph({
   runScratch.set(runScratchKeys.createComfyImageForCharacter, createComfyImageForCharacter);
   onImageRunnerReady?.(createComfyImageForCharacter);
 
+  // Custom outputs share one execution, so their waits share one identity too.
+  const dependencyKey = (nodeId: string, handle?: string | null) =>
+    `${nodeId}:${nodeById.get(nodeId)?.data.nodeType === 'custom' ? 'default' : handle ?? 'default'}`;
+
   const executeNode = async (nodeId: string, sourceHandle?: string | null): Promise<string> => {
     throwIfAborted(signal);
     const executionKey = `${nodeId}:${sourceHandle ?? 'default'}`;
+    const waitKey = dependencyKey(nodeId, sourceHandle);
     const memoized = memo.get(executionKey);
     if (memoized) {
       return memoized;
@@ -330,12 +366,19 @@ export async function executeGraph({
     const shouldTrackRunState = (node: WorkflowNode) =>
       trackRunCompletion && !(postOutputRun && node.data.kind === undefined && node.data.nodeType === 'input');
 
+    const traceNode = nodeById.get(nodeId);
+    const preparedAtStart = traceNode?.data.runPrepared;
+    const reportExecution = (status: TurnTraceNodeExecution['status'], output?: string, error?: string) => {
+      onNodeExecution?.({
+        nodeId, nodeLabel: traceNode?.data.label ?? nodeId, nodeType: traceNode?.data.nodeType,
+        sourceHandle, phase: postOutputRun ? 'prepare-next-turn' : 'response',
+        status, at: new Date().toISOString(), atMs: performance.now(), preparedAtStart,
+        output: output === undefined ? undefined : sanitizeDataUrlsInText(output),
+        error: error === undefined ? undefined : sanitizeDataUrlsInText(error),
+      });
+    };
     const promise = (async () => {
-      if (resolving.has(executionKey)) {
-        throw new Error('The graph contains a cycle.');
-      }
-      resolving.add(executionKey);
-
+      reportExecution('started');
       try {
         throwIfAborted(signal);
         let traceNodeInfo: ExecuteTraceNodeInfo | undefined;
@@ -405,6 +448,8 @@ export async function executeGraph({
             recentTurns,
             currentTurnId,
             userControlledCharacterId,
+            appCharacters,
+            matchMeDirectMessage,
             outputNodeId,
             sourceHandle,
             directActionOnly: outputSourceHandle === 'direct-actions',
@@ -424,7 +469,19 @@ export async function executeGraph({
               .map((connection) => connection.id),
             providerHealthById,
             executeInput: async (sourceNodeId, sourceHandle) => {
-              const inputValue = await executeNode(sourceNodeId, sourceHandle);
+              const inputKey = dependencyKey(sourceNodeId, sourceHandle);
+              if (dependsOn(inputKey, waitKey)) {
+                throw new Error('The graph contains a cycle.');
+              }
+              const waits = dependencies.get(waitKey) ?? new Set<string>();
+              dependencies.set(waitKey, waits);
+              waits.add(inputKey);
+              let inputValue: string;
+              try {
+                inputValue = await executeNode(sourceNodeId, sourceHandle);
+              } finally {
+                waits.delete(inputKey);
+              }
               edges
                 .filter(
                   (edge) =>
@@ -508,7 +565,12 @@ export async function executeGraph({
           );
         }
         updateRuntimePortValue(nodeId, 'output', sourceHandle ?? 'default', result);
+        reportExecution('completed', result);
         return result;
+      } catch (error) {
+        reportExecution(signal?.aborted ? 'cancelled' : error instanceof PostOutputNodeBlockedError ? 'blocked' : 'error',
+          undefined, executionErrorMessage(error));
+        throw error;
       } finally {
         const node = nodeById.get(nodeId);
         if (node && shouldTrackRunState(node)) {
@@ -520,7 +582,7 @@ export async function executeGraph({
             llmActiveCallStartedAtMs: undefined,
           });
         }
-        resolving.delete(executionKey);
+        dependencies.delete(waitKey);
       }
     })();
 

@@ -126,6 +126,9 @@ async function runPromptSwitch(node: WorkflowNode, context: ExecuteContext) {
       commandConfigs: promptCommandConfigs(node.data.llmPromptCommands),
       streamsVisibleOutput,
       contributesToTokenCalibration: true,
+      onDebug: (debug) => context.updateRuntimeData(node.id, {
+        llmPromptSwitchDebug: { ...debug, ...selectionDebug },
+      }),
       callLabel: (actionReplayCount) =>
         `${outputTitle} / ${promptTitle}${actionReplayCount ? ` / Action replay ${actionReplayCount}` : ''}`,
     });

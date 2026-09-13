@@ -1,8 +1,11 @@
+import { appCharactersFromRegistry } from '../../characters/appRuntime';
+import { buildCharacterRegistry } from '../../characters/registry';
 import { describe, it, expect } from 'vitest';
 import type { Edge } from '@xyflow/react';
 import type { WorkflowNode } from '../../types';
 import type { ExecuteContext } from '../types';
 import { executeLlmPromptNode } from './execute';
+import { executeLlmPromptSwitchNode } from '../llm-prompt-switch/execute';
 
 function edge(id: string, source: string, targetHandle: string | null): Edge {
   return { id, source, target: 'llm-1', sourceHandle: null, targetHandle } as Edge;
@@ -17,6 +20,8 @@ function createContext(options: {
     nodes: [],
     edges: options.edges,
     historyMessages: [],
+    runScratch: new Map(),
+    referenceImages: { enabled: false, maxImages: 0, turnLookback: 0 },
     comfyProviderIds: [],
     providerHealthById: {},
     settingsValueDefinitions: [],
@@ -59,6 +64,68 @@ function runArgs(node: WorkflowNode, context: ExecuteContext, inputValue: string
 }
 
 describe('LLM Prompt text overrides', () => {
+  it.each(['prompt', 'switch'])('keeps MatchMe state out of the %s prompt unless it arrives through text input', async (kind) => {
+    const node = promptNode({ nodeType: kind === 'switch' ? 'llm-prompt-switch' : 'llm-prompt' });
+    const input = 'User input with authored recipient context';
+    const { context, prompts } = createContext({
+      edges: kind === 'switch' ? [edge('text', 'source', 'text'), edge('channel', 'channel', 'output-channel'), edge('slot', 'slot', 'prompt-slot')] : [],
+      executeInput: async (source) => source === 'source' ? input : '0',
+    });
+    context.nodes = [node];
+    context.updateRuntimeData = (_id, patch) => { Object.assign(node.data, patch); };
+    context.matchMeDirectMessage = {
+      app: 'matchme', messageId: 'dm', from: 'Player', to: 'NPC',
+      fromHandle: 'player-account', toHandle: 'npc-account',
+      fromAccountId: 'player-account', toAccountId: 'npc-account',
+      text: 'Hidden application text', sentAt: '2026-09-09T00:00:00Z',
+    };
+    if (kind === 'switch') await executeLlmPromptSwitchNode(node, context);
+    else await executeLlmPromptNode(runArgs(node, context, input));
+    const debug = node.data.llmPromptDebug ?? node.data.llmPromptSwitchDebug;
+    expect(prompts).toEqual([[debug?.promptBefore, input, debug?.promptAfter].filter(Boolean).join('\n\n')]);
+    expect(JSON.stringify(debug)).not.toContain('MatchMe Application Context');
+  });
+
+  it('does not silently prepend unreferenced step results', async () => {
+    const node = promptNode({ llmPromptAfter: '@step:planning\nPlan.\n@step:main\nReply.' });
+    const { context, prompts } = createContext({ edges: [] });
+    const warnings: string[] = [];
+    context.reportWarning = (warning) => { warnings.push(warning); };
+    await executeLlmPromptNode(runArgs(node, context, 'Input'));
+    expect(prompts).toEqual(['Input\n\nPlan.', 'Input\n\nReply.']);
+    expect(warnings.some((warning) => warning.includes('no later @output:planning marker'))).toBe(true);
+  });
+
+  it('blocks invalid social messages without adding a correction prompt even when retries are enabled', async () => {
+    const { context, prompts } = createContext({ edges: [] });
+    context.retryFormatErrorsEnabled = true;
+    context.appCharacters = appCharactersFromRegistry(buildCharacterRegistry([{
+      tier: 'storybook', source: 'book', character: {
+        id: 'owner', name: 'Existing Character', description: '', personality: '', speechStyle: '', role: '', images: [],
+        apps: {},
+      },
+    }]));
+    context.llm.complete = async ({ prompt }) => {
+      prompts.push(prompt);
+      return { text: '{"onlyFriendsApp":[{"from":"Existing Character","to":"Someone","message":"Invalid"}]}', connection: { label: 'Test' } } as Awaited<ReturnType<ExecuteContext['llm']['complete']>>;
+    };
+    const result = await executeLlmPromptNode(runArgs(promptNode({}), context, 'Input'));
+    expect(prompts).toEqual(['Input']);
+    expect(result).not.toContain('onlyFriendsApp');
+  });
+
+  it('does not inject account-sharing instructions or a registry directory into authored prompts', async () => {
+    const { context, prompts } = createContext({ edges: [] });
+    context.appCharacters = appCharactersFromRegistry(buildCharacterRegistry([{
+      tier: 'storybook', source: 'book', character: {
+        id: 'owner', name: 'Existing Character', description: '', personality: '', speechStyle: '', role: '', images: [],
+        apps: { fotogram: { accountId: 'owner-fg', enabled: true, username: 'hidden.registry.handle', displayName: 'Owner', bio: '' } },
+      },
+    }]));
+    await executeLlmPromptNode(runArgs(promptNode({}), context, 'the input'));
+    expect(prompts).toEqual(['the input']);
+  });
+
   it('uses the prompt-before override string and bypasses the authored text', async () => {
     const node = promptNode({ llmPromptBefore: 'AUTHORED BEFORE', llmPromptAfter: 'AUTHORED AFTER' });
     const { context, prompts } = createContext({
@@ -123,5 +190,70 @@ describe('LLM Prompt text overrides', () => {
 
     expect(node.data.llmPromptBefore).toBe('AUTHORED BEFORE');
     expect(node.data.llmPromptAfter).toBe('AUTHORED AFTER');
+  });
+});
+
+
+describe('prompt diagnostics on failed runs', () => {
+  it('replaces previous output and records the current failed provider request', async () => {
+    const node = promptNode({
+      generatedText: 'OLD OUTPUT',
+      llmPromptDebug: { inputValue: 'OLD INPUT', promptBefore: '', promptAfter: '', combinedPrompt: '', generatedText: 'OLD OUTPUT' },
+      llmPromptBefore: 'Current instructions',
+    });
+    const { context } = createContext({ edges: [] });
+    context.updateRuntimeData = (_id, patch) => { Object.assign(node.data, patch); };
+    context.llm.complete = async () => { throw new Error('Provider timeout'); };
+
+    await expect(executeLlmPromptNode(runArgs(node, context, 'CURRENT INPUT'))).rejects.toThrow('Provider timeout');
+    expect(node.data.generatedText).toBe('');
+    expect(node.data.llmPromptDebug?.inputValue).toBe('CURRENT INPUT');
+    expect(node.data.llmPromptDebug?.promptPasses?.slice(-1)[0]?.sections).toEqual(
+      expect.arrayContaining([expect.objectContaining({ text: 'CURRENT INPUT' })]),
+    );
+    expect(JSON.stringify(node.data.llmPromptDebug)).not.toContain('OLD');
+  });
+
+  it('retains completed intermediate output and the failed later prompt', async () => {
+    const node = promptNode({ llmPromptAfter: '@step:planning\nMake a plan.\n@step:main\nUse this plan: @output:planning' });
+    const { context } = createContext({ edges: [] });
+    context.updateRuntimeData = (_id, patch) => { Object.assign(node.data, patch); };
+    let calls = 0;
+    context.llm.complete = async () => {
+      if (++calls > 1) throw new Error('Later pass failed');
+      return { text: 'CURRENT PLAN', connection: { label: 'Test LLM' } } as Awaited<ReturnType<ExecuteContext['llm']['complete']>>;
+    };
+    await expect(executeLlmPromptNode(runArgs(node, context, 'CURRENT INPUT'))).rejects.toThrow('Later pass failed');
+    expect(node.data.llmPromptDebug?.promptPasses).toHaveLength(2);
+    expect(node.data.llmPromptDebug?.outputPasses).toEqual([{ label: 'Step planning output', text: 'CURRENT PLAN' }]);
+    expect(JSON.stringify(node.data.llmPromptDebug?.promptPasses?.slice(-1)[0])).toContain('CURRENT PLAN');
+  });
+
+  it('clears stale debug when resolving a prompt override fails before the provider call', async () => {
+    const node = promptNode({ llmPromptDebug: { inputValue: 'OLD', promptBefore: '', promptAfter: '', combinedPrompt: '', generatedText: '' } });
+    const { context } = createContext({
+      edges: [edge('override', 'upstream', 'prompt-before')],
+      executeInput: async () => { throw new Error('Upstream failure'); },
+    });
+    context.updateRuntimeData = (_id, patch) => { Object.assign(node.data, patch); };
+    await expect(executeLlmPromptNode(runArgs(node, context, 'input'))).rejects.toThrow('Upstream failure');
+    expect(node.data.llmPromptDebug).toBeUndefined();
+  });
+
+  it('preserves current switch routing and prompt passes when the provider fails', async () => {
+    const node = promptNode({ nodeType: 'llm-prompt-switch', generatedText: 'OLD OUTPUT' });
+    const { context } = createContext({
+      edges: [edge('text', 'text-source', 'text'), edge('channel', 'channel-source', 'output-channel'), edge('slot', 'slot-source', 'prompt-slot')],
+      executeInput: async (source) => source === 'text-source' ? 'CURRENT SWITCH INPUT' : '0',
+    });
+    context.nodes = [node];
+    context.updateRuntimeData = (_id, patch) => { Object.assign(node.data, patch); };
+    context.llm.complete = async () => { throw new Error('Switch timeout'); };
+    await expect(executeLlmPromptSwitchNode(node, context)).rejects.toThrow('Switch timeout');
+    expect(node.data.generatedText).toBe('');
+    expect(node.data.llmPromptSwitchDebug).toMatchObject({
+      inputValue: 'CURRENT SWITCH INPUT', selectedOutputChannel: 0, selectedPromptSlot: 0,
+      promptPasses: expect.arrayContaining([expect.objectContaining({ sections: expect.any(Array) })]),
+    });
   });
 });

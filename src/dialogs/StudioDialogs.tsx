@@ -41,6 +41,7 @@ import { HighlightedPreviewText } from '../nodes/shared/HighlightedPreviewText';
 import { providerOption } from '../nodes/shared/providerHealthLabels';
 import { llmProviderKind } from '../llm/providerKind';
 import { sanitizeDataUrls, sanitizeDataUrlsInText } from '../utils/sanitize';
+import type { CharacterSaveLocation } from '../app/useRpgraphFiles';
 import {
   connectionReasoningEfforts,
   bundledComfyWorkflows,
@@ -69,6 +70,8 @@ import {
 } from '../comfy/workflowCompatibility';
 import { comfyConnectionRole } from '../comfy/connectionRole';
 import { copyTextToClipboard } from '../utils/clipboard';
+import { StorybookReadonlyPreview } from '../components/StorybookReadonlyPreview';
+import { normalizeRpStorybook, type RpStorybook } from '../nodes/rp-storybook/model';
 
 type ComfyModelLists = {
   checkpoints: string[];
@@ -135,6 +138,8 @@ type StudioDialogsProps = {
   activeTokenEstimateBytesPerToken: number;
   settingsValueDefinitions: SettingsValueDefinition[];
   settingsValues: Record<string, string>;
+  chatTextBrightness: number;
+  chatColorIntensity: number;
   chatTextSize: number;
   phoneChatTextSize: number;
   smoothChatAutoScrollEnabled: boolean;
@@ -165,6 +170,8 @@ type StudioDialogsProps = {
   onSettingsValueChange: (optionKey: string, value: string) => void;
   onSettingsValueRename: (optionKey: string, label: string) => void;
   onSettingsValueRemove: (optionKey: string) => void;
+  onChatTextBrightnessChange: (value: number) => void;
+  onChatColorIntensityChange: (value: number) => void;
   onChatTextSizeChange: (value: number) => void;
   onPhoneChatTextSizeChange: (value: number) => void;
   onSmoothChatAutoScrollEnabledChange: (enabled: boolean) => void;
@@ -183,6 +190,7 @@ type StudioDialogsProps = {
   onStagedAutoRetryAttemptsChange: (value: number) => void;
   onTurnAutosaveEnabledChange: (enabled: boolean) => void;
   showFiles: boolean;
+  showStorybookPicker: boolean;
   savedFiles: SavedFileSummary[];
   selectedFile: string | null;
   workflowName: string;
@@ -194,11 +202,13 @@ type StudioDialogsProps = {
   workflowOverwritePending: boolean;
   fileStorageStatus: string;
   onCloseFiles: () => void;
+  onCloseStorybookPicker: () => void;
+  onRequestOpenStorybookFile: () => void;
   onSelectFile: (file: SavedFileSummary) => void;
   onOpenFile: (file: SavedFileSummary) => void;
   onDeleteFile: (file: SavedFileSummary) => void;
   onRequestOpenFile: () => void;
-  onRestoreDefaultWorkflow: () => void;
+  onRestoreDefaultFiles: () => void;
   onRequestExportWorkflow: () => void;
   onRequestSaveStorybook: () => void;
   onWorkflowNameChange: (name: string) => void;
@@ -212,12 +222,16 @@ type StudioDialogsProps = {
   fileProtection: 'plain' | 'encrypted';
   workflowSaveScope: 'workflow' | 'workflow-storybook';
   chooseSaveLocation: boolean;
+  characterSaveLocation: CharacterSaveLocation;
+  includeCharacterOwnPosts: boolean;
   onCloseSessionPassword: () => void;
   onSessionNameChange: (name: string) => void;
   onSessionPasswordChange: (password: string) => void;
   onFileProtectionChange: (protection: 'plain' | 'encrypted') => void;
   onWorkflowSaveScopeChange: (scope: 'workflow' | 'workflow-storybook') => void;
   onChooseSaveLocationChange: (enabled: boolean) => void;
+  onCharacterSaveLocationChange: (location: CharacterSaveLocation) => void;
+  onIncludeCharacterOwnPostsChange: (enabled: boolean) => void;
   onSubmitSessionPassword: () => void;
   showCharacterFiles: boolean;
   characterFiles: SavedFileSummary[];
@@ -809,6 +823,8 @@ export function StudioDialogs({
   activeTokenEstimateBytesPerToken,
   settingsValueDefinitions,
   settingsValues,
+  chatTextBrightness,
+  chatColorIntensity,
   chatTextSize,
   phoneChatTextSize,
   smoothChatAutoScrollEnabled,
@@ -839,6 +855,8 @@ export function StudioDialogs({
   onSettingsValueChange,
   onSettingsValueRename,
   onSettingsValueRemove,
+  onChatTextBrightnessChange,
+  onChatColorIntensityChange,
   onChatTextSizeChange,
   onPhoneChatTextSizeChange,
   onSmoothChatAutoScrollEnabledChange,
@@ -857,6 +875,7 @@ export function StudioDialogs({
   onStagedAutoRetryAttemptsChange,
   onTurnAutosaveEnabledChange,
   showFiles,
+  showStorybookPicker,
   savedFiles,
   selectedFile,
   workflowName,
@@ -868,11 +887,13 @@ export function StudioDialogs({
   workflowOverwritePending,
   fileStorageStatus,
   onCloseFiles,
+  onCloseStorybookPicker,
+  onRequestOpenStorybookFile,
   onSelectFile,
   onOpenFile,
   onDeleteFile,
   onRequestOpenFile,
-  onRestoreDefaultWorkflow,
+  onRestoreDefaultFiles,
   onRequestExportWorkflow,
   onRequestSaveStorybook,
   onWorkflowNameChange,
@@ -886,12 +907,16 @@ export function StudioDialogs({
   fileProtection,
   workflowSaveScope,
   chooseSaveLocation,
+  characterSaveLocation,
+  includeCharacterOwnPosts,
   onCloseSessionPassword,
   onSessionNameChange,
   onSessionPasswordChange,
   onFileProtectionChange,
   onWorkflowSaveScopeChange,
   onChooseSaveLocationChange,
+  onCharacterSaveLocationChange,
+  onIncludeCharacterOwnPostsChange,
   onSubmitSessionPassword,
   showCharacterFiles,
   characterFiles,
@@ -958,6 +983,12 @@ export function StudioDialogs({
   const uiScaleInputFocusedRef = useRef(false);
   const uiScalePercentRef = useRef(Math.round(uiScale * 100));
   const [showFileVersionInfo, setShowFileVersionInfo] = useState(false);
+  const [storybookInfo, setStorybookInfo] = useState<{
+    file: SavedFileSummary;
+    storybook: RpStorybook;
+  } | null>(null);
+  const [storybookInfoLoading, setStorybookInfoLoading] = useState<string | null>(null);
+  const [storybookInfoStatus, setStorybookInfoStatus] = useState('');
   const [activeOptionsTab, setActiveOptionsTab] = useState<OptionsTabId>('chat');
   const [optionsSearch, setOptionsSearch] = useState('');
   const matchingOptionsTabs = OPTIONS_TABS.filter((tab) =>
@@ -987,6 +1018,8 @@ export function StudioDialogs({
   const isSavingFile = isSavingWorkflow || isSavingSession || isSavingStorybook || isSavingCharacter;
   const savingKindLabel = isSavingWorkflow ? 'Workflow' : isSavingStorybook ? 'Storybook' : isSavingCharacter ? 'Character' : 'RP';
   const hasStoredWorkflow = savedFiles.some((file) => file.type === 'workflow');
+  const hasStoredStorybook = savedFiles.some((file) => file.type === 'storybook');
+  const storybookPickerFiles = savedFiles.filter((file) => file.type === 'storybook');
   const connectionModelOptions = Array.from(
     new Set(
       [editingConnection.model, ...availableConnectionModels].filter(
@@ -1413,6 +1446,10 @@ export function StudioDialogs({
       ? 'connections'
       : sessionPasswordAction
         ? 'session-password'
+        : storybookInfo
+          ? 'storybook-info'
+        : showStorybookPicker
+          ? 'storybook-picker'
         : showCharacterFiles
           ? 'characters'
         : showFiles
@@ -1424,6 +1461,16 @@ export function StudioDialogs({
                 : textDialogNode
                   ? 'text'
                   : null;
+
+  useEffect(() => {
+    if (!showStorybookPicker) {
+      queueMicrotask(() => {
+        setStorybookInfo(null);
+        setStorybookInfoLoading(null);
+        setStorybookInfoStatus('');
+      });
+    }
+  }, [showStorybookPicker]);
 
   useEffect(() => {
     if (!showFiles) {
@@ -1494,11 +1541,13 @@ export function StudioDialogs({
     }
 
     function closeActiveDialog() {
+      if (activeDialog === 'storybook-info') { setStorybookInfo(null); return; }
       if (showFileVersionInfo) {
         setShowFileVersionInfo(false);
         return;
       }
       if (activeDialog === 'session-password') { onCloseSessionPassword(); return; }
+      if (activeDialog === 'storybook-picker') { onCloseStorybookPicker(); return; }
       if (activeDialog === 'connections') { onCloseConnections(); return; }
       if (activeDialog === 'characters') { onCloseCharacterFiles(); return; }
       if (activeDialog === 'files') { onCloseFiles(); return; }
@@ -1544,7 +1593,7 @@ export function StudioDialogs({
   }, [
     activeDialog,
     showFileVersionInfo,
-    onCloseText, onCloseJson, onCloseOptions, onCloseFiles, onCloseCharacterFiles,
+    onCloseText, onCloseJson, onCloseOptions, onCloseFiles, onCloseStorybookPicker, onCloseCharacterFiles,
     onCloseSessionPassword, onCloseConnections,
   ]);
 
@@ -1564,6 +1613,27 @@ export function StudioDialogs({
     backdropPointerStartedRef.current = false;
     if (shouldClose) {
       close();
+    }
+  }
+
+  async function openStorybookInfo(file: SavedFileSummary) {
+    if (file.protection !== 'plain' || !file.compatible) {
+      return;
+    }
+    setStorybookInfoLoading(file.fileName);
+    setStorybookInfoStatus('');
+    try {
+      const result = await window.rpgraph.loadFile(file.fileName, '', file.storage);
+      if (result.type !== 'storybook' || result.protection !== 'plain') {
+        throw new Error('This file is not a readable plain Storybook.');
+      }
+      setStorybookInfo({ file, storybook: normalizeRpStorybook(result.value) });
+    } catch (error) {
+      setStorybookInfoStatus(
+        `Preview failed: ${error instanceof Error ? error.message : String(error)}`,
+      );
+    } finally {
+      setStorybookInfoLoading(null);
     }
   }
 
@@ -1949,6 +2019,40 @@ export function StudioDialogs({
                           />
                           <span>{chatTextSize}px</span>
                         </div>
+                      </label>
+                      <label className="option-field chat-text-size-field" htmlFor="chatTextBrightness">
+                        RP TEXT BRIGHTNESS
+                        <div className="option-range-row">
+                          <input
+                            id="chatTextBrightness"
+                            aria-describedby="chatTextBrightness-hint"
+                            min={0}
+                            max={100}
+                            step={1}
+                            type="range"
+                            value={chatTextBrightness}
+                            onChange={(event) => onChatTextBrightnessChange(Number(event.target.value))}
+                          />
+                          <span>{chatTextBrightness}%</span>
+                        </div>
+                        <small id="chatTextBrightness-hint">100% keeps the previous brightness. 50% is gently dimmed; 0% is a little dimmer still.</small>
+                      </label>
+                      <label className="option-field chat-text-size-field" htmlFor="chatColorIntensity">
+                        RP DIALOGUE COLOR INTENSITY
+                        <div className="option-range-row">
+                          <input
+                            id="chatColorIntensity"
+                            aria-describedby="chatColorIntensity-hint"
+                            min={0}
+                            max={100}
+                            step={1}
+                            type="range"
+                            value={chatColorIntensity}
+                            onChange={(event) => onChatColorIntensityChange(Number(event.target.value))}
+                          />
+                          <span>{chatColorIntensity}%</span>
+                        </div>
+                        <small id="chatColorIntensity-hint">100% keeps the original colors. Lower values gently soften saturation and slightly dim dialogue colors.</small>
                       </label>
                       <label className="option-field chat-text-size-field" htmlFor="phone-chat-text-size">
                         Phone message text size
@@ -2466,6 +2570,155 @@ export function StudioDialogs({
         </div>
       )}
 
+      {showStorybookPicker && (
+        <div
+          className="dialog-backdrop"
+          role="presentation"
+          onPointerDown={trackBackdropPointerDown}
+          onClick={(event) => closeFromBackdropClick(event, 'storybook-picker', onCloseStorybookPicker)}
+        >
+          <section
+            ref={activeDialog === 'storybook-picker' ? activeDialogRef : undefined}
+            className="chat-files-dialog storybook-picker-dialog"
+            role="dialog"
+            aria-modal={activeDialog === 'storybook-picker'}
+            aria-hidden={activeDialog !== 'storybook-picker'}
+            aria-label="Open a Storybook"
+            tabIndex={-1}
+          >
+            <div className="dialog-header">
+              <div>
+                <h2 className="workflow-dialog-title">Open a Storybook</h2>
+                <p>This workflow has no embedded Storybook. Choose one from RPGraph Studio Files or continue without one.</p>
+              </div>
+              <button type="button" className="close-button" onClick={onCloseStorybookPicker}>
+                Cancel
+              </button>
+            </div>
+            <div className="chat-files-form">
+              <div className="saved-chat-list" aria-label="Available Storybooks">
+                {storybookPickerFiles.length === 0 ? (
+                  <p className="empty-chat-list">No Storybooks are available in RPGraph Studio Files.</p>
+                ) : storybookPickerFiles.map((file) => (
+                  <div
+                    className={`saved-chat-row${selectedFile === file.fileName ? ' selected' : ''}`}
+                    key={file.fileName}
+                    onDoubleClick={() => file.compatible && onOpenFile(file)}
+                  >
+                    <button
+                      className="saved-chat-select"
+                      type="button"
+                      onClick={() => onSelectFile(file)}
+                      onDoubleClick={() => file.compatible && onOpenFile(file)}
+                    >
+                      <span className="saved-file-summary">
+                        <strong className="saved-file-name-container">
+                          <span className="file-type-badge storybook">Storybook</span>
+                          <span className="saved-file-name-text">{file.name}</span>
+                          {file.protection === 'encrypted' && (
+                            <svg
+                              width="12"
+                              height="12"
+                              viewBox="0 0 24 24"
+                              fill="none"
+                              stroke="currentColor"
+                              strokeWidth="2.5"
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              style={{ marginLeft: '4px', verticalAlign: 'middle', color: 'var(--success)' }}
+                              aria-label="Encrypted"
+                            >
+                              <title>Encrypted</title>
+                              <rect x="3" y="11" width="18" height="11" rx="2" ry="2" />
+                              <path d="M7 11V7a5 5 0 0 1 10 0v4" />
+                            </svg>
+                          )}
+                        </strong>
+                        <small>
+                          {formatFileDate(file.updatedAt)} · v{file.formatVersion} · {file.protection === 'encrypted' ? 'Encrypted' : 'Plain JSON'}
+                        </small>
+                      </span>
+                    </button>
+                    <div className="saved-chat-actions" onDoubleClick={(event) => event.stopPropagation()}>
+                      <button
+                        className="saved-chat-info"
+                        type="button"
+                        disabled={file.protection !== 'plain' || !file.compatible || storybookInfoLoading === file.fileName}
+                        title={file.protection === 'encrypted'
+                          ? 'Preview is unavailable for encrypted Storybooks.'
+                          : !file.compatible
+                            ? 'Preview is unavailable for incompatible Storybooks.'
+                            : `Preview ${file.name}`}
+                        onClick={() => void openStorybookInfo(file)}
+                      >
+                        {storybookInfoLoading === file.fileName ? 'Loading…' : 'Info'}
+                      </button>
+                      <button
+                        className="saved-chat-open"
+                        type="button"
+                        disabled={!file.compatible}
+                        onClick={() => onOpenFile(file)}
+                      >
+                        Open
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+              {(storybookInfoStatus || fileStorageStatus) && (
+                <p className="chat-storage-status">{storybookInfoStatus || fileStorageStatus}</p>
+              )}
+            </div>
+            <div className="dialog-actions chat-files-actions storybook-picker-actions">
+              <button type="button" className="secondary" onClick={onRequestOpenStorybookFile}>Open File</button>
+              <button type="button" className="secondary" onClick={onCloseStorybookPicker}>Continue Without Storybook</button>
+            </div>
+          </section>
+        </div>
+      )}
+
+      {storybookInfo && (
+        <div
+          className="dialog-backdrop"
+          role="presentation"
+          onPointerDown={trackBackdropPointerDown}
+          onClick={(event) => closeFromBackdropClick(event, 'storybook-info', () => setStorybookInfo(null))}
+        >
+          <section
+            ref={activeDialog === 'storybook-info' ? activeDialogRef : undefined}
+            className="storybook-creator-dialog storybook-info-dialog"
+            role="dialog"
+            aria-modal="true"
+            aria-label={`Storybook Preview: ${storybookInfo.file.name}`}
+            tabIndex={-1}
+          >
+            <div className="dialog-header storybook-creator-header">
+              <div className="storybook-title-row">
+                <h2>Storybook Preview</h2>
+                <p>{storybookInfo.file.name}</p>
+              </div>
+              <div className="storybook-header-actions">
+                <button type="button" className="close-button danger" onClick={() => setStorybookInfo(null)}>
+                  Close
+                </button>
+              </div>
+            </div>
+            <div className="storybook-creator-body">
+              <div className="storybook-main-workspace storybook-info-workspace">
+                <div className="storybook-document-panel">
+                  <div className="storybook-panel-content">
+                    <StorybookReadonlyPreview
+                      storybook={storybookInfo.storybook}
+                      showDocumentHeader={false}
+                    />
+                  </div>
+                </div>
+              </div>
+            </div>
+          </section>
+        </div>
+      )}
+
       {showFiles && (
         <div
           className="dialog-backdrop"
@@ -2699,9 +2952,9 @@ export function StudioDialogs({
               <button type="button" className="secondary" onClick={onRequestOpenFile}>
                 Open File
               </button>
-              {!hasStoredWorkflow && (
-                <button type="button" className="secondary" onClick={onRestoreDefaultWorkflow}>
-                  Restore Default Workflow
+              {(!hasStoredWorkflow || !hasStoredStorybook) && (
+                <button type="button" className="secondary" onClick={onRestoreDefaultFiles}>
+                  Restore Default Files
                 </button>
               )}
               <button type="button" className="secondary" onClick={onRequestExportWorkflow}>
@@ -2862,6 +3115,34 @@ export function StudioDialogs({
                       </label>
                     </div>
                   )}
+                  {isSavingCharacter && (
+                    <div className="character-export-options">
+                      <label className="dialog-action-checkbox character-export-posts">
+                        <input
+                          type="checkbox"
+                          checked={includeCharacterOwnPosts}
+                          onChange={(event) => onIncludeCharacterOwnPostsChange(event.target.checked)}
+                        />
+                        <span>
+                          <strong>Export Character with Own Posts</strong>
+                          <small>Include posts published by this character</small>
+                        </span>
+                      </label>
+                      <label className="character-export-location" htmlFor="character-export-location">
+                        <span>EXPORT LOCATION</span>
+                        <NodeCustomSelect<CharacterSaveLocation>
+                          id="character-export-location"
+                          value={characterSaveLocation}
+                          options={[
+                            { value: 'characters', label: 'Characters Folder' },
+                            { value: 'npc-characters', label: 'NPC Library Folder' },
+                            { value: 'choose', label: 'Choose Save Location…' },
+                          ]}
+                          onChange={onCharacterSaveLocationChange}
+                        />
+                      </label>
+                    </div>
+                  )}
                 </>
               )}
               {(sessionPasswordAction === 'load' || sessionPasswordAction === 'load-storybook') && (
@@ -2898,7 +3179,7 @@ export function StudioDialogs({
               {fileStorageStatus && <p className="chat-storage-status">{fileStorageStatus}</p>}
             </div>
             <div className="dialog-actions">
-              {isSavingFile && (
+              {isSavingFile && !isSavingCharacter && (
                 <label className="dialog-action-checkbox">
                   <input
                     type="checkbox"

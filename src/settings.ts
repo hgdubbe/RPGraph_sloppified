@@ -28,6 +28,9 @@ const defaultTokenEstimateBytesPerToken = 3;
 const minTokenEstimateBytesPerToken = 1;
 const maxTokenEstimateBytesPerToken = 8;
 export const defaultChatTextSize = 14;
+const defaultChatTextBrightness = 70;
+const defaultChatColorIntensity = 70;
+
 export const defaultPhoneChatTextSize = 14;
 export const phoneDesktopGridColumns = 8;
 export const phoneDesktopGridRows = 12;
@@ -51,6 +54,7 @@ const defaultPhoneDesktopLayout: PhoneDesktopLayout = {
     onlyfriends: { column: 4, row: 4 },
     notes: { column: 1, row: 3 },
     ai: { column: 3, row: 3 },
+    plottwist: { column: 2, row: 5 },
   },
 };
 const defaultPhoneDesktopIconSize: PhoneDesktopIconSize = 'large';
@@ -181,6 +185,12 @@ function validCalibratedTokenBytesPerToken(value?: number) {
     : undefined;
 }
 
+function validChatAppearancePercent(value: unknown, fallback: number) {
+  return typeof value === 'number' && Number.isFinite(value)
+    ? Math.min(100, Math.max(0, Math.round(value)))
+    : fallback;
+}
+
 function validChatTextSize(value?: number) {
   return Number.isFinite(value) && value !== undefined
     ? Math.min(22, Math.max(11, value))
@@ -265,6 +275,7 @@ function validPhoneDesktopLayout(value: unknown): PhoneDesktopLayout {
       banking: appPosition('banking'),
       fotogram: appPosition('fotogram'),
       onlyfriends: appPosition('onlyfriends'),
+      plottwist: appPosition('plottwist'),
       notes: appPosition('notes'),
       ai: appPosition('ai'),
     },
@@ -814,6 +825,12 @@ function isAppSettings(value: unknown): value is AppSettings {
     isPromptActionCustomPresets(settings.options.promptActionCustomPresets) &&
     isPromptActionRuntimeSettings(settings.options.promptActionSettings) &&
     isStringRecord(settings.options.promptTextCustomPresets) &&
+    (settings.options.chatTextBrightness === undefined ||
+      (typeof settings.options.chatTextBrightness === 'number' &&
+        Number.isFinite(settings.options.chatTextBrightness))) &&
+    (settings.options.chatColorIntensity === undefined ||
+      (typeof settings.options.chatColorIntensity === 'number' &&
+        Number.isFinite(settings.options.chatColorIntensity))) &&
     (settings.options.chatTextSize === undefined ||
       (typeof settings.options.chatTextSize === 'number' &&
         Number.isFinite(settings.options.chatTextSize) &&
@@ -874,6 +891,8 @@ function isAppSettings(value: unknown): value is AppSettings {
       typeof settings.options.dialogueNarratorProviderId === 'string') &&
     (settings.options.dialogueCloneVoiceProviderId === undefined ||
       typeof settings.options.dialogueCloneVoiceProviderId === 'string') &&
+    (settings.options.edgeCharacterPickerHintSeen === undefined ||
+      typeof settings.options.edgeCharacterPickerHintSeen === 'boolean') &&
     (settings.options.phoneNotificationSwitchHintSeen === undefined ||
       typeof settings.options.phoneNotificationSwitchHintSeen === 'boolean') &&
     (!settings.layout || validChatPanelWidth(settings.layout.chatPanelWidth) !== undefined)
@@ -905,6 +924,10 @@ type AppSettingsState = {
   setPromptActionSettings: Dispatch<SetStateAction<PromptActionRuntimeSettings>>;
   promptTextCustomPresets: Record<string, string>;
   setPromptTextCustomPresets: Dispatch<SetStateAction<Record<string, string>>>;
+  chatTextBrightness: number;
+  setChatTextBrightness: Dispatch<SetStateAction<number>>;
+  chatColorIntensity: number;
+  setChatColorIntensity: Dispatch<SetStateAction<number>>;
   chatTextSize: number;
   setChatTextSize: Dispatch<SetStateAction<number>>;
   phoneChatTextSize: number;
@@ -959,6 +982,8 @@ type AppSettingsState = {
   setDialogueNarratorProviderId: Dispatch<SetStateAction<string>>;
   dialogueCloneVoiceProviderId: string;
   setDialogueCloneVoiceProviderId: Dispatch<SetStateAction<string>>;
+  edgeCharacterPickerHintSeen: boolean;
+  setEdgeCharacterPickerHintSeen: Dispatch<SetStateAction<boolean>>;
   phoneNotificationSwitchHintSeen: boolean;
   setPhoneNotificationSwitchHintSeen: Dispatch<SetStateAction<boolean>>;
 };
@@ -980,6 +1005,8 @@ export function useAppSettings(): AppSettingsState {
   const [promptActionCustomPresets, setPromptActionCustomPresets] = useState<PromptActionConfig[]>([]);
   const [promptActionSettings, setPromptActionSettings] = useState<PromptActionRuntimeSettings>({});
   const [promptTextCustomPresets, setPromptTextCustomPresets] = useState<Record<string, string>>({});
+  const [chatTextBrightness, setChatTextBrightness] = useState(defaultChatTextBrightness);
+  const [chatColorIntensity, setChatColorIntensity] = useState(defaultChatColorIntensity);
   const [chatTextSize, setChatTextSize] = useState(defaultChatTextSize);
   const [phoneChatTextSize, setPhoneChatTextSize] = useState(defaultPhoneChatTextSize);
   const [phoneDesktopLayout, setPhoneDesktopLayout] = useState(defaultPhoneDesktopLayout);
@@ -1028,6 +1055,7 @@ export function useAppSettings(): AppSettingsState {
   );
   const [dialogueNarratorProviderId, setDialogueNarratorProviderId] = useState('');
   const [dialogueCloneVoiceProviderId, setDialogueCloneVoiceProviderId] = useState('');
+  const [edgeCharacterPickerHintSeen, setEdgeCharacterPickerHintSeen] = useState(false);
   const [phoneNotificationSwitchHintSeen, setPhoneNotificationSwitchHintSeen] = useState(false);
   const [settingsLoadComplete, setSettingsLoadComplete] = useState(false);
   const [settingsLoaded, setSettingsLoaded] = useState(false);
@@ -1082,6 +1110,8 @@ export function useAppSettings(): AppSettingsState {
         setPromptActionCustomPresets(promptActionConfigs(result.settings.options.promptActionCustomPresets));
         setPromptActionSettings(promptActionRuntimeSettings(result.settings.options.promptActionSettings));
         setPromptTextCustomPresets(workflowVariableRecord(result.settings.options.promptTextCustomPresets));
+        setChatTextBrightness(validChatAppearancePercent(result.settings.options.chatTextBrightness, defaultChatTextBrightness));
+        setChatColorIntensity(validChatAppearancePercent(result.settings.options.chatColorIntensity, defaultChatColorIntensity));
         setChatTextSize(validChatTextSize(result.settings.options.chatTextSize));
         setPhoneChatTextSize(validPhoneChatTextSize(result.settings.options.phoneChatTextSize));
         setPhoneDesktopLayout(validPhoneDesktopLayout(result.settings.options.phoneDesktopLayout));
@@ -1128,6 +1158,7 @@ export function useAppSettings(): AppSettingsState {
         setDialogueVoiceMode(validDialogueVoiceMode(result.settings.options.dialogueVoiceMode));
         setDialogueNarratorProviderId(result.settings.options.dialogueNarratorProviderId ?? '');
         setDialogueCloneVoiceProviderId(result.settings.options.dialogueCloneVoiceProviderId ?? '');
+        setEdgeCharacterPickerHintSeen(result.settings.options.edgeCharacterPickerHintSeen ?? false);
         setPhoneNotificationSwitchHintSeen(
           result.settings.options.phoneNotificationSwitchHintSeen ?? false,
         );
@@ -1174,6 +1205,8 @@ export function useAppSettings(): AppSettingsState {
         promptActionCustomPresets: promptActionSaveConfigs(promptActionCustomPresets),
         promptActionSettings: promptActionRuntimeSettings(promptActionSettings),
         promptTextCustomPresets,
+        chatTextBrightness: validChatAppearancePercent(chatTextBrightness, defaultChatTextBrightness),
+        chatColorIntensity: validChatAppearancePercent(chatColorIntensity, defaultChatColorIntensity),
         chatTextSize: validChatTextSize(chatTextSize),
         phoneChatTextSize: validPhoneChatTextSize(phoneChatTextSize),
         phoneDesktopLayout: validPhoneDesktopLayout(phoneDesktopLayout),
@@ -1201,6 +1234,7 @@ export function useAppSettings(): AppSettingsState {
         dialogueVoiceMode,
         dialogueNarratorProviderId,
         dialogueCloneVoiceProviderId,
+        edgeCharacterPickerHintSeen,
         phoneNotificationSwitchHintSeen,
       },
       layout: {
@@ -1236,6 +1270,8 @@ export function useAppSettings(): AppSettingsState {
     promptActionCustomPresets,
     promptActionSettings,
     promptTextCustomPresets,
+    chatTextBrightness,
+    chatColorIntensity,
     chatTextSize,
     phoneChatTextSize,
     phoneDesktopLayout,
@@ -1261,6 +1297,7 @@ export function useAppSettings(): AppSettingsState {
     dialogueVoiceMode,
     dialogueNarratorProviderId,
     dialogueCloneVoiceProviderId,
+    edgeCharacterPickerHintSeen,
     phoneNotificationSwitchHintSeen,
     settingsLoaded,
     settingsRecoveryNotice,
@@ -1292,6 +1329,10 @@ export function useAppSettings(): AppSettingsState {
     setPromptActionSettings,
     promptTextCustomPresets,
     setPromptTextCustomPresets,
+    chatTextBrightness,
+    setChatTextBrightness,
+    chatColorIntensity,
+    setChatColorIntensity,
     chatTextSize,
     setChatTextSize,
     phoneChatTextSize,
@@ -1346,7 +1387,9 @@ export function useAppSettings(): AppSettingsState {
     setDialogueNarratorProviderId,
     dialogueCloneVoiceProviderId,
     setDialogueCloneVoiceProviderId,
+    edgeCharacterPickerHintSeen,
     phoneNotificationSwitchHintSeen,
+    setEdgeCharacterPickerHintSeen,
     setPhoneNotificationSwitchHintSeen,
   };
 }

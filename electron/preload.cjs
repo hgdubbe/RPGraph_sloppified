@@ -59,10 +59,10 @@ function abortableLlmInvoke(channel, request, onAbort) {
 const rpgraphApi = {
   listModels: (connection, onAbort) =>
     abortableLlmInvoke('llm:list-models', { connection }, onAbort),
-  listLmStudioModels: (connection) =>
-    ipcRenderer.invoke('lmstudio:list-models', { connection }).then(throwIfRpgraphIpcError),
-  listLlamaCppModels: (connection) =>
-    ipcRenderer.invoke('llamacpp:list-models', { connection }).then(throwIfRpgraphIpcError),
+  listLmStudioModels: (connection, onAbort) =>
+    abortableLlmInvoke('lmstudio:list-models', { connection }, onAbort).then(throwIfRpgraphIpcError),
+  listLlamaCppModels: (connection, onAbort) =>
+    abortableLlmInvoke('llamacpp:list-models', { connection }, onAbort).then(throwIfRpgraphIpcError),
   listUnslothModels: (connection) => ipcRenderer.invoke('unsloth:list', { connection }).then(throwIfRpgraphIpcError),
   loadUnslothModel: (connection) => ipcRenderer.invoke('unsloth:load', { connection }).then(throwIfRpgraphIpcError),
   isUnslothModelLoaded: (connection) => ipcRenderer.invoke('unsloth:probe', { connection }).then(throwIfRpgraphIpcError),
@@ -73,8 +73,8 @@ const rpgraphApi = {
     ipcRenderer.invoke('llamacpp:model-loaded', { connection }),
   unloadLlamaCppModels: (connection) =>
     ipcRenderer.invoke('llamacpp:unload-models', { connection }),
-  listOpenRouterModels: (connection) =>
-    ipcRenderer.invoke('openrouter:list-models', { connection }),
+  listOpenRouterModels: (connection, onAbort) =>
+    abortableLlmInvoke('openrouter:list-models', { connection }, onAbort).then(throwIfRpgraphIpcError),
   listCompositeModels: (connection) =>
     ipcRenderer.invoke('composite:list-models', { connection }),
   generateOpenRouterSpeech: (request, onChunk) => {
@@ -95,8 +95,8 @@ const rpgraphApi = {
       .invoke('gemini:generate-speech', { ...request, requestId })
       .finally(() => ipcRenderer.removeListener(channel, listener));
   },
-  listGeminiModels: (connection) =>
-    ipcRenderer.invoke('gemini:list-models', { connection }),
+  listGeminiModels: (connection, onAbort) =>
+    abortableLlmInvoke('gemini:list-models', { connection }, onAbort).then(throwIfRpgraphIpcError),
   listVeniceModels: (connection) =>
     ipcRenderer.invoke('venice:list-models', { connection }),
   generateVeniceSpeech: (request) =>
@@ -109,8 +109,8 @@ const rpgraphApi = {
     ipcRenderer.invoke('lmstudio:model-loaded', { connection }),
   unloadLmStudioModels: (connection) =>
     ipcRenderer.invoke('lmstudio:unload-models', { connection }),
-  listOllamaModels: (connection) =>
-    ipcRenderer.invoke('ollama:list-models', { connection }).then(throwIfRpgraphIpcError),
+  listOllamaModels: (connection, onAbort) =>
+    abortableLlmInvoke('ollama:list-models', { connection }, onAbort).then(throwIfRpgraphIpcError),
   loadOllamaModel: (connection) =>
     ipcRenderer.invoke('ollama:load-model', { connection }),
   isOllamaModelLoaded: (connection) =>
@@ -118,13 +118,19 @@ const rpgraphApi = {
   unloadOllamaModels: (connection) =>
     ipcRenderer.invoke('ollama:unload-models', { connection }),
   chatCompletion: (request, onAbort) => abortableLlmInvoke('llm:chat-completion', request, onAbort),
-  streamChatCompletion: async (request, onChunk, onAbort) => {
+  streamChatCompletion: async (request, onChunk, onAbort, onReasoningTokens) => {
     const requestId = nextLlmRequestId();
     const channel = `llm:chat-stream-chunk:${requestId}`;
+    const reasoningChannel = `llm:chat-stream-reasoning:${requestId}`;
     let streamedText = '';
     const listener = (_event, deltaText) => {
       streamedText += deltaText;
       onChunk(streamedText);
+    };
+    const reasoningListener = (_event, tokenCount) => {
+      if (typeof onReasoningTokens === 'function' && Number.isFinite(tokenCount)) {
+        onReasoningTokens(tokenCount);
+      }
     };
     const requestWithoutSignal = { ...request };
     delete requestWithoutSignal.signal;
@@ -142,6 +148,7 @@ const rpgraphApi = {
     }
 
     ipcRenderer.on(channel, listener);
+    ipcRenderer.on(reasoningChannel, reasoningListener);
     try {
       return await Promise.race([
         ipcRenderer
@@ -155,10 +162,15 @@ const rpgraphApi = {
       ]);
     } finally {
       ipcRenderer.removeListener(channel, listener);
+      ipcRenderer.removeListener(reasoningChannel, reasoningListener);
     }
   },
   listFiles: () => ipcRenderer.invoke('file:list'),
+  confirmV3Migration: (summary) => ipcRenderer.sendSync('character:confirm-v3-migration', summary),
   listCharacterFiles: () => ipcRenderer.invoke('character:list'),
+  getNpcLibrary: () => ipcRenderer.invoke('npc-library:get'),
+  reloadNpcLibrary: () => ipcRenderer.invoke('npc-library:reload'),
+  openNpcLibraryFolder: () => ipcRenderer.invoke('npc-library:open-folder'),
   saveNamedWorkflow: (name, workflow, protection, password, overwrite = false) =>
     ipcRenderer.invoke('workflow:save-named', { name, workflow, protection, password, overwrite }),
   saveRpgraphFileToPath: (request) =>
@@ -178,7 +190,7 @@ const rpgraphApi = {
   loadDefaultWorkflow: () => ipcRenderer.invoke('workflow:load-default'),
   loadStartupWorkflow: () => ipcRenderer.invoke('workflow:load-startup'),
   resolveProjectPath: (relativePath) => ipcRenderer.invoke('app:resolve-project-path', relativePath),
-  restoreDefaultWorkflow: () => ipcRenderer.invoke('workflow:restore-default'),
+  restoreDefaultFiles: () => ipcRenderer.invoke('defaults:restore-files'),
   reloadWorkflow: (filePath) => ipcRenderer.invoke('workflow:reload', filePath),
   saveCurrentWorkflow: (filePath, workflow) =>
     ipcRenderer.invoke('workflow:save-current', { filePath, workflow }),
@@ -211,8 +223,8 @@ const rpgraphApi = {
   clearStagedRecovery: (sessionFileName) => ipcRenderer.invoke('staged-recovery:clear', sessionFileName),
   saveStorybook: (name, storybook, protection, password, overwrite = false) =>
     ipcRenderer.invoke('storybook:save', { name, storybook, protection, password, overwrite }),
-  saveCharacter: (name, characterCard, protection, password, overwrite = false) =>
-    ipcRenderer.invoke('character:save', { name, characterCard, protection, password, overwrite }),
+  saveCharacter: (name, characterCard, protection, password, overwrite = false, destination = 'characters') =>
+    ipcRenderer.invoke('character:save', { name, characterCard, protection, password, overwrite, destination }),
   saveCurrentSession: (filePath, session, protection, password) =>
     ipcRenderer.invoke('session:save-current', { filePath, session, protection, password }),
   minimizeWindow: () => ipcRenderer.invoke('window:minimize'),

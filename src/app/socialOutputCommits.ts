@@ -40,13 +40,13 @@ export function buildSocialDirectMessageCommit({ incoming, characters, messages,
   const warnings: string[] = [];
   const recipientName = incoming.to ?? defaultRecipient?.name;
   if (!recipientName) return { warnings: [`A ${socialAppNames[incoming.app]} direct message from "${incoming.from}" was ignored because it has no recipient.`] };
-  const recipient = resolveSocialMessageIdentity({ characters, messages, app: incoming.app, identity: recipientName });
+  const recipient = resolveSocialMessageIdentity({ characters, messages, app: incoming.app, identity: recipientName, allowNewNpc: true });
   if (!recipient.available) return { warnings: [`A ${socialAppNames[incoming.app]} direct message was ignored. ${recipient.reason}`] };
   const to = recipient.name;
   const toHandle = !incoming.to && defaultRecipient ? defaultRecipient.handle
     : recipient.handle ?? (recipient.character ? socialHandleForCharacter(recipient.character, incoming.app)
       : establishedSocialHandle(messages, incoming.app, to) ?? socialHandleForName(to));
-  const sender = resolveSocialMessageIdentity({ characters, messages, app: incoming.app, identity: incoming.from });
+  const sender = resolveSocialMessageIdentity({ characters, messages, app: incoming.app, identity: incoming.from, allowNewNpc: true });
   if (!sender.available) return { warnings: [`A ${socialAppNames[incoming.app]} direct message was ignored. ${sender.reason}`] };
   const from = sender.name;
   const explicitOrCatalogHandle = socialHandleFromCatalogIdentity(incoming.app, incoming.from, incoming.handle);
@@ -63,6 +63,8 @@ export function buildSocialDirectMessageCommit({ incoming, characters, messages,
   }
   const record: SocialDirectMessageRecord = {
     app: incoming.app, messageId, from, fromHandle, to, toHandle, text: incoming.text, sentAt,
+    ...(sender.accountId ? { fromAccountId: sender.accountId } : {}),
+    ...(recipient.accountId ? { toAccountId: recipient.accountId } : {}),
     ...(incoming.tip !== undefined ? { tip: incoming.tip } : {}),
     ...(originPost ? { origin: { postId: originPost.postId, postAuthor: originPost.author, postAuthorHandle: originPost.authorHandle,
       postCaption: originPost.caption, postImageId: originPost.imageId, postImageDescription: originPost.imageDescription } } : {}),

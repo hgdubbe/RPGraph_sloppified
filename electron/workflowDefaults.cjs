@@ -1,6 +1,5 @@
 const path = require('node:path');
 
-const defaultWorkflowFileNamePattern = /^workflow\.default.*\.json$/i;
 
 // Rank the file that becomes primary/auto-activated on a fresh install (whichever sorts
 // last). decision-v1 is this project's stated primary direction, so it must outrank
@@ -14,7 +13,7 @@ function tierOf(name) {
 
 function bundledDefaultWorkflowFileNames(names) {
   return names
-    .filter((name) => defaultWorkflowFileNamePattern.test(name))
+    .filter((name) => /\.json$/i.test(name))
     .sort((left, right) => {
       const tierDiff = tierOf(left) - tierOf(right);
       if (tierDiff !== 0) {
@@ -37,6 +36,14 @@ function importedDefaultFileNamesFromState(state) {
   ]));
 }
 
+function missingDefaultFileTypes(files) {
+  const types = new Set(Array.isArray(files) ? files.map((file) => file?.type) : []);
+  return [
+    ...(!types.has('workflow') ? ['workflows'] : []),
+    ...(!types.has('storybook') ? ['Storybooks'] : []),
+  ];
+}
+
 async function restoreBundledDefaultWorkflows(
   bundledPaths,
   restoreWorkflow,
@@ -57,5 +64,6 @@ async function restoreBundledDefaultWorkflows(
 module.exports = {
   bundledDefaultWorkflowFileNames,
   importedDefaultFileNamesFromState,
+  missingDefaultFileTypes,
   restoreBundledDefaultWorkflows,
 };

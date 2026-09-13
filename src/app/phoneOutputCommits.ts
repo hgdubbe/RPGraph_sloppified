@@ -21,6 +21,10 @@ export type PhoneOutputCommitInput = {
   workflowVariableSetCommands?: WorkflowVariableSetCommand[];
   turnContext?: TurnContext;
   includeSourceOrder?: boolean;
+  /** Account-id-resolved from/to, when the caller already has it (e.g. from
+   * `resolveWhatsUpMessageParticipants`) — used instead of the fuzzy `canonicalPhoneName`
+   * lookup so the stored message carries the exact account the reply was resolved against. */
+  resolvedParticipants?: { from: { name: string; accountId?: string }; to: { name: string; accountId?: string } };
 };
 
 // Compatibility projection only. Legacy name recovery and unresolved gallery
@@ -29,8 +33,10 @@ export function buildPhoneOutputCommits(input: PhoneOutputCommitInput): PhoneOut
   return input.replies.map((reply, index) => {
     const payload: ParsedPhoneMessage = {
       ...reply,
-      from: canonicalPhoneName(input.phoneCharacters, reply.from),
-      to: canonicalPhoneName(input.phoneCharacters, reply.to),
+      from: input.resolvedParticipants?.from.name ?? canonicalPhoneName(input.phoneCharacters, reply.from),
+      to: input.resolvedParticipants?.to.name ?? canonicalPhoneName(input.phoneCharacters, reply.to),
+      ...(input.resolvedParticipants?.from.accountId ? { fromAccountId: input.resolvedParticipants.from.accountId } : {}),
+      ...(input.resolvedParticipants?.to.accountId ? { toAccountId: input.resolvedParticipants.to.accountId } : {}),
       ...(input.turnContext ? { turnContext: input.turnContext } : {}),
     };
     if (input.resolveRpPictures) {

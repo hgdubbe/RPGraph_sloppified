@@ -63,6 +63,8 @@ type SpeakerAttribution = {
 };
 
 type PhoneMetadata = {
+  fromAccountId?: string;
+  toAccountId?: string;
   from: string;
   to: string;
   voiceMessage?: boolean;
@@ -102,6 +104,7 @@ export type TimelineOutputActions = {
 };
 
 export type TimelineMessageEntry = {
+  accountLinks?: import('../chat/accountLinks').AccountLink[];
   id: string;
   kind: 'message';
   turnId: string;
@@ -152,6 +155,7 @@ export type TimelineMessageEntry = {
   socialThreadAction?: SocialThreadActionRecord;
   socialReactions?: SocialReactionsRecord;
   socialDirectMessage?: SocialDirectMessageRecord;
+  matchMeMatch?: import('../types').MatchMeMatch;
   createdPhoneNote?: CreatedPhoneNoteCommit;
   deletedPhoneNote?: DeletedPhoneNoteCommit;
   simulatedAiChat?: SimulatedAiChatCommit;
@@ -249,6 +253,8 @@ export type SessionEntities = {
 type NodeRuntimeState = Record<string, unknown>;
 
 export type RuntimeState = {
+  /** Pooled JSON revision archive shared by current activity and undo history. */
+  npcParticipantsJson?: string;
   nodes: Record<string, NodeRuntimeState>;
   workflowVariables: Record<string, string>;
 };
@@ -263,6 +269,7 @@ export type TurnCheckpoint = {
   nodeSnapshots: Record<string, {
     before: Record<string, unknown>;
     after: Record<string, unknown>;
+    clearedFields?: { before: string[]; after: string[] };
   }>;
   eventSnapshots?: Record<string, {
     before?: EventEntity;

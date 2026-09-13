@@ -1,3 +1,4 @@
+import type { CharacterApps } from '../characters/character';
 import type { ChatImageAttachment, WorkflowNode } from '../types';
 import {
   parseNodeStorybookJson,
@@ -40,6 +41,12 @@ type StorybookCharacterProfile = {
 };
 
 export type StorybookCharacter = {
+  /** Participant data remains available even when this character cannot be selected as the player. */
+  playerSelectable?: boolean;
+  libraryNpc?: boolean;
+  npcOrigin?: boolean;
+  images?: RpStorybookCharacterImage[];
+  identityAliases?: import("../characters/registry").CharacterRegistryAliases;
   id: string;
   storybookNodeId: string;
   kind: StorybookCharacterKind;
@@ -54,6 +61,7 @@ export type StorybookCharacter = {
   banking: RpStorybookCharacterBanking;
   social: RpStorybookCharacterSocial;
   decisionSettings?: RpStorybookCharacterDecisionSettings;
+  apps?: CharacterApps;
 };
 
 export type StorybookImageList = {
@@ -127,8 +135,11 @@ export function storyCharactersFromNodes(nodes: WorkflowNode[]): StorybookCharac
         ...(character.profileImage ? { profileImage: character.profileImage } : {}),
         phoneSettings: character.phoneSettings ?? defaultRpStorybookCharacterPhoneSettings(),
         banking: character.banking ?? defaultRpStorybookCharacterBanking(),
+        apps: character.apps,
+        images: character.images,
         social: character.social ?? defaultRpStorybookCharacterSocial(),
         ...(character.decisionSettings ? { decisionSettings: character.decisionSettings } : {}),
+        playerSelectable: character.playable !== false,
       };
     });
   });

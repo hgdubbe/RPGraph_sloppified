@@ -8,7 +8,7 @@ import { bundledDefaultWorkflowFileNames } from '../../electron/workflowDefaults
 import type { AppSettings } from '../../src/types';
 
 const repoRoot = path.resolve(__dirname, '..', '..');
-const defaultWorkflowsDirectory = path.join(repoRoot, 'default_workflows');
+const bundledDefaultContentDirectory = path.join(repoRoot, 'resources', 'default-content');
 
 export type WorkflowFixture = {
   format: 'rpgraph-workflow';
@@ -31,9 +31,12 @@ export type LaunchedApp = {
 // is skipped (otherwise it clobbers lastWorkflowFileName and the default loads instead
 // of our fixture).
 function bundledDefaultBasename(): string {
-  const names = bundledDefaultWorkflowFileNames(fs.readdirSync(defaultWorkflowsDirectory));
+  const pattern = /^workflow\.default.*\.json$/i;
+  const names = bundledDefaultWorkflowFileNames(
+    fs.readdirSync(bundledDefaultContentDirectory).filter((name) => pattern.test(name)),
+  );
   if (names.length === 0) {
-    throw new Error('No workflow.default*.json found in default_workflows/.');
+    throw new Error('No workflow.default*.json found in resources/default-content.');
   }
   return names[names.length - 1];
 }

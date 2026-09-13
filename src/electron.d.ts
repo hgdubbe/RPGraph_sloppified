@@ -19,6 +19,7 @@ import type { RpgraphSessionV2 } from './data-management/types';
 import type { ActionScope } from './actions/contracts';
 import type { ActionResult } from './actions/executionRegistry';
 import type { SerializedStagedRetryState } from './staged-workflow/stagedRetryPersistence';
+import type { NpcLibrarySnapshot } from './characters/npcLibrary';
 
 type EffectJournalEntry = {
   operationId: string;
@@ -44,8 +45,8 @@ declare global {
         connection: ConnectionPreset,
         onAbort?: (cancel: () => void) => void,
       ) => Promise<string[]>;
-      listLmStudioModels: (connection: ConnectionPreset) => Promise<LmStudioModelInfo[]>;
-      listLlamaCppModels: (connection: ConnectionPreset) => Promise<LlamaCppModelInfo[]>;
+      listLmStudioModels: (connection: ConnectionPreset, onAbort?: (cancel: () => void) => void) => Promise<LmStudioModelInfo[]>;
+      listLlamaCppModels: (connection: ConnectionPreset, onAbort?: (cancel: () => void) => void) => Promise<LlamaCppModelInfo[]>;
       listUnslothModels: (connection: ConnectionPreset) => Promise<LlamaCppModelInfo[]>;
       loadUnslothModel: (connection: ConnectionPreset) => Promise<{ loadedModel: string }>;
       isUnslothModelLoaded: (connection: ConnectionPreset) => Promise<{ loaded: boolean; status: string }>;
@@ -53,7 +54,7 @@ declare global {
       loadLlamaCppModel: (connection: ConnectionPreset) => Promise<{ loadedModel: string }>;
       isLlamaCppModelLoaded: (connection: ConnectionPreset) => Promise<{ loaded: boolean; status: LlamaCppModelInfo['status'] }>;
       unloadLlamaCppModels: (connection: ConnectionPreset) => Promise<{ unloadedCount: number; models: string[] }>;
-      listOpenRouterModels: (connection: ConnectionPreset) => Promise<OpenRouterModelInfo[]>;
+      listOpenRouterModels: (connection: ConnectionPreset, onAbort?: (cancel: () => void) => void) => Promise<OpenRouterModelInfo[]>;
       listCompositeModels: (connection: ConnectionPreset) => Promise<CompositeModelInfo[]>;
       generateOpenRouterSpeech: (request: {
         connection: ConnectionPreset;
@@ -63,7 +64,7 @@ declare global {
         connection: ConnectionPreset;
         input: string;
       }, onChunk?: (base64PcmChunk: string) => void) => Promise<{ dataUrl: string; filename: string }>;
-      listGeminiModels: (connection: ConnectionPreset) => Promise<GeminiModelInfo[]>;
+      listGeminiModels: (connection: ConnectionPreset, onAbort?: (cancel: () => void) => void) => Promise<GeminiModelInfo[]>;
       listVeniceModels: (connection: ConnectionPreset) => Promise<VeniceModelInfo[]>;
       generateVeniceSpeech: (request: {
         connection: ConnectionPreset;
@@ -85,7 +86,7 @@ declare global {
         instanceIds: string[];
         method?: 'rest' | 'cli';
       }>;
-      listOllamaModels: (connection: ConnectionPreset) => Promise<OllamaModelInfo[]>;
+      listOllamaModels: (connection: ConnectionPreset, onAbort?: (cancel: () => void) => void) => Promise<OllamaModelInfo[]>;
       loadOllamaModel: (connection: ConnectionPreset) => Promise<{
         loadedModel: string;
       }>;
@@ -122,9 +123,14 @@ declare global {
         },
         onChunk: (text: string) => void,
         onAbort?: (cancel: () => void) => void,
+        onReasoningTokens?: (tokenCount: number) => void,
       ) => Promise<LlmCompletionResult>;
       listFiles: () => Promise<SavedFileSummary[]>;
+      confirmV3Migration: (summary: string) => boolean;
       listCharacterFiles: () => Promise<SavedFileSummary[]>;
+      getNpcLibrary: () => Promise<NpcLibrarySnapshot>;
+      reloadNpcLibrary: () => Promise<NpcLibrarySnapshot>;
+      openNpcLibraryFolder: () => Promise<{ path: string }>;
       saveNamedWorkflow: (
         name: string,
         workflow: WorkflowFile,
@@ -258,10 +264,13 @@ declare global {
       resolveProjectPath: (relativePath: string) => Promise<{
         path: string;
       }>;
-      restoreDefaultWorkflow: () => Promise<{
-        filePath: string;
-        fileName: string;
-        workflow: unknown;
+      restoreDefaultFiles: () => Promise<{
+        restoredTypes: string[];
+        workflow?: {
+          filePath: string;
+          fileName: string;
+          value: unknown;
+        };
       }>;
       reloadWorkflow: (filePath: string) => Promise<{
         filePath: string;
@@ -507,6 +516,7 @@ declare global {
         protection: 'plain' | 'encrypted',
         password: string,
         overwrite?: boolean,
+        destination?: 'characters' | 'npc-characters',
       ) => Promise<{ fileName: string; name: string; filePath: string; conflict?: boolean }>;
       saveCurrentSession: (
         filePath: string,
