@@ -21,9 +21,9 @@ Current state: Port only UI Changes to 0.5 Upstream Version
   
 
 
-~~- new mode:
-~~  - Similar to planned mode, but anchored into backend to make it easier for dumb llms
-~~  - Checkpointing
+- new mode:
+  - Similar to planned mode, but anchored into backend to make it easier for dumb llms
+  - Checkpointing
   
 - minor features:
   - Character mood selector in phone simulation
