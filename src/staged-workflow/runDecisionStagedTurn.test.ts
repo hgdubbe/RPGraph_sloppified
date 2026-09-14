@@ -406,7 +406,7 @@ describe('runDecisionStagedTurn', () => {
 });
 
 describe('runDecisionStagedTurn — debug output (S13)', () => {
-  it('captures the sequence call and every block call, including one for a block later dropped for an invalid target', async () => {
+  it('captures the sequence call and every block call, skipping a draft call for a block dropped upfront for an invalid target', async () => {
     const nodes = storyNodes();
     const [primaryCharacterId] = storyCharacterIds(nodes);
     const llm = decisionLlm({
@@ -418,8 +418,11 @@ describe('runDecisionStagedTurn — debug output (S13)', () => {
     const result = await runDecisionStagedTurn({ nodes, messages: [], currentInputText: 'Hi', primaryCharacterId, scope, llm });
     expect(result.status).toBe('ok');
     if (result.status !== 'ok') return;
+    // "Kai" resolves to nobody in this story's cast, so the unknown-recipient check up front
+    // (runDecisionStagedTurn.ts) drops the block before ever drafting its content — no wasted
+    // "whatsup-message / draft" call here.
     expect(result.debug?.calls.map((call) => call.label)).toEqual([
-      'Decision workflow / sequence', 'Decision workflow / narration / speech', 'Decision workflow / whatsup-message / draft',
+      'Decision workflow / sequence', 'Decision workflow / narration / speech',
     ]);
     expect(result.debug?.calls[0].response).toBe('narration\nwhatsup-message: Kai');
     expect(result.debug?.warnings).toEqual([expect.stringContaining('unknown recipient "Kai"')]);

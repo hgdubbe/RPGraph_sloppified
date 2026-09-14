@@ -60,6 +60,13 @@ export function availableBlockTypes(allowedRecipeIds?: readonly string[]): Decis
  * decisionAssembler.ts for how each block type actually interprets them. */
 export type DecisionBlockRequest = { type: DecisionBlockType; target?: string; detail?: string };
 
+/** Which block types treat `target` as a character name to resolve — shared with
+ * decisionAssembler.ts's own recipient lookup, so the two can't drift on which types this
+ * applies to. */
+export const targetsCharacter: Partial<Record<DecisionBlockType, true>> = {
+  'whatsup-message': true, 'voice-message': true, 'picture-message': true, 'bank-transfer': true, 'social-comment': true,
+};
+
 /**
  * Decision-v1's presentation-style controls (structural-variety punch-list item). Deliberately
  * *descriptive* guidance fed to the model, never a computed probability/RNG that decides for
@@ -154,7 +161,29 @@ export function buildSequencePrompt(
   ].join('\n');
 }
 
-export function parseSequence(text: string, blockTypes: DecisionBlockType[]): DecisionBlockRequest[] {
+/** Found live: a model sometimes glues trailing content onto a recipient name with no quote
+ * to mark where the name ends (e.g. narrator input shaped like "X in whatsup: text" produced
+ * the literal recipient "Avery Hart stfu!"), which the quote-based dialogue cut below never
+ * catches. Given the real character list, try trimming trailing words one at a time and use the
+ * longest prefix that exactly matches a known name; falls back to the untrimmed text (and lets
+ * the caller's own "unknown recipient" handling report it) when nothing matches. */
+function resolveKnownCharacterPrefix(rawTarget: string, characterNames: readonly string[]): string {
+  if (!characterNames.length) return rawTarget;
+  const knownLower = new Set(characterNames.map((name) => name.toLowerCase()));
+  if (knownLower.has(rawTarget.toLowerCase())) return rawTarget;
+  const words = rawTarget.split(/\s+/);
+  for (let end = words.length - 1; end > 0; end -= 1) {
+    const candidate = words.slice(0, end).join(' ');
+    if (knownLower.has(candidate.toLowerCase())) return candidate;
+  }
+  return rawTarget;
+}
+
+export function parseSequence(
+  text: string,
+  blockTypes: DecisionBlockType[],
+  characterNames: readonly string[] = [],
+): DecisionBlockRequest[] {
   const known = new Set<string>(blockTypes);
   const requests: DecisionBlockRequest[] = [];
   for (const rawLine of text.split('\n')) {
@@ -164,7 +193,7 @@ export function parseSequence(text: string, blockTypes: DecisionBlockType[]): De
     const line = rawLine.trim().replace(/^[-*>\d.)\s]+/, '');
     if (!line) continue;
     const [typePart, ...rest] = line.split(':');
-    const type = typePart.trim().toLowerCase();
+    const type = typePart.trim().toLowerCase() as DecisionBlockType;
     if (!known.has(type)) continue;
     // Found live: a model sometimes writes the actual message content right after the
     // recipient name instead of stopping there (e.g. `voice-message: Bob "I was looking at
@@ -172,8 +201,11 @@ export function parseSequence(text: string, blockTypes: DecisionBlockType[]): De
     // unrecognized recipient name and drop the block. Dialogue almost always opens with a
     // quote preceded by whitespace — a real name essentially never does — so cut there.
     const trailing = rest.join(':').replace(/\s["'“‘].*$/s, '');
-    const [target, detail] = trailing.split(',').map((part) => part.trim()).filter(Boolean);
-    requests.push({ type: type as DecisionBlockType, target, detail });
+    const [rawTarget, detail] = trailing.split(',').map((part) => part.trim()).filter(Boolean);
+    const target = rawTarget && targetsCharacter[type]
+      ? resolveKnownCharacterPrefix(rawTarget, characterNames)
+      : rawTarget;
+    requests.push({ type, target, detail });
   }
   return requests;
 }

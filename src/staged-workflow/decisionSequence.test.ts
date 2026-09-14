@@ -60,6 +60,21 @@ describe('parseSequence', () => {
       { type: 'social-post', target: 'onlyfriends', detail: undefined },
     ]);
   });
+
+  it('given the real character list, trims trailing words glued onto a recipient with no quote to mark the cut, found live against a real model', () => {
+    expect(parseSequence('whatsup-message: Avery Hart stfu!', ['whatsup-message'], ['Ryan Parker', 'Avery Hart', 'Helga Harper']))
+      .toEqual([{ type: 'whatsup-message', target: 'Avery Hart', detail: undefined }]);
+  });
+
+  it('leaves a target untouched when no known character name is a prefix of it', () => {
+    expect(parseSequence('whatsup-message: Someone Else Entirely', ['whatsup-message'], ['Ryan Parker', 'Avery Hart']))
+      .toEqual([{ type: 'whatsup-message', target: 'Someone Else Entirely', detail: undefined }]);
+  });
+
+  it('does not apply character-name trimming to a type whose target is not a character (social-post app)', () => {
+    expect(parseSequence('social-post: onlyfriends', ['social-post'], ['Onlyfriends Smith']))
+      .toEqual([{ type: 'social-post', target: 'onlyfriends', detail: undefined }]);
+  });
 });
 
 describe('availableBlockTypes', () => {

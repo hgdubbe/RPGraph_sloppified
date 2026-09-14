@@ -7,13 +7,7 @@ import type { VariableStore } from './variableStore';
 import type { DecisionOutcome } from './decisionNodes';
 import { stagedRecipeById, stagedRecipeDefinitions } from './recipeInventory';
 import { latestPostByAuthor, type DecisionSceneContext } from './decisionSceneContext';
-import { decisionBlockRecipeIds, type DecisionBlockRequest, type DecisionBlockType } from './decisionSequence';
-
-/** Which block types treat `request.target` as a character name to resolve (as opposed to
- * `social-post`, which repurposes that same slot for an app name, or types with no target at all). */
-const targetsCharacter: Partial<Record<DecisionBlockType, true>> = {
-  'whatsup-message': true, 'voice-message': true, 'picture-message': true, 'bank-transfer': true, 'social-comment': true,
-};
+import { decisionBlockRecipeIds, targetsCharacter, type DecisionBlockRequest } from './decisionSequence';
 
 type LockedArgumentsResult = { ok: true; args: Record<string, string | number | boolean> } | { ok: false; reason: string };
 

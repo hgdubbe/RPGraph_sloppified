@@ -5,7 +5,7 @@ import { buildBlockPlan } from './decisionBlocks';
 import { runDecisionNodes } from './decisionNodes';
 import { captureDecisionContext } from './decisionSceneContext';
 import {
-  availableBlockTypes, buildSequencePrompt, parseSequence,
+  availableBlockTypes, buildSequencePrompt, parseSequence, targetsCharacter,
   defaultDecisionComposition, type DecisionBlockRequest,
 } from './decisionSequence';
 import { runStagedTurn } from './orchestrator';
@@ -84,7 +84,7 @@ export async function runDecisionStagedTurn(options: StagedTurnOptions): Promise
     purpose: 'Decision workflow sequence', signal: options.signal,
   });
   debugCalls.push({ label: 'Decision workflow / sequence', prompt: sequencePrompt, response: sequenceResult.text });
-  const rawSequence = parseSequence(sequenceResult.text, blockTypes);
+  const rawSequence = parseSequence(sequenceResult.text, blockTypes, Object.keys(scene.characters));
   // Sanity-check backstop only, never the decision-maker: the model was already told the cap
   // in buildSequencePrompt's guidance and should self-limit; this just guards against it not
   // doing so. Narration doesn't count against the cap — only non-narration ("action") blocks.
@@ -104,6 +104,13 @@ export async function runDecisionStagedTurn(options: StagedTurnOptions): Promise
     assembly.warnings.push(`Dropped ${droppedCount} action block(s) beyond the configured max of ${composition.maxActionsPerTurn} per turn.`);
   }
   for (const request of sequence) {
+    // Resolve the recipient before spending a draft-content call on it — decisionAssembler.ts
+    // checks this again (it's the authority on what actually gets dropped), but catching an
+    // unresolvable target here first avoids drafting a message addressed to a name nobody has.
+    if (request.target && targetsCharacter[request.type] && !scene.characters[request.target]) {
+      assembly.warnings.push(`Skipped ${request.type}: unknown recipient "${request.target}".`);
+      continue;
+    }
     const { nodes, context: blockContext } = buildBlockPlan(request, scene, composition, options.decisionExtras);
     try {
       const outcomes = await runDecisionNodes(nodes, blockContext, options.llm, {
