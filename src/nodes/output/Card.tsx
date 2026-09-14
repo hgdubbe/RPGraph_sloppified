@@ -130,12 +130,20 @@ export function OutputNodeCard({ id, data }: NodeProps<WorkflowNode>) {
     }
     updateSpeakerPrompt(next);
   };
+  // decision-v1 activates via a Decision Router node's presence in the graph, not this node's
+  // Action protocol field (see the dropdown below) — so its presence must gate the staged debug
+  // panels directly. Relying on `data.actionProtocol === 'decision-v1'` alone would never work:
+  // nothing in the UI ever sets that value.
+  const decisionRouterPresent = view.nodes.some(
+    (node) => node.data.kind === undefined && node.data.nodeType === 'decision-router',
+  );
   // decision-v1 reuses the Staged Instructions text and Staged Recipes allow-list as-is
   // (see runDecisionStagedTurn.ts/decisionSequence.ts), and its result feeds the same
   // Staged Plan debug viewer (stagedPlanDebugSnapshot doesn't branch on protocol) — so these
   // three panels stay enabled for both protocols; the beats/calls/generations limit inputs
   // below remain staged-v1-only until decision-v1 wires its own budget enforcement.
-  const isStagedLikeProtocol = data.actionProtocol === 'staged-v1' || data.actionProtocol === 'decision-v1';
+  const isStagedLikeProtocol = decisionRouterPresent ||
+    data.actionProtocol === 'staged-v1' || data.actionProtocol === 'decision-v1';
   const [showStagedInstructions, setShowStagedInstructions] = useState(false);
   const stagedInstructionsBackdropDismiss = useBackdropDismiss<HTMLDivElement>(() => setShowStagedInstructions(false));
   const [workflowInstructionsText, setWorkflowInstructionsText] = useState<string | undefined>();
@@ -209,6 +217,10 @@ export function OutputNodeCard({ id, data }: NodeProps<WorkflowNode>) {
       <span className="node-description">{data.description}</span>
       <ConnectionSelect id={id} label="OUTPUT TRANSLATOR / ANALYSIS LLM" connectionId={data.connectionId} />
       <div className="output-options">
+        {/* 'actions-v1' (Structured) and 'staged-v1' (Staged) are legacy, replaced by
+            'decision-v1', and no longer offered here — see TODO.md's "clean up modes" entry.
+            A workflow saved with one of those values keeps working (the field itself is only
+            read below and by a couple of useGraphRun.ts checks), it just can't be picked again. */}
         <label className="node-field-label" htmlFor={`${id}-action-protocol`}>Action protocol</label>
         <NodeCustomSelect
           id={`${id}-action-protocol`}
@@ -216,8 +228,7 @@ export function OutputNodeCard({ id, data }: NodeProps<WorkflowNode>) {
           onChange={(value) => updateData(id, { actionProtocol: value })}
           options={[
             { value: 'legacy', label: 'Original' },
-            { value: 'actions-v1', label: 'Structured' },
-            { value: 'staged-v1', label: 'Staged' },
+            { value: 'decision-v1', label: 'Decision' },
           ]}
         />
         {/* Decision workflow (decision-v1) activates via a Decision Router node's presence in
