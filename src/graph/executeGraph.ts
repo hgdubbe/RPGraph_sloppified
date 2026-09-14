@@ -120,7 +120,6 @@ function throwIfAborted(signal?: AbortSignal) {
   }
 }
 
-export type { CreateImageCharacterNameResolution } from './comfyImageRunner';
 export { resolveCreateImageCharacterByName } from './comfyImageRunner';
 
 function withoutPromptPreviewFields(patch: Partial<WorkflowNodeData>) {

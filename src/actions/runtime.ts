@@ -2,7 +2,7 @@ import { compileActionReply } from './compileReply';
 import type { ActionCatalog, ActionPlan, ActionScope, ActionValidationIssue, ValidatedOperation } from './contracts';
 import { actionExecutionDefinition, assertCatalogScope, assertOperationAvailable, type ActionAdapters, type ActionResult } from './executionRegistry';
 
-export type OperationOutcome = {
+type OperationOutcome = {
   id: string;
   status: 'committed' | 'failed' | 'cancelled' | 'blocked' | 'outcome-unknown';
   result?: ActionResult;

@@ -31,10 +31,10 @@ export type TurnContext = {
   instructions: Record<string, VariableRef>;
 };
 
-export const stageKinds = ['retrieve', 'plan', 'generate-content', 'execute-action', 'compose', 'await-user'] as const;
+const stageKinds = ['retrieve', 'plan', 'generate-content', 'execute-action', 'compose', 'await-user'] as const;
 export type StageKind = typeof stageKinds[number];
 export type DependencyKind = 'content' | 'artifact' | 'state' | 'observation' | 'presentation' | 'user-input';
-export type StageDefinition = {
+type StageDefinition = {
   id: string;
   kind: StageKind;
   inputs: VariableRef[];
@@ -44,7 +44,7 @@ export type StageDefinition = {
   providerId?: string;
   recipeId?: string;
 };
-export type BeatDefinition = {
+type BeatDefinition = {
   id: string;
   speakerId?: string;
   content: VariableRef[];

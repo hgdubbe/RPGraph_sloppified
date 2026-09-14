@@ -2,7 +2,7 @@ import { type CSSProperties, type ReactNode } from 'react';
 
 export type StorySurfaceId = 'chat' | 'phone' | 'gallery' | 'social' | 'events' | 'bank' | 'notes';
 
-export type StorySurfaceItem = {
+type StorySurfaceItem = {
   id: StorySurfaceId;
   label: string;
   badge?: number;

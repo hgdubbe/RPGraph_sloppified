@@ -5,7 +5,7 @@ import { parseJsonReply } from '../llm/extractJsonReply';
 import { validateAssistantChatMessages } from '../actions/assistantChatMessages';
 import { actionLimits } from '../actions/schema';
 
-export type StageRunStatus = 'pending' | 'ready' | 'running' | 'succeeded' | 'failed' | 'cancelled' | 'blocked';
+type StageRunStatus = 'pending' | 'ready' | 'running' | 'succeeded' | 'failed' | 'cancelled' | 'blocked';
 
 export type StageRunState = {
   stageId: string;
@@ -17,7 +17,7 @@ export type StageRunState = {
   error?: string;
 };
 
-export type StagedRunDiagnostics = {
+type StagedRunDiagnostics = {
   startedAtMs: number;
   endedAtMs: number;
   durationMs: number;
@@ -26,7 +26,7 @@ export type StagedRunDiagnostics = {
   variableWrites: number;
 };
 
-export type StageRunSnapshot = {
+type StageRunSnapshot = {
   stages: StageRunState[];
   outputs: Record<string, VariableRef>;
   diagnostics: Omit<StagedRunDiagnostics, 'endedAtMs' | 'durationMs'>;

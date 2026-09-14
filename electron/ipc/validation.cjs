@@ -50,10 +50,6 @@ function assertSettingsPayload(value) {
 }
 
 module.exports = {
-  assertObject,
-  assertString,
-  assertOptionalString,
-  assertProviderConnection,
   assertChatCompletionRequest,
   assertSettingsPayload,
 };

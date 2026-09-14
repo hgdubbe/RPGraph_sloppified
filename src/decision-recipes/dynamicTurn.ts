@@ -8,13 +8,13 @@ import type { DecisionContext, DecisionLlm, DecisionNode, DecisionOutcome } from
  * runs its own small decision-recipe. Still fully standalone; still zero wiring into the app.
  */
 
-export type BlockType = 'narration' | 'whatsup-message' | 'voice-message' | 'image';
+type BlockType = 'narration' | 'whatsup-message' | 'voice-message' | 'image';
 
 const knownBlockTypes: BlockType[] = ['narration', 'whatsup-message', 'voice-message', 'image'];
 
 export type BlockRequest = { type: BlockType; target?: string };
 
-export type CharacterProfile = {
+type CharacterProfile = {
   /** Behavior/voice — how the character acts and talks. Never fed into an image prompt. */
   persona: string;
   /** Physical description — what the character looks like. Only relevant to `image` blocks;
@@ -38,7 +38,7 @@ function findCharacter(scene: SceneContext, name: string | undefined): Character
 
 /** The one call with any real "planning" left in it — and it's tiny: a short ordered list of
  * block-type names, not a structured JSON plan. No refs, no IDs, no dependency wiring. */
-export function buildSequencePrompt(scene: SceneContext): string {
+function buildSequencePrompt(scene: SceneContext): string {
   return [
     `Situation: ${scene.situation}`,
     `${scene.actorName} is deciding what to do this turn. Available action types:`,
@@ -141,7 +141,7 @@ const blockBuilders: Record<BlockType, BlockBuilder> = {
   image: imageBlock,
 };
 
-export type DynamicTurnBlockResult = { request: BlockRequest; outcomes: DecisionOutcome[] };
+type DynamicTurnBlockResult = { request: BlockRequest; outcomes: DecisionOutcome[] };
 export type DynamicTurnResult = { sequence: BlockRequest[]; blocks: DynamicTurnBlockResult[] };
 
 /** Runs the sequence-decision call, then each chosen block's own decision-recipe in order. */

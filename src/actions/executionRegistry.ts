@@ -5,15 +5,15 @@ import {
 import { actionDefinitions } from './schema';
 
 type AdapterContext = { operationId: string; scope: ActionScope; signal?: AbortSignal };
-export type ImageGenerationRequest = AdapterContext & { ownerId: string; description: string };
-export type MessageDeliveryRequest = AdapterContext & {
+type ImageGenerationRequest = AdapterContext & { ownerId: string; description: string };
+type MessageDeliveryRequest = AdapterContext & {
   app: 'whatsup'; fromId: string; toId: string; text: string; artifactId?: string; isVoiceMessage?: boolean;
 };
-export type SocialPostRequest = AdapterContext & { app: SocialApp; authorId: string; caption: string };
-export type SocialCommentRequest = AdapterContext & { app: SocialApp; authorId: string; postId: string; text: string };
-export type BankTransferRequest = AdapterContext & { fromId: string; toId: string; amount: number; note?: string };
-export type NoteWriteRequest = AdapterContext & { ownerId: string; title: string; body: string; noteId?: string };
-export type AssistantChatRequest = AdapterContext & { ownerId: string; messages: AssistantChatMessage[] };
+type SocialPostRequest = AdapterContext & { app: SocialApp; authorId: string; caption: string };
+type SocialCommentRequest = AdapterContext & { app: SocialApp; authorId: string; postId: string; text: string };
+type BankTransferRequest = AdapterContext & { fromId: string; toId: string; amount: number; note?: string };
+type NoteWriteRequest = AdapterContext & { ownerId: string; title: string; body: string; noteId?: string };
+type AssistantChatRequest = AdapterContext & { ownerId: string; messages: AssistantChatMessage[] };
 
 // Adapters must persist the asset/message/post before acknowledging it. The H7 effect
 // journal (see runtime.ts) durably records the attempt, but reconciliation/retry is not

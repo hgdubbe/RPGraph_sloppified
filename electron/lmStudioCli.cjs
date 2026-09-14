@@ -59,5 +59,4 @@ function lmStudioCliExecOptions(command, args = ['unload', '--all'], platform = 
 module.exports = {
   lmStudioCliCommand,
   lmStudioCliExecOptions,
-  quotedWindowsCliArgument,
 };

@@ -12,7 +12,7 @@ import type { StructuredInputPayload } from '../chat/structuredCommands';
 import type { SocialThreadRunContext } from '../chat/socialMedia';
 import type { StagedRetryState } from '../staged-workflow/runLiveStagedTurn';
 
-export type RunGraphPhoneMessageSound = 'sent' | 'received';
+type RunGraphPhoneMessageSound = 'sent' | 'received';
 
 export type RunGraphRequest = {
   inputText: string;

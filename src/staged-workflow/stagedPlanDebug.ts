@@ -2,7 +2,7 @@ import type { CompiledTurnPlan } from './compileTurnPlan';
 import type { StageRunState } from './scheduler';
 import type { StagedTurnResult } from './runLiveStagedTurn';
 
-export type StagedPlanDebugStage = {
+type StagedPlanDebugStage = {
   id: string;
   recipeId: string;
   key: string;
@@ -13,7 +13,7 @@ export type StagedPlanDebugStage = {
   error?: string;
 };
 
-export type StagedPlanDebugBeat = {
+type StagedPlanDebugBeat = {
   id: string;
   speakerId?: string;
   contentCount: number;

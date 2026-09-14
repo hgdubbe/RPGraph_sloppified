@@ -5,7 +5,7 @@ import type { PromptCommandId } from '../nodes/shared/promptCommands';
 
 type ActionKey = Parameters<typeof isActionKey>[0] & keyof typeof actionDefinitions;
 
-export type StagedRecipeImplementation =
+type StagedRecipeImplementation =
   | {
       status: 'executor-backed';
       executor: 'shared-action-runtime';

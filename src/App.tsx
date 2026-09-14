@@ -44,6 +44,7 @@ import { GraphStudioShell } from './components/GraphStudioShell';
 import { PhonePanel } from './components/PhonePanel';
 import { RoleplayPhoneDevice } from './components/RoleplayPhoneDevice';
 import { RoleplayStudioShell } from './components/RoleplayStudioShell';
+import { PopoutWindow } from './components/PopoutWindow';
 import { phoneMoodContext } from './phone/moodStatus';
 import { useChatGpdPhoneApp } from './chat/useChatGpdPhoneApp';
 import { useAutoplay, type AutoplayRunRequest } from './chat/useAutoplay';
@@ -918,6 +919,8 @@ function App() {
     useState<OutputFormatHelpKind | null>(null);
   const [chatWidth, setChatWidth] = useState(defaultChatPanelWidth);
   const [isResizing, setIsResizing] = useState(false);
+  const [roleplayPanelDetached, setRoleplayPanelDetached] = useState(false);
+  const closeRoleplayPanelDetached = useCallback(() => setRoleplayPanelDetached(false), []);
   const [showDeletedNodeRestoreButton, setShowDeletedNodeRestoreButton] = useState(false);
   const [activeWorkflowProtection, setActiveWorkflowProtection] = useState<'plain' | 'encrypted'>('plain');
   const [activeStorybookProtection, setActiveStorybookProtection] = useState<'plain' | 'encrypted'>('plain');
@@ -5473,6 +5476,15 @@ function App() {
       >
         Switch
       </button>
+      <button
+        className="roleplay-detach-button"
+        type="button"
+        onClick={() => setRoleplayPanelDetached((detached) => !detached)}
+        title={roleplayPanelDetached ? 'Dock roleplay panel' : 'Pop out roleplay panel'}
+        aria-label={roleplayPanelDetached ? 'Dock roleplay panel' : 'Pop out roleplay panel'}
+      >
+        {roleplayPanelDetached ? '⧈' : '⧉'}
+      </button>
       <div className="header-turn-actions">
         <button
           className="auto-turn-button"
@@ -6358,6 +6370,11 @@ function App() {
 
         {studioMode === 'play' && (
         <ErrorBoundary label="Chat Panel">
+        <PopoutWindow
+          open={roleplayPanelDetached}
+          title="RPGraph Roleplay"
+          onClose={closeRoleplayPanelDetached}
+        >
         {!isResizing && (
           <EdgeCharacterPicker
             characters={playerCharacters}
@@ -6896,6 +6913,7 @@ function App() {
           )}
           </div>
         </RoleplayStudioShell>
+        </PopoutWindow>
           </ErrorBoundary>
         )}
       </main>

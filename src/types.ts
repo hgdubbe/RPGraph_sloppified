@@ -1076,7 +1076,7 @@ export type AppSettings = {
 };
 
 export type PhoneDesktopIconSize = 'medium' | 'large';
-export type PhoneOrientation = 'portrait' | 'landscape';
+type PhoneOrientation = 'portrait' | 'landscape';
 export type PhoneDesktopWidgetId = 'gallery' | 'chat' | 'notes' | 'social' | 'banking' | 'narrative';
 
 export type PhoneDesktopLayout = {

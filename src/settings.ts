@@ -114,7 +114,7 @@ const rpWeekdayLanguages = [
 ] as const satisfies readonly RpWeekdayLanguage[];
 const defaultGlassDesignEnabled = true;
 const defaultRetryFormatErrorsEnabled = true;
-export const defaultStagedAutoRetryAttempts = 3;
+const defaultStagedAutoRetryAttempts = 3;
 export const maxStagedAutoRetryAttempts = 10;
 
 function validStagedAutoRetryAttempts(value?: number) {

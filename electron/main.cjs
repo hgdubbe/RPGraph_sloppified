@@ -90,7 +90,7 @@ const {
   veniceNormalizedModel,
   veniceResponseText,
 } = require('./veniceApi.cjs');
-const lmStudioAdapter = require('./providers/lmStudioAdapter.cjs');
+const { chat: lmStudioAdapterChat } = require('./providers/lmStudioAdapter.cjs');
 const { reasoningTextFromChatMessage } = require('./reasoningStream.cjs');
 const { createNpcLibraryService, npcLibraryRoots } = require('./npcLibrary.cjs');
 
@@ -4481,7 +4481,7 @@ ipcMain.handle('llm:chat-completion', async (_event, rawRequest) => {
     }
 
     if (isLmStudioProviderConnection(request.connection)) {
-      const result = await lmStudioAdapter.chat(request, { requestLmStudioChat }, abort);
+      const result = await lmStudioAdapterChat(request, { requestLmStudioChat }, abort);
       return {
         text: result.text,
         stats: llmStatsFromUsage(result.usage, Math.round(performance.now() - startedAt)),

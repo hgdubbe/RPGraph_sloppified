@@ -171,5 +171,4 @@ module.exports = {
   veniceModelEntries,
   veniceNormalizedModel,
   veniceResponseText,
-  veniceTtsVoices,
 };

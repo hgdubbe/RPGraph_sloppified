@@ -7,7 +7,9 @@
     "electron/**/*.test.ts",
     "test/e2e/**/*.spec.ts",
     "test/e2e/**/*.ts",
-    "scripts/*.mjs"
+    "scripts/*.mjs",
+    "src/decision-recipes/tryWithLmStudio.ts",
+    "src/decision-recipes/tryDynamicTurnWithLmStudio.ts"
   ],
   "project": ["src/**/*.{ts,tsx}", "electron/**/*.cjs", "electron/**/*.test.ts", "test/e2e/**/*.ts", "scripts/**/*.mjs"],
   "ignore": ["src/electron.d.ts"]

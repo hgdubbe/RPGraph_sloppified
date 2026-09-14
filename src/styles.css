@@ -8821,6 +8821,29 @@ input[type="number"]::-webkit-outer-spin-button {
   cursor: default;
 }
 
+.roleplay-detach-button {
+  flex: none;
+  height: 28px;
+  width: 28px;
+  padding: 0;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 6px;
+  color: #d9e6f8;
+  background: rgba(255, 255, 255, 0.04);
+  backdrop-filter: blur(8px);
+  cursor: pointer;
+  font-size: 13px;
+  line-height: 1;
+  transition: all 0.18s ease;
+}
+
+.roleplay-detach-button:hover {
+  border-color: #56d99a;
+  color: var(--soft-white);
+  background: rgba(86, 217, 154, 0.15);
+  box-shadow: 0 0 12px rgba(86, 217, 154, 0.2);
+}
+
 .header-turn-actions {
   display: inline-flex;
   flex: none;

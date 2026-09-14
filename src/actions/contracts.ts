@@ -7,7 +7,7 @@ export type ActionScope = {
 
 export type SocialApp = 'fotogram' | 'onlyfriends';
 
-export type ActionCapability =
+type ActionCapability =
   | 'whatsup.send' | 'whatsup.receive' | 'image.generate'
   // Presence means the character has an actual configured account on that app —
   // mirrors the existing legacy rule that a missing account cannot be invented.
@@ -44,7 +44,7 @@ export type ImageGenerationAction = {
   description: string;
 };
 
-export type ImageBinding =
+type ImageBinding =
   | { type: 'artifact'; artifactId: string }
   | { type: 'operation-result'; operationId: string };
 
@@ -114,7 +114,7 @@ export type ValidatedOperation = {
   action: CanonicalAction;
 };
 
-export type PlannedReplyBlock =
+type PlannedReplyBlock =
   | { type: 'text'; id: string; text: string; provisional: true }
   | { type: 'action'; id: string; operationId: string };
 

@@ -44,7 +44,7 @@ export type OutputActionContextCapacityRequest = {
   };
 };
 
-export type OutputActionUiItem =
+type OutputActionUiItem =
   | { type: 'choiceGroup'; value: OutputActionChoiceGroup }
   | { type: 'infoBox'; value: OutputActionInfoBox }
   | { type: 'progressBar'; value: OutputActionProgressBar }

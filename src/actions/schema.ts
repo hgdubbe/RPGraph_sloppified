@@ -11,7 +11,7 @@ function object<P extends Record<string, unknown>>(properties: P, required = Obj
 }
 
 export const generationSchema = object({ type: { const: 'image.generate' }, owner: handle, description });
-export const generatedAttachmentSchema = object({ type: { const: 'generate_image' }, owner: handle, description });
+const generatedAttachmentSchema = object({ type: { const: 'generate_image' }, owner: handle, description });
 export const storedAttachmentSchema = object({ type: { const: 'stored_image' }, ref: handle });
 const booleanFlag = { type: 'boolean' } as const;
 export const messengerSchema = {

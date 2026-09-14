@@ -28,13 +28,13 @@ export type CompileOptions = {
   limits: TurnPlan['limits'];
   allocateId: () => string;
 };
-export type PlannedBinding = { source: 'variable'; ref: VariableRef }
+type PlannedBinding = { source: 'variable'; ref: VariableRef }
   | { source: 'output'; instanceId: string; output: string; kind: VariableKind };
 export type CompiledBinding = { source: 'variable'; ref: VariableRef }
   | { source: 'output'; stageId: string; outputId: string; kind: VariableKind };
 type Instance = { id: string; recipe: string; purpose: string; actorId: string; visibility: Visibility; args: Arguments;
   inputs: Record<string, PlannedBinding>; dependencies: Array<{ instanceId: string; kind: DependencyKind }> };
-export type CompactTurnPlan = { version: 'staged-v1'; catalogRevision: string; continuations: number; instances: Instance[];
+type CompactTurnPlan = { version: 'staged-v1'; catalogRevision: string; continuations: number; instances: Instance[];
   beats: Array<{ id: string; speakerId?: string; visibility: Visibility; content: PlannedBinding[]; requiresReceipts: PlannedBinding[] }> };
 export type CompiledStage = { id: string; instanceId: string; recipeId: string; key: string; kind: StageKind; actorId: string;
   visibility: Visibility; lockedArguments: Arguments; retryPolicy: RecipeDefinition['retryPolicy']; inputs: CompiledBinding[]; instruction?: CompiledBinding;

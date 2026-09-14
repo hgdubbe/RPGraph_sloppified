@@ -8,7 +8,7 @@ import type { VariableStore } from './variableStore';
 /** `activeness` is the character's own Decision-workflow Activeness override (0-4), if the
  * storybook record sets one — `undefined` means "use the route's default" (see
  * decisionSequence.ts's `resolveActiveness`). */
-export type DecisionCharacterProfile = { id: string; persona: string; appearance: string; activeness?: number };
+type DecisionCharacterProfile = { id: string; persona: string; appearance: string; activeness?: number };
 
 export type DecisionSceneContext = {
   situation: string;
