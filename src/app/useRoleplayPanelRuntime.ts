@@ -1493,6 +1493,8 @@ export function useRoleplayPanelRuntime({
 
     const shortcuts: RoleplayActivityShortcut[] = [];
     if (latestChatMessage) {
+      // onOpen only runs from a click handler, never during render.
+      // eslint-disable-next-line react-hooks/refs
       shortcuts.push({
             id: 'last-chat' as const,
             label: 'Last Chat',

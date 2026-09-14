@@ -1198,16 +1198,17 @@ function InlineStorybookTextField({
   onChange,
 }: InlineStorybookTextFieldProps) {
   const controlId = useId();
+  const [prevValue, setPrevValue] = useState(value);
   const [draftValue, setDraftValue] = useState(value);
   const [localPending, setLocalPending] = useState(false);
   const [localApplied, setLocalApplied] = useState(false);
-  const showPending = pending || localPending;
-  const showApplied = !showPending && (applied || localApplied);
-
-  useEffect(() => {
+  if (value !== prevValue) {
+    setPrevValue(value);
     setDraftValue(value);
     setLocalPending(false);
-  }, [value]);
+  }
+  const showPending = pending || localPending;
+  const showApplied = !showPending && (applied || localApplied);
 
   return (
     <div className="character-field storybook-inline-edit-field storybook-workbench-field">
@@ -3231,10 +3232,12 @@ export function StorybookCreatorDialog({
   const [draftSourceJson, setDraftSourceJson] = useState(node.data.storybookJson);
   if (node.data.storybookJson !== draftSourceJson && !draftStorybookDirty) {
     const nextDraft = structuredClone(storybook);
-    draftStorybookRef.current = nextDraft;
     setDraftStorybookSnapshot(nextDraft);
     setDraftSourceJson(node.data.storybookJson);
   }
+  useEffect(() => {
+    draftStorybookRef.current = draftStorybookSnapshot;
+  }, [draftStorybookSnapshot]);
   const storybookView = draftStorybookDirty ? draftStorybookSnapshot : storybook;
   const activeCharacter =
     storybookView.characters.find((character) => character.id === activeCharacterId) ??
@@ -3461,6 +3464,8 @@ export function StorybookCreatorDialog({
     fieldId,
     pending: pendingStorybookFieldIds.has(fieldId),
     applied: appliedStorybookFieldId === fieldId,
+    // applyStorybookField only runs from the Apply button's onClick, never during render.
+    // eslint-disable-next-line react-hooks/refs
     onApply: applyStorybookField,
   });
 

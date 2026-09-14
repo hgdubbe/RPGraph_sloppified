@@ -27,6 +27,8 @@ export function PopoutWindow({
 
   useEffect(() => {
     if (!open) {
+      // Synchronizing with the external popup window, not deriving render state.
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setTarget(null);
       return undefined;
     }

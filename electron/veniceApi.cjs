@@ -1,11 +1,5 @@
 const veniceDefaultBaseUrl = 'https://api.venice.ai/api/v1';
 
-function stringArray(value) {
-  return Array.isArray(value)
-    ? value.filter((entry) => typeof entry === 'string')
-    : [];
-}
-
 function veniceModelEntries(result) {
   return Array.isArray(result?.data) ? result.data : [];
 }

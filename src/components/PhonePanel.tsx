@@ -773,6 +773,8 @@ export function PhonePanel({
       return;
     }
     const imageIds = phoneGalleryImages.map((image) => image.id);
+    // Diffing against external prop data (phoneGalleryImages) to detect newly arrived images.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setKnownGalleryImageIdsByOwner((current) => {
       const knownIds = current[galleryOwnerId];
       if (!knownIds) {
@@ -876,6 +878,9 @@ export function PhonePanel({
       onOpen: () => launchDesktopApp('banking'),
     },
   ];
+  // desktopWidgets' onOpen closures only run from click handlers, never during render;
+  // the filter/map calls below only read `available`/`id`, not the closures.
+  // eslint-disable-next-line react-hooks/refs
   const visibleDesktopWidgets = desktopWidgets.filter((widget) =>
     widget.available && (desktopLayout.widgets?.[widget.id]?.enabled ?? true));
 
@@ -1189,11 +1194,15 @@ export function PhonePanel({
               </button>
             ))}
           </div>
-          {desktopWidgets.some((widget) => widget.available) && (
+          {
+            // eslint-disable-next-line react-hooks/refs -- reads `available` only, closures run in handlers
+            desktopWidgets.some((widget) => widget.available) && (
             <>
               <span className="phone-desktop-settings-label">Widgets</span>
               <div className="phone-desktop-widget-options">
-                {desktopWidgets.filter((widget) => widget.available).map((widget) => (
+                {
+                  // eslint-disable-next-line react-hooks/refs -- reads `available`/`id` only, closures run in handlers
+                  desktopWidgets.filter((widget) => widget.available).map((widget) => (
                   <button
                     className={(desktopLayout.widgets?.[widget.id]?.enabled ?? true) ? 'active' : ''}
                     type="button"
@@ -1966,11 +1975,15 @@ export function PhonePanel({
                   </button>
                 ))}
               </div>
-              {desktopWidgets.some((widget) => widget.available) && (
+              {
+                // eslint-disable-next-line react-hooks/refs -- reads `available` only, closures run in handlers
+                desktopWidgets.some((widget) => widget.available) && (
                 <>
                   <span className="phone-desktop-settings-label">Widgets</span>
                   <div className="phone-desktop-widget-options">
-                    {desktopWidgets.filter((widget) => widget.available).map((widget) => (
+                    {
+                      // eslint-disable-next-line react-hooks/refs -- reads `available`/`id` only, closures run in handlers
+                      desktopWidgets.filter((widget) => widget.available).map((widget) => (
                       <button
                         className={(desktopLayout.widgets?.[widget.id]?.enabled ?? true) ? 'active' : ''}
                         type="button"

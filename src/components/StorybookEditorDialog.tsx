@@ -125,13 +125,12 @@ function BufferedTextInput({
   placeholder,
   spellCheck,
 }: BufferedTextControlProps) {
+  const [prevValue, setPrevValue] = useState(value);
   const [draft, setDraft] = useState(value);
-  const latestDraftRef = useRef(draft);
-
-  useEffect(() => {
+  if (value !== prevValue) {
+    setPrevValue(value);
     setDraft(value);
-    latestDraftRef.current = value;
-  }, [value]);
+  }
 
   return (
     <input
@@ -142,7 +141,6 @@ function BufferedTextInput({
       placeholder={placeholder}
       spellCheck={spellCheck}
       onChange={(event) => {
-        latestDraftRef.current = event.currentTarget.value;
         setDraft(event.currentTarget.value);
         onCommit(event.currentTarget.value);
       }}
@@ -158,13 +156,12 @@ function BufferedTextarea({
   placeholder,
   spellCheck,
 }: BufferedTextControlProps) {
+  const [prevValue, setPrevValue] = useState(value);
   const [draft, setDraft] = useState(value);
-  const latestDraftRef = useRef(draft);
-
-  useEffect(() => {
+  if (value !== prevValue) {
+    setPrevValue(value);
     setDraft(value);
-    latestDraftRef.current = value;
-  }, [value]);
+  }
 
   return (
     <textarea
@@ -174,7 +171,6 @@ function BufferedTextarea({
       placeholder={placeholder}
       spellCheck={spellCheck}
       onChange={(event) => {
-        latestDraftRef.current = event.currentTarget.value;
         setDraft(event.currentTarget.value);
         onCommit(event.currentTarget.value);
       }}
@@ -587,10 +583,13 @@ export function StorybookEditorDialog({ node, identityLocked = false, onExportCh
     const nextDraft = structuredClone(storybook);
     setSeededFromJson(node.data.storybookJson);
     setJsonDraft(rpStorybookEditorJsonView(storybook));
-    fieldsDraftRef.current = nextDraft;
     setFieldsDraft(nextDraft);
     setSelectedCharacterId(storybook.characters[0]?.id ?? null);
   }
+
+  useEffect(() => {
+    fieldsDraftRef.current = fieldsDraft;
+  }, [fieldsDraft]);
 
   const selectedDraftCharacter = selectedCharacter(fieldsDraft, selectedCharacterId);
   const updateFieldsDraftInMemory = (next: RpStorybook) => {
