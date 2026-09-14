@@ -2,7 +2,7 @@
 
 See branches, main is currently a mirror of v0.5 upstream
 
-local work status here: [History](https://claude.ai/artifact/S4LSEJucXErxVe358Kw8rw)
+abandoned local work status here: [History](https://claude.ai/artifact/S4LSEJucXErxVe358Kw8rw)
 
 Current state: Port only UI Changes to 0.5 Upstream Version
 
