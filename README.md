@@ -1,10 +1,10 @@
 # Sloppified Fork of RPGraph Studio
 
-Currently just a mirror of 0.5 Upstream
+See branches, main is currently a mirror of v0.5 upstream
 
-local work status here: [History](https://claude.ai/code/artifact/caebaccf-f75c-47cb-8e9c-a197a2578d3c)
+local work status here: [History](https://claude.ai/artifact/S4LSEJucXErxVe358Kw8rw)
 
-Current state: Port Changes to 0.5 Upstream Version
+Current state: Port only UI Changes to 0.5 Upstream Version
 
 ## TL;DR: 
 - UI overhaul:
@@ -19,9 +19,11 @@ Current state: Port Changes to 0.5 Upstream Version
   - basic Widget support
   - Vertical/Landscape mode
   
-- new mode:
-  - Similar to planned mode, but anchored into backend to make it easier for dumb llms
-  - Checkpointing
+
+
+~~- new mode:
+~~  - Similar to planned mode, but anchored into backend to make it easier for dumb llms
+~~  - Checkpointing
   
 - minor features:
   - Character mood selector in phone simulation
