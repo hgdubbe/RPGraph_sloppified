@@ -21,9 +21,9 @@ Current state: Port only UI Changes to 0.5 Upstream Version
   
 
 
-- new mode:
-  - Similar to planned mode, but anchored into backend to make it easier for dumb llms
-  - Checkpointing
+- ~~new mode:~~
+  - ~~Similar to planned mode, but anchored into backend to make it easier for dumb llms~~
+  - ~~Checkpointing~~
   
 - minor features:
   - Character mood selector in phone simulation
@@ -41,7 +41,7 @@ not everything working right now, but planned/started
 
 🎬 **Demo video:** https://youtu.be/nweut7o-qnA
 
-RPGraph Studio is a **local-first desktop app** for interactive AI roleplay. Instead of a plain chatbox, you get a full studio: a **visual node workflow** decides how your story is built, a rich **RP chat** shows the results, and an in-world **character phone** with its own apps brings the story world to life.
+RPGraph Studio is a **local-first desktop app** for interactive AI roleplay. Instead of a plain chatbox, you get a full studio: a **visual node workflow** decides how your story is built, a rich **RP [...]
 
 No cloud account. No subscription. Your stories stay on **your** computer. 🔒
 
@@ -49,12 +49,12 @@ No cloud account. No subscription. Your stories stay on **your** computer. 🔒
 
 ## ✨ Why RPgraph Studio?
 
-- 🧩 **A pipeline, not a mono-prompt.** Each turn is split into **several focused LLM calls**: translation, the actual response, then after-work like speaker marking, story-time tracking, and event preparation.
+- 🧩 **A pipeline, not a mono-prompt.** Each turn is split into **several focused LLM calls**: translation, the actual response, then after-work like speaker marking, story-time tracking, and event [...]
 - 🔀 **The right prompt for every moment.** Normal reply, phone text, narrator turn, social post, event — each situation gets its own prompt through the graph, automatically.
 - 📱 **A phone full of apps.** Characters text, post, and bank on an in-world phone whose messages appear inline in the story.
 - 📖 **Story memory.** Storybooks hold characters, world context, and images — including **SillyTavern character imports** — with a built-in assistant to create and edit them.
 - 🎛️ **Mix and match models.** Every LLM node can use its **own connection**: a small local model for simple jobs, a bigger model for the actual roleplay.
-- 🏠 **Local & private.** Connects to LM Studio, Ollama, llama.cpp (router mode), OpenRouter, or Google Gemini. Optional ComfyUI connections add image and voice generation. Everything is saved as files on your disk — optionally **encrypted**.
+- 🏠 **Local & private.** Connects to LM Studio, Ollama, llama.cpp (router mode), OpenRouter, or Google Gemini. Optional ComfyUI connections add image and voice generation. Everything is saved as fi[...]
 
 ---
 
@@ -103,7 +103,7 @@ A phone-style UI owned by your characters, with its own apps:
 
 ## 🏁 Getting Started
 
-> 🧠 **Which model do I need?** Recommended: **[gemma-4-31B-it-uncensored-heretic-GGUF](https://huggingface.co/llmfan46/gemma-4-31B-it-uncensored-heretic-GGUF)**. RPGraph was built and tuned around Gemma 4 31B; the workflows depend on reliable **JSON output**, and Gemma 4 is currently the smallest local model that handles this well. I don't recommend RP finetunes — many of them struggle with the JSON parts of the pipeline. If you can't run Gemma 4 locally, use a larger API model instead.
+> 🧠 **Which model do I need?** Recommended: **[gemma-4-31B-it-uncensored-heretic-GGUF](https://huggingface.co/llmfan46/gemma-4-31B-it-uncensored-heretic-GGUF)**. RPGraph was built and tuned around [...]
 
 Install **[Git](https://git-scm.com/download/win)** and **[Node.js 24](https://nodejs.org/)**, then download RPGraph Studio:
 
