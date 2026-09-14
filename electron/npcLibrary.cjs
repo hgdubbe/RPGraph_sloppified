@@ -3,7 +3,7 @@ const path = require('node:path');
 const {
   currentCharacterContainerVersion,
   validateCharacterContainer,
-} = require('../shared/character-container.cjs');
+} = require('../shared/character-container.mjs');
 
 function npcLibraryRoots({ isPackaged, resourcesPath, projectRootPath, userDataPath }) {
   return {

@@ -6,7 +6,7 @@ import { readFile, writeFile, rename, rm, link, mkdir, readdir } from 'node:fs/p
 import { dirname, resolve, extname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { randomUUID, createHash } from 'node:crypto';
-import validator from '../shared/character-container.cjs';
+import * as validator from '../shared/character-container.mjs';
 
 const run = promisify(execFile);
 export const galleryImageMaxPixels = 1_000_000;

@@ -2,7 +2,7 @@
 
 Stage 6 uses `src/characters/creator.ts` for authored payloads and UI character
 exports. Both produce plain `rpgraph-character` 2.0.0 documents validated by
-`shared/character-container.cjs`. Storybook and node versions remain 3.0.0.
+`shared/character-container.mjs`. Storybook and node versions remain 3.0.0.
 
 ## Create and revise
 

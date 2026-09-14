@@ -168,7 +168,7 @@ profiles retain initials. Manual interface validation remains with the user.
   compatibility structure; active matches and newer DMs are timeline records.
   Do not copy this legacy private state into public library containers or create
   another independent authority while adding NPC snapshots.
-- `shared/character-container.cjs` is now the reusable payload/reference
+- `shared/character-container.mjs` is now the reusable payload/reference
   validation boundary used by both TypeScript import and Electron discovery.
   Electron's general stored-file metadata recognition remains intentionally
   shallower and must not replace this boundary in future creation tooling.
@@ -732,7 +732,7 @@ New paths below are proposed; existing paths are integration targets.
 
 | Component | Responsibility |
 | --- | --- |
-| `shared/character-container.cjs` plus types | Pure shared payload validation/normalization/migration and reference rules, usable from Electron and scripts. Wire TypeScript through a typed wrapper/declaration; avoid separate contradictory validators. |
+| `shared/character-container.mjs` plus types | Pure shared payload validation/normalization/migration and reference rules, usable from Electron and scripts. Wire TypeScript through a typed wrapper/declaration; avoid separate contradictory validators. |
 | `src/characters/` | Typed canonical models, registry/precedence resolution, stable identity aliases, app projections, snapshot and promotion planning. Keep pure operations testable. |
 | `electron/npcLibrary.cjs` | Scan configured roots, ignore encrypted inputs, cache results, expose diagnostics and atomic install/reload operations. |
 | `electron/main.cjs`, `electron/preload.cjs`, `src/electron.d.ts` | Narrow NPC library IPC, resource resolution and existing card import/export compatibility. |
