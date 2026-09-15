@@ -30,8 +30,7 @@
 }
 
 .studio-graph-commandbar {
-  display: grid;
-  grid-template-columns: auto minmax(0, 1fr);
+  display: flex;
   align-items: center;
   gap: 12px;
   min-width: 0;
@@ -115,6 +114,32 @@
   min-width: 0;
   border-left: 1px solid var(--graph-line);
   background: rgba(18, 22, 37, 0.98);
+}
+
+/* Upstream's .graph-toolbar is a floating overlay (position: absolute,
+   left/top offsets) meant to sit directly over its own canvas in
+   upstream's single-pane layout. This branch's Graph Studio Shell docks
+   it as a normal-flow row inside .studio-graph-commandbar instead, so it
+   needs the plain flex layout here — upstream's absolute positioning,
+   left unoverridden, was fighting the new 42px commandbar row it's
+   actually rendered in (buttons overflowing/misaligned). */
+.graph-toolbar {
+  position: static;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  min-width: 0;
+  width: 100%;
+  max-width: none;
+}
+
+.studio-graph-toolbar-slot {
+  display: flex;
+  align-items: center;
+  min-width: 0;
+  width: 100%;
+  overflow: hidden;
 }
 
 .graph-actions {
