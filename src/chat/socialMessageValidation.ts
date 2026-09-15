@@ -10,6 +10,13 @@ function cleanHandle(value: string) {
   return value.trim().replace(/^@/, '');
 }
 
+/** Punctuation-insensitive comparison: an LLM reply that drops or shifts a
+ * dot/underscore in a handle it otherwise got right (e.g. "rico.f" vs
+ * "ricof") is a formatting slip, not a different account. */
+function looseHandle(value: string) {
+  return cleanHandle(value).toLowerCase().replace(/[^a-z0-9]/g, '');
+}
+
 function normalizedName(value: string) {
   return value.trim().replace(/\s+/g, ' ').toLocaleLowerCase();
 }
@@ -94,11 +101,14 @@ export function canonicalSocialDirectMessage(message: SocialDirectMessageRecord,
   const from = resolve(message.fromAccountId ?? message.from, !message.fromAccountId);
   const to = resolve(message.toAccountId ?? message.to, !message.toAccountId);
   if (!from.available || !to.available) throw new Error(from.reason ?? to.reason ?? 'Unknown or ambiguous social account.');
-  if (from.handle?.toLowerCase() !== cleanHandle(message.fromHandle).toLowerCase() ||
-      to.handle?.toLowerCase() !== cleanHandle(message.toHandle).toLowerCase()) {
-    throw new Error(`Social message account IDs and usernames do not match. `
-      + `From: expected @${from.handle ?? '(none)'} for "${message.from}", got @${cleanHandle(message.fromHandle)}. `
-      + `To: expected @${to.handle ?? '(none)'} for "${message.to}", got @${cleanHandle(message.toHandle)}.`);
+  const fromMismatch = looseHandle(from.handle ?? '') !== looseHandle(message.fromHandle);
+  const toMismatch = looseHandle(to.handle ?? '') !== looseHandle(message.toHandle);
+  if (fromMismatch || toMismatch) {
+    const parts = [
+      fromMismatch ? `from: expected @${from.handle ?? '(none)'} for "${message.from}", got @${cleanHandle(message.fromHandle)}` : undefined,
+      toMismatch ? `to: expected @${to.handle ?? '(none)'} for "${message.to}", got @${cleanHandle(message.toHandle)}` : undefined,
+    ].filter(Boolean);
+    throw new Error(`Social message account IDs and usernames do not match (${parts.join('; ')}).`);
   }
   const canonical = { ...message, from: from.name, to: to.name };
   const history = [...messages, { id: -1, role: 'output' as const, originalText: '', socialDirectMessage: canonical }];
