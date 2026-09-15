@@ -8,6 +8,7 @@ type PhoneGalleryScreenProps = {
   images: ChatImageAttachment[];
   action: 'select' | 'wallpaper';
   selectedWallpaperId?: string;
+  newImageIds?: ReadonlySet<string>;
   onBack: () => void;
   onSelectImage: (image: ChatImageAttachment) => void;
 };
@@ -17,6 +18,7 @@ export function PhoneGalleryScreen({
   images,
   action,
   selectedWallpaperId,
+  newImageIds,
   onBack,
   onSelectImage,
 }: PhoneGalleryScreenProps) {
@@ -143,19 +145,21 @@ export function PhoneGalleryScreen({
                 ? `Received from ${image.receivedFrom.trim()}`
                 : (image.imageAccess ? 'Image Access' : '');
               const description = image.description || '';
+              const isNew = newImageIds?.has(image.id) ?? false;
               return (
                 <button
                   type="button"
                   key={image.id}
                   className={`phone-gallery-tile${
                     action === 'wallpaper' && selectedWallpaperId === image.id ? ' active' : ''
-                  }`}
+                  }${isNew ? ' new' : ''}`}
                   onClick={() => setSelectedImage(image)}
                   aria-label={`Preview ${image.name}`}
                   title={[receivedLabel, description.trim() || image.name].filter(Boolean).join('\n')}
                 >
                   <div className="phone-gallery-image-preview">
                     <img src={image.dataUrl} alt={image.name} loading="lazy" decoding="async" />
+                    {isNew && <span className="phone-gallery-new-badge">New</span>}
                     {receivedLabel && (
                       <span className="phone-gallery-received-badge" title={receivedLabel}>
                         {receivedLabel}

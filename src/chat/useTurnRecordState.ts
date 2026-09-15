@@ -24,6 +24,7 @@ import {
   removeCreatedPhoneNoteFromLastTurn,
   replaceCreatedPhoneNoteInLastTurn,
 } from './phoneAppHistoryMessages';
+import { activeTurnWithVariant } from './turnVariants';
 
 type ActiveTurnCollector = {
   turnId: string;
@@ -37,6 +38,7 @@ type ActiveTurnCollector = {
 export type TurnReplacement = {
   turn: TurnRecord;
   replaceInput: boolean;
+  variantLabel?: string;
 };
 
 type UseTurnRecordStateOptions = {
@@ -90,6 +92,7 @@ export function useTurnRecordState({
     role,
     originalText,
     translatedText,
+    contextComment,
     imageAttachments,
     includeInHistory = role !== 'error',
     speakerName,
@@ -158,6 +161,7 @@ export function useTurnRecordState({
       role,
       originalText,
       translatedText,
+      contextComment,
       imageAttachments,
       includeInHistory,
       speakerName,
@@ -404,13 +408,24 @@ export function useTurnRecordState({
         messages: collector.outputMessages,
       },
     };
+    const existingCheckpoint = replacement
+      ? turnCheckpointsRef.current.find((entry) => entry.turnId === replacement.turn.id)
+      : undefined;
+    const committedTurn = replacement
+      ? activeTurnWithVariant({
+          nextTurn: turn,
+          replacedTurn: replacement.turn,
+          replacedCheckpoint: existingCheckpoint,
+          label: replacement.variantLabel ?? 'Regenerate',
+        })
+      : turn;
     const nextTurns = replacement
       ? turnsRef.current.map((existingTurn) =>
-          existingTurn.id === replacement.turn.id ? turn : existingTurn,
+          existingTurn.id === replacement.turn.id ? committedTurn : existingTurn,
         )
-      : [...turnsRef.current, turn];
+      : [...turnsRef.current, committedTurn];
     const checkpoint = createTurnCheckpointFromNodesForTurnRecord(
-      turn,
+      committedTurn,
       checkpointBeforeNodes,
       nodesRef.current,
       checkpointBeforeWorkflowVariables,
@@ -431,7 +446,7 @@ export function useTurnRecordState({
     setTurns(nextTurns);
     setTurnCheckpoints(nextCheckpoints);
     activeTurnCollectorRef.current = null;
-    return turn;
+    return committedTurn;
   }
 
   /** Commit synchronous app actions through the same timeline and checkpoint transaction. */

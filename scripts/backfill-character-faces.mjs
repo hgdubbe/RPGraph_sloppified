@@ -3,7 +3,7 @@ import { readFile, readdir } from 'node:fs/promises';
 import { resolve, join } from 'node:path';
 import { detectFaces, primaryPortrait } from './character-faces.mjs';
 import { writeContainerAtomic } from './character-creator.mjs';
-import validator from '../shared/character-container.cjs';
+import validator from '../shared/character-container.mjs';
 
 try {
   const { values } = parseArgs({ options: { directory: { type: 'string' }, write: { type: 'boolean', default: false }, 'include-uncropped': { type: 'boolean', default: false } } });

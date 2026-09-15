@@ -1,6 +1,7 @@
 import type {
   AppSettings,
   ChatImageAttachment,
+  CompositeModelInfo,
   ConnectionPreset,
   GeminiModelInfo,
   LmStudioModelInfo,
@@ -8,6 +9,7 @@ import type {
   LlmCompletionResult,
   OllamaModelInfo,
   OpenRouterModelInfo,
+  VeniceModelInfo,
   SavedFileSummary,
   WorkflowFile,
 } from './types';
@@ -32,10 +34,15 @@ declare global {
       ) => Promise<string[]>;
       listLmStudioModels: (connection: ConnectionPreset, onAbort?: (cancel: () => void) => void) => Promise<LmStudioModelInfo[]>;
       listLlamaCppModels: (connection: ConnectionPreset, onAbort?: (cancel: () => void) => void) => Promise<LlamaCppModelInfo[]>;
+      listUnslothModels: (connection: ConnectionPreset) => Promise<LlamaCppModelInfo[]>;
+      loadUnslothModel: (connection: ConnectionPreset) => Promise<{ loadedModel: string }>;
+      isUnslothModelLoaded: (connection: ConnectionPreset) => Promise<{ loaded: boolean; status: string }>;
+      unloadUnslothModels: (connection: ConnectionPreset) => Promise<{ unloadedCount: number; models: string[] }>;
       loadLlamaCppModel: (connection: ConnectionPreset) => Promise<{ loadedModel: string }>;
       isLlamaCppModelLoaded: (connection: ConnectionPreset) => Promise<{ loaded: boolean; status: LlamaCppModelInfo['status'] }>;
       unloadLlamaCppModels: (connection: ConnectionPreset) => Promise<{ unloadedCount: number; models: string[] }>;
       listOpenRouterModels: (connection: ConnectionPreset, onAbort?: (cancel: () => void) => void) => Promise<OpenRouterModelInfo[]>;
+      listCompositeModels: (connection: ConnectionPreset) => Promise<CompositeModelInfo[]>;
       generateOpenRouterSpeech: (request: {
         connection: ConnectionPreset;
         input: string;
@@ -45,6 +52,17 @@ declare global {
         input: string;
       }, onChunk?: (base64PcmChunk: string) => void) => Promise<{ dataUrl: string; filename: string }>;
       listGeminiModels: (connection: ConnectionPreset, onAbort?: (cancel: () => void) => void) => Promise<GeminiModelInfo[]>;
+      listVeniceModels: (connection: ConnectionPreset) => Promise<VeniceModelInfo[]>;
+      generateVeniceSpeech: (request: {
+        connection: ConnectionPreset;
+        input: string;
+      }) => Promise<{ dataUrl: string; filename: string }>;
+      generateVeniceImages: (request: {
+        connection: ConnectionPreset;
+        prompt: string;
+        width: number;
+        height: number;
+      }) => Promise<{ images: string[] }>;
       loadLmStudioModel: (connection: ConnectionPreset) => Promise<{
         loadedModel: string;
         method?: 'rest' | 'cli' | 'already-loaded';
@@ -199,6 +217,15 @@ declare global {
         canceled: boolean;
         fileName?: string;
         contents?: string;
+      }>;
+      saveJsonFileToPath: (request: {
+        title?: string;
+        defaultFileName?: string;
+        value: unknown;
+      }) => Promise<{
+        canceled: boolean;
+        filePath?: string;
+        fileName?: string;
       }>;
       loadDefaultWorkflow: () => Promise<{
         filePath: string;
@@ -413,6 +440,30 @@ declare global {
         password: string,
         overwrite?: boolean,
       ) => Promise<{ fileName: string; name: string; filePath: string; conflict?: boolean }>;
+      saveTurnAutosave: (session: RpgraphSessionV2) => Promise<{
+        fileName: string;
+        name: string;
+        filePath: string;
+        savedAt?: string;
+      }>;
+      loadTurnAutosave: () => Promise<{
+        fileName: string;
+        name: string;
+        filePath: string;
+        type: SavedFileSummary['type'];
+        protection: SavedFileSummary['protection'];
+        value: unknown;
+        savedAt?: string;
+      } | null>;
+      listTurnAutosaves: () => Promise<Array<{
+        fileName: string;
+        name: string;
+        filePath: string;
+        type: SavedFileSummary['type'];
+        protection: SavedFileSummary['protection'];
+        value: unknown;
+        savedAt?: string;
+      }>>;
       saveStorybook: (
         name: string,
         storybook: RpStorybook,

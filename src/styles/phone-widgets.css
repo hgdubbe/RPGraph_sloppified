@@ -1,0 +1,277 @@
+.phone-desktop-widget {
+  position: relative;
+  display: flex;
+  min-width: 0;
+  min-height: 0;
+  flex-direction: column;
+  justify-content: space-between;
+  gap: 6px;
+  padding: 11px 12px;
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  border-radius: 18px;
+  color: rgba(255, 255, 255, 0.96);
+  background:
+    linear-gradient(145deg, rgba(255, 255, 255, 0.2), rgba(10, 13, 27, 0.22)),
+    rgba(0, 0, 0, 0.12);
+  box-shadow: 0 12px 28px rgba(0, 0, 0, 0.28);
+  text-align: left;
+  text-shadow: 0 1px 8px rgba(0, 0, 0, 0.58);
+  backdrop-filter: blur(18px) saturate(1.35);
+  cursor: pointer;
+  touch-action: none;
+  user-select: none;
+  overflow: hidden;
+}
+
+.phone-desktop-widget:hover,
+.phone-desktop-widget:focus-visible {
+  border-color: rgba(255, 255, 255, 0.38);
+  background:
+    linear-gradient(145deg, rgba(255, 255, 255, 0.28), rgba(18, 23, 45, 0.3)),
+    rgba(0, 0, 0, 0.14);
+  outline: none;
+}
+
+.phone-desktop-widget strong {
+  overflow: hidden;
+  color: #ffffff;
+  font-size: 14px;
+  font-weight: 900;
+  line-height: 1.1;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.phone-desktop-widget:hover .phone-widget-resize-handle,
+.phone-desktop-widget:focus-visible .phone-widget-resize-handle {
+  opacity: 1;
+}
+
+.roleplay-phone-screen .phone-desktop-app,
+.roleplay-phone-screen .phone-clock-widget strong,
+.roleplay-phone-screen .phone-desktop-widget,
+.roleplay-phone-screen .phone-message-bubble,
+.roleplay-phone-screen .phone-gallery-photo,
+.roleplay-phone-screen .phone-social-post {
+  filter:
+    drop-shadow(0 0 1px rgba(255, 255, 255, 0.18))
+    drop-shadow(0 0 7px rgba(255, 255, 255, 0.055));
+}
+
+.phone-desktop-widgets {
+  display: contents;
+}
+
+.phone-desktop-widget-label {
+  color: #a9b8dd;
+  font-size: 10px;
+  font-weight: 850;
+  text-transform: uppercase;
+}
+
+.phone-desktop-widget > span:not(.phone-desktop-widget-label):not(.phone-desktop-gallery-strip):not(.phone-widget-resize-handle) {
+  display: -webkit-box;
+  overflow: hidden;
+  color: rgba(232, 238, 255, 0.8);
+  font-size: 11px;
+  font-weight: 720;
+  line-height: 1.25;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+
+.phone-desktop-gallery-strip {
+  display: flex;
+  width: max-content;
+  max-width: none;
+  gap: 6px;
+  animation: phone-gallery-strip-scroll 16s linear infinite;
+}
+
+.phone-desktop-gallery-strip img {
+  width: 46px;
+  height: 46px;
+  flex: 0 0 auto;
+  border-radius: 10px;
+  object-fit: cover;
+  box-shadow: 0 5px 14px rgba(0, 0, 0, 0.3);
+}
+
+.phone-widget-resize-handle {
+  position: absolute;
+  right: 7px;
+  bottom: 7px;
+  width: 18px;
+  height: 18px;
+  border-radius: 8px;
+  background:
+    linear-gradient(135deg, transparent 0 42%, rgba(255, 255, 255, 0.74) 44% 50%, transparent 52% 100%),
+    linear-gradient(135deg, transparent 0 62%, rgba(255, 255, 255, 0.48) 64% 70%, transparent 72% 100%);
+  cursor: nwse-resize;
+  opacity: 0;
+}
+
+.phone-narrative-widget {
+  z-index: 3;
+  display: flex;
+  justify-content: flex-start;
+  cursor: default;
+}
+
+.phone-narrative-widget.expanded {
+  z-index: 5;
+}
+
+.phone-narrative-widget textarea {
+  width: 100%;
+  min-height: 58px;
+  flex: 1;
+  resize: none;
+  padding: 9px 10px;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 12px;
+  color: #f8fbff;
+  background: rgba(3, 5, 12, 0.56);
+  box-shadow: inset 0 1px 8px rgba(0, 0, 0, 0.32);
+  font: 760 14px/1.35 var(--rpgraph-ui-font);
+  letter-spacing: 0;
+  outline: none;
+}
+
+.phone-narrative-widget textarea::placeholder {
+  color: rgba(220, 230, 255, 0.58);
+}
+
+.phone-narrative-widget textarea:focus {
+  border-color: rgba(125, 211, 252, 0.72);
+  background: rgba(3, 5, 12, 0.74);
+}
+
+.roleplay-phone-device.landscape .phone-narrative-widget textarea {
+  min-height: 44px;
+  font-size: 13px;
+}
+
+.phone-narrative-widget-grip {
+  display: grid;
+  width: 100%;
+  gap: 3px;
+  padding: 0;
+  border: 0;
+  color: inherit;
+  background: transparent;
+  text-align: left;
+  cursor: grab;
+}
+
+.phone-narrative-widget-grip:active {
+  cursor: grabbing;
+}
+
+.phone-narrative-widget-actions {
+  display: grid;
+  grid-template-columns: 1fr 1.25fr;
+  gap: 7px;
+}
+
+.phone-narrative-widget-actions button {
+  min-height: 30px;
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  border-radius: 11px;
+  color: #eef5ff;
+  background: rgba(5, 9, 18, 0.48);
+  font-size: 12px;
+  font-weight: 850;
+  cursor: pointer;
+}
+
+.phone-narrative-widget-actions button[type="submit"] {
+  border-color: rgba(125, 211, 252, 0.45);
+  background: linear-gradient(135deg, rgba(14, 165, 233, 0.84), rgba(79, 70, 229, 0.76));
+}
+
+.phone-narrative-widget-actions button:disabled {
+  cursor: not-allowed;
+  opacity: 0.48;
+}
+
+.roleplay-phone-device.landscape .phone-narrative-widget-actions button {
+  min-height: 26px;
+  font-size: 11px;
+}
+
+.phone-message-side-actions {
+  display: flex;
+  flex: none;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.phone-draft-context-note {
+  grid-column: 1;
+  border: 1px solid rgba(125, 211, 252, 0.2);
+  border-radius: 10px;
+  background: rgba(15, 23, 42, 0.76);
+  overflow: hidden;
+}
+
+.phone-draft-context-note summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 7px 9px;
+  color: #d9f3ff;
+  cursor: pointer;
+  font-size: 11px;
+  font-weight: 800;
+  list-style: none;
+}
+
+.phone-draft-context-note summary::-webkit-details-marker {
+  display: none;
+}
+
+.phone-draft-context-note summary small {
+  color: #8bdaf9;
+  font-size: 9px;
+  text-transform: uppercase;
+}
+
+.phone-draft-context-textarea {
+  width: 100%;
+  min-height: 54px;
+  max-height: 108px;
+  resize: vertical;
+  padding: 8px 9px;
+  border: 0;
+  border-top: 1px solid rgba(125, 211, 252, 0.14);
+  color: #f4f8ff;
+  background: rgba(5, 9, 18, 0.84);
+  font: inherit;
+  font-size: 12px;
+  line-height: 1.35;
+  outline: none;
+}
+
+.phone-draft-context-textarea::placeholder {
+  color: rgba(203, 213, 225, 0.52);
+}
+
+.phone-gallery-new-badge {
+  position: absolute;
+  top: 6px;
+  left: 6px;
+  z-index: 3;
+  padding: 3px 6px;
+  border: 1px solid rgba(186, 230, 253, 0.45);
+  border-radius: 4px;
+  background: rgba(8, 47, 73, 0.88);
+  color: #e0f2fe;
+  font-size: 8px;
+  font-weight: 800;
+  letter-spacing: 0;
+  text-transform: uppercase;
+  pointer-events: none;
+}
+

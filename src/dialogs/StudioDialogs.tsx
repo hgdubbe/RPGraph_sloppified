@@ -157,6 +157,7 @@ type StudioDialogsProps = {
   minUiScale: number;
   maxUiScale: number;
   retryFormatErrorsEnabled: boolean;
+  turnAutosaveEnabled: boolean;
   onCloseOptions: () => void;
   onEnglishProcessingChange: (enabled: boolean) => void;
   onInputTranslationOnlyChange: (enabled: boolean) => void;
@@ -184,6 +185,7 @@ type StudioDialogsProps = {
   onNodeTextSizeChange: (size: 'small' | 'normal' | 'big') => void;
   onUiScaleChange: (scale: number) => void;
   onRetryFormatErrorsChange: (enabled: boolean) => void;
+  onTurnAutosaveEnabledChange: (enabled: boolean) => void;
   showFiles: boolean;
   showStorybookPicker: boolean;
   savedFiles: SavedFileSummary[];
@@ -525,6 +527,17 @@ const providerPresets = [
     description: 'Local llama-server router',
   },
   {
+    label: 'Unsloth',
+    kind: 'llm',
+    providerKind: 'unsloth',
+    baseUrl: 'http://localhost:8888/v1',
+    apiKey: '',
+    model: '',
+    reasoningEffort: 'none',
+    models: [''],
+    description: 'Local Unsloth server',
+  },
+  {
     label: 'OpenRouter',
     kind: 'llm',
     providerKind: 'openrouter',
@@ -546,6 +559,29 @@ const providerPresets = [
     reasoningEffort: 'none',
     models: ['gemini-2.5-flash', 'gemini-2.5-pro'],
     description: 'Google Gemini API',
+  },
+  {
+    label: 'Composite',
+    kind: 'llm',
+    providerKind: 'composite',
+    baseUrl: 'https://composite.lucidity.sh/v1',
+    apiKey: '',
+    model: 'composite/gemini-router',
+    reasoningEffort: 'none',
+    models: ['composite/gemini-router', 'composite/gpt-router'],
+    description: 'Composite OpenAI-compatible roleplay API',
+  },
+  {
+    label: 'Venice AI',
+    kind: 'llm',
+    providerKind: 'venice',
+    baseUrl: 'https://api.venice.ai/api/v1',
+    apiKey: '',
+    model: 'venice-uncensored',
+    ttsStreamAudio: false,
+    reasoningEffort: 'none',
+    models: ['venice-uncensored'],
+    description: 'Venice text, vision, image, and speech API',
   },
   {
     label: 'ComfyUI Image + Voice',
@@ -803,6 +839,7 @@ export function StudioDialogs({
   minUiScale,
   maxUiScale,
   retryFormatErrorsEnabled,
+  turnAutosaveEnabled,
   onCloseOptions,
   onEnglishProcessingChange,
   onInputTranslationOnlyChange,
@@ -830,6 +867,7 @@ export function StudioDialogs({
   onNodeTextSizeChange,
   onUiScaleChange,
   onRetryFormatErrorsChange,
+  onTurnAutosaveEnabledChange,
   showFiles,
   showStorybookPicker,
   savedFiles,
@@ -2370,6 +2408,21 @@ export function StudioDialogs({
                       <p>Automatic retry when an LLM response has an invalid format</p>
                     </div>
                     <div className="options-tab-body">
+                      <div className="option-info">
+                        <strong>Turn autosave</strong>
+                        <p>
+                          Save a plain recovery RP file after each completed turn, including the current workflow
+                          and embedded Storybook data. When enabled, RPGraph loads the newest turn autosave on startup.
+                        </p>
+                      </div>
+                      <label className="option-toggle">
+                        <input
+                          type="checkbox"
+                          checked={turnAutosaveEnabled}
+                          onChange={(event) => onTurnAutosaveEnabledChange(event.target.checked)}
+                        />
+                        <span>Autosave RP, workflow, and Storybook after each turn</span>
+                      </label>
                       <div className="option-info">
                         <strong>Why retry format errors?</strong>
                         <p>

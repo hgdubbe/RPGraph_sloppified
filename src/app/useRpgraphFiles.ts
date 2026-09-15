@@ -5,6 +5,7 @@ import type {
   WorkflowNodeData,
 } from '../types';
 import type { RpgraphSessionV2 } from '../data-management/types';
+import { isRpgraphSessionV2 } from '../data-management/validation';
 import {
   currentEncryptedSessionEnvelopeFormatVersion,
   currentSessionFormatVersion,
@@ -23,13 +24,14 @@ export type CharacterSaveLocation = 'characters' | 'npc-characters' | 'choose';
 
 type FileProtection = 'plain' | 'encrypted';
 
-type LoadedRpgraphFile = {
+export type LoadedRpgraphFile = {
   fileName: string;
   name: string;
   filePath: string;
   type: SavedFileSummary['type'];
   protection: SavedFileSummary['protection'];
   value: unknown;
+  savedAt?: string;
 };
 
 type UseRpgraphFilesOptions = {
@@ -88,6 +90,7 @@ export function useRpgraphFiles({
   clearWorkspaceForLockedStartup,
 }: UseRpgraphFilesOptions) {
   const [showFiles, setShowFiles] = useState(false);
+  const [turnAutosaveChoices, setTurnAutosaveChoices] = useState<LoadedRpgraphFile[]>([]);
   const [showStorybookPicker, setShowStorybookPicker] = useState(false);
   const [savedFiles, setSavedFiles] = useState<SavedFileSummary[]>([]);
   const [selectedFile, setSelectedFile] = useState<string | null>(null);
@@ -907,7 +910,25 @@ export function useRpgraphFiles({
     }
   }
 
-  async function loadStartupWorkflow() {
+  async function loadStartupWorkflow(options?: { preferTurnAutosave?: boolean }) {
+    if (options?.preferTurnAutosave) {
+      try {
+        const entries = await window.rpgraph.listTurnAutosaves();
+        const valid = entries.filter((entry): entry is LoadedRpgraphFile & { value: RpgraphSessionV2 } =>
+          isRpgraphSessionV2(entry.value),
+        );
+        if (valid.length > 1) {
+          setTurnAutosaveChoices(valid);
+          return;
+        }
+        if (valid.length === 1) {
+          applyLoadedRpgraphFile(valid[0]);
+          return;
+        }
+      } catch {
+        // Fall through to the normal last-workflow startup load below.
+      }
+    }
     try {
       const result = await window.rpgraph.loadStartupWorkflow();
       if (result.requiresPassword) {
@@ -939,6 +960,16 @@ export function useRpgraphFiles({
         `Startup workflow load failed: ${error instanceof Error ? error.message : String(error)}`,
       );
     }
+  }
+
+  function chooseTurnAutosave(choice: LoadedRpgraphFile) {
+    setTurnAutosaveChoices([]);
+    applyLoadedRpgraphFile(choice);
+  }
+
+  function declineTurnAutosaveChoices() {
+    setTurnAutosaveChoices([]);
+    void loadStartupWorkflow();
   }
 
   async function loadDefaultWorkflow() {
@@ -1064,6 +1095,9 @@ export function useRpgraphFiles({
   return {
     showFiles,
     setShowFiles,
+    turnAutosaveChoices,
+    chooseTurnAutosave,
+    declineTurnAutosaveChoices,
     showStorybookPicker,
     setShowStorybookPicker,
     savedFiles,

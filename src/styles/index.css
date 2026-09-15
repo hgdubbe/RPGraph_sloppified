@@ -1,0 +1,26 @@
+/* ============================================================
+   Aggregated stylesheet entry point.
+
+   Split out of the former monolithic src/styles.css for
+   maintainability. Order matters here: it mirrors the exact
+   line order of the original file, so the cascade behaves
+   identically to before the split.
+
+   vanilla-base.css is the untouched original vanilla-upstream
+   CSS (no internal section structure to split further safely).
+   Everything after it is the studio-shell/phone-device/theme
+   CSS ported from the abandoned codex/code-quality-cleanup
+   branch, broken out by feature area.
+   ============================================================ */
+
+@import "./vanilla-base.css";
+@import "./studio-theme.css";
+@import "./graph-workbench-grid.css";
+@import "./popout.css";
+@import "./topbar-menu.css";
+@import "./studio-shell.css";
+@import "./graph-workbench.css";
+@import "./phone-device.css";
+@import "./phone-widgets.css";
+@import "./roleplay-dual-pane.css";
+@import "./responsive.css";

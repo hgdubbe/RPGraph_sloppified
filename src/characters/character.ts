@@ -2,7 +2,7 @@ import { normalizeDatingProfile, type DatingProfile } from '../chat/datingProfil
 import {
   validateCharacterContainer as validateSharedCharacterContainer,
   validateCharacterPayload as validateSharedCharacterPayload,
-} from '../../shared/character-container.cjs';
+} from '../../shared/character-container.mjs';
 import type {
   RpStorybookCharacterBanking, RpStorybookCharacterComfyConfig, RpStorybookCharacterImage,
   RpStorybookCharacterPhoneSettings, RpStorybookCharacterProfileImage, RpStorybookCharacterSocial,

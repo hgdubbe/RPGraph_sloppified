@@ -50,7 +50,8 @@ function abortableLlmInvoke(channel, request, onAbort) {
   return Promise.race([
     ipcRenderer
       .invoke(channel, { ...requestWithoutSignal, requestId })
-      .then(throwIfLlmCancelled),
+      .then(throwIfLlmCancelled)
+      .then(throwIfRpgraphIpcError),
     abortPromise,
   ]);
 }
@@ -62,6 +63,10 @@ contextBridge.exposeInMainWorld('rpgraph', {
     abortableLlmInvoke('lmstudio:list-models', { connection }, onAbort).then(throwIfRpgraphIpcError),
   listLlamaCppModels: (connection, onAbort) =>
     abortableLlmInvoke('llamacpp:list-models', { connection }, onAbort).then(throwIfRpgraphIpcError),
+  listUnslothModels: (connection) => ipcRenderer.invoke('unsloth:list', { connection }).then(throwIfRpgraphIpcError),
+  loadUnslothModel: (connection) => ipcRenderer.invoke('unsloth:load', { connection }).then(throwIfRpgraphIpcError),
+  isUnslothModelLoaded: (connection) => ipcRenderer.invoke('unsloth:probe', { connection }).then(throwIfRpgraphIpcError),
+  unloadUnslothModels: (connection) => ipcRenderer.invoke('unsloth:unload', { connection }).then(throwIfRpgraphIpcError),
   loadLlamaCppModel: (connection) =>
     ipcRenderer.invoke('llamacpp:load-model', { connection }),
   isLlamaCppModelLoaded: (connection) =>
@@ -70,6 +75,8 @@ contextBridge.exposeInMainWorld('rpgraph', {
     ipcRenderer.invoke('llamacpp:unload-models', { connection }),
   listOpenRouterModels: (connection, onAbort) =>
     abortableLlmInvoke('openrouter:list-models', { connection }, onAbort).then(throwIfRpgraphIpcError),
+  listCompositeModels: (connection) =>
+    ipcRenderer.invoke('composite:list-models', { connection }),
   generateOpenRouterSpeech: (request, onChunk) => {
     const requestId = nextLlmRequestId();
     const channel = `openrouter:speech-chunk:${requestId}`;
@@ -90,6 +97,12 @@ contextBridge.exposeInMainWorld('rpgraph', {
   },
   listGeminiModels: (connection, onAbort) =>
     abortableLlmInvoke('gemini:list-models', { connection }, onAbort).then(throwIfRpgraphIpcError),
+  listVeniceModels: (connection) =>
+    ipcRenderer.invoke('venice:list-models', { connection }),
+  generateVeniceSpeech: (request) =>
+    ipcRenderer.invoke('venice:generate-speech', request),
+  generateVeniceImages: (request) =>
+    ipcRenderer.invoke('venice:generate-images', request),
   loadLmStudioModel: (connection) =>
     ipcRenderer.invoke('lmstudio:load-model', { connection }),
   isLmStudioModelLoaded: (connection) =>
@@ -143,7 +156,8 @@ contextBridge.exposeInMainWorld('rpgraph', {
             'llm:chat-completion-stream',
             { ...requestWithoutSignal, requestId },
           )
-          .then(throwIfLlmCancelled),
+          .then(throwIfLlmCancelled)
+          .then(throwIfRpgraphIpcError),
         abortPromise,
       ]);
     } finally {
@@ -172,6 +186,7 @@ contextBridge.exposeInMainWorld('rpgraph', {
     ipcRenderer.invoke('file:delete', { fileName, storage }),
   loadTextFile: () => ipcRenderer.invoke('text-file:load'),
   loadJsonFile: (options) => ipcRenderer.invoke('json-file:load', options),
+  saveJsonFileToPath: (request) => ipcRenderer.invoke('json-file:save-to-path', request),
   loadDefaultWorkflow: () => ipcRenderer.invoke('workflow:load-default'),
   loadStartupWorkflow: () => ipcRenderer.invoke('workflow:load-startup'),
   resolveProjectPath: (relativePath) => ipcRenderer.invoke('app:resolve-project-path', relativePath),
@@ -195,6 +210,9 @@ contextBridge.exposeInMainWorld('rpgraph', {
   getResourceStats: () => ipcRenderer.invoke('system:resource-stats'),
   saveSession: (name, session, protection, password, overwrite = false) =>
     ipcRenderer.invoke('session:save', { name, session, protection, password, overwrite }),
+  saveTurnAutosave: (session) => ipcRenderer.invoke('autosave:save-turn', session),
+  loadTurnAutosave: () => ipcRenderer.invoke('autosave:load-turn'),
+  listTurnAutosaves: () => ipcRenderer.invoke('autosave:list-turns'),
   saveStorybook: (name, storybook, protection, password, overwrite = false) =>
     ipcRenderer.invoke('storybook:save', { name, storybook, protection, password, overwrite }),
   saveCharacter: (name, characterCard, protection, password, overwrite = false, destination = 'characters') =>

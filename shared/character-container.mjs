@@ -1,6 +1,6 @@
-const formatVersions = require('../src/storybook/formatVersions.json');
+import formatVersions from '../src/storybook/formatVersions.json' with { type: 'json' };
 
-const currentCharacterContainerVersion = formatVersions.characterCard;
+export const currentCharacterContainerVersion = formatVersions.characterCard;
 const appNames = ['whatsup', 'fotogram', 'onlyfriends', 'matchme'];
 const datingGenders = ['woman', 'man', 'nonbinary'];
 
@@ -41,7 +41,7 @@ function validateDatingProfile(value, requireImage, allowMissingPhoto = false) {
 }
 
 /** Validate the canonical Character Container V2 payload and all gallery references. */
-function validateCharacterPayload(value) {
+export function validateCharacterPayload(value) {
   const character = record(value);
   if (!nonEmptyString(character.id) || !nonEmptyString(character.name)) {
     throw new Error('Character Container V2 requires a stable id and name.');
@@ -125,7 +125,7 @@ function validateCharacterPayload(value) {
   return character;
 }
 
-function validateCharacterContainer(value) {
+export function validateCharacterContainer(value) {
   const container = record(value);
   if (container.format !== 'rpgraph-character') {
     throw new Error('The file is not an RPGraph character container.');
@@ -137,7 +137,7 @@ function validateCharacterContainer(value) {
   return container;
 }
 
-module.exports = {
+export default {
   currentCharacterContainerVersion,
   validateCharacterContainer,
   validateCharacterPayload,

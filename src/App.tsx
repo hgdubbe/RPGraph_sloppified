@@ -30,6 +30,7 @@ import {
   SystemLogDialog,
 } from './components/AppDialogs';
 import { StorybookEditorDialog } from './components/StorybookEditorDialog';
+import { NodeTextEditorDialog } from './components/NodeTextEditorDialog';
 import {
   AssistantDialog,
   type AssistantMessage as AssistantChatMessage,
@@ -39,10 +40,14 @@ import { EdgeCharacterPicker } from './components/EdgeCharacterPicker';
 import { ChatConversationPanel } from './components/ChatConversationPanel';
 import { EventsPanel } from './components/EventsPanel';
 import { ErrorBoundary } from './components/ErrorBoundary';
+import { GraphStudioShell } from './components/GraphStudioShell';
 import { PhonePanel } from './components/PhonePanel';
+import { RoleplayPhoneDevice } from './components/RoleplayPhoneDevice';
+import { RoleplayStudioShell } from './components/RoleplayStudioShell';
+import { PopoutWindow } from './components/PopoutWindow';
+import { phoneMoodContext } from './phone/moodStatus';
 import { useChatGpdPhoneApp } from './chat/useChatGpdPhoneApp';
 import { useAutoplay, type AutoplayRunRequest } from './chat/useAutoplay';
-import { PhoneTab } from './chat/PhoneTab';
 import {
   autoplayMessageFormat,
   localActivityPromptSlot,
@@ -119,6 +124,13 @@ import {
   recentTurnDebugSummaries,
   sanitizeDebugSnapshotValue,
 } from './app/debugSnapshot';
+import { isStudioMode, studioModeStorageKey, type StudioMode } from './app/studioMode';
+import {
+  isStudioTheme,
+  studioThemeStorageKey,
+  studioThemes,
+  type StudioTheme,
+} from './app/studioTheme';
 import { useTurnTraceState } from './app/useTurnTraceState';
 import { createWorkflowAssistantSnapshotJson } from './assistant/workflowSnapshot';
 import {
@@ -191,6 +203,10 @@ import {
   restoreTurnRuntime,
   turnMessageIds,
 } from './chat/turns';
+import {
+  selectableTurnVariants,
+  switchActiveTurnVariant,
+} from './chat/turnVariants';
 import { useTurnRecordState } from './chat/useTurnRecordState';
 import { currentSessionFormatVersion } from './session/version';
 import {
@@ -211,6 +227,7 @@ import { isComfyVoiceConnection } from './comfy/connectionRole';
 import { useDialogueVoice } from './chat/useDialogueVoice';
 import { latestOutputTurnMessages } from './chat/dialogueVoiceSegments';
 import { WelcomeDialog } from './components/WelcomeDialog';
+import { TurnAutosaveChoiceDialog } from './components/TurnAutosaveChoiceDialog';
 import { npcPromotionCard } from './characters/promotion';
 import { NpcLibraryDialog } from './components/NpcLibraryDialog';
 import { useNpcLibrary } from './characters/useNpcLibrary';
@@ -228,8 +245,9 @@ import {
   isGeminiConnection,
   isLmStudioConnection,
   isOllamaConnection,
-  isLlamaCppConnection,
+  isManagedLocalConnection,
   isOpenRouterConnection,
+  isVeniceConnection,
 } from './llm/providerKind';
 import { TextMetricsApi } from './llm/tokenMetrics';
 import { encodedDataUrlBytes, normalizeImageAttachment } from './utils/imageNormalization';
@@ -238,7 +256,7 @@ import type { OutputFormatHelpKind } from './nodes/output/formatHelp';
 import type { ExecuteTraceFormatResult } from './nodes/types';
 import { getRegisteredCoreNode } from './nodes/registry';
 import { buildUpgradedNode, storybookOrSingletonUpgradeConflict } from './nodes/nodeUpgrade';
-import type { NodeViewValues } from './nodes/types';
+import type { NodeTextEditorRequest, NodeViewValues } from './nodes/types';
 import { NodeViewContext } from './nodes/NodeViewContext';
 import { WorkflowNodeRenderer } from './nodes/WorkflowNodeRenderer';
 import { resetCharacterStatsRuntimeData } from './nodes/character-stats/runtime';
@@ -311,6 +329,7 @@ import {
   createInitialNodes,
   formatChatHistory,
   formatLastMessageForContext,
+  isWorkflowFile,
   persistentNodeData,
   validEstimatedTokenBytesPerToken,
 } from './workflow';
@@ -617,6 +636,39 @@ function App() {
   const npcLibrary = useNpcLibrary();
   const [nodes, setNodes, onNodesChange] = useNodesState<WorkflowNode>(createInitialNodes());
   const [edges, setEdges, onEdgesChange] = useEdgesState(createInitialEdges());
+  const [nodeTextEditorRequest, setNodeTextEditorRequest] = useState<NodeTextEditorRequest | null>(null);
+  const [graphPaletteCollapsed, setGraphPaletteCollapsed] = useState(false);
+  const [graphInspectorCollapsed, setGraphInspectorCollapsed] = useState(false);
+  const [studioMode, setStudioModeState] = useState<StudioMode>(() => {
+    if (typeof window === 'undefined') {
+      return 'play';
+    }
+    const storedMode = window.localStorage.getItem(studioModeStorageKey);
+    return isStudioMode(storedMode) ? storedMode : 'play';
+  });
+  const setStudioMode = useCallback((mode: StudioMode) => {
+    setStudioModeState(mode);
+    try {
+      window.localStorage.setItem(studioModeStorageKey, mode);
+    } catch {
+      // localStorage can be unavailable in hardened environments; the UI still works for this session.
+    }
+  }, []);
+  const [studioTheme, setStudioThemeState] = useState<StudioTheme>(() => {
+    if (typeof window === 'undefined') {
+      return 'studio-night';
+    }
+    const storedTheme = window.localStorage.getItem(studioThemeStorageKey);
+    return isStudioTheme(storedTheme) ? storedTheme : 'studio-night';
+  });
+  const setStudioTheme = useCallback((theme: StudioTheme) => {
+    setStudioThemeState(theme);
+    try {
+      window.localStorage.setItem(studioThemeStorageKey, theme);
+    } catch {
+      // localStorage can be unavailable in hardened environments; the UI still works for this session.
+    }
+  }, []);
   const nodesRef = useRef(nodes);
   const commitNodes = useCallback((nextNodes: WorkflowNode[]) => {
     nodesRef.current = nextNodes;
@@ -708,6 +760,8 @@ function App() {
     setUiScale,
     retryFormatErrorsEnabled,
     setRetryFormatErrorsEnabled,
+    turnAutosaveEnabled,
+    setTurnAutosaveEnabled,
     dialogueVoiceMode,
     setDialogueVoiceMode,
     dialogueNarratorProviderId,
@@ -787,6 +841,7 @@ function App() {
     setNodes,
   });
   const [draft, setDraft] = useState('');
+  const [draftContextComment, setDraftContextComment] = useState('');
   const [draftCommands, setDraftCommands] = useState<CommandInputCommand[]>([]);
   const [draftImages, setDraftImages] = useState<ChatImageAttachment[]>([]);
   const [editingMessageId, setEditingMessageId] = useState<number | null>(null);
@@ -830,8 +885,9 @@ function App() {
       cancelCurrentRun('cancel');
     },
   });
-  const [characterDropdownOpen, setCharacterDropdownOpen] = useState(false);
   const [showOptions, setShowOptions] = useState(false);
+  const [topbarMenuOpen, setTopbarMenuOpen] = useState(false);
+  const topbarMenuRef = useRef<HTMLDivElement | null>(null);
   const [textDialogNodeId, setTextDialogNodeId] = useState<string | null>(null);
   const [textDialogView, setTextDialogView] =
     useState<
@@ -857,16 +913,52 @@ function App() {
   const [outputFormatHelpKind, setOutputFormatHelpKind] =
     useState<OutputFormatHelpKind | null>(null);
   const [chatWidth, setChatWidth] = useState(defaultChatPanelWidth);
-  const [isChatPanelOpen, setIsChatPanelOpen] = useState(false);
   const [isResizing, setIsResizing] = useState(false);
+  const [roleplayPanelDetached, setRoleplayPanelDetached] = useState(false);
+  const closeRoleplayPanelDetached = useCallback(() => setRoleplayPanelDetached(false), []);
   const [showDeletedNodeRestoreButton, setShowDeletedNodeRestoreButton] = useState(false);
   const [activeWorkflowProtection, setActiveWorkflowProtection] = useState<'plain' | 'encrypted'>('plain');
   const [activeStorybookProtection, setActiveStorybookProtection] = useState<'plain' | 'encrypted'>('plain');
   const [flowInstance, setFlowInstance] = useState<ReactFlowInstance<WorkflowNode> | null>(null);
+  const [retainedNodeEditors, setRetainedNodeEditors] = useState<Set<string>>(new Set());
+  const retainNodeEditor = useCallback((nodeId: string, retained: boolean) => {
+    setRetainedNodeEditors((current) => {
+      if (current.has(nodeId) === retained) return current;
+      const next = new Set(current);
+      if (retained) next.add(nodeId); else next.delete(nodeId);
+      return next;
+    });
+  }, []);
   const flowInstanceRef = useRef<ReactFlowInstance<WorkflowNode> | null>(null);
   const npcParticipants = useNpcParticipants(nodesRef, npcLibrary.snapshot);
   const imageInputRef = useRef<HTMLInputElement | null>(null);
-  const characterDropdownRef = useRef<HTMLDivElement | null>(null);
+  const lastTurnAutosaveIdRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (!topbarMenuOpen) {
+      return undefined;
+    }
+
+    function handlePointerDown(event: PointerEvent) {
+      const target = event.target;
+      if (target instanceof Node && topbarMenuRef.current?.contains(target)) {
+        return;
+      }
+      setTopbarMenuOpen(false);
+    }
+
+    function handleKeyDown(event: KeyboardEvent) {
+      if (event.key === 'Escape') {
+        setTopbarMenuOpen(false);
+      }
+    }
+
+    document.addEventListener('pointerdown', handlePointerDown);
+    document.addEventListener('keydown', handleKeyDown);
+    return () => {
+      document.removeEventListener('pointerdown', handlePointerDown);
+      document.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [topbarMenuOpen]);
   const {
     messages,
     setMessages,
@@ -942,6 +1034,7 @@ function App() {
     chatPanelView,
     selectChatPanelView,
     selectPhonePanelView,
+    openPhoneApp,
     cyclePhoneNotificationOwner,
     setSelectedCharacterId,
     selectedCharacter,
@@ -958,7 +1051,6 @@ function App() {
     phoneContacts,
     selectedPhoneContact,
     openPhoneContact,
-    switchActivePlayer,
     selectedPhoneConversation,
     selectedPhoneDividerAfterId,
     eventManagerAvailable,
@@ -992,8 +1084,10 @@ function App() {
     accountLinkContext,
     phoneNotesByCharacter,
     setPhoneNotesByCharacter,
+    phoneNotesByCharacterRef,
     chatGpdChatsByCharacter,
     setChatGpdChatsByCharacter,
+    chatGpdChatsByCharacterRef,
     toggleSocialLike,
     onlyFriendsPurchasesByCharacter,
     setOnlyFriendsPurchasesByCharacter,
@@ -1014,6 +1108,7 @@ function App() {
     changeChatReadsPhoneAppsEnabled,
     autoTurnDisabled,
     autoTurnTitle,
+    switchActivePlayer,
     switchPlayerDisabled,
     switchPlayerTitle,
     highlightedPhoneMessage,
@@ -1026,6 +1121,8 @@ function App() {
     addBankingContact,
     markSelectedPhoneConversationSeen,
     phoneHomeRequestId,
+    phoneAppOpenRequest,
+    phoneGalleryOpenRequestId,
     phoneDividerAfterByConversation,
     setPhoneDividerAfterByConversation,
     openedPhoneConversationKey,
@@ -1035,6 +1132,10 @@ function App() {
     clearPhoneReply,
     phoneDraft,
     setPhoneDraft,
+    phoneDraftContextComment,
+    setPhoneDraftContextComment,
+    phoneMoodStatus,
+    setPhoneMoodStatus,
     phoneDraftCommands,
     setPhoneDraftCommands,
     phoneImages,
@@ -1062,7 +1163,6 @@ function App() {
     turns,
     storybooksByNodeId,
     characterStorybookNodeCount: characterStorybookNodes.length,
-    imageUploadVisionEnabled,
     englishProcessingEnabled,
     smoothChatAutoScrollEnabled,
     smoothChatAutoScrollMinSpeed,
@@ -1202,7 +1302,6 @@ function App() {
     defaultConnectionId,
     setDefaultConnectionId,
     settingsLoadComplete,
-    isRunning,
     nodesRef,
     setNodes,
     notifySystem,
@@ -1214,7 +1313,7 @@ function App() {
     }
     const capabilities = providerHealthById[connection.id]?.capabilities;
     if (
-      (isOpenRouterConnection(connection) || isGeminiConnection(connection)) &&
+      (isOpenRouterConnection(connection) || isGeminiConnection(connection) || isVeniceConnection(connection)) &&
       capabilities?.voice === true &&
       capabilities.text !== true &&
       connection.ttsVoice
@@ -1280,6 +1379,8 @@ function App() {
     generateApiNarratorClip: (connection, input, onChunk) =>
       isGeminiConnection(connection)
         ? window.rpgraph.generateGeminiSpeech({ connection, input }, onChunk)
+        : isVeniceConnection(connection)
+          ? window.rpgraph.generateVeniceSpeech({ connection, input })
         : window.rpgraph.generateOpenRouterSpeech({ connection, input }, onChunk),
     unloadVoiceModels: unloadCharacterComfyModels,
     onVoiceClipGenerated: storeMessageVoiceClip,
@@ -1342,6 +1443,9 @@ function App() {
     stopDialogueVoice,
   ]);
   const {
+    turnAutosaveChoices,
+    chooseTurnAutosave,
+    declineTurnAutosaveChoices,
     showFiles,
     setShowFiles,
     showStorybookPicker,
@@ -1651,6 +1755,23 @@ function App() {
     createId: uniqueId,
     notifySystem,
   });
+  const [nodePaletteSearch, setNodePaletteSearch] = useState('');
+  const visibleGroupedNodePaletteItems = useMemo(() => {
+    const query = nodePaletteSearch.trim().toLowerCase();
+    if (!query) {
+      return groupedNodePaletteItems;
+    }
+    return groupedNodePaletteItems
+      .map((group) => ({
+        ...group,
+        items: group.items.filter((item) =>
+          item.label.toLowerCase().includes(query) ||
+          item.description.toLowerCase().includes(query) ||
+          item.type.toLowerCase().includes(query)
+        ),
+      }))
+      .filter((group) => group.items.length > 0);
+  }, [groupedNodePaletteItems, nodePaletteSearch]);
   const {
     nodeContextMenu,
     closeNodeContextMenu,
@@ -1703,22 +1824,6 @@ function App() {
     document.addEventListener('pointerdown', closePhoneEmojiPicker);
     return () => document.removeEventListener('pointerdown', closePhoneEmojiPicker);
   }, [phoneEmojiPickerRef, setShowPhoneEmojiPicker, showPhoneEmojiPicker]);
-
-  useEffect(() => {
-    if (!characterDropdownOpen) {
-      return;
-    }
-    const closeCharacterDropdown = (event: PointerEvent) => {
-      if (
-        event.target instanceof Node &&
-        !characterDropdownRef.current?.contains(event.target)
-      ) {
-        setCharacterDropdownOpen(false);
-      }
-    };
-    document.addEventListener('pointerdown', closeCharacterDropdown);
-    return () => document.removeEventListener('pointerdown', closeCharacterDropdown);
-  }, [characterDropdownOpen]);
 
   useEffect(() => {
     let active = true;
@@ -1928,7 +2033,8 @@ function App() {
     if (settingsLoadComplete) {
       const maximum = Math.max(minChatPanelWidth, window.innerWidth - minGraphPanelWidth);
       queueMicrotask(() => {
-        setChatWidth(Math.min(maximum, Math.max(minChatPanelWidth, storedChatPanelWidth)));
+        const nextWidth = Math.min(maximum, Math.max(minChatPanelWidth, storedChatPanelWidth));
+        setChatWidth((current) => (current === nextWidth ? current : nextWidth));
       });
     }
   }, [settingsLoadComplete, storedChatPanelWidth]);
@@ -2295,10 +2401,40 @@ function App() {
     if (!settingsLoadComplete) {
       return;
     }
-    void loadStartupWorkflow();
-    // The last local workflow is loaded once settings are ready at app startup.
+    void loadStartupWorkflow({ preferTurnAutosave: turnAutosaveEnabled });
+    // The last local workflow (or, when turn autosave is enabled, the newest turn
+    // autosave) is loaded once settings are ready at app startup.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [settingsLoadComplete]);
+
+  useEffect(() => {
+    if (!settingsLoadComplete || !turnAutosaveEnabled) {
+      return;
+    }
+    const latestTurn = [...turnsRef.current].reverse().find((turn) => !turn.openingHistory);
+    if (!latestTurn || latestTurn.id === lastTurnAutosaveIdRef.current) {
+      return;
+    }
+    lastTurnAutosaveIdRef.current = latestTurn.id;
+    const name = sessionName.trim() || suggestedSessionName();
+    void currentSession(name)
+      .then((session) => window.rpgraph.saveTurnAutosave(session))
+      .then((result) => {
+        setFileStorageStatus(`Autosaved RP recovery: ${result.fileName}`);
+      })
+      .catch((error) => {
+        const detail = error instanceof Error ? error.message : String(error);
+        setFileStorageStatus(`Autosave failed: ${detail}`);
+        notifySystem('warning', `Autosave failed: ${detail}`);
+      });
+  }, [
+    settingsLoadComplete,
+    sessionName,
+    setFileStorageStatus,
+    turns,
+    turnAutosaveEnabled,
+    notifySystem,
+  ]);
 
   function changeTokenEstimateBytesPerToken(value: number) {
     setTokenEstimateBytesPerToken(validEstimatedTokenBytesPerToken(value));
@@ -2502,8 +2638,11 @@ function App() {
       onlyFriendsPurchasesByCharacter,
       phoneDividerAfterByConversation,
       recentlyUsedEmojis,
-      phoneNotesByCharacter,
-      chatGpdChatsByCharacter,
+      // Refs, not the state closures: see the comment on their declaration in
+      // useRoleplayPanelRuntime.ts - a session snapshot taken synchronously (or from a
+      // useEffect right after a commit) must not risk a stale value.
+      phoneNotesByCharacter: phoneNotesByCharacterRef.current,
+      chatGpdChatsByCharacter: chatGpdChatsByCharacterRef.current,
     };
   }
 
@@ -3558,6 +3697,9 @@ function App() {
   }
 
   const currentSessionTurn = lastSessionTurn(turns);
+  const currentTurnVariants = currentSessionTurn
+    ? selectableTurnVariants(currentSessionTurn)
+    : [];
   const undoTurnTitle = isRunning
     ? 'Cancel the running turn'
     : currentSessionTurn
@@ -3607,7 +3749,7 @@ function App() {
     role: Extract<MessageRecord['role'], 'user' | 'output'> = 'user',
     phoneAutoTurnSource?: MessageRecord['phoneAutoTurnSource'],
     workflowVariableSetCommands?: WorkflowVariableSetCommand[],
-    inputMetadata: Pick<MessageRecord, 'inputMessageFormat' | 'inputPromptSlot' | 'replyToMessageId'> = {},
+    inputMetadata: Pick<MessageRecord, 'inputMessageFormat' | 'inputPromptSlot' | 'replyToMessageId' | 'contextComment'> = {},
   ) {
     const participants = resolveWhatsUpMessageParticipants(npcParticipants.characters(), messagesRef.current, {
       from: message.fromAccountId ?? message.from,
@@ -3657,6 +3799,7 @@ function App() {
       phoneImageDescription: imageDescription,
       phoneImageCaptionChange: canonicalMessage.phoneImageCaptionChange,
       replyToMessageId: inputMetadata.replyToMessageId,
+      contextComment: inputMetadata.contextComment,
       inputMessageFormat: inputMetadata.inputMessageFormat,
       inputPromptSlot: inputMetadata.inputPromptSlot,
       speakerName: canonicalMessage.from,
@@ -3750,7 +3893,7 @@ function App() {
       }];
     });
   }
-  const { runGraph } = useGraphRun({
+  const { runGraph, runGraphFromRequest } = useGraphRun({
     appCharacters: npcParticipants.characters,
     messages,
     setMessages,
@@ -3881,7 +4024,18 @@ function App() {
     };
   }, [messagesRef, runGraph]);
 
-  function regenerateLastOutput() {
+  function graphTextWithReflavorInstruction(text: string, enabled: boolean) {
+    if (!enabled) {
+      return text;
+    }
+    return [
+      '[REFLAVOR]',
+      'Regenerate this same turn as a stylistic variation. Preserve the same facts, outcomes, app actions, phone/social effects, continuity, and intent. Change only phrasing, pacing, tone, and prose texture.',
+      text,
+    ].join('\n');
+  }
+
+  function regenerateLastOutput(options: { reflavor?: boolean } = {}) {
     if (isRunning) {
       const retry = activeRunRef.current?.retry;
       if (retry) {
@@ -3908,7 +4062,7 @@ function App() {
     if (turn.directAction) {
       applyTurnCheckpointRuntime(turn, 'before');
       void runGraph(
-        turn.input.graphText,
+        graphTextWithReflavorInstruction(turn.input.graphText, !!options.reflavor),
         inputMessage?.imageAttachments ?? [],
         undefined,
         messagesRef.current.filter((message) => !allTurnMessageIds.has(message.id)),
@@ -3916,7 +4070,7 @@ function App() {
         turn.mode === 'narrator' ? undefined : selectedCharacter,
         false,
         undefined,
-        { turn, replaceInput: false },
+        { turn, replaceInput: false, variantLabel: options.reflavor ? 'Reflavor' : 'Regenerate' },
         turn.mode ?? 'user',
         inputMessage?.eventDisplayText,
         undefined,
@@ -3981,7 +4135,7 @@ function App() {
       const threadContext = socialThreadAction
         ? socialThreadRunContextFromInput(turn.input.graphText)
         : undefined;
-      const displayText = socialPost
+      const displayText = graphTextWithReflavorInstruction(socialPost
         ? socialPostInputText(socialPost)
         : socialThreadAction
           ? socialThreadActionInputText(
@@ -3991,7 +4145,7 @@ function App() {
             )
           : socialDirectRunMessage
             ? socialDirectMessageInputText(socialDirectRunMessage, historyMessages, npcParticipants.characters())
-            : turn.input.graphText;
+            : turn.input.graphText, !!options.reflavor);
       const imageId = socialPost?.imageId ?? socialDirectMessage?.origin?.postImageId;
       const inputImages = imageId
         ? [socialImageById(imageId, socialPost?.authorAccountId ?? socialPost?.authorCharacterId ?? (socialDirectMessage?.origin ? npcSeedPostAccountId(socialDirectMessage.origin.postId) : undefined))].filter(
@@ -4025,7 +4179,7 @@ function App() {
         actor,
         false,
         undefined,
-        { turn, replaceInput: false },
+        { turn, replaceInput: false, variantLabel: options.reflavor ? 'Reflavor' : 'Regenerate' },
         turn.mode ?? 'user',
         socialDirectRegenerateInputMessage?.eventDisplayText,
         undefined,
@@ -4046,7 +4200,7 @@ function App() {
     if (turn.messageFormat === autoplayMessageFormat) {
       applyTurnCheckpointRuntime(turn, 'before');
       void runGraph(
-        turn.input.graphText,
+        graphTextWithReflavorInstruction(turn.input.graphText, !!options.reflavor),
         [],
         undefined,
         messagesRef.current.filter((message) => !allTurnMessageIds.has(message.id)),
@@ -4054,7 +4208,7 @@ function App() {
         undefined,
         false,
         undefined,
-        { turn, replaceInput: false },
+        { turn, replaceInput: false, variantLabel: options.reflavor ? 'Reflavor' : 'Regenerate' },
         'user',
         undefined,
         undefined,
@@ -4076,7 +4230,7 @@ function App() {
         : undefined;
       applyTurnCheckpointRuntime(turn, 'before');
       void runGraph(
-        storedAutoTurnInputText(turn.input.graphText),
+        graphTextWithReflavorInstruction(storedAutoTurnInputText(turn.input.graphText), !!options.reflavor),
         [],
         undefined,
         messagesRef.current.filter((message) => !allTurnMessageIds.has(message.id)),
@@ -4084,7 +4238,7 @@ function App() {
         inputCharacter,
         phoneAutoTurn,
         phoneRecipient,
-        { turn, replaceInput: false },
+        { turn, replaceInput: false, variantLabel: options.reflavor ? 'Reflavor' : 'Regenerate' },
         'auto-turn',
         inputMessage?.eventDisplayText,
       );
@@ -4093,7 +4247,7 @@ function App() {
     if (turn.mode === 'narrator') {
       applyTurnCheckpointRuntime(turn, 'before');
       void runGraph(
-        storedNarratorInputText(turn.input.graphText),
+        graphTextWithReflavorInstruction(storedNarratorInputText(turn.input.graphText), !!options.reflavor),
         inputMessage?.imageAttachments ?? [],
         inputMessage,
         messagesRef.current.filter((message) => !allTurnMessageIds.has(message.id)),
@@ -4101,7 +4255,7 @@ function App() {
         undefined,
         false,
         undefined,
-        { turn, replaceInput: false },
+        { turn, replaceInput: false, variantLabel: options.reflavor ? 'Reflavor' : 'Regenerate' },
         'narrator',
       );
       return;
@@ -4114,7 +4268,7 @@ function App() {
       : selectedCharacter;
     applyTurnCheckpointRuntime(turn, 'before');
     void runGraph(
-      inputMessage.translatedText ?? inputMessage.originalText,
+      graphTextWithReflavorInstruction(inputMessage.translatedText ?? inputMessage.originalText, !!options.reflavor),
       inputMessage.imageAttachments ?? [],
       inputMessage,
       messagesRef.current.filter((message) => !allTurnMessageIds.has(message.id)),
@@ -4124,8 +4278,77 @@ function App() {
       inputMessage.phoneTo
         ? phoneCharacters.find((character) => phoneNamesMatch(character.name, inputMessage.phoneTo ?? ''))
         : undefined,
-      { turn, replaceInput: false },
+      { turn, replaceInput: false, variantLabel: options.reflavor ? 'Reflavor' : 'Regenerate' },
     );
+  }
+
+  function selectLastTurnVariant(variantId: string) {
+    if (isRunning) {
+      return;
+    }
+    const turnIndex = lastSessionTurnIndex(turnsRef.current);
+    const activeTurn = turnIndex >= 0 ? turnsRef.current[turnIndex] : undefined;
+    if (!activeTurn || variantId === `${activeTurn.id}-active`) {
+      return;
+    }
+    const activeCheckpoint = turnCheckpointsRef.current.find((entry) => entry.turnId === activeTurn.id);
+    const switched = switchActiveTurnVariant({
+      activeTurn,
+      targetVariantId: variantId,
+      activeCheckpoint,
+    });
+    if (!switched) {
+      return;
+    }
+    const nextTurn = {
+      ...switched.turn,
+      id: activeTurn.id,
+      number: activeTurn.number,
+      input: {
+        ...switched.turn.input,
+        messages: switched.turn.input.messages.map((message) => ({
+          ...message,
+          turnId: activeTurn.id,
+          turnNumber: activeTurn.number,
+        })),
+      },
+      output: {
+        ...switched.turn.output,
+        messages: switched.turn.output.messages.map((message) => ({
+          ...message,
+          turnId: activeTurn.id,
+          turnNumber: activeTurn.number,
+        })),
+      },
+    };
+    const removedIds = turnMessageIds(activeTurn);
+    const replacementMessages = flattenTurnMessages([nextTurn]);
+    const firstMessageIndex = messagesRef.current.findIndex((message) => removedIds.has(message.id));
+    const remainingMessages = messagesRef.current.filter((message) => !removedIds.has(message.id));
+    const insertionIndex = firstMessageIndex >= 0 ? firstMessageIndex : remainingMessages.length;
+    const nextMessages = [
+      ...remainingMessages.slice(0, insertionIndex),
+      ...replacementMessages,
+      ...remainingMessages.slice(insertionIndex),
+    ];
+    const nextTurns = turnsRef.current.map((turn, index) => index === turnIndex ? nextTurn : turn);
+    const nextCheckpoints = switched.checkpoint
+      ? turnCheckpointsRef.current.map((checkpoint) =>
+          checkpoint.turnId === activeTurn.id
+            ? { ...structuredClone(switched.checkpoint!), turnId: activeTurn.id }
+            : checkpoint,
+        )
+      : turnCheckpointsRef.current;
+    turnsRef.current = nextTurns;
+    messagesRef.current = nextMessages;
+    turnCheckpointsRef.current = nextCheckpoints;
+    setTurns(nextTurns);
+    setMessages(nextMessages);
+    setTurnCheckpoints(nextCheckpoints);
+    if (switched.checkpoint) {
+      applyTurnCheckpointRuntime(nextTurn, 'after');
+    }
+    setFileStorageStatus('Switched active turn variant.');
   }
 
   function cancelEditMessage() {
@@ -4266,6 +4489,7 @@ function App() {
       return;
     }
     setDraft('');
+    setDraftContextComment('');
     setDraftCommands([]);
     setDraftImages([]);
     if (!narratorSelected && selectedCharacter) {
@@ -4290,6 +4514,12 @@ function App() {
       undefined,
       undefined,
       inputPayload,
+      undefined,
+      undefined,
+      undefined,
+      false,
+      undefined,
+      draftContextComment,
     );
   }
 
@@ -4355,7 +4585,7 @@ function App() {
     deletePhoneNote,
     commitChatGpdChat,
   } = useDirectAppActions({
-    runGraph,
+    runGraphFromRequest,
     isRunning,
     messagesRef,
     turnsRef,
@@ -4615,32 +4845,30 @@ function App() {
     }
     const images = phoneImages;
     const replyTo = phoneReplyToMessage;
+    const moodContext = phoneMoodContext(phoneMoodStatus);
+    const phoneRunContextComment = [
+      phoneDraftContextComment.trim(),
+      moodContext,
+    ].filter(Boolean).join('\n');
     retainReplyReferenceImages(replyTo);
     setPhoneDraft('');
+    setPhoneDraftContextComment('');
     setPhoneDraftCommands([]);
     setPhoneImages([]);
     clearPhoneReply();
     setShowPhoneEmojiPicker(false);
-    void runGraph(
-      message,
+    void runGraphFromRequest({
+      inputText: message,
       images,
-      undefined,
-      messagesRef.current,
-      undefined,
-      selectedCharacter,
-      true,
-      selectedPhoneContact.character,
-      undefined,
-      'user',
-      undefined,
-      undefined,
-      undefined,
-      false,
-      undefined,
-      undefined,
-      replyTo,
-      inputPayload,
-    );
+      historyMessages: messagesRef.current,
+      inputCharacterOverride: selectedCharacter,
+      phoneMessageOverride: true,
+      phoneRecipientCharacterOverride: selectedPhoneContact.character,
+      turnMode: 'user',
+      phoneReplyToOverride: replyTo,
+      structuredInput: inputPayload,
+      contextComment: phoneRunContextComment,
+    });
   }
 
   async function runSelectedEvent() {
@@ -4670,21 +4898,18 @@ function App() {
         rpDateTimeFormat,
         rpWeekdayLanguage,
       );
-      await runGraph(
-        eventGraphText,
-        [],
-        undefined,
-        messagesRef.current,
-        undefined,
-        sender,
-        true,
-        recipient,
-        undefined,
-        'auto-turn',
-        eventNarratorText,
-        completeEvent,
-        'received',
-      );
+      await runGraphFromRequest({
+        inputText: eventGraphText,
+        images: [],
+        historyMessages: messagesRef.current,
+        inputCharacterOverride: sender,
+        phoneMessageOverride: true,
+        phoneRecipientCharacterOverride: recipient,
+        turnMode: 'auto-turn',
+        eventDisplayText: eventNarratorText,
+        onSuccessfulRunBeforeCommit: completeEvent,
+        phoneOutputSoundOverride: 'received',
+      });
       return;
     }
     const eventSpeaker = eventStoryCharacter(eventToRun, storyCharacters);
@@ -4698,20 +4923,15 @@ function App() {
       rpDateTimeFormat,
       rpWeekdayLanguage,
     );
-    await runGraph(
-      eventGraphText,
-      [],
-      undefined,
-      messagesRef.current,
-      undefined,
-      eventSpeaker,
-      undefined,
-      undefined,
-      undefined,
-      'auto-turn',
-      eventNarratorText,
-      completeEvent,
-    );
+    await runGraphFromRequest({
+      inputText: eventGraphText,
+      images: [],
+      historyMessages: messagesRef.current,
+      inputCharacterOverride: eventSpeaker,
+      turnMode: 'auto-turn',
+      eventDisplayText: eventNarratorText,
+      onSuccessfulRunBeforeCommit: completeEvent,
+    });
   }
 
   function triggerAutoTurn() {
@@ -4726,68 +4946,50 @@ function App() {
     }
     if (chatPanelView === 'phone') {
       if (narratorSelected) {
-        void runGraph(
-          autoTurnNarratorPhoneInstruction(autoTurnInstructions),
-          [],
-          undefined,
-          messagesRef.current,
-          undefined,
-          undefined,
-          true,
-          undefined,
-          undefined,
-          'narrator',
-          undefined,
-          undefined,
-          undefined,
-          true,
-        );
+        void runGraphFromRequest({
+          inputText: autoTurnNarratorPhoneInstruction(autoTurnInstructions),
+          images: [],
+          historyMessages: messagesRef.current,
+          phoneMessageOverride: true,
+          turnMode: 'narrator',
+          narratorAutoTurn: true,
+        });
         return;
       }
       if (!selectedCharacter || !selectedPhoneContact) {
         notifySystem('warning', 'Select a phone contact first.');
         return;
       }
-      void runGraph(
-        autoTurnPhoneInstruction(
+      void runGraphFromRequest({
+        inputText: autoTurnPhoneInstruction(
           selectedCharacter.name,
           selectedPhoneContact.character.name,
           autoTurnInstructions,
         ),
-        [],
-        undefined,
-        messagesRef.current,
-        undefined,
-        selectedCharacter,
-        true,
-        selectedPhoneContact.character,
-        undefined,
-        'auto-turn',
-      );
+        images: [],
+        historyMessages: messagesRef.current,
+        inputCharacterOverride: selectedCharacter,
+        phoneMessageOverride: true,
+        phoneRecipientCharacterOverride: selectedPhoneContact.character,
+        turnMode: 'auto-turn',
+      });
       return;
     }
     if (!selectedCharacter && !narratorSelected) {
       notifySystem('warning', 'Select a Storybook character first.');
       return;
     }
-    void runGraph(
-      narratorSelected
+    void runGraphFromRequest({
+      inputText: narratorSelected
         ? autoTurnNarratorInstruction(autoTurnInstructions)
         : autoTurnRpInstruction(selectedCharacter!.name, autoTurnInstructions),
-      [],
-      undefined,
-      messagesRef.current,
-      undefined,
-      narratorSelected ? undefined : selectedCharacter,
-      false,
-      undefined,
-      undefined,
-      narratorSelected ? 'narrator' : 'auto-turn',
-      undefined,
-      undefined,
-      undefined,
-      narratorSelected,
-    );
+      images: [],
+      historyMessages: messagesRef.current,
+      inputCharacterOverride: narratorSelected ? undefined : selectedCharacter,
+      phoneMessageOverride: false,
+      turnMode: narratorSelected ? 'narrator' : 'auto-turn',
+      narratorAutoTurn: narratorSelected,
+    });
   }
 
   const displayedWorkflowName = activeWorkflowFileName
@@ -4920,11 +5122,13 @@ function App() {
     }
   }
   const nodeViewValues = useMemo<NodeViewValues>(() => ({
+    retainNodeEditor,
     connections,
     providerHealthById,
     onCheckProviderConnection: (connectionId) => {
       void checkProviderConnectionById(connectionId);
     },
+    openTextEditor: setNodeTextEditorRequest,
     estimatedTokenBytesPerToken: activeTokenEstimateBytesPerToken,
     settingsValueDefinitions,
     settingsValues: resolvedWorkflowSettingsValues,
@@ -4937,6 +5141,7 @@ function App() {
     nodes: nodeViewNodes,
     edges,
   }), [
+    retainNodeEditor,
     activeTokenEstimateBytesPerToken,
     checkProviderConnectionById,
     connections,
@@ -4970,11 +5175,867 @@ function App() {
     audioGenerationActive:
       voiceGenerationActive || apiNarratorGenerationActive || readAloudActive,
   });
+  const selectedGraphNodes = useMemo(
+    () => nodes.filter((node) => node.selected),
+    [nodes],
+  );
+  const selectedGraphNode = selectedGraphNodes[0];
+  const selectedGraphDefinition = selectedGraphNode
+    ? getRegisteredCoreNode(selectedGraphNode.data.nodeType)
+    : undefined;
+  const selectedGraphPorts = useMemo(() => {
+    if (!selectedGraphNode) {
+      return [];
+    }
+    if (selectedGraphNode.data.portsSnapshot?.length) {
+      return selectedGraphNode.data.portsSnapshot;
+    }
+    try {
+      return selectedGraphDefinition?.ports(selectedGraphNode.data) ?? [];
+    } catch {
+      return [];
+    }
+  }, [selectedGraphDefinition, selectedGraphNode]);
+  const selectedGraphIncomingEdges = selectedGraphNode
+    ? edges.filter((edge) => edge.target === selectedGraphNode.id)
+    : [];
+  const selectedGraphOutgoingEdges = selectedGraphNode
+    ? edges.filter((edge) => edge.source === selectedGraphNode.id)
+    : [];
+  const selectedGraphProvider = selectedGraphNode?.data.connectionId
+    ? connections.find((connection) => connection.id === selectedGraphNode.data.connectionId)
+    : selectedGraphDefinition?.usesLlm
+      ? connections.find((connection) => connection.id === defaultConnectionId)
+      : undefined;
+  const selectedGraphProviderHealth = selectedGraphProvider
+    ? providerHealthById[selectedGraphProvider.id]
+    : undefined;
+  const selectedGraphPromptTexts = selectedGraphNode ? [
+    { label: 'Prompt before input', value: selectedGraphNode.data.llmPromptBefore },
+    { label: 'Prompt after input', value: selectedGraphNode.data.llmPromptAfter },
+    { label: 'History prompt', value: selectedGraphNode.data.historyLastPrompt },
+    { label: 'Event prompt', value: selectedGraphNode.data.eventLastPrompt },
+    { label: 'Character stats prompt', value: selectedGraphNode.data.characterStatsLastPrompt },
+    { label: 'Speaker prompt', value: selectedGraphNode.data.outputSpeakerPrompt?.customText },
+    { label: 'Memory text', value: selectedGraphNode.data.memorySlotText },
+    { label: 'Loaded text', value: selectedGraphNode.data.loadedText },
+    { label: 'Note', value: selectedGraphNode.data.noteText },
+    { label: 'Written text', value: selectedGraphNode.data.writeTextValue },
+  ].filter((entry): entry is { label: string; value: string } => typeof entry.value === 'string' && entry.value.length > 0) : [];
+  const selectedGraphRuntimeTexts = selectedGraphNode ? [
+    { label: 'Preview', value: selectedGraphNode.data.preview },
+    { label: 'Generated text', value: selectedGraphNode.data.generatedText },
+    { label: 'Compressed text', value: selectedGraphNode.data.compressedText },
+    { label: 'Raw history', value: selectedGraphNode.data.rawHistory },
+    { label: 'Last response', value: selectedGraphNode.data.historyLastResponse ?? selectedGraphNode.data.eventLastResponse ?? selectedGraphNode.data.characterStatsLastResponse },
+  ].filter((entry): entry is { label: string; value: string } => typeof entry.value === 'string' && entry.value.length > 0) : [];
+  const selectedGraphLlmCallStats = selectedGraphNode?.data.llmCallStats ?? [];
+  const selectedGraphLastLlmCall = selectedGraphLlmCallStats[selectedGraphLlmCallStats.length - 1];
+  const selectedGraphRunState = selectedGraphNode?.data.runError
+    ? 'Error'
+    : selectedGraphNode?.data.runActive
+      ? 'Running'
+      : selectedGraphNode?.data.runCompleted
+        ? 'Completed'
+        : selectedGraphNode?.data.runPrepared
+          ? 'Prepared'
+          : 'Idle';
+  const graphLlmNodeCount = nodeViewNodes.filter((node) => getRegisteredCoreNode(node.data.nodeType)?.usesLlm).length;
+  const graphRunErrorCount = nodeViewNodes.filter((node) => node.data.runError).length;
+  const graphUnwiredNodeCount = nodeViewNodes.filter((node) =>
+    !edges.some((edge) => edge.source === node.id || edge.target === node.id),
+  ).length;
+  const graphOnlineProviderCount = connections.filter((connection) => providerHealthById[connection.id]?.status === 'online').length;
+  const graphNodeLabel = (nodeId: string) =>
+    nodeViewNodes.find((node) => node.id === nodeId)?.data.label ?? nodeId;
+  const graphPortLabel = (node: WorkflowNode | undefined, handleId: string | null | undefined) => {
+    if (!node || !handleId) {
+      return handleId ?? 'port';
+    }
+    try {
+      const definition = getRegisteredCoreNode(node.data.nodeType);
+      return (node.data.portsSnapshot?.length ? node.data.portsSnapshot : definition?.ports(node.data) ?? [])
+        .find((port) => port.id === handleId)?.label ?? handleId;
+    } catch {
+      return handleId;
+    }
+  };
+  const graphTextStat = (value: string) => ({
+    chars: value.length,
+    tokens: Math.ceil(value.length / Math.max(1, activeTokenEstimateBytesPerToken)),
+  });
+  const exportSelectedGraphNodeJson = useCallback(async () => {
+    if (!selectedGraphNode) {
+      return;
+    }
+    const exportedNode = {
+      format: 'rpgraph-node',
+      formatVersion: '1.0',
+      exportedAt: new Date().toISOString(),
+      node: {
+        id: selectedGraphNode.id,
+        type: selectedGraphNode.type,
+        position: selectedGraphNode.position,
+        width: selectedGraphNode.width,
+        height: selectedGraphNode.height,
+        data: selectedGraphNode.data,
+      },
+    };
+    const safeLabel = selectedGraphNode.data.label
+      .toLocaleLowerCase()
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/^-+|-+$/g, '') || 'node';
+    await window.rpgraph.saveJsonFileToPath({
+      title: 'Export Node JSON',
+      defaultFileName: `${safeLabel}-${selectedGraphNode.id}`,
+      value: exportedNode,
+    });
+  }, [selectedGraphNode]);
+  const importGraphNodeJson = useCallback(async () => {
+    const result = await window.rpgraph.loadJsonFile({ title: 'Import Node JSON' });
+    if (result.canceled || !result.contents) {
+      return;
+    }
+
+    let parsed: unknown;
+    try {
+      parsed = JSON.parse(result.contents);
+    } catch (error) {
+      setFileStorageStatus(`Could not import node JSON: ${error instanceof Error ? error.message : 'invalid JSON'}`);
+      return;
+    }
+
+    const candidate = parsed && typeof parsed === 'object' && 'node' in parsed
+      ? (parsed as { node?: unknown }).node
+      : parsed;
+    const workflowCandidate: WorkflowFile = {
+      format: 'rpgraph-workflow',
+      formatVersion: currentWorkflowFormatVersion,
+      savedAt: new Date().toISOString(),
+      viewport: { x: 0, y: 0, zoom: 1 },
+      nodes: [candidate as WorkflowNode],
+      edges: [],
+    };
+
+    if (!isWorkflowFile(workflowCandidate)) {
+      setFileStorageStatus('Could not import node JSON: file is not an exported RPGraph node.');
+      return;
+    }
+
+    let hydratedNode: WorkflowNode;
+    try {
+      const hydrated = prepareLoadedWorkflow(workflowCandidate, false);
+      [hydratedNode] = hydrated.nodes;
+    } catch (error) {
+      setFileStorageStatus(`Could not import node JSON: ${error instanceof Error ? error.message : 'incompatible node'}`);
+      return;
+    }
+
+    const importedId = `${hydratedNode.data.nodeType}-${crypto.randomUUID()}`;
+    const existingPositions = nodesRef.current.map((node) => node.position);
+    const fallbackPosition = existingPositions.length
+      ? {
+        x: Math.max(...existingPositions.map((position) => position.x)) + 80,
+        y: Math.min(...existingPositions.map((position) => position.y)),
+      }
+      : { x: 120, y: 120 };
+    const nextNode: WorkflowNode = {
+      ...hydratedNode,
+      id: importedId,
+      selected: true,
+      dragging: false,
+      position: selectedGraphNode
+        ? { x: selectedGraphNode.position.x + 80, y: selectedGraphNode.position.y + 80 }
+        : fallbackPosition,
+      data: structuredClone(persistentNodeData(hydratedNode.data)),
+    };
+
+    commitNodes([
+      ...nodesRef.current.map((node) => ({ ...node, selected: false })),
+      nextNode,
+    ]);
+    setFileStorageStatus(`Imported node: ${nextNode.data.label}`);
+  }, [commitNodes, prepareLoadedWorkflow, selectedGraphNode, setFileStorageStatus]);
+
+  const roleplayCharacterPicker = (
+    <div className="studio-character-tabs" role="tablist" aria-label="Playable characters">
+      <button
+        type="button"
+        role="tab"
+        aria-selected={narratorSelected}
+        className={narratorSelected ? 'active' : ''}
+        onClick={() => selectChatCharacter(narratorCharacterId)}
+      >
+        <strong>{narratorSpeakerName}</strong>
+        <span>system voice</span>
+      </button>
+      {storyCharacters.map((character) => {
+        const isActive = selectedCharacter?.id === character.id && !narratorSelected;
+        const charColor = characterColors.get(character.name);
+        return (
+          <button
+            type="button"
+            key={character.id}
+            role="tab"
+            aria-selected={isActive}
+            className={isActive ? 'active' : ''}
+            onClick={() => selectChatCharacter(character.id)}
+            style={charColor ? { '--character-tab-color': charColor } as React.CSSProperties : undefined}
+          >
+            <strong>{character.name}</strong>
+            <span>{isActive ? 'playing now' : character.id === viewedPhoneCharacter?.id ? 'phone open' : 'available'}</span>
+          </button>
+        );
+      })}
+    </div>
+  );
+
+  const roleplayComposerActions = (
+    <div className="chat-actions">
+      <button
+        className="switch-player-button"
+        type="button"
+        onClick={switchActivePlayer}
+        disabled={switchPlayerDisabled}
+        title={switchPlayerTitle}
+      >
+        Switch
+      </button>
+      <button
+        className="roleplay-detach-button"
+        type="button"
+        onClick={() => setRoleplayPanelDetached((detached) => !detached)}
+        title={roleplayPanelDetached ? 'Dock roleplay panel' : 'Pop out roleplay panel'}
+        aria-label={roleplayPanelDetached ? 'Dock roleplay panel' : 'Pop out roleplay panel'}
+      >
+        {roleplayPanelDetached ? '⧈' : '⧉'}
+      </button>
+      <div className="header-turn-actions">
+        <button
+          className="auto-turn-button"
+          type="button"
+          onClick={triggerAutoTurn}
+          disabled={autoTurnDisabled}
+          title={autoTurnTitle}
+        >
+          {chatPanelView === 'events' ? 'Run Event' : 'AutoTurn'}
+        </button>
+        <div className="turn-controls" aria-label="Turn actions">
+          <button
+            type="button"
+            onClick={cancelRunOrUndoLastTurn}
+            disabled={undoTurnDisabled}
+            title={undoTurnTitle}
+            aria-label={undoTurnTitle}
+          >
+            {isRunning ? 'x' : '←'}
+          </button>
+          <button
+            type="button"
+            onClick={() => regenerateLastOutput()}
+            disabled={!isRunning && !currentSessionTurn}
+            title={isRunning ? 'Cancel and restart the running RP output' : 'Regenerate the last RP output'}
+            aria-label={isRunning ? 'Cancel and restart the running RP output' : 'Regenerate the last RP output'}
+          >
+            ↶
+          </button>
+          <button
+            type="button"
+            onClick={() => regenerateLastOutput({ reflavor: true })}
+            disabled={isRunning || !currentSessionTurn}
+            title="Reflavor the last output while preserving the same continuity"
+            aria-label="Reflavor the last output while preserving continuity"
+          >
+            Rf
+          </button>
+        </div>
+        {currentTurnVariants.length > 1 && (
+          <select
+            className="turn-variant-select"
+            aria-label="Turn variant"
+            value={`${currentSessionTurn?.id}-active`}
+            disabled={isRunning}
+            onChange={(event) => selectLastTurnVariant(event.target.value)}
+          >
+            {currentTurnVariants.map((variant, index) => (
+              <option key={variant.id} value={variant.id}>
+                {index + 1}. {variant.label}
+              </option>
+            ))}
+          </select>
+        )}
+        <span className="turn-counter">
+          Turn {currentSessionTurn?.number ?? 0}
+        </span>
+      </div>
+    </div>
+  );
+
+  const graphToolbar = (
+    <div className="graph-toolbar">
+      <div className="graph-context">
+        <span>{nodes.length} nodes</span>
+        <span>{displayedWorkflowNameFormatted}</span>
+        <span>{displayedStorybookNameFormatted}</span>
+      </div>
+      <div className="graph-actions">
+        <span className="graph-ready-chip">
+          <span aria-hidden="true" />
+          Ready
+        </span>
+        <button
+          className="runtime-summary-button"
+          type="button"
+          onClick={() => setShowRunLlmReport(true)}
+          disabled={!runLlmReport}
+          title="Show LLM calls for the current or last run"
+        >
+          Runtime <LiveRunClock isRunning={isRunning} startTimeMs={runStartTimeMs} finalMs={runDurationMs} /> s
+        </button>
+        <button className="graph-reset" type="button" onClick={() => void saveCurrentWorkflow()}>
+          Save Workflow
+        </button>
+        <button className="graph-reset graph-secondary-action" type="button" onClick={() => void saveCurrentSession()}>
+          Save RP
+        </button>
+        <button
+          className="graph-reset graph-secondary-action"
+          type="button"
+          onClick={() => void resetWorkflow()}
+          disabled={!!activeSessionFileName}
+          title={activeSessionFileName
+            ? 'Workflow reset is unavailable while an RP save is active.'
+            : 'Reset workflow'}
+        >
+          Reset
+        </button>
+        <PromptPresetOverview
+          nodes={nodeViewNodes}
+          connections={connections}
+          providerHealthById={providerHealthById}
+          onCheckProviderConnection={(connectionId) => {
+            void checkProviderConnectionById(connectionId);
+          }}
+          promptActionCustomPresets={promptActionCustomPresets}
+          setPromptActionCustomPresets={setPromptActionCustomPresets}
+          promptActionSettings={promptActionSettings}
+          setPromptActionSettings={setPromptActionSettings}
+          promptTextCustomPresets={promptTextCustomPresets}
+          setPromptTextCustomPresets={setPromptTextCustomPresets}
+          updateNodeData={updateRuntimeNode}
+        />
+        <WorkflowCapabilityStrip indicators={workflowCapabilityIndicators} />
+        {visibleLogEntry && (
+          <div
+            key={visibleLogEntry.id}
+            className={`graph-system-toast ${visibleLogEntry.level}`}
+            role="status"
+            aria-live="polite"
+          >
+            <div className="graph-system-toast-content">
+              <strong>{visibleLogEntry.level}</strong>
+              <span>{visibleLogEntry.text}</span>
+            </div>
+          </div>
+        )}
+      </div>
+      {showDeletedNodeRestoreButton && (
+        <button
+          className="graph-restore-deleted"
+          type="button"
+          onClick={restoreLastDeletedNodes}
+          title="Restore last deleted node"
+          aria-label="Restore last deleted node"
+        >
+          ↶
+        </button>
+      )}
+    </div>
+  );
+
+  const graphCanvas = (
+    <NodeActionsContext.Provider value={nodeActions}>
+      <NodeViewContext.Provider value={nodeViewValues}>
+        <ReactFlow
+          nodes={nodes}
+          edges={renderedEdges}
+          nodeTypes={nodeTypes}
+          edgeTypes={edgeTypes}
+          onInit={initializeFlow}
+          onDragOver={allowNodeDrop}
+          onDrop={dropNode}
+          onPaneContextMenu={(event) => {
+            closeNodeContextMenu();
+            openNodeMenu(event);
+          }}
+          onPaneClick={() => {
+            setNodeMenu(null);
+            closeNodeContextMenu();
+          }}
+          onNodeClick={closeNodeContextMenu}
+          onNodeDoubleClick={(_event, node) => splitWireLink(node.id)}
+          onNodeContextMenu={(event, node) => {
+            // Let form controls inside a node keep their native context
+            // menu — the Remove action would sit right under the cursor.
+            if (isEditableKeyboardTarget(event.target)) {
+              return;
+            }
+            setNodeMenu(null);
+            openNodeContextMenu(event, node);
+          }}
+          onSelectionContextMenu={(event, selectedNodes) => {
+            setNodeMenu(null);
+            openSelectionContextMenu(event, selectedNodes);
+          }}
+          onMoveStart={closeNodeContextMenu}
+          onNodeDragStart={closeNodeContextMenu}
+          onSelectionDragStart={closeNodeContextMenu}
+          onBeforeDelete={handleBeforeNodeDelete}
+          onNodesChange={onNodesChange}
+          onNodesDelete={rememberDeletedNodes}
+          onEdgesChange={onEdgesChange}
+          onConnect={connectNodes}
+          onReconnect={reconnectNodes}
+          onReconnectStart={startReconnect}
+          onReconnectEnd={finishReconnect}
+          minZoom={0.25}
+          maxZoom={1.6}
+          nodesConnectable
+          edgesReconnectable
+          elementsSelectable
+          onlyRenderVisibleElements={!nodes.some((node) => retainedNodeEditors.has(node.id))}
+          deleteKeyCode={['Backspace', 'Delete']}
+          multiSelectionKeyCode="Control"
+          selectionKeyCode="Control"
+          connectionRadius={connectionRadius}
+          reconnectRadius={reconnectRadius}
+          zoomOnDoubleClick={false}
+          colorMode="dark"
+          proOptions={{ hideAttribution: true }}
+        >
+          <Background
+            color="#273043"
+            gap={24}
+            size={1.5}
+            variant={BackgroundVariant.Dots}
+          />
+          <Controls position="bottom-left" showInteractive={false} />
+          <ResourceMonitor />
+        </ReactFlow>
+      </NodeViewContext.Provider>
+    </NodeActionsContext.Provider>
+  );
+
+  const graphCanvasHud = (
+    <>
+      <div className="graph-canvas-hud-group">
+        <span className="graph-hud-pill">
+          <strong>Zoom</strong> {flowInstance ? `${Math.round(flowInstance.getZoom() * 100)}%` : '100%'}
+        </span>
+        <span className="graph-hud-pill">
+          <strong>Selected</strong> {selectedGraphNodes.length > 1
+            ? `${selectedGraphNodes.length} nodes`
+            : selectedGraphNode?.data.label ?? 'None'}
+        </span>
+      </div>
+      <div className="graph-canvas-hud-group">
+        <span className="graph-hud-pill">Run Trace</span>
+      </div>
+    </>
+  );
+
+  const graphInspector = (
+    <aside className={`graph-inspector${graphInspectorCollapsed ? ' collapsed' : ''}`} aria-label="Node Inspector">
+      <button
+        className="graph-inspector-tab"
+        type="button"
+        aria-label={graphInspectorCollapsed ? 'Show Node Inspector' : 'Hide Node Inspector'}
+        title={graphInspectorCollapsed ? 'Show inspector' : 'Hide inspector'}
+        onPointerDown={(event) => {
+          event.preventDefault();
+          event.stopPropagation();
+          setGraphInspectorCollapsed((collapsed) => !collapsed);
+        }}
+      >
+        {graphInspectorCollapsed ? '‹' : '›'}
+      </button>
+      {graphInspectorCollapsed ? (
+        <span className="graph-inspector-collapsed-label">Inspector</span>
+      ) : (
+        <>
+      <header className="graph-inspector-header">
+        <div>
+          <strong>Inspector</strong>
+          <small>{selectedGraphNode ? 'Runtime, wiring, and editable payloads' : 'Workflow health and actions'}</small>
+        </div>
+      </header>
+      {selectedGraphNode ? (
+        <>
+          <section className="graph-inspector-summary">
+            <h2>{selectedGraphNode.data.label}</h2>
+            <p>{selectedGraphNode.data.description}</p>
+            <div className="graph-inspector-tags">
+              <span className={[
+                'graph-inspector-tag',
+                selectedGraphNode.data.runActive || selectedGraphNode.data.runCompleted ? 'active' : '',
+                selectedGraphNode.data.runError ? 'error' : '',
+              ].filter(Boolean).join(' ')}
+              >
+                {selectedGraphRunState}
+              </span>
+              <span className="graph-inspector-tag">{selectedGraphNode.data.nodeType}</span>
+              <span className="graph-inspector-tag">
+                v{selectedGraphNode.data.currentNodeVersion ?? selectedGraphNode.data.nodeDataVersion ?? selectedGraphDefinition?.dataVersion ?? 'unknown'}
+              </span>
+            </div>
+          </section>
+          <section className="graph-inspector-section">
+            <h3>Actions</h3>
+            <div className="graph-inspector-actions">
+              <button type="button" onClick={() => setNodeAssistantNodeId(selectedGraphNode.id)}>
+                Ask Assistant
+              </button>
+              <button type="button" onClick={() => setShowRunLlmReport(true)} disabled={!runLlmReport}>
+                Run Report
+              </button>
+              <button type="button" onClick={() => void exportSelectedGraphNodeJson()}>
+                Export JSON
+              </button>
+              <button type="button" onClick={() => void importGraphNodeJson()}>
+                Import JSON
+              </button>
+              {selectedGraphProvider && (
+                <button type="button" onClick={() => void checkProviderConnectionById(selectedGraphProvider.id)}>
+                  Check Provider
+                </button>
+              )}
+            </div>
+          </section>
+          <section className="graph-inspector-section">
+            <h3>Run Signal</h3>
+            <div className="graph-inspector-stat-grid">
+              <div className="graph-inspector-stat">
+                <span>Inputs</span>
+                <strong>{selectedGraphIncomingEdges.length}</strong>
+              </div>
+              <div className="graph-inspector-stat">
+                <span>Outputs</span>
+                <strong>{selectedGraphOutgoingEdges.length}</strong>
+              </div>
+              <div className="graph-inspector-stat">
+                <span>Ports</span>
+                <strong>{selectedGraphPorts.length}</strong>
+              </div>
+              <div className="graph-inspector-stat">
+                <span>Runtime Values</span>
+                <strong>{Object.keys(selectedGraphNode.data.runtimePortValues ?? {}).length}</strong>
+              </div>
+            </div>
+            {selectedGraphNode.data.runError && (
+              <p className="graph-inspector-callout error">{selectedGraphNode.data.runError}</p>
+            )}
+          </section>
+          {(selectedGraphDefinition?.usesLlm || selectedGraphProvider || selectedGraphLastLlmCall) && (
+            <section className="graph-inspector-section">
+              <h3>LLM / Provider</h3>
+              <div className="graph-inspector-facts">
+                <div>
+                  <span>Connection</span>
+                  <strong>{selectedGraphProvider?.label ?? selectedGraphProvider?.id ?? 'Default not set'}</strong>
+                </div>
+                <div>
+                  <span>Status</span>
+                  <strong>{selectedGraphProviderHealth?.status ?? 'unknown'}</strong>
+                </div>
+                {selectedGraphLastLlmCall && (
+                  <>
+                    <div>
+                      <span>Last Call</span>
+                      <strong>{selectedGraphLastLlmCall.label}</strong>
+                    </div>
+                    <div>
+                      <span>Tokens</span>
+                      <strong>{selectedGraphLastLlmCall.totalTokens ?? 'n/a'}</strong>
+                    </div>
+                    <div>
+                      <span>Duration</span>
+                      <strong>{(selectedGraphLastLlmCall.durationMs / 1000).toFixed(1)}s</strong>
+                    </div>
+                  </>
+                )}
+              </div>
+              {selectedGraphProviderHealth?.detail && (
+                <p className="graph-inspector-muted">{selectedGraphProviderHealth.detail}</p>
+              )}
+            </section>
+          )}
+          <section className="graph-inspector-section">
+            <h3>Route</h3>
+            {selectedGraphIncomingEdges.length || selectedGraphOutgoingEdges.length ? (
+              <div className="graph-inspector-routes">
+                {selectedGraphIncomingEdges.slice(0, 4).map((edge) => {
+                  const sourceNode = nodeViewNodes.find((node) => node.id === edge.source);
+                  return (
+                    <div className="graph-inspector-route" key={edge.id}>
+                      <span>In</span>
+                      <strong>{graphNodeLabel(edge.source)}</strong>
+                      <small>{graphPortLabel(sourceNode, edge.sourceHandle)} → {graphPortLabel(selectedGraphNode, edge.targetHandle)}</small>
+                    </div>
+                  );
+                })}
+                {selectedGraphOutgoingEdges.slice(0, 4).map((edge) => {
+                  const targetNode = nodeViewNodes.find((node) => node.id === edge.target);
+                  return (
+                    <div className="graph-inspector-route" key={edge.id}>
+                      <span>Out</span>
+                      <strong>{graphNodeLabel(edge.target)}</strong>
+                      <small>{graphPortLabel(selectedGraphNode, edge.sourceHandle)} → {graphPortLabel(targetNode, edge.targetHandle)}</small>
+                    </div>
+                  );
+                })}
+              </div>
+            ) : (
+              <p className="graph-inspector-muted">This node is not wired into the workflow.</p>
+            )}
+          </section>
+          {selectedGraphPromptTexts.length > 0 && (
+            <section className="graph-inspector-section">
+              <h3>Editable Text</h3>
+              <div className="graph-inspector-text-list">
+                {selectedGraphPromptTexts.slice(0, 5).map((entry) => {
+                  const stat = graphTextStat(entry.value);
+                  return (
+                    <div className="graph-inspector-text-row" key={entry.label}>
+                      <strong>{entry.label}</strong>
+                      <span>{stat.chars.toLocaleString()} chars · ~{stat.tokens.toLocaleString()} tokens</span>
+                    </div>
+                  );
+                })}
+              </div>
+            </section>
+          )}
+          {selectedGraphRuntimeTexts.length > 0 && (
+            <section className="graph-inspector-section">
+              <h3>Runtime Payload</h3>
+              <p className="graph-inspector-preview">{selectedGraphRuntimeTexts[0].value}</p>
+            </section>
+          )}
+        </>
+      ) : (
+        <>
+          <section className="graph-inspector-summary">
+            <h2>Workflow</h2>
+            <p>Select a node to inspect provider state, prompt size, route wiring, runtime payloads, and errors.</p>
+            <div className="graph-inspector-tags">
+              <span className={`graph-inspector-tag${graphRunErrorCount ? ' error' : ' active'}`}>
+                {graphRunErrorCount ? `${graphRunErrorCount} errors` : 'Ready'}
+              </span>
+              <span className="graph-inspector-tag">{nodes.length} nodes</span>
+              <span className="graph-inspector-tag">{edges.length} edges</span>
+            </div>
+          </section>
+          <section className="graph-inspector-section">
+            <h3>Health</h3>
+            <div className="graph-inspector-stat-grid">
+              <div className="graph-inspector-stat">
+                <span>LLM Nodes</span>
+                <strong>{graphLlmNodeCount}</strong>
+              </div>
+              <div className="graph-inspector-stat">
+                <span>Providers Online</span>
+                <strong>{graphOnlineProviderCount}/{connections.length}</strong>
+              </div>
+              <div className="graph-inspector-stat">
+                <span>Unwired</span>
+                <strong>{graphUnwiredNodeCount}</strong>
+              </div>
+              <div className="graph-inspector-stat">
+                <span>Capabilities</span>
+                <strong>{workflowCapabilityIndicators.length}</strong>
+              </div>
+            </div>
+          </section>
+          <section className="graph-inspector-section">
+            <h3>Actions</h3>
+            <div className="graph-inspector-actions">
+              <button type="button" onClick={() => void saveCurrentWorkflow()}>
+                Save Workflow
+              </button>
+              <button type="button" onClick={() => void saveCurrentSession()}>
+                Save RP
+              </button>
+              <button type="button" onClick={() => void importGraphNodeJson()}>
+                Import Node JSON
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setNodeAssistantNodeId(null);
+                  setWorkflowAssistantOpen(true);
+                }}
+              >
+                Assistant
+              </button>
+            </div>
+          </section>
+          <section className="graph-inspector-section">
+            <h3>Context</h3>
+            <p className="graph-inspector-muted">{displayedWorkflowNameFormatted}</p>
+            <p className="graph-inspector-muted">{displayedStorybookNameFormatted}</p>
+          </section>
+        </>
+      )}
+        </>
+      )}
+    </aside>
+  );
+
+  const graphNodePalette = (
+    <aside className={`node-palette${graphPaletteCollapsed ? ' collapsed' : ''}`} aria-label="Available nodes">
+      <button
+        className="node-palette-tab"
+        type="button"
+        aria-label={graphPaletteCollapsed ? 'Show Add Nodes' : 'Hide Add Nodes'}
+        title={graphPaletteCollapsed ? 'Show Add Nodes' : 'Hide Add Nodes'}
+        onPointerDown={(event) => {
+          event.preventDefault();
+          event.stopPropagation();
+          setGraphPaletteCollapsed((collapsed) => !collapsed);
+        }}
+      >
+        {graphPaletteCollapsed ? '›' : '‹'}
+      </button>
+      {graphPaletteCollapsed ? (
+        <span className="node-palette-collapsed-label">Add Nodes</span>
+      ) : (
+        <div className="node-palette-drawer">
+        <header>
+          <div>
+            <strong>Add Nodes</strong>
+            <small>Drag onto graph</small>
+          </div>
+          <input
+            className="node-palette-search"
+            type="search"
+            value={nodePaletteSearch}
+            onChange={(event) => setNodePaletteSearch(event.target.value)}
+            placeholder="Search nodes"
+            aria-label="Search nodes"
+          />
+        </header>
+        <div className="node-palette-items">
+          {visibleGroupedNodePaletteItems.length === 0 && (
+            <p className="node-menu-empty">No nodes match this search.</p>
+          )}
+          {visibleGroupedNodePaletteItems.map((group) => (
+            <section className="node-palette-group" key={group.title}>
+              <div className="node-palette-group-header">
+                <strong>{group.title}</strong>
+              </div>
+              {group.items.map((item) => {
+                const unavailable = nodeTypeUnavailable(item.type);
+                const favorite = favoriteNodeTypeSet.has(item.type);
+                return (
+                  <div
+                    className={`node-palette-item-row${favorite ? ' favorite' : ''}${unavailable ? ' unavailable' : ''}`}
+                    key={item.type}
+                  >
+                    <button
+                      className="node-favorite-button"
+                      type="button"
+                      aria-pressed={favorite}
+                      aria-label={favorite ? `Remove ${item.label} from quick add` : `Add ${item.label} to quick add`}
+                      title={favorite ? 'Remove from right-click quick add' : 'Add to right-click quick add'}
+                      onClick={() => toggleFavoriteNodeType(item.type)}
+                    >
+                      ★
+                    </button>
+                    <button
+                      className="node-palette-item"
+                      type="button"
+                      disabled={unavailable}
+                      draggable={!unavailable}
+                      onDragStart={(event) => startNodeDrag(event, item.type)}
+                    >
+                      <span className="node-menu-item-label">
+                        <span>{item.label}</span>
+                      </span>
+                      <small>{unavailable ? 'Already in graph' : item.description}</small>
+                    </button>
+                  </div>
+                );
+              })}
+            </section>
+          ))}
+        </div>
+      </div>
+      )}
+    </aside>
+  );
+
+  const graphOverlays = (
+    <>
+      {nodeMenu && (
+        <div
+          className="node-menu"
+          style={{ left: nodeMenu.screen.x, top: nodeMenu.screen.y }}
+        >
+          <strong>Quick Add</strong>
+          {favoriteNodeItems.length ? favoriteNodeItems.map((item) => {
+            const unavailable = nodeTypeUnavailable(item.type);
+            return (
+              <button
+                type="button"
+                key={item.type}
+                disabled={unavailable}
+                onClick={() => addNode(item.type)}
+              >
+                <span className="node-menu-item-label">
+                  <span>{item.label}</span>
+                  <small className="node-menu-item-version">v{item.version}</small>
+                </span>
+                <small>{unavailable ? 'Already in graph' : item.description}</small>
+              </button>
+            );
+          }) : (
+            <p className="node-menu-empty">Mark nodes with ★ in the side panel.</p>
+          )}
+        </div>
+      )}
+      {nodeContextMenu && (
+        <div
+          className="node-menu"
+          style={{ left: nodeContextMenu.screen.x, top: nodeContextMenu.screen.y }}
+        >
+          <strong>Node Actions</strong>
+          {nodeContextMenu.selectedNodeIds.length >= 2 ? (
+            <button
+              type="button"
+              onClick={() => removeNodes(nodeContextMenu.selectedNodeIds)}
+            >
+              <span className="node-menu-item-label">
+                <span>Remove All Selected</span>
+              </span>
+              <small>{nodeContextMenu.selectedNodeIds.length} nodes selected</small>
+            </button>
+          ) : (
+            <button type="button" onClick={() => removeNodes(nodeContextMenu.selectedNodeIds)}>
+              <span className="node-menu-item-label">
+                <span>Remove</span>
+              </span>
+              <small>Delete this node</small>
+            </button>
+          )}
+        </div>
+      )}
+    </>
+  );
 
   return (
     <AccountLinkContext.Provider value={accountLinkContext}>
     <div
-      className={`studio node-text-${nodeTextSize}${glassDesignEnabled ? ' glass-design-active' : ''}`}
+      className={`studio studio-mode-${studioMode} node-text-${nodeTextSize}${glassDesignEnabled ? ' glass-design-active' : ''}`}
+      data-studio-theme={studioTheme}
       style={{
         '--glass-opacity': glassDesignOpacity,
         '--glass-blur': glassDesignEnabled ? '1px' : '0px',
@@ -4990,54 +6051,148 @@ function App() {
           onClose={() => setShowRunLlmReport(false)}
         />
       )}
+      {nodeTextEditorRequest && (
+        <NodeTextEditorDialog
+          request={nodeTextEditorRequest}
+          onClose={() => setNodeTextEditorRequest(null)}
+        />
+      )}
       <header className="topbar">
         <div className="brand">
+          <div className="header-brand-actions" ref={topbarMenuRef}>
+            <button
+              className={`topbar-menu-button${topbarMenuOpen ? ' active' : ''}${systemLogBadgeCount ? ' has-log' : ''}`}
+              type="button"
+              aria-label="Open main menu"
+              aria-expanded={topbarMenuOpen}
+              aria-haspopup="menu"
+              title="Main menu"
+              onClick={() => setTopbarMenuOpen((open) => !open)}
+            >
+              <span className="topbar-menu-icon" aria-hidden="true">
+                <span />
+                <span />
+                <span />
+              </span>
+              {systemLogBadgeCount > 0 && <span className="topbar-menu-badge">{systemLogBadgeCount}</span>}
+            </button>
+            {topbarMenuOpen && (
+              <div className="topbar-menu" role="menu" aria-label="Main menu">
+                <div className="topbar-menu-context" aria-hidden="true">
+                  <strong>{studioMode === 'play' ? displayedStorybookName === 'not saved' ? displayedWorkflowNameFormatted : displayedStorybookName : displayedWorkflowNameFormatted}</strong>
+                  <span>{studioMode === 'play' ? `Play Mode · ${chatPanelView === 'phone' ? 'Phone' : chatPanelView === 'events' ? 'Events' : 'Chat'}` : 'Graph Mode'}</span>
+                </div>
+                <button
+                  type="button"
+                  role="menuitem"
+                  onClick={() => {
+                    setTopbarMenuOpen(false);
+                    setStudioMode(studioMode === 'play' ? 'graph' : 'play');
+                  }}
+                >
+                  {studioMode === 'play' ? 'Graph Mode' : 'Play Mode'}
+                </button>
+                {studioMode === 'play' && (
+                  <label className="topbar-menu-select-row">
+                    <span>Theme</span>
+                    <select
+                      aria-label="Theme"
+                      value={studioTheme}
+                      onChange={(event) => {
+                        const nextTheme = event.target.value;
+                        if (isStudioTheme(nextTheme)) {
+                          setStudioTheme(nextTheme);
+                        }
+                      }}
+                    >
+                      {studioThemes.map((theme) => (
+                        <option key={theme.id} value={theme.id}>
+                          {theme.label}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                )}
+                <button
+                  type="button"
+                  role="menuitem"
+                  onClick={() => {
+                    setTopbarMenuOpen(false);
+                    setShowWelcome(true);
+                  }}
+                >
+                  Welcome
+                </button>
+                <button
+                  type="button"
+                  role="menuitem"
+                  onClick={() => {
+                    setTopbarMenuOpen(false);
+                    setShowOptions(true);
+                  }}
+                >
+                  Options
+                </button>
+                <button
+                  type="button"
+                  role="menuitem"
+                  onClick={() => {
+                    setTopbarMenuOpen(false);
+                    openConnectionManager();
+                  }}
+                >
+                  Providers
+                </button>
+                <button
+                  type="button"
+                  role="menuitem"
+                  onClick={() => {
+                    setTopbarMenuOpen(false);
+                    setNodeAssistantNodeId(null);
+                    setWorkflowAssistantOpen(true);
+                  }}
+                >
+                  Assistant
+                </button>
+                <button
+                  className={systemLogBadgeCount ? 'has-log' : ''}
+                  type="button"
+                  role="menuitem"
+                  onClick={() => {
+                    setTopbarMenuOpen(false);
+                    setShowSystemLog(true);
+                  }}
+                >
+                  <span>Log</span>
+                  {systemLogBadgeCount > 0 && <span className="topbar-menu-item-badge">{systemLogBadgeCount}</span>}
+                </button>
+                <button
+                  type="button"
+                  role="menuitem"
+                  onClick={() => {
+                    setTopbarMenuOpen(false);
+                    void openFiles();
+                  }}
+                >
+                  Files
+                </button>
+                <button
+                  type="button"
+                  role="menuitem"
+                  onClick={() => {
+                    setTopbarMenuOpen(false);
+                    npcLibrary.show();
+                  }}
+                >
+                  NPC Library
+                </button>
+              </div>
+            )}
+          </div>
           <h1>
             <span className="brand-name"><span className="brand-name-rp">RP</span>graph Studio</span>
             <span className="app-version">v{packageMetadata.version} Beta</span>
           </h1>
-          <div className="header-brand-actions">
-            <button
-              className="connection-button"
-              type="button"
-              onClick={() => setShowWelcome(true)}
-              title="Show first-run welcome and onboarding guide"
-            >
-              Welcome
-            </button>
-            <button className="connection-button" type="button" onClick={() => setShowOptions(true)}>
-              Options
-            </button>
-            <button className="connection-button" type="button" onClick={openConnectionManager}>
-              Providers
-            </button>
-            <button
-              className="connection-button"
-              type="button"
-              onClick={() => {
-                setNodeAssistantNodeId(null);
-                setWorkflowAssistantOpen(true);
-              }}
-              title="Open workflow assistant. You can also press F1, or select a node and press F1 for node-specific help."
-            >
-              Assistant
-            </button>
-            <button
-              className={`connection-button log-button ${systemLogBadgeCount ? 'has-log' : ''}`}
-              type="button"
-              onClick={() => setShowSystemLog(true)}
-              title="Open system log"
-            >
-              Log
-              {systemLogBadgeCount > 0 && <span key={systemLogBadgeCount}>{systemLogBadgeCount}</span>}
-            </button>
-            <button className="connection-button" type="button" onClick={() => void openFiles()}>
-              Files
-            </button>
-            <button className="connection-button" type="button" onClick={npcLibrary.show}>
-              NPC Library
-            </button>
-          </div>
         </div>
         <div className="header-actions">
           {settingsStatus && <span className="workflow-status">{settingsStatus}</span>}
@@ -5111,261 +6266,29 @@ function App() {
       <main
         className={`workspace ${isResizing ? 'resizing' : ''}`}
       >
+        {studioMode === 'graph' && (
         <ErrorBoundary label="Graph Panel">
-        <section className="graph-panel" aria-label="Workflow Graph">
-          <div className="graph-toolbar">
-            <div className="panel-label">
-              <span>GRAPH</span>
-              <PromptPresetOverview
-                nodes={nodeViewNodes}
-                connections={connections}
-                providerHealthById={providerHealthById}
-                onCheckProviderConnection={(connectionId) => {
-                  void checkProviderConnectionById(connectionId);
-                }}
-                promptActionCustomPresets={promptActionCustomPresets}
-                setPromptActionCustomPresets={setPromptActionCustomPresets}
-                promptActionSettings={promptActionSettings}
-                setPromptActionSettings={setPromptActionSettings}
-                promptTextCustomPresets={promptTextCustomPresets}
-                setPromptTextCustomPresets={setPromptTextCustomPresets}
-                updateNodeData={updateRuntimeNode}
-              />
-              <button
-                className="graph-reset"
-                type="button"
-                onClick={() => void resetWorkflow()}
-                disabled={!!activeSessionFileName}
-                title={activeSessionFileName
-                  ? 'Workflow reset is unavailable while an RP save is active.'
-                  : 'Reset workflow'}
-              >
-                Reset Workflow
-              </button>
-              <button className="graph-reset" type="button" onClick={() => void saveCurrentWorkflow()}>
-                Save Workflow
-              </button>
-              <button className="graph-reset" type="button" onClick={() => void saveCurrentSession()}>
-                Save RP
-              </button>
-              <button
-                className="runtime-summary-button"
-                type="button"
-                onClick={() => setShowRunLlmReport(true)}
-                disabled={!runLlmReport}
-                title="Show LLM calls for the current or last run"
-              >
-                Runtime: <LiveRunClock isRunning={isRunning} startTimeMs={runStartTimeMs} finalMs={runDurationMs} /> s
-              </button>
-              <WorkflowCapabilityStrip indicators={workflowCapabilityIndicators} />
-              {visibleLogEntry && (
-                <div
-                  key={visibleLogEntry.id}
-                  className={`graph-system-toast ${visibleLogEntry.level}`}
-                  role="status"
-                  aria-live="polite"
-                >
-                  <div className="graph-system-toast-content">
-                    <strong>{visibleLogEntry.level}</strong>
-                    <span>{visibleLogEntry.text}</span>
-                  </div>
-                </div>
-              )}
-            </div>
-            {showDeletedNodeRestoreButton && (
-              <button
-                className="graph-restore-deleted"
-                type="button"
-                onClick={restoreLastDeletedNodes}
-                title="Restore last deleted node"
-                aria-label="Restore last deleted node"
-              >
-                ↶
-              </button>
-            )}
-          </div>
-          <NodeActionsContext.Provider value={nodeActions}>
-            <NodeViewContext.Provider value={nodeViewValues}>
-              <ReactFlow
-                nodes={nodes}
-                edges={renderedEdges}
-                nodeTypes={nodeTypes}
-                edgeTypes={edgeTypes}
-                onInit={initializeFlow}
-                onDragOver={allowNodeDrop}
-                onDrop={dropNode}
-                onPaneContextMenu={(event) => {
-                  closeNodeContextMenu();
-                  openNodeMenu(event);
-                }}
-                onPaneClick={() => {
-                  setNodeMenu(null);
-                  closeNodeContextMenu();
-                  setIsChatPanelOpen(false);
-                }}
-                onNodeClick={() => {
-                  setIsChatPanelOpen(false);
-                  closeNodeContextMenu();
-                }}
-                onNodeDoubleClick={(_event, node) => splitWireLink(node.id)}
-                onNodeContextMenu={(event, node) => {
-                  // Let form controls inside a node keep their native context
-                  // menu — the Remove action would sit right under the cursor.
-                  if (isEditableKeyboardTarget(event.target)) {
-                    return;
-                  }
-                  setNodeMenu(null);
-                  openNodeContextMenu(event, node);
-                }}
-                onSelectionContextMenu={(event, selectedNodes) => {
-                  setNodeMenu(null);
-                  openSelectionContextMenu(event, selectedNodes);
-                }}
-                onMoveStart={closeNodeContextMenu}
-                onNodeDragStart={closeNodeContextMenu}
-                onSelectionDragStart={closeNodeContextMenu}
-                onBeforeDelete={handleBeforeNodeDelete}
-                onNodesChange={onNodesChange}
-                onNodesDelete={rememberDeletedNodes}
-                onEdgesChange={onEdgesChange}
-                onConnect={connectNodes}
-                onReconnect={reconnectNodes}
-                onReconnectStart={startReconnect}
-                onReconnectEnd={finishReconnect}
-                minZoom={0.25}
-                maxZoom={1.6}
-                nodesConnectable
-                edgesReconnectable
-                elementsSelectable
-                onlyRenderVisibleElements
-                deleteKeyCode={['Backspace', 'Delete']}
-                multiSelectionKeyCode="Control"
-                selectionKeyCode="Control"
-                connectionRadius={connectionRadius}
-                reconnectRadius={reconnectRadius}
-                zoomOnDoubleClick={false}
-                colorMode="dark"
-                proOptions={{ hideAttribution: true }}
-              >
-                <Background
-                  color="#273043"
-                  gap={24}
-                  size={1.5}
-                  variant={BackgroundVariant.Dots}
-                />
-                <Controls position="bottom-left" showInteractive={false} />
-                <ResourceMonitor />
-              </ReactFlow>
-            </NodeViewContext.Provider>
-          </NodeActionsContext.Provider>
-          <aside className="node-palette" aria-label="Available nodes">
-            <div className="node-palette-handle" aria-hidden="true">
-              NODES
-            </div>
-            <div className="node-palette-drawer">
-              <header>
-                <strong>Add Node</strong>
-                <small>Drag onto graph</small>
-              </header>
-              <div className="node-palette-items">
-                {groupedNodePaletteItems.map((group) => (
-                  <section className="node-palette-group" key={group.title}>
-                    <div className="node-palette-group-header">
-                      <strong>{group.title}</strong>
-                    </div>
-                    {group.items.map((item) => {
-                      const unavailable = nodeTypeUnavailable(item.type);
-                      const favorite = favoriteNodeTypeSet.has(item.type);
-                      return (
-                        <div className={`node-palette-item-row${favorite ? ' favorite' : ''}`} key={item.type}>
-                          <button
-                            className="node-favorite-button"
-                            type="button"
-                            aria-pressed={favorite}
-                            aria-label={favorite ? `Remove ${item.label} from quick add` : `Add ${item.label} to quick add`}
-                            title={favorite ? 'Remove from right-click quick add' : 'Add to right-click quick add'}
-                            onClick={() => toggleFavoriteNodeType(item.type)}
-                          >
-                            ★
-                          </button>
-                          <button
-                            className="node-palette-item"
-                            type="button"
-                            disabled={unavailable}
-                            draggable={!unavailable}
-                            onDragStart={(event) => startNodeDrag(event, item.type)}
-                          >
-                            <span className="node-menu-item-label">
-                              <span>{item.label}</span>
-                              <small className="node-menu-item-version">v{item.version}</small>
-                            </span>
-                            <small>{unavailable ? 'Already in graph' : item.description}</small>
-                          </button>
-                        </div>
-                      );
-                    })}
-                  </section>
-                ))}
-              </div>
-            </div>
-          </aside>
-          {nodeMenu && (
-            <div
-              className="node-menu"
-              style={{ left: nodeMenu.screen.x, top: nodeMenu.screen.y }}
-            >
-              <strong>Quick Add</strong>
-              {favoriteNodeItems.length ? favoriteNodeItems.map((item) => {
-                const unavailable = nodeTypeUnavailable(item.type);
-                return (
-                  <button
-                    type="button"
-                    key={item.type}
-                    disabled={unavailable}
-                    onClick={() => addNode(item.type)}
-                  >
-                    <span className="node-menu-item-label">
-                      <span>{item.label}</span>
-                      <small className="node-menu-item-version">v{item.version}</small>
-                    </span>
-                    <small>{unavailable ? 'Already in graph' : item.description}</small>
-                  </button>
-                );
-              }) : (
-                <p className="node-menu-empty">Mark nodes with ★ in the side panel.</p>
-              )}
-            </div>
-          )}
-          {nodeContextMenu && (
-            <div
-              className="node-menu"
-              style={{ left: nodeContextMenu.screen.x, top: nodeContextMenu.screen.y }}
-            >
-              <strong>Node Actions</strong>
-              {nodeContextMenu.selectedNodeIds.length >= 2 ? (
-                <button
-                  type="button"
-                  onClick={() => removeNodes(nodeContextMenu.selectedNodeIds)}
-                >
-                  <span className="node-menu-item-label">
-                    <span>Remove All Selected</span>
-                  </span>
-                  <small>{nodeContextMenu.selectedNodeIds.length} nodes selected</small>
-                </button>
-              ) : (
-                <button type="button" onClick={() => removeNodes(nodeContextMenu.selectedNodeIds)}>
-                  <span className="node-menu-item-label">
-                    <span>Remove</span>
-                  </span>
-                  <small>Delete this node</small>
-                </button>
-              )}
-            </div>
-          )}
-        </section>
+          <GraphStudioShell
+            toolbar={graphToolbar}
+            canvas={graphCanvas}
+            canvasHud={graphCanvasHud}
+            nodePalette={graphNodePalette}
+            inspector={graphInspector}
+            overlays={graphOverlays}
+            paletteCollapsed={graphPaletteCollapsed}
+            inspectorCollapsed={graphInspectorCollapsed}
+          />
         </ErrorBoundary>
+        )}
 
-        {isChatPanelOpen && !isResizing && (
+        {studioMode === 'play' && (
+        <ErrorBoundary label="Chat Panel">
+        <PopoutWindow
+          open={roleplayPanelDetached}
+          title="RPGraph Roleplay"
+          onClose={closeRoleplayPanelDetached}
+        >
+        {!isResizing && (
           <EdgeCharacterPicker
             characters={playerCharacters}
             settingsLoadComplete={settingsLoadComplete}
@@ -5376,167 +6299,82 @@ function App() {
             onSelect={selectChatCharacter}
           />
         )}
-        <div
-          className={`chat-drawer ${isChatPanelOpen || isResizing ? 'open' : ''}`}
-          style={{ gridTemplateColumns: `7px ${chatWidth}px` }}
-          onMouseEnter={() => setIsChatPanelOpen(true)}
+        <RoleplayStudioShell
+          characterPicker={roleplayCharacterPicker}
+          composerActions={roleplayComposerActions}
+          surfaces={[
+            {
+              id: 'chat',
+              label: 'Chat',
+              badge: unreadChatCount,
+              active: chatPanelView === 'chat',
+              onSelect: () => selectChatPanelView('chat'),
+            },
+            {
+              id: 'phone',
+              label: 'Phone',
+              badge: unreadPhoneNotificationCount,
+              active: chatPanelView === 'phone',
+              onSelect: () => {
+                if (
+                  chatPanelView === 'phone' &&
+                  viewedPhoneHasNotifications &&
+                  settingsLoadComplete
+                ) {
+                  cyclePhoneNotificationOwner();
+                } else {
+                  selectPhonePanelView();
+                }
+                if (!phoneNotificationSwitchHintSeen) {
+                  setPhoneNotificationSwitchHintSeen(true);
+                }
+              },
+            },
+            {
+              id: 'gallery',
+              label: 'Gallery',
+              active: false,
+              onSelect: () => openPhoneApp('gallery'),
+            },
+            {
+              id: 'social',
+              label: 'Social',
+              badge: Object.values(unreadSocialDirectMessages).reduce(
+                (total, byHandle) =>
+                  total + Object.values(byHandle).reduce((sum, unread) => sum + unread.count, 0),
+                0,
+              ),
+              active: false,
+              onSelect: () => openPhoneApp('fotogram'),
+            },
+            {
+              id: 'events',
+              label: 'Events',
+              badge: unreadEventCount,
+              active: chatPanelView === 'events',
+              onSelect: () => selectChatPanelView('events'),
+            },
+            {
+              id: 'bank',
+              label: 'Bank',
+              badge: unreadBankingCount,
+              active: false,
+              onSelect: () => openPhoneApp('banking'),
+            },
+            {
+              id: 'notes',
+              label: 'Notes',
+              active: false,
+              onSelect: () => openPhoneApp('notes'),
+            },
+          ]}
+          panelWidth={chatWidth}
+          onResizeStart={() => setIsResizing(true)}
         >
-          <div
-            className="panel-resizer"
-            role="separator"
-            aria-label="Resize chat panel"
-            aria-orientation="vertical"
-            onPointerDown={() => {
-              setIsChatPanelOpen(true);
-              setIsResizing(true);
-            }}
-          >
-            <span className="chat-drawer-handle" aria-hidden="true">CHAT</span>
-          </div>
-
-          <ErrorBoundary label="Chat Panel">
-          <aside className="chat-panel">
-          <div className="chat-header">
-            <div className="chat-header-primary">
-              <div className="chat-panel-tabs" role="tablist" aria-label="Chat views">
-                <button
-                  className={chatPanelView === 'chat' ? 'active' : ''}
-                  type="button"
-                  role="tab"
-                  aria-selected={chatPanelView === 'chat'}
-                  onClick={() => selectChatPanelView('chat')}
-	                >
-	                  Chat
-	                  {unreadChatCount > 0 && (
-	                    <span className="tab-badge">{unreadChatCount}</span>
-	                  )}
-	                </button>
-                <PhoneTab
-                  active={chatPanelView === 'phone'}
-                  notificationCount={unreadPhoneNotificationCount}
-                  viewedPhoneHasNotifications={viewedPhoneHasNotifications}
-                  settingsLoadComplete={settingsLoadComplete}
-                  switchHintSeen={phoneNotificationSwitchHintSeen}
-                  onSelect={selectPhonePanelView}
-                  onCycleNotificationOwner={cyclePhoneNotificationOwner}
-                  onSwitchHintSeen={() => setPhoneNotificationSwitchHintSeen(true)}
-                />
-                <button
-                  className={chatPanelView === 'events' ? 'active' : ''}
-                  type="button"
-                  role="tab"
-                  aria-selected={chatPanelView === 'events'}
-                  onClick={() => selectChatPanelView('events')}
-                >
-                  Events
-                  {unreadEventCount > 0 && (
-                    <span className="tab-badge">{unreadEventCount}</span>
-                  )}
-                </button>
-              </div>
-              <div className="speaker-picker-menu" ref={characterDropdownRef}>
-                <span className="speaker-picker-label">Play as</span>
-                <button
-                  type="button"
-                  className="speaker-picker-button nodrag"
-                  aria-expanded={characterDropdownOpen}
-                  onClick={() => setCharacterDropdownOpen((current) => !current)}
-                  style={
-                    narratorSelected
-                      ? {
-                          color: '#cbd5e1',
-                          textShadow: '0 0 8px rgba(203, 213, 225, 0.35)',
-                        }
-                      : selectedCharacter
-                      ? {
-                          color: characterColors.get(selectedCharacter.name),
-                          textShadow: `0 0 8px ${characterColors.get(selectedCharacter.name)}`,
-                        }
-                      : undefined
-                  }
-                >
-                  {narratorSelected ? narratorSpeakerName : selectedCharacter ? selectedCharacter.name : 'Select Character'} ▾
-                </button>
-                {characterDropdownOpen && (
-                  <div className="speaker-picker-popover" role="menu">
-                    <button
-                      type="button"
-                      role="menuitem"
-                      onClick={() => {
-                        selectChatCharacter(narratorCharacterId);
-                        setCharacterDropdownOpen(false);
-                      }}
-                      className="narrator-option"
-                    >
-                      {narratorSpeakerName}
-                    </button>
-                    {playerCharacters.map((character) => {
-                      const charColor = characterColors.get(character.name);
-                      return (
-                        <button
-                          type="button"
-                          key={character.id}
-                          role="menuitem"
-                          onClick={() => {
-                            selectChatCharacter(character.id);
-                            setCharacterDropdownOpen(false);
-                          }}
-                          style={charColor ? { color: charColor } : undefined}
-                        >
-                          {character.name}
-                        </button>
-                      );
-                    })}
-                  </div>
-                )}
-              </div>
-              <button
-                className="switch-player-button"
-                type="button"
-                onClick={switchActivePlayer}
-                disabled={switchPlayerDisabled}
-                title={switchPlayerTitle}
-              >
-                Switch
-              </button>
-              <div className="header-turn-actions">
-                <button
-                  className="auto-turn-button"
-                  type="button"
-                  onClick={triggerAutoTurn}
-                  disabled={autoTurnDisabled}
-                  title={autoTurnTitle}
-                >
-                  {chatPanelView === 'events' ? 'Run Event' : 'AutoTurn'}
-                </button>
-                <div className="turn-controls" aria-label="Turn actions">
-                  <button
-                    type="button"
-                    onClick={cancelRunOrUndoLastTurn}
-                    disabled={undoTurnDisabled}
-                    title={undoTurnTitle}
-                    aria-label={undoTurnTitle}
-                  >
-                    {isRunning ? 'x' : '←'}
-                  </button>
-                  <button
-                    type="button"
-                    onClick={regenerateLastOutput}
-                    disabled={!isRunning && !currentSessionTurn}
-                    title={isRunning ? 'Cancel and restart the running RP output' : 'Regenerate the last RP output'}
-                    aria-label={isRunning ? 'Cancel and restart the running RP output' : 'Regenerate the last RP output'}
-                  >
-                    ↶
-                  </button>
-                </div>
-                <span className="turn-counter">
-                  Turn {currentSessionTurn?.number ?? 0}
-                </span>
-              </div>
-            </div>
-          </div>
-          <div className="chat-lockable">
-          {chatPanelView === 'chat' ? (
+          <div className="chat-lockable roleplay-dual-pane">
+          <div className="roleplay-chat-pane" hidden={chatPanelView === 'events'} onFocusCapture={() => {
+            if (chatPanelView === 'phone') selectChatPanelView('chat');
+          }}>
             <ChatConversationPanel
               runtimeNodes={nodes}
               messages={messages}
@@ -5545,6 +6383,7 @@ function App() {
               selectedCharacter={selectedCharacter}
               isNarratorSelected={narratorSelected}
               draft={draft}
+              draftContextComment={draftContextComment}
               draftCommands={draftCommands}
               draftImages={draftImages}
               editingMessageId={editingMessageId}
@@ -5670,12 +6509,16 @@ function App() {
               onOutputActionChoice={submitOutputActionChoice}
               onSubmitMessage={submitMessage}
               onDraftChange={setDraft}
+              onDraftContextCommentChange={setDraftContextComment}
               onDraftCommandsChange={setDraftCommands}
               onAddDraftImages={(files) => void addDraftImages(files)}
               onSelectDraftImages={() => void selectDraftImages()}
               onMessageContentLoaded={() => scrollChatThreadToBottomIfFollowing('auto')}
             />
-          ) : chatPanelView === 'phone' ? (
+          </div>
+          <RoleplayPhoneDevice owner={viewedPhoneCharacter?.name ?? 'Character'} orientation={phoneDesktopLayout.orientation} onHome={selectPhonePanelView} onFocus={() => {
+            if (chatPanelView !== 'phone') selectChatPanelView('phone');
+          }}>
             <PhonePanel
               appCharacters={npcParticipants.characters()}
               phoneContacts={phoneContacts}
@@ -5703,11 +6546,25 @@ function App() {
               unreadBankingCount={unreadBankingCount}
               phoneAppNotificationCounts={phoneAppNotificationCounts}
               phoneHomeRequestId={phoneHomeRequestId}
+              phoneAppOpenRequest={phoneAppOpenRequest}
               socialPostOpenRequest={socialPostOpenRequest}
               socialDirectMessageOpenRequest={socialDirectMessageOpenRequest}
+              phoneGalleryOpenRequestId={phoneGalleryOpenRequestId}
               phoneImages={phoneImages}
               phoneGalleryImages={phoneGalleryImages}
+              rpDraft={draft}
+              onRpDraftChange={setDraft}
+              canSendRpNarrative={
+                isRunning ||
+                draftCommands.some((command) => command.type === 'time') ||
+                !!draft.trim() ||
+                draftImages.length > 0
+              }
+              onSubmitRpNarrative={submitMessage}
               phoneDraft={phoneDraft}
+              phoneDraftContextComment={phoneDraftContextComment}
+              phoneMoodStatus={phoneMoodStatus}
+              onPhoneMoodStatusChange={setPhoneMoodStatus}
               phoneDraftCommands={phoneDraftCommands}
               replyToMessage={phoneReplyToMessage}
               showPhoneEmojiPicker={showPhoneEmojiPicker}
@@ -5783,6 +6640,7 @@ function App() {
                 setPhoneImages((current) => current.filter((entry) => entry.id !== imageId))
               }
               onPhoneDraftChange={setPhoneDraft}
+              onPhoneDraftContextCommentChange={setPhoneDraftContextComment}
               onPhoneDraftCommandsChange={setPhoneDraftCommands}
               onReplyToMessage={selectPhoneReplyFromComposer}
               onCancelPhoneReply={clearPhoneReply}
@@ -5931,7 +6789,9 @@ function App() {
               onUnloadImageAssistantComfyModel={unloadImageAssistantComfyModel}
               onRefreshImageAssistantModelState={(providerId) => void refreshImageAssistantModelState(providerId)}
             />
-          ) : (
+          </RoleplayPhoneDevice>
+          {chatPanelView === 'events' && (
+            <div className="roleplay-chat-pane">
             <EventsPanel
               upcomingEvents={upcomingEvents}
               selectedEvent={selectedEvent}
@@ -5950,11 +6810,13 @@ function App() {
               onCancelEvent={cancelEvent}
               onRunEvent={runSelectedEvent}
             />
+            </div>
           )}
           </div>
-          </aside>
+        </RoleplayStudioShell>
+        </PopoutWindow>
           </ErrorBoundary>
-        </div>
+        )}
       </main>
 
       {outputFormatHelpKind && (
@@ -6137,6 +6999,7 @@ function App() {
         glassDesignOpacity={glassDesignOpacity}
         nodeTextSize={nodeTextSize}
         retryFormatErrorsEnabled={retryFormatErrorsEnabled}
+        turnAutosaveEnabled={turnAutosaveEnabled}
         uiScale={appliedUiScale}
         minUiScale={minimumAllowedUiScale}
         maxUiScale={allowedUiScale}
@@ -6167,6 +7030,7 @@ function App() {
         onNodeTextSizeChange={setNodeTextSize}
         onUiScaleChange={changeUiScale}
         onRetryFormatErrorsChange={setRetryFormatErrorsEnabled}
+        onTurnAutosaveEnabledChange={setTurnAutosaveEnabled}
         showFiles={showFiles}
         showStorybookPicker={showStorybookPicker}
         savedFiles={savedFiles}
@@ -6395,7 +7259,7 @@ function App() {
         onLoadLmStudioModel={() => void loadLmStudioModel()}
         onUnloadLmStudioModels={() => void unloadLmStudioModels()}
         ollamaToolsAvailable={isOllamaConnection(editingConnection)}
-        llamaCppToolsAvailable={isLlamaCppConnection(editingConnection)}
+        llamaCppToolsAvailable={isManagedLocalConnection(editingConnection)}
         ollamaModelActionActive={ollamaModelActionActive}
         onLoadOllamaModel={() => void loadOllamaModel()}
         onUnloadOllamaModels={() => void unloadOllamaModels()}
@@ -6404,6 +7268,14 @@ function App() {
         onApplyConnectionToAllNodes={applyConnectionToAllNodes}
         onSetNarratorOnlyProvider={setDialogueNarratorProviderId}
       />
+      {turnAutosaveChoices.length > 0 && (
+        <TurnAutosaveChoiceDialog
+          choices={turnAutosaveChoices}
+          latestSessionTurnNumber={latestSessionTurnNumber}
+          onChoose={(choice) => void chooseTurnAutosave(choice)}
+          onDecline={() => void declineTurnAutosaveChoices()}
+        />
+      )}
       {showSystemLog && (
         <SystemLogDialog
           entries={systemLog}
@@ -6503,3 +7375,4 @@ function App() {
 }
 
 export default App;
+

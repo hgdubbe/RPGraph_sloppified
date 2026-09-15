@@ -95,6 +95,16 @@ describe('LM Studio native chat adapter', () => {
     })).toBe('Final answer');
   });
 
+  it('never promotes reasoning-only output to a final answer, even when reasoning was disabled', () => {
+    const result = {
+      output: [
+        { type: 'reasoning', content: 'Visible answer' },
+      ],
+    };
+
+    expect(lmStudioResponseText(result)).toBe('');
+  });
+
   it('parses fragmented native streaming events', () => {
     const parser = new LmStudioSseParser();
     const first = parser.push(Buffer.from(

@@ -1,0 +1,59 @@
+/* ---- Responsive breakpoints for studio shell / phone / graph ---- */
+
+@media (max-width: 860px) {
+  .studio-shell-play {
+    width: 100%;
+  }
+
+  .studio-play-main {
+    grid-template-rows: auto auto auto minmax(0, 1fr);
+  }
+
+  .studio-play-header {
+    grid-template-columns: 126px minmax(110px, 1fr) auto;
+  }
+
+  .studio-play-command-group .connection-button {
+    min-width: 74px;
+    padding-inline: 10px;
+  }
+
+  .studio-activity-rail {
+    grid-template-columns: repeat(7, minmax(62px, 1fr));
+    overflow-x: auto;
+  }
+
+  .studio-rail-button {
+    min-width: 70px;
+  }
+
+  .studio-graph-commandbar {
+    grid-template-columns: 1fr;
+  }
+
+  .studio-graph-workbench {
+    grid-template-columns: 290px minmax(360px, 1fr);
+  }
+
+  .studio-graph-inspector-slot {
+    display: none;
+  }
+
+  .graph-context,
+  .graph-actions {
+    flex-wrap: wrap;
+    justify-content: flex-start;
+  }
+}
+
+@media (max-width: 700px) {
+  .studio-shell-play .roleplay-dual-pane { grid-template-columns: minmax(0, min(46%, calc(100cqh * 430 / 932))) minmax(0, 1fr); gap: 8px; }
+  .studio-shell-play .roleplay-dual-pane:has(.roleplay-phone-stage.landscape) { grid-template-columns: minmax(0, min(64%, calc(100cqh * 932 / 430))) minmax(0, 1fr); }
+  .studio-shell-play .studio-play-content { padding: 8px; }
+  .studio-play-footer { flex-wrap: wrap; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .roleplay-phone-screen > * { animation: none; }
+  .roleplay-phone-screen .phone-desktop-app, .roleplay-phone-home span { transition: none; }
+}

@@ -1,0 +1,21 @@
+/* ---- Graph workbench collapse layout ---- */
+
+.studio-graph-workbench {
+  display: grid;
+  grid-template-columns: 306px minmax(480px, 1fr) 300px;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.studio-graph-workbench.palette-collapsed {
+  grid-template-columns: 42px minmax(480px, 1fr) 300px;
+}
+
+.studio-graph-workbench.inspector-collapsed {
+  grid-template-columns: 306px minmax(480px, 1fr) 42px;
+}
+
+.studio-graph-workbench.palette-collapsed.inspector-collapsed {
+  grid-template-columns: 42px minmax(480px, 1fr) 42px;
+}
+

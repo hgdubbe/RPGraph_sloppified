@@ -1,9 +1,11 @@
 const fs = require('node:fs/promises');
 const path = require('node:path');
-const {
-  currentCharacterContainerVersion,
-  validateCharacterContainer,
-} = require('../shared/character-container.cjs');
+
+let characterContainerModulePromise;
+function loadCharacterContainerModule() {
+  characterContainerModulePromise ??= import('../shared/character-container.mjs');
+  return characterContainerModulePromise;
+}
 
 function npcLibraryRoots({ isPackaged, resourcesPath, projectRootPath, userDataPath }) {
   return {
@@ -19,6 +21,7 @@ function diagnostic(tier, fileName, code, message) {
 }
 
 async function scanNpcDirectory(directory, tier) {
+  const { currentCharacterContainerVersion, validateCharacterContainer } = await loadCharacterContainerModule();
   let directoryEntries;
   try {
     directoryEntries = await fs.readdir(directory, { withFileTypes: true });
