@@ -3541,6 +3541,7 @@ export function StorybookCreatorDialog({
                               ['OnlyFriends', 'onlyfriends'],
                               ['MatchMe', 'matchme'],
                             ];
+                            const photoUrl = character.profileImage?.dataUrl;
                             return (
                               <button
                                 type="button"
@@ -3548,11 +3549,19 @@ export function StorybookCreatorDialog({
                                 key={character.id}
                                 onClick={() => selectWorkbenchSection('character', character.id)}
                               >
+                                {photoUrl && (
+                                  <span
+                                    className="storybook-overview-bg"
+                                    style={{ backgroundImage: `url(${photoUrl})` }}
+                                    aria-hidden="true"
+                                  />
+                                )}
+                                <span className="storybook-overview-scrim" aria-hidden="true" />
                                 <CharacterAvatar
                                   className="storybook-overview-photo"
                                   name={character.name || character.id}
                                   fallback={(character.name || character.id || '?').slice(0, 2).toUpperCase()}
-                                  profileImageDataUrl={character.profileImage?.dataUrl}
+                                  profileImageDataUrl={photoUrl}
                                 />
                                 <span className="storybook-overview-body">
                                   <span className="storybook-overview-head">
@@ -3563,34 +3572,26 @@ export function StorybookCreatorDialog({
                                     <span className="storybook-overview-balance">Bank <b>${banking.startBalance}</b></span>
                                   </span>
                                   <span className="storybook-overview-desc">{character.description || 'No description written yet.'}</span>
-                                  <span className="storybook-overview-section-label">Social accounts</span>
-                                  <span className="storybook-workbench-chip-row">
+                                  <span className="storybook-overview-chip-row">
                                     {accounts.map(([label, app]) => {
                                       const account = character.apps?.[app];
                                       return (
-                                        <span key={app} className={`storybook-overview-chip${account?.enabled ? ' on' : ' off'}`}>
-                                          <span className="app">{label}</span>
-                                          {account?.enabled && account.username && <span className="handle">@{account.username}</span>}
+                                        <span key={app} className={`storybook-overview-chip${account?.enabled ? ' on' : ''}`}>
+                                          {label}{account?.enabled && account.username ? ` @${account.username}` : ''}
+                                        </span>
+                                      );
+                                    })}
+                                    {character.relationships?.map((relationship) => {
+                                      const other = storybook.characters.find((entry) => entry.id === relationship.characterId);
+                                      return (
+                                        <span key={relationship.characterId} className="storybook-overview-rel">
+                                          <span aria-hidden="true">·</span>
+                                          {' '}<b>{other?.name || other?.id || relationship.characterId}</b>
+                                          {relationship.description ? ` — ${relationship.description}` : ' — no relationship written yet'}
                                         </span>
                                       );
                                     })}
                                   </span>
-                                  {(character.relationships?.length ?? 0) > 0 && (
-                                    <>
-                                      <span className="storybook-overview-section-label">Relationships</span>
-                                      <span className="storybook-overview-rel-row">
-                                        {character.relationships!.map((relationship) => {
-                                          const other = storybook.characters.find((entry) => entry.id === relationship.characterId);
-                                          return (
-                                            <span key={relationship.characterId} className="storybook-overview-rel-chip">
-                                              <span className="who">{other?.name || other?.id || relationship.characterId}</span>
-                                              <span className="what">{relationship.description || 'No relationship written yet.'}</span>
-                                            </span>
-                                          );
-                                        })}
-                                      </span>
-                                    </>
-                                  )}
                                 </span>
                               </button>
                             );

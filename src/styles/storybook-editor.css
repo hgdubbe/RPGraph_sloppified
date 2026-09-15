@@ -745,12 +745,11 @@
 .storybook-overview-card {
   position: relative;
   display: grid;
-  grid-template-columns: 190px minmax(0, 1fr);
-  min-height: 176px;
+  grid-template-columns: 112px minmax(0, 1fr);
+  min-height: 108px;
   border: 1px solid var(--storybook-line);
   border-radius: 16px;
   overflow: hidden;
-  background: rgba(15, 18, 33, 0.9);
   box-shadow: 0 10px 30px rgba(0, 0, 0, 0.28);
   color: var(--storybook-text);
   text-align: left;
@@ -765,12 +764,38 @@
 .storybook-overview-card.active::before {
   content: "";
   position: absolute;
+  z-index: 3;
   inset: 0 auto 0 0;
   width: 4px;
   background: linear-gradient(var(--storybook-violet), var(--storybook-cyan));
 }
 
+/* Blurred, zoomed, low-opacity copy of the character's own photo fills the
+   whole card as ambient background. No separate rounded box for it — it's
+   clipped by the card's own overflow:hidden, so there's no seam between a
+   square inner box and the card's rounded corners. */
+.storybook-overview-bg {
+  position: absolute;
+  inset: -20px;
+  z-index: 0;
+  background-size: cover;
+  background-position: center;
+  filter: blur(18px);
+  transform: scale(1.15);
+  opacity: 0.32;
+}
+
+.storybook-overview-scrim {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  background: linear-gradient(100deg, rgba(9, 11, 20, 0.55) 0%, rgba(9, 11, 20, 0.82) 34%, rgba(9, 11, 20, 0.94) 100%);
+}
+
+/* The clear, sharp photo on the left — same clipping logic as .storybook-overview-bg. */
 .storybook-overview-photo {
+  position: relative;
+  z-index: 1;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -781,7 +806,7 @@
     radial-gradient(circle at 35% 25%, rgba(255, 255, 255, 0.22), transparent 60%),
     linear-gradient(160deg, #222946, #5e315e 62%, #0a101b);
   color: var(--storybook-text);
-  font-size: 26px;
+  font-size: 22px;
   font-weight: 900;
 }
 
@@ -789,15 +814,19 @@
   width: 100%;
   height: 100%;
   object-fit: cover;
+  object-position: center 22%;
   display: block;
 }
 
 .storybook-overview-body {
+  position: relative;
+  z-index: 2;
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 8px;
   min-width: 0;
-  padding: 18px 20px;
+  padding: 16px 20px;
+  justify-content: center;
 }
 
 .storybook-overview-head {
@@ -810,7 +839,7 @@
 .storybook-overview-head-left {
   display: flex;
   align-items: baseline;
-  gap: 10px;
+  gap: 9px;
   min-width: 0;
 }
 
@@ -829,7 +858,7 @@
 
 .storybook-overview-balance {
   flex: none;
-  font-size: 10.5px;
+  font-size: 10px;
   color: var(--storybook-faint);
 }
 
@@ -841,76 +870,43 @@
 .storybook-overview-desc {
   font-size: 12px;
   color: var(--storybook-muted);
-  line-height: 1.55;
-  display: -webkit-box;
-  -webkit-line-clamp: 2;
-  -webkit-box-orient: vertical;
+  line-height: 1.5;
+  white-space: nowrap;
   overflow: hidden;
+  text-overflow: ellipsis;
 }
 
-.storybook-overview-section-label {
-  font-size: 9.5px;
-  letter-spacing: 0.09em;
-  text-transform: uppercase;
-  color: var(--storybook-faint);
+.storybook-overview-chip-row {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  align-items: baseline;
 }
 
 .storybook-overview-chip {
   display: inline-flex;
-  align-items: center;
-  gap: 6px;
   padding: 4px 10px;
   border-radius: 999px;
   border: 1px solid var(--storybook-line);
+  background: rgba(9, 11, 20, 0.55);
   font-size: 10.5px;
   font-weight: 700;
-  color: #c6d2ee;
-}
-
-.storybook-overview-chip.on {
-  border-color: rgba(121, 215, 239, 0.55);
-  background: rgba(121, 215, 239, 0.08);
-}
-
-.storybook-overview-chip .app {
-  font-weight: 800;
-}
-
-.storybook-overview-chip.on .handle {
-  color: rgba(121, 215, 239, 0.8);
-  font-weight: 600;
-}
-
-.storybook-overview-chip.off {
   color: var(--storybook-faint);
 }
 
-.storybook-overview-rel-row {
-  display: flex;
-  gap: 8px;
-  flex-wrap: wrap;
+.storybook-overview-chip.on {
+  border-color: rgba(121, 215, 239, 0.5);
+  color: var(--storybook-cyan);
 }
 
-.storybook-overview-rel-chip {
-  display: flex;
-  flex-direction: column;
-  gap: 1px;
-  max-width: 240px;
-  border: 1px solid var(--storybook-line);
-  border-radius: 10px;
-  padding: 6px 10px;
-}
-
-.storybook-overview-rel-chip .who {
-  font-size: 11px;
-  font-weight: 800;
-}
-
-.storybook-overview-rel-chip .what {
+.storybook-overview-rel {
   font-size: 10.5px;
   color: var(--storybook-muted);
-  line-height: 1.35;
-  white-space: normal;
+}
+
+.storybook-overview-rel b {
+  color: var(--storybook-text);
+  font-weight: 700;
 }
 
 @media (max-width: 1180px) {
@@ -928,11 +924,6 @@
   }
 
   .storybook-overview-card {
-    grid-template-columns: 120px minmax(0, 1fr);
-    min-height: 0;
-  }
-
-  .storybook-overview-photo {
-    min-height: 140px;
+    grid-template-columns: 84px minmax(0, 1fr);
   }
 }
