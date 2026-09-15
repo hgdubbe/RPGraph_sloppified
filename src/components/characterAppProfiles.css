@@ -322,10 +322,21 @@
 .social-profile-editor--onlyfriends input,
 .social-profile-editor--onlyfriends textarea {
   border-radius: 999px;
+  border-color: rgba(244, 63, 94, 0.32);
   padding: 13px 18px;
+  background: rgba(38, 14, 26, 0.6);
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
 }
 .social-profile-editor--onlyfriends textarea {
   border-radius: 20px;
+}
+.social-profile-editor--onlyfriends :is(input, textarea):hover {
+  border-color: rgba(244, 63, 94, 0.5);
+}
+.social-profile-editor--onlyfriends :is(input, textarea):focus-visible {
+  outline: none;
+  border-color: var(--profile-accent);
+  box-shadow: 0 0 0 3px rgba(244, 63, 94, 0.2), 0 0 22px rgba(244, 63, 94, 0.35);
 }
 .social-profile-editor--onlyfriends .social-profile-photos {
   grid-template-columns: repeat(3, 1fr);
