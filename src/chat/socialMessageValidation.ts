@@ -96,7 +96,9 @@ export function canonicalSocialDirectMessage(message: SocialDirectMessageRecord,
   if (!from.available || !to.available) throw new Error(from.reason ?? to.reason ?? 'Unknown or ambiguous social account.');
   if (from.handle?.toLowerCase() !== cleanHandle(message.fromHandle).toLowerCase() ||
       to.handle?.toLowerCase() !== cleanHandle(message.toHandle).toLowerCase()) {
-    throw new Error('Social message account IDs and usernames do not match.');
+    throw new Error(`Social message account IDs and usernames do not match. `
+      + `From: expected @${from.handle ?? '(none)'} for "${message.from}", got @${cleanHandle(message.fromHandle)}. `
+      + `To: expected @${to.handle ?? '(none)'} for "${message.to}", got @${cleanHandle(message.toHandle)}.`);
   }
   const canonical = { ...message, from: from.name, to: to.name };
   const history = [...messages, { id: -1, role: 'output' as const, originalText: '', socialDirectMessage: canonical }];
