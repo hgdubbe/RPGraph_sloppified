@@ -180,9 +180,9 @@
   --profile-tint: #32182e;
   position: relative;
   background-color: #0d070f;
-  background-repeat: no-repeat;
+  background-repeat: repeat-y;
   background-position: center top;
-  background-size: cover;
+  background-size: 100% auto;
 }
 .social-profile-editor > * { width: 100%; max-width: 680px; margin: 0 auto; box-sizing: border-box; }
 .social-profile-editor h2 { margin: 8px 0; font-size: clamp(24px, 3vw, 34px); letter-spacing: -0.035em; }
