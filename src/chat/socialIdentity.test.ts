@@ -74,6 +74,16 @@ describe('social identity resolution', () => {
     expect(() => canonicalSocialDirectMessage({ ...message, toHandle: 'someone.else' }, [owner], history)).toThrow();
   });
 
+  it('tolerates a punctuation slip in a new NPC handle and canonicalizes it in history', () => {
+    const owner = character('espen', 'Espen Harper', { fotogramUsername: '', onlyfriendsUsername: 'espen.harper' });
+    const message: SocialDirectMessageRecord = { app: 'onlyfriends', messageId: 'first',
+      from: 'Rico F', fromHandle: 'ricof', to: owner.name, toHandle: 'espen.harper',
+      text: 'Hey!', sentAt: '2026-09-16T01:00:00Z' };
+    const canonical = canonicalSocialDirectMessage(message, [owner], []);
+    expect(canonical.fromHandle).toBe('rico.f');
+    expect(canonical.fromAccountId).toBeDefined();
+  });
+
   it.each<SocialAppKind>(['fotogram', 'onlyfriends'])(
     'prefers the actual %s account over another character\'s cross-app alias',
     (app) => {

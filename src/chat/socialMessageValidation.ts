@@ -110,7 +110,12 @@ export function canonicalSocialDirectMessage(message: SocialDirectMessageRecord,
     ].filter(Boolean);
     throw new Error(`Social message account IDs and usernames do not match (${parts.join('; ')}).`);
   }
-  const canonical = { ...message, from: from.name, to: to.name };
+  // Persist the resolved canonical handles, not whatever punctuation the LLM
+  // happened to write — otherwise a tolerated formatting slip (looseHandle
+  // above) gets baked into history and a later exact-handle lookup (e.g. the
+  // new-NPC re-registration check right below) can no longer find it.
+  const canonical = { ...message, from: from.name, to: to.name,
+    fromHandle: from.handle ?? message.fromHandle, toHandle: to.handle ?? message.toHandle };
   const history = [...messages, { id: -1, role: 'output' as const, originalText: '', socialDirectMessage: canonical }];
   const registeredFrom = from.source === 'new-npc' ? resolve(from.handle!, false, history) : from;
   const registeredTo = to.source === 'new-npc' ? resolve(to.handle!, false, history) : to;
