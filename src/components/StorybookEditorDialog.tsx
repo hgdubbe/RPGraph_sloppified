@@ -567,114 +567,124 @@ export function StorybookEditorDialog({ referenceCharacters = [], node, identity
 
         <section className="storybook-workbench-layout">
           <aside className="storybook-workbench-rail">
-            <div className="storybook-tabs storybook-workbench-mode-switch" aria-label="Editor mode">
-              <button type="button" className={`tab-button ${viewMode === 'fields' ? 'active' : ''}`} onClick={() => setViewMode('fields')}>
-                Fields
-              </button>
-              <button type="button" className={`tab-button ${viewMode === 'preview' ? 'active' : ''}`} onClick={() => setViewMode('preview')}>
-                Preview
-              </button>
-              <button type="button" className={`tab-button ${viewMode === 'json' ? 'active' : ''}`} onClick={() => setViewMode('json')}>
-                Raw JSON
-              </button>
-            </div>
-            {viewMode === 'fields' && (
-              <nav className="storybook-workbench-nav" aria-label="Storybook sections">
-                {sections.map((section) => (
-                  <button
-                    type="button"
-                    key={section.id}
-                    className={`storybook-workbench-nav-item${activeSection === section.id ? ' active' : ''}`}
-                    onClick={() => setActiveSection(section.id)}
-                  >
-                    <span className="storybook-workbench-nav-copy">
-                      <strong>{section.label}</strong>
-                      <small>{section.detail}</small>
-                    </span>
-                    {section.count !== undefined ? <span className="storybook-workbench-badge">{section.count}</span> : null}
-                  </button>
-                ))}
-              </nav>
-            )}
+            <nav className="storybook-workbench-nav" aria-label="Storybook sections">
+              {sections.map((section) => (
+                <button
+                  type="button"
+                  key={section.id}
+                  className={`storybook-workbench-nav-item${activeSection === section.id && viewMode === 'fields' ? ' active' : ''}`}
+                  onClick={() => {
+                    setActiveSection(section.id);
+                    setViewMode('fields');
+                  }}
+                >
+                  <span className="storybook-workbench-nav-copy">
+                    <strong>{section.label}</strong>
+                    <small>{section.detail}</small>
+                  </span>
+                  {section.count !== undefined ? <span className="storybook-workbench-badge">{section.count}</span> : null}
+                </button>
+              ))}
+            </nav>
           </aside>
 
           <section className="storybook-workbench-editor" aria-label="Focused storybook editor">
-            {viewMode === 'fields' && (
-              <>
-                <div className="storybook-editor-tools">
-                  <span className="storybook-editor-hint">Each field is edited directly — no parsing.</span>
-                  <button
-                    type="button"
-                    className="inspect-button nodrag"
-                    onClick={() => setFieldsDraft(structuredClone(storybook))}
-                  >
-                    Revert
-                  </button>
-                  <button
-                    type="button"
-                    className="inspect-button nodrag"
-                    disabled={!parsed.ok}
-                    onClick={() => commit(fieldsDraft, 'Applied field edits.')}
-                  >
-                    Apply
-                  </button>
-                </div>
-                {activeSection === 'story' && <StoryFieldsPanel draft={fieldsDraft} onChange={setFieldsDraft} />}
-                {activeSection === 'characters' && (
-                  <CharactersPanel
-                    referenceCharacters={referenceCharacters}
-                    draft={fieldsDraft}
-                    selectedCharacterId={selectedCharacterId}
-                    onSelectCharacter={setSelectedCharacterId}
-                    onChange={setFieldsDraft}
-                    identityLocked={identityLocked}
-                    onRemoveCharacter={onRemoveCharacter}
-                    onExportCharacter={onExportCharacter}
-                  />
-                )}
-              </>
-            )}
-
-            {viewMode === 'preview' && (
-              <StorybookReadonlyPreview storybook={storybook} referenceCharacters={referenceCharacters} />
-            )}
-
-            {viewMode === 'json' && (
-              <div className="storybook-json-panel storybook-editor-panel">
-                <div className="storybook-editor-tools">
-                  <span className={`storybook-editor-validity ${jsonValidity.valid ? 'valid' : 'invalid'}`}>
-                    {jsonValidity.valid ? 'Valid JSON' : `Invalid JSON: ${jsonValidity.message}`}
-                  </span>
-                  <button type="button" className="inspect-button nodrag" onClick={beautifyJson}>
-                    Beautify JSON
-                  </button>
-                  <button type="button" className="inspect-button nodrag" onClick={minifyJson}>
-                    Minify
-                  </button>
-                  <button type="button" className="inspect-button nodrag" onClick={() => copyDraft(jsonDraft)}>
-                    Copy
-                  </button>
-                  {/* Beautify/Minify/Revert replace the draft, which resets the
-                      editor's own undo history; Revert is the escape hatch. */}
-                  <button
-                    type="button"
-                    className="inspect-button nodrag"
-                    onClick={() => setJsonDraft(rpStorybookEditorJsonView(storybook))}
-                  >
-                    Revert
-                  </button>
-                  <button
-                    type="button"
-                    className="inspect-button nodrag"
-                    disabled={!parsed.ok}
-                    onClick={applyJson}
-                  >
-                    Apply
-                  </button>
-                </div>
-                <JsonSyntaxTextarea id="storybook-editor-json" value={jsonDraft} onChange={setJsonDraft} />
+            <header className="storybook-workbench-editor-head">
+              <div>
+                <h3>{viewMode === 'json' ? 'Advanced JSON Editor' : viewMode === 'preview' ? 'Storybook Preview' : sections.find((section) => section.id === activeSection)?.label ?? 'Story'}</h3>
+                <p>{viewMode === 'fields' ? sections.find((section) => section.id === activeSection)?.detail : 'Switch back to Fields for normal editing.'}</p>
               </div>
-            )}
+              <div className="storybook-workbench-mode-switch" aria-label="Editor mode">
+                <button type="button" className={viewMode === 'fields' ? 'active' : ''} onClick={() => setViewMode('fields')}>
+                  Fields
+                </button>
+                <button type="button" className={viewMode === 'preview' ? 'active' : ''} onClick={() => setViewMode('preview')}>
+                  Preview
+                </button>
+                <button type="button" className={viewMode === 'json' ? 'active' : ''} onClick={() => setViewMode('json')}>
+                  Raw JSON
+                </button>
+              </div>
+            </header>
+
+            <div className="storybook-workbench-editor-body">
+              {viewMode === 'fields' && (
+                <>
+                  <div className="storybook-editor-tools">
+                    <span className="storybook-editor-hint">Each field is edited directly — no parsing.</span>
+                    <button
+                      type="button"
+                      className="inspect-button nodrag"
+                      onClick={() => setFieldsDraft(structuredClone(storybook))}
+                    >
+                      Revert
+                    </button>
+                    <button
+                      type="button"
+                      className="inspect-button nodrag"
+                      disabled={!parsed.ok}
+                      onClick={() => commit(fieldsDraft, 'Applied field edits.')}
+                    >
+                      Apply
+                    </button>
+                  </div>
+                  {activeSection === 'story' && <StoryFieldsPanel draft={fieldsDraft} onChange={setFieldsDraft} />}
+                  {activeSection === 'characters' && (
+                    <CharactersPanel
+                      referenceCharacters={referenceCharacters}
+                      draft={fieldsDraft}
+                      selectedCharacterId={selectedCharacterId}
+                      onSelectCharacter={setSelectedCharacterId}
+                      onChange={setFieldsDraft}
+                      identityLocked={identityLocked}
+                      onRemoveCharacter={onRemoveCharacter}
+                      onExportCharacter={onExportCharacter}
+                    />
+                  )}
+                </>
+              )}
+
+              {viewMode === 'preview' && (
+                <StorybookReadonlyPreview storybook={storybook} referenceCharacters={referenceCharacters} />
+              )}
+
+              {viewMode === 'json' && (
+                <div className="storybook-json-panel storybook-editor-panel">
+                  <div className="storybook-editor-tools">
+                    <span className={`storybook-editor-validity ${jsonValidity.valid ? 'valid' : 'invalid'}`}>
+                      {jsonValidity.valid ? 'Valid JSON' : `Invalid JSON: ${jsonValidity.message}`}
+                    </span>
+                    <button type="button" className="inspect-button nodrag" onClick={beautifyJson}>
+                      Beautify JSON
+                    </button>
+                    <button type="button" className="inspect-button nodrag" onClick={minifyJson}>
+                      Minify
+                    </button>
+                    <button type="button" className="inspect-button nodrag" onClick={() => copyDraft(jsonDraft)}>
+                      Copy
+                    </button>
+                    {/* Beautify/Minify/Revert replace the draft, which resets the
+                        editor's own undo history; Revert is the escape hatch. */}
+                    <button
+                      type="button"
+                      className="inspect-button nodrag"
+                      onClick={() => setJsonDraft(rpStorybookEditorJsonView(storybook))}
+                    >
+                      Revert
+                    </button>
+                    <button
+                      type="button"
+                      className="inspect-button nodrag"
+                      disabled={!parsed.ok}
+                      onClick={applyJson}
+                    >
+                      Apply
+                    </button>
+                  </div>
+                  <JsonSyntaxTextarea id="storybook-editor-json" value={jsonDraft} onChange={setJsonDraft} />
+                </div>
+              )}
+            </div>
           </section>
         </section>
       </section>

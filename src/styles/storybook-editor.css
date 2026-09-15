@@ -4,12 +4,34 @@
    section of StorybookCreatorDialog (vanilla-rebuild redesign).
    ============================================================ */
 
+/* Both dialogs render with .storybook-creator-dialog, so the palette
+   lives there rather than the narrower .storybook-workbench-dialog
+   (only StorybookEditorDialog has that one). */
+.storybook-creator-dialog {
+  --storybook-bg: #07090f;
+  --storybook-line: #303852;
+  --storybook-text: #f2f6ff;
+  --storybook-muted: #9aa8cc;
+  --storybook-cyan: #79d7ef;
+}
+
 .storybook-workbench-dialog .storybook-workbench-layout,
 .storybook-ui-view.storybook-workbench-layout {
   display: flex;
   flex: 1;
   min-height: 0;
   gap: 16px;
+}
+
+/* StorybookCreatorDialog's main workspace: rail | editor | AI-assistant
+   chat, three panes side by side (upstream's own .storybook-main-workspace
+   is a 2-column grid for just document-panel + chat-panel; the rail adds
+   a third). */
+.storybook-main-workspace.storybook-workbench-layout {
+  display: grid;
+  grid-template-columns: 220px minmax(0, 1.34fr) minmax(0, 0.66fr);
+  gap: 16px;
+  min-height: 0;
 }
 
 .storybook-workbench-rail {
@@ -21,8 +43,65 @@
   overflow-y: auto;
 }
 
+.storybook-workbench-editor-head {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 16px;
+  min-height: 76px;
+  padding: 14px 18px;
+  border-bottom: 1px solid var(--storybook-line);
+  background: rgba(13, 18, 32, 0.94);
+}
+
+.storybook-workbench-editor-head h3 {
+  margin: 0;
+  color: var(--storybook-text);
+  font-size: 20px;
+  font-weight: 900;
+  letter-spacing: 0;
+  line-height: 1.15;
+}
+
+.storybook-workbench-editor-head p {
+  max-width: 780px;
+  margin: 4px 0 0;
+  color: var(--storybook-muted);
+  font-size: 12px;
+  line-height: 1.45;
+}
+
 .storybook-workbench-mode-switch {
-  align-self: flex-start;
+  display: flex;
+  flex: none;
+  gap: 5px;
+  padding: 4px;
+  border: 1px solid var(--storybook-line);
+  border-radius: 8px;
+  background: var(--storybook-bg);
+}
+
+.storybook-workbench-mode-switch button {
+  min-height: 30px;
+  padding: 0 11px;
+  border: 0;
+  border-radius: 6px;
+  color: var(--storybook-muted);
+  background: transparent;
+  font-size: 12px;
+  font-weight: 820;
+  cursor: pointer;
+}
+
+.storybook-workbench-mode-switch button.active {
+  color: #061018;
+  background: var(--storybook-cyan);
+}
+
+.storybook-workbench-editor-body {
+  min-height: 0;
+  overflow: auto;
+  padding: 18px;
 }
 
 .storybook-workbench-nav {

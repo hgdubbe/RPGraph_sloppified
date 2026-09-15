@@ -3454,17 +3454,55 @@ export function StorybookCreatorDialog({
         <div className="storybook-creator-body">
           {fileActionStatus && <span className="run-note storybook-file-status">{fileActionStatus}</span>}
 
-          <div className="storybook-main-workspace">
+          <div className="storybook-main-workspace storybook-workbench-layout">
+            <aside className="storybook-workbench-rail">
+              <nav className="storybook-workbench-nav" aria-label="Storybook sections">
+                <button
+                  type="button"
+                  className={`storybook-workbench-nav-item${activeCreatorSection === 'story' && viewMode === 'ui' ? ' active' : ''}`}
+                  onClick={() => {
+                    setActiveCreatorSection('story');
+                    setViewMode('ui');
+                  }}
+                >
+                  <span className="storybook-workbench-nav-copy">
+                    <strong>Story</strong>
+                    <small>title, scenario, opening history</small>
+                  </span>
+                </button>
+                <button
+                  type="button"
+                  className={`storybook-workbench-nav-item${activeCreatorSection === 'characters' && viewMode === 'ui' ? ' active' : ''}`}
+                  onClick={() => {
+                    setActiveCreatorSection('characters');
+                    setViewMode('ui');
+                  }}
+                >
+                  <span className="storybook-workbench-nav-copy">
+                    <strong>Characters</strong>
+                    <small>identity, setup, social, bank</small>
+                  </span>
+                  <span className="storybook-workbench-badge">{storybook.characters.length}</span>
+                </button>
+              </nav>
+            </aside>
+
             {/* Left Column: Document Panel */}
-            <div className="storybook-document-panel">
-              <div className="storybook-panel-header">
+            <div className="storybook-document-panel storybook-workbench-editor">
+              <div className="storybook-panel-header storybook-workbench-editor-head">
                 <span className="panel-title">
-                  Storybook Document
+                  {viewMode === 'json'
+                    ? 'Raw JSON'
+                    : viewMode === 'text'
+                      ? 'Formatted Text'
+                      : activeCreatorSection === 'story'
+                        ? 'Story'
+                        : 'Characters'}
                   <span className="storybook-panel-token-estimate">
                     ~{estimatedPromptTokens.toLocaleString('en-US')} tokens (images excluded)
                   </span>
                 </span>
-                <div className="storybook-tabs">
+                <div className="storybook-tabs storybook-workbench-mode-switch">
                   <button
                     type="button"
                     className={`tab-button ${viewMode === 'ui' ? 'active' : ''}`}
@@ -3489,7 +3527,7 @@ export function StorybookCreatorDialog({
                 </div>
               </div>
 
-              <div className="storybook-panel-content">
+              <div className="storybook-panel-content storybook-workbench-editor-body">
                 {viewMode === 'json' && (
                   <div className="storybook-json-panel">
                     <JsonSyntaxTextarea
@@ -3542,33 +3580,7 @@ export function StorybookCreatorDialog({
                 )}
 
                 {viewMode === 'ui' && !pendingConversion && (
-                  <div className="storybook-ui-view storybook-workbench-layout">
-                    <aside className="storybook-workbench-rail">
-                      <nav className="storybook-workbench-nav" aria-label="Storybook sections">
-                        <button
-                          type="button"
-                          className={`storybook-workbench-nav-item${activeCreatorSection === 'story' ? ' active' : ''}`}
-                          onClick={() => setActiveCreatorSection('story')}
-                        >
-                          <span className="storybook-workbench-nav-copy">
-                            <strong>Story</strong>
-                            <small>title, scenario, opening history</small>
-                          </span>
-                        </button>
-                        <button
-                          type="button"
-                          className={`storybook-workbench-nav-item${activeCreatorSection === 'characters' ? ' active' : ''}`}
-                          onClick={() => setActiveCreatorSection('characters')}
-                        >
-                          <span className="storybook-workbench-nav-copy">
-                            <strong>Characters</strong>
-                            <small>identity, setup, social, bank</small>
-                          </span>
-                          <span className="storybook-workbench-badge">{storybook.characters.length}</span>
-                        </button>
-                      </nav>
-                    </aside>
-                    <section className="storybook-workbench-editor">
+                  <div className="storybook-ui-view">
                     {activeCreatorSection === 'story' && (
                       <>
                     {!parsedStorybook && <p role="alert">Stored Storybook JSON is invalid. Text editing is disabled.</p>}
@@ -3748,7 +3760,6 @@ export function StorybookCreatorDialog({
                         onUnloadCharacterComfyModels={onUnloadCharacterComfyModels}
                       />
                     )}
-                    </section>
                   </div>
                 )}
               </div>
