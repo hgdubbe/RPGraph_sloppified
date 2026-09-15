@@ -3,6 +3,16 @@
 User notes. Not mandatory standalone steps, but if a change in progress makes any
 of these easy to pick up as a small side-patch, do it. They are listed in no specific order.
 
+## Standing instruction (ongoing, applies to all future work, not a one-off task)
+
+When merging or reconciling with upstream: **upstream's structural/backend changes and
+new systems take priority.** We build on top of upstream, not against it. Our own
+changes should leave as much of upstream's code untouched as possible, adding only
+the integration work necessary to fit our additions on top of upstream's current
+shape — not preserving our own prior implementation choices at the cost of upstream
+compatibility. When a merge conflict pits "keep our existing pattern" against "adopt
+upstream's new pattern and adapt our wiring to it," default to the latter.
+
 - WhatsUp annotations from other branch, narrative comments from other branch, phone-mood-selector from other branch: check if they still exist and are integrated.
 - ~~applying a provider to all nodes does not apply to phone apps node Notes llm~~ fixed (vanilla-rebuild): `applyConnectionToAllNodes` now also updates `phoneAppsNotesConnectionId`.
 - Landscape mode of phone simulation still weird scaling (not the phone body, the screen content)
