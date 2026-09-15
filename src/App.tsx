@@ -6223,23 +6223,71 @@ function App() {
           </h1>
         </div>
         <div className="header-actions">
-          {settingsStatus && <span className="workflow-status">{settingsStatus}</span>}
-          {studioMode === 'graph' && (
-            <div className="topbar-graph-actions">
-              <span className="graph-node-count">{nodes.length} nodes</span>
-              <span className="graph-ready-chip">
-                <span aria-hidden="true" />
-                Ready
+          <div className="topbar-file-status" aria-label="Active RP files">
+            <div className="status-badge">
+              <span className="session-label">RP save:</span>
+              <span className="session-file">
+                {displayedSessionFileName}
+                {isSessionEncrypted && headerLockIcon}
               </span>
-              <button
-                className="runtime-summary-button"
-                type="button"
-                onClick={() => setShowRunLlmReport(true)}
-                disabled={!runLlmReport}
-                title="Show LLM calls for the current or last run"
-              >
-                Runtime <LiveRunClock isRunning={isRunning} startTimeMs={runStartTimeMs} finalMs={runDurationMs} /> s
-              </button>
+              {displayedSessionSavedTurn && (
+                <span className="session-turn">{displayedSessionSavedTurn}</span>
+              )}
+            </div>
+            <div className="status-badge">
+              <span className="session-label">workflow:</span>
+              <span className="session-file">
+                {displayedWorkflowName}
+                {isWorkflowEncrypted && headerLockIcon}
+              </span>
+            </div>
+            <div className="status-badge">
+              <span className="session-label">storybook:</span>
+              <span className="session-file">
+                {displayedStorybookName}
+                {isStorybookEncrypted && headerLockIcon}
+              </span>
+            </div>
+          </div>
+          {(settingsStatus || studioMode === 'graph') && (
+            <div className="topbar-technical-info">
+              {settingsStatus && <span className="workflow-status">{settingsStatus}</span>}
+              {studioMode === 'graph' && (
+                <>
+                  <span className="graph-node-count">{nodes.length} nodes</span>
+                  <span className="graph-ready-chip">
+                    <span aria-hidden="true" />
+                    Ready
+                  </span>
+                  <button
+                    className="runtime-summary-button"
+                    type="button"
+                    onClick={() => setShowRunLlmReport(true)}
+                    disabled={!runLlmReport}
+                    title="Show LLM calls for the current or last run"
+                  >
+                    Runtime <LiveRunClock isRunning={isRunning} startTimeMs={runStartTimeMs} finalMs={runDurationMs} /> s
+                  </button>
+                  <WorkflowCapabilityStrip indicators={workflowCapabilityIndicators} />
+                  {visibleLogEntry && (
+                    <div
+                      key={visibleLogEntry.id}
+                      className={`graph-system-toast ${visibleLogEntry.level}`}
+                      role="status"
+                      aria-live="polite"
+                    >
+                      <div className="graph-system-toast-content">
+                        <strong>{visibleLogEntry.level}</strong>
+                        <span>{visibleLogEntry.text}</span>
+                      </div>
+                    </div>
+                  )}
+                </>
+              )}
+            </div>
+          )}
+          {studioMode === 'graph' && (
+            <div className="topbar-action-buttons">
               <button
                 className="graph-reset topbar-icon-button"
                 type="button"
@@ -6285,48 +6333,8 @@ function App() {
                 setPromptTextCustomPresets={setPromptTextCustomPresets}
                 updateNodeData={updateRuntimeNode}
               />
-              <WorkflowCapabilityStrip indicators={workflowCapabilityIndicators} />
-              {visibleLogEntry && (
-                <div
-                  key={visibleLogEntry.id}
-                  className={`graph-system-toast ${visibleLogEntry.level}`}
-                  role="status"
-                  aria-live="polite"
-                >
-                  <div className="graph-system-toast-content">
-                    <strong>{visibleLogEntry.level}</strong>
-                    <span>{visibleLogEntry.text}</span>
-                  </div>
-                </div>
-              )}
             </div>
           )}
-          <div className="topbar-file-status" aria-label="Active RP files">
-            <div className="status-badge">
-              <span className="session-label">RP save:</span>
-              <span className="session-file">
-                {displayedSessionFileName}
-                {isSessionEncrypted && headerLockIcon}
-              </span>
-              {displayedSessionSavedTurn && (
-                <span className="session-turn">{displayedSessionSavedTurn}</span>
-              )}
-            </div>
-            <div className="status-badge">
-              <span className="session-label">workflow:</span>
-              <span className="session-file">
-                {displayedWorkflowName}
-                {isWorkflowEncrypted && headerLockIcon}
-              </span>
-            </div>
-            <div className="status-badge">
-              <span className="session-label">storybook:</span>
-              <span className="session-file">
-                {displayedStorybookName}
-                {isStorybookEncrypted && headerLockIcon}
-              </span>
-            </div>
-          </div>
           <div className="window-controls" aria-label="Window controls">
             <button
               className="window-control"

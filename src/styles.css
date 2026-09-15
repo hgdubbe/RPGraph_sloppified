@@ -251,14 +251,17 @@ input[type="radio"]:focus-visible {
 
 .brand h1 {
   display: flex;
+  min-width: 0;
   align-items: baseline;
   gap: 8px;
   margin: 0;
+  overflow: hidden;
   font-size: 19px;
   font-weight: 700;
   color: var(--soft-white);
   line-height: 1.2;
   white-space: nowrap;
+  text-overflow: ellipsis;
 }
 
 .brand-name {
@@ -306,10 +309,12 @@ input[type="radio"]:focus-visible {
 
 .header-actions {
   display: flex;
+  min-width: 0;
   align-items: center;
   justify-content: flex-end;
-  flex: none;
+  flex: 1 1 auto;
   gap: 6px;
+  overflow: hidden;
 }
 
 .workflow-status {
@@ -324,6 +329,7 @@ input[type="radio"]:focus-visible {
 .window-controls {
   -webkit-app-region: no-drag;
   display: flex;
+  flex: none;
   align-items: center;
   height: 32px;
   margin-left: 6px;
@@ -5439,8 +5445,9 @@ input[type="number"]::-webkit-outer-spin-button {
   color: #f1f5f9;
 }
 
-.topbar-graph-actions {
+.topbar-technical-info {
   display: flex;
+  flex: 1 1 auto;
   min-width: 0;
   align-items: center;
   gap: 8px;
@@ -5449,7 +5456,7 @@ input[type="number"]::-webkit-outer-spin-button {
   scrollbar-width: none;
 }
 
-.topbar-graph-actions::-webkit-scrollbar {
+.topbar-technical-info::-webkit-scrollbar {
   display: none;
 }
 
@@ -5459,6 +5466,13 @@ input[type="number"]::-webkit-outer-spin-button {
   font-size: 12px;
   font-weight: 700;
   white-space: nowrap;
+}
+
+.topbar-action-buttons {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: 8px;
 }
 
 .npc-library-dialog {
