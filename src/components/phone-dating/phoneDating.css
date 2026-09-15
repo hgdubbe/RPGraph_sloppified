@@ -253,3 +253,11 @@
 .pt-form > button[type="button"] { border: 0; background: transparent; color: #bb94bd; }
 .pt-form > button[type="button"]:hover { color: #fff0df; text-decoration: underline; }
 
+/* The gender select's popover is portaled to document.body, outside
+   .pt-main, so it can't be reached by :has(.pt-form) scoping above —
+   themed directly via NodeCustomSelect's popoverClassName prop instead. */
+.pt-select-popover { border: 1px solid #72506d; background: #302333; box-shadow: 0 10px 25px rgba(9, 6, 12, 0.6); }
+.pt-select-popover .node-custom-select-option { color: #fff0df; }
+.pt-select-popover .node-custom-select-option:hover { background: #3a2a3a; }
+.pt-select-popover .node-custom-select-option.selected { background: #ff76a8; color: #291622; }
+

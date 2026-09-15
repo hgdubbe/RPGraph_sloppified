@@ -16,6 +16,9 @@ type NodeCustomSelectProps<TValue extends SelectValue> = {
   disabled?: boolean;
   onChange: (val: TValue) => void;
   options: ReadonlyArray<Option<TValue>>;
+  /** Extra class for the portaled popover, for callers that need to theme it
+   * (e.g. a themed screen) since it renders outside their own DOM subtree. */
+  popoverClassName?: string;
 };
 
 export function NodeCustomSelect<TValue extends SelectValue>({
@@ -24,6 +27,7 @@ export function NodeCustomSelect<TValue extends SelectValue>({
   disabled = false,
   onChange,
   options,
+  popoverClassName,
 }: NodeCustomSelectProps<TValue>) {
   const [isOpen, setIsOpen] = useState(false);
   const [popoverStyle, setPopoverStyle] = useState<CSSProperties | null>(null);
@@ -90,7 +94,7 @@ export function NodeCustomSelect<TValue extends SelectValue>({
     : popoverStyle;
   const popover = isPopoverOpen && popoverStyle ? (
     <div
-      className={`node-custom-select-popover${isGlassDesignActive ? ' glass-design-popover' : ''}`}
+      className={`node-custom-select-popover${isGlassDesignActive ? ' glass-design-popover' : ''}${popoverClassName ? ` ${popoverClassName}` : ''}`}
       ref={popoverRef}
       role="menu"
       style={glassPopoverStyle ?? undefined}

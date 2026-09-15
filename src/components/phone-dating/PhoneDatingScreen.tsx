@@ -186,7 +186,8 @@ export function PhoneDatingScreen({ profileOnly = false, unread, onMarkSeen, ope
           <div className="pt-gender-field"><label htmlFor="matchme-gender">I am</label>
             <NodeCustomSelect<DatingGender | ''> id="matchme-gender" value={draft.gender ?? ''}
               onChange={(gender) => { if (gender) setDraft({ ...draft, gender, seeking: [datingSeekingOrder(gender)[0]] }); }}
-              options={[{ value: '', label: 'Select your gender', disabled: true }, ...datingGenders.map((gender) => ({ value: gender, label: datingGenderLabels[gender] }))]} />
+              options={[{ value: '', label: 'Select your gender', disabled: true }, ...datingGenders.map((gender) => ({ value: gender, label: datingGenderLabels[gender] }))]}
+              popoverClassName="pt-select-popover" />
           </div>
           <fieldset className="pt-seeking"><legend>I would like to meet</legend>
             <p className="pt-subtle">Choose one or more. Select all for everyone.</p>
