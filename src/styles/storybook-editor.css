@@ -1,0 +1,283 @@
+/* ============================================================
+   Storybook / character editor — left-rail Story/Characters
+   navigation shared by StorybookEditorDialog and the Characters
+   section of StorybookCreatorDialog (vanilla-rebuild redesign).
+   ============================================================ */
+
+.storybook-workbench-dialog .storybook-workbench-layout,
+.storybook-ui-view.storybook-workbench-layout {
+  display: flex;
+  flex: 1;
+  min-height: 0;
+  gap: 16px;
+}
+
+.storybook-workbench-rail {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  width: 220px;
+  flex: none;
+  overflow-y: auto;
+}
+
+.storybook-workbench-mode-switch {
+  align-self: flex-start;
+}
+
+.storybook-workbench-nav {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.storybook-workbench-nav-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  border: 1px solid #232d42;
+  background: #111722;
+  border-radius: 8px;
+  padding: 10px 12px;
+  cursor: pointer;
+  text-align: left;
+  color: #edf1ff;
+  transition: all 0.15s ease;
+}
+
+.storybook-workbench-nav-item:hover {
+  border-color: var(--accent);
+}
+
+.storybook-workbench-nav-item.active {
+  border-color: var(--accent);
+  background: rgba(138, 115, 201, 0.14);
+  box-shadow: 0 2px 8px rgba(138, 115, 201, 0.18);
+}
+
+.storybook-workbench-nav-copy {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.storybook-workbench-nav-copy strong {
+  font-size: 13px;
+}
+
+.storybook-workbench-nav-copy small {
+  color: var(--muted);
+  font-size: 11px;
+}
+
+.storybook-workbench-badge {
+  flex: none;
+  min-width: 20px;
+  height: 20px;
+  padding: 0 6px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 10px;
+  background: #232d42;
+  color: #adc6ef;
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.storybook-workbench-editor {
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding-right: 4px;
+}
+
+.storybook-workbench-section-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.storybook-workbench-character-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: 10px;
+}
+
+.storybook-workbench-character-card {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  border: 1px solid #2a374e;
+  background: #151d2d;
+  border-radius: 10px;
+  padding: 10px 12px;
+  cursor: pointer;
+  text-align: left;
+  color: #edf1ff;
+  transition: all 0.15s ease;
+}
+
+.storybook-workbench-character-card:hover {
+  border-color: var(--accent);
+}
+
+.storybook-workbench-character-card.active {
+  border-color: var(--accent);
+  background: rgba(138, 115, 201, 0.14);
+}
+
+.storybook-workbench-avatar {
+  flex: none;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: #232d42;
+  color: #adc6ef;
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.storybook-workbench-character-copy {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+  flex: 1;
+}
+
+.storybook-workbench-character-copy strong {
+  font-size: 13px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.storybook-workbench-character-copy small {
+  color: var(--muted);
+  font-size: 11px;
+}
+
+/* Two-column field pairing (Name / Role) used to fix their previous
+   visual disalignment — both fields now share the same field-label +
+   value structure as every other character field. */
+.storybook-editor-field-grid-2 {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+.character-identity-readonly {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  margin-bottom: 10px;
+}
+
+.character-identity-editor .storybook-editor-fields {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  overflow: visible;
+}
+
+.character-identity-editor .storybook-editor-field:has(textarea) {
+  grid-column: 1 / -1;
+}
+
+.storybook-editor-character-page {
+  gap: 18px;
+}
+
+.storybook-editor-image-row {
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+  border-top: 1px dashed rgba(255, 255, 255, 0.08);
+  padding-top: 10px;
+}
+
+.storybook-editor-image-thumb {
+  flex: none;
+  width: 64px;
+  height: 64px;
+  border-radius: 8px;
+  object-fit: cover;
+}
+
+/* Character Setup folded into the character page: image generation, voice,
+   banking, and social, stacked as subsections instead of a separate modal
+   with its own tab strip. */
+.character-setup-inline {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.character-setup-inline-section {
+  border-top: 1px dashed rgba(255, 255, 255, 0.08);
+  padding-top: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.character-setup-inline-section h4 {
+  margin: 0;
+  color: var(--cyan);
+  font-size: 12px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  font-weight: 700;
+}
+
+.storybook-actor-page {
+  width: 100%;
+}
+
+.character-card-footer-actions-top {
+  padding-top: 0;
+  border-top: 0;
+  margin-top: 0;
+  padding-bottom: 12px;
+  border-bottom: 1px dashed rgba(255, 255, 255, 0.08);
+}
+
+@media (max-width: 900px) {
+  .storybook-workbench-dialog .storybook-workbench-layout,
+  .storybook-ui-view.storybook-workbench-layout {
+    flex-direction: column;
+  }
+
+  .storybook-workbench-rail {
+    width: 100%;
+    flex-direction: row;
+    flex-wrap: wrap;
+  }
+
+  .storybook-workbench-nav {
+    flex-direction: row;
+    flex-wrap: wrap;
+    flex: 1;
+  }
+
+  .storybook-workbench-nav-item {
+    flex: 1;
+    min-width: 140px;
+  }
+
+  .character-identity-readonly,
+  .character-identity-editor .storybook-editor-fields,
+  .storybook-editor-field-grid-2 {
+    grid-template-columns: 1fr;
+  }
+}
