@@ -770,19 +770,25 @@
   background: linear-gradient(var(--storybook-violet), var(--storybook-cyan));
 }
 
-/* Blurred, zoomed, low-opacity copy of the character's own photo fills the
-   whole card as ambient background. No separate rounded box for it — it's
-   clipped by the card's own overflow:hidden, so there's no seam between a
-   square inner box and the card's rounded corners. */
+/* Ambient background copy of the character's own photo: ratio preserved
+   (not cropped/stretched), sized to half the card's width, slightly
+   blurred, at 25% opacity, fading to fully transparent as it blends into
+   the right side of the card (mask starts the fade at 66% of the image's
+   own width, reaching 0 by its right edge). */
 .storybook-overview-bg {
   position: absolute;
-  inset: -20px;
+  top: 0;
+  left: 0;
+  bottom: 0;
+  width: 50%;
   z-index: 0;
-  background-size: cover;
-  background-position: center;
-  filter: blur(18px);
-  transform: scale(1.15);
-  opacity: 0.32;
+  background-repeat: no-repeat;
+  background-position: left center;
+  background-size: contain;
+  filter: blur(7px);
+  opacity: 0.25;
+  -webkit-mask-image: linear-gradient(to right, black 0%, black 66%, transparent 100%);
+  mask-image: linear-gradient(to right, black 0%, black 66%, transparent 100%);
 }
 
 .storybook-overview-scrim {
@@ -792,7 +798,10 @@
   background: linear-gradient(100deg, rgba(9, 11, 20, 0.55) 0%, rgba(9, 11, 20, 0.82) 34%, rgba(9, 11, 20, 0.94) 100%);
 }
 
-/* The clear, sharp photo on the left — same clipping logic as .storybook-overview-bg. */
+/* The clear, sharp photo on the left. Rounded explicitly on its own two
+   left corners (matching the card's radius, minus the card's 1px border)
+   rather than relying only on the parent's overflow:hidden to clip it —
+   that alone left visibly square corners in testing. */
 .storybook-overview-photo {
   position: relative;
   z-index: 1;
@@ -802,6 +811,7 @@
   width: 100%;
   height: 100%;
   overflow: hidden;
+  border-radius: 15px 0 0 15px;
   background:
     radial-gradient(circle at 35% 25%, rgba(255, 255, 255, 0.22), transparent 60%),
     linear-gradient(160deg, #222946, #5e315e 62%, #0a101b);
