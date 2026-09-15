@@ -9,6 +9,7 @@ import type { StorybookCharacter } from '../../storybook/runtime';
 import { datingSeekingOrder, datingPhotoLimit, datingGenders, datingGenderLabels, datingSeekingLabels, normalizeDatingProfile, type DatingGender, type DatingProfile } from '../../chat/datingProfile';
 import { PhoneGalleryScreen } from '../PhoneGalleryScreen';
 import { NodeCustomSelect } from '../../nodes/shared/NodeCustomSelect';
+import matchMeMoonCloudsUrl from '../../assets/social/matchme/moon-clouds.png';
 import './phoneDating.css';
 
 type Props = {
@@ -34,6 +35,7 @@ export function PhoneDatingScreen({ profileOnly = false, unread, onMarkSeen, ope
   const [editing, setEditing] = useState(profileOnly || !profile);
   const [tab, setTab] = useState<'discover' | 'likes' | 'profile'>('discover');
   const [draft, setDraft] = useState<DatingProfile>(profile ?? normalizeDatingProfile(owner?.apps?.matchme?.profile, true) ?? { username: owner?.apps?.matchme?.username || `matchme.${(owner?.sourceId ?? 'character').replace(/[^a-zA-Z0-9._-]/g, '')}`, name: owner?.name ?? '', age: 18, seeking: [], bio: '', interests: '', photoIds: [], decisions: {} });
+  const [interestDraft, setInterestDraft] = useState('');
   const [chatDrafts, setChatDrafts] = useState<Record<string, string>>({});
   const [recentEmojis, setRecentEmojis] = useState(recentlyUsedEmojis);
   const [gallery, setGallery] = useState(false);
@@ -99,6 +101,16 @@ export function PhoneDatingScreen({ profileOnly = false, unread, onMarkSeen, ope
       setSelectedMatchId(undefined); setPhoto(0); setNotice(decision === 'like' ? `You liked ${candidate.name}.` : `Passed on ${candidate.name}.`);
     }
   }
+  const interestTags = draft.interests.split(',').map((tag) => tag.trim()).filter(Boolean);
+  function addInterestTag() {
+    const value = interestDraft.trim();
+    setInterestDraft('');
+    if (!value || interestTags.length >= 8 || interestTags.some((tag) => tag.toLowerCase() === value.toLowerCase())) return;
+    setDraft({ ...draft, interests: [...interestTags, value].join(', ').slice(0, 150) });
+  }
+  function removeInterestTag(tag: string) {
+    setDraft({ ...draft, interests: interestTags.filter((entry) => entry !== tag).join(', ') });
+  }
   function addPhoto(image: ChatImageAttachment) {
     setDraft((current) => ({ ...current, photoIds: [...new Set([...current.photoIds, image.id])].slice(0, datingPhotoLimit) }));
   }
@@ -153,8 +165,22 @@ export function PhoneDatingScreen({ profileOnly = false, unread, onMarkSeen, ope
           if (!normalized) { setError('Add a name, age (18–120), bio, and at least one photo.'); return; }
           if (save(normalized)) { setEditing(false); setTab('discover'); }
         }}>
-          <div className="pt-intro"><span className="pt-eyebrow">A NEW CHAPTER STARTS HERE</span>
-            <h2>{profile ? 'Make it you.' : 'Find your match.'}</h2></div>
+          <div className="pt-intro"><span className="pt-spark" aria-hidden="true">✦</span>
+            <h2>{profile ? 'Make it you.' : 'Your next chapter.'}</h2><span className="pt-spark right" aria-hidden="true">✦</span>
+            <p className="pt-subtle">{profile ? 'Give your character a fresh look.' : 'Give your character a little spark.'}</p></div>
+          <div className="pt-photo-cards">
+            <div className="pt-photo-card left" aria-hidden="true" style={{ backgroundImage: `url(${allImages.find((entry) => entry.id === draft.photoIds[1])?.dataUrl ?? matchMeMoonCloudsUrl})` }} />
+            <div className="pt-photo-card right" aria-hidden="true" style={{ backgroundImage: `url(${allImages.find((entry) => entry.id === draft.photoIds[2])?.dataUrl ?? matchMeMoonCloudsUrl})` }} />
+            <div className="pt-photo-card front">
+              {draft.photoIds[0] ? <img src={allImages.find((entry) => entry.id === draft.photoIds[0])?.dataUrl} alt="Main profile photo" /> : (
+                <button type="button" disabled={profileOnly || busy} onClick={() => uploadRef.current?.click()}>
+                  <span className="pt-add-circle" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14" /></svg></span>
+                  <span>Add a photo</span>
+                </button>
+              )}
+            </div>
+            <span className="pt-heart-float" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.7l-1.1-1.1a5.5 5.5 0 0 0-7.8 7.8L12 21l8.8-8.6a5.5 5.5 0 0 0 0-7.8Z" /></svg></span>
+          </div>
           <div className="pt-field-row"><label>Display name<input required maxLength={60} value={draft.name} onChange={(e) => setDraft({ ...draft, name: e.target.value })} /></label>
             <label>Age<input required type="number" min={18} max={120} value={draft.age || ''} onChange={(e) => setDraft({ ...draft, age: Number(e.target.value) })} /></label></div>
           <div className="pt-gender-field"><label htmlFor="matchme-gender">I am</label>
@@ -164,16 +190,28 @@ export function PhoneDatingScreen({ profileOnly = false, unread, onMarkSeen, ope
           </div>
           <fieldset className="pt-seeking"><legend>I would like to meet</legend>
             <p className="pt-subtle">Choose one or more. Select all for everyone.</p>
-            <div className="pt-seeking-options">{datingSeekingOrder(draft.gender).map((gender) => <label key={gender} className={draft.seeking?.includes(gender) ? 'selected' : ''}>
-              <input type="checkbox" checked={draft.seeking?.includes(gender) ?? false}
-                onChange={(event) => setDraft({ ...draft, seeking: event.target.checked
-                  ? [...(draft.seeking ?? []), gender] : (draft.seeking ?? []).filter((entry) => entry !== gender) })} />
-              {datingSeekingLabels[gender]}
-            </label>)}</div>
+            <div className="pt-seeking-options">{datingSeekingOrder(draft.gender).map((gender) => {
+              const selected = draft.seeking?.includes(gender) ?? false;
+              return <label key={gender} className={selected ? 'selected' : ''}>
+                <input type="checkbox" checked={selected}
+                  onChange={(event) => setDraft({ ...draft, seeking: event.target.checked
+                    ? [...(draft.seeking ?? []), gender] : (draft.seeking ?? []).filter((entry) => entry !== gender) })} />
+                <span className="pt-seeking-icon" aria-hidden="true">{selected ? '✓' : '+'}</span>
+                {datingSeekingLabels[gender]}
+              </label>;
+            })}</div>
           </fieldset>
-          <label>About you<textarea required maxLength={500} rows={3} placeholder="A little about your character…" value={draft.bio} onChange={(e) => setDraft({ ...draft, bio: e.target.value })} /></label>
-          <label>Interests<input maxLength={150} placeholder="Coffee, late-night walks, side quests" value={draft.interests} onChange={(e) => setDraft({ ...draft, interests: e.target.value })} /></label>
-          <div><div className="pt-photo-heading"><strong>Your photos</strong><small>{draft.photoIds.length}/{datingPhotoLimit} · At least one required</small></div>
+          <label>About you<div className="pt-bio-wrap"><textarea required maxLength={500} rows={3} placeholder="A little about your character…" value={draft.bio} onChange={(e) => setDraft({ ...draft, bio: e.target.value })} /><span className="pt-counter">{draft.bio.length}/500</span></div></label>
+          <label htmlFor="matchme-interest-entry">Interests</label>
+          <div className="pt-interests">
+            {interestTags.map((tag) => <span className="pt-interest-tag" key={tag}>{tag}<button type="button" aria-label={`Remove ${tag}`} onClick={() => removeInterestTag(tag)}><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 6 12 12M18 6 6 18" /></svg></button></span>)}
+            {interestTags.length < 8 && <input id="matchme-interest-entry" className="pt-interest-input" placeholder="Add an interest" maxLength={30}
+              value={interestDraft} onChange={(e) => setInterestDraft(e.target.value)}
+              onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); addInterestTag(); } }}
+              onBlur={addInterestTag} />}
+            <button className="pt-interest-add" type="button" aria-label="Add interest" onClick={addInterestTag}><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14" /></svg></button>
+          </div>
+          <div><div className="pt-photo-heading"><strong>Manage photos</strong><small>{draft.photoIds.length}/{datingPhotoLimit} · At least one required</small></div>
             <div className="pt-photos">{draft.photoIds.map((id, index) => {
               const image = allImages.find((entry) => entry.id === id);
               return <div className="pt-photo" key={id}>{image ? <img src={image.dataUrl} alt={`Profile photo ${index + 1}`} /> : <span>Photo unavailable</span>}

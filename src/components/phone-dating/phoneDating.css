@@ -17,6 +17,38 @@
 .pt-form label { display: grid; gap: 8px; font-size: 12px; font-weight: 600; }
 .pt-form input:not([type=file]):not([type=checkbox]), .pt-form textarea, .pt-form select { box-sizing: border-box; width: 100%; min-width: 0; border: 1px solid #433847; border-radius: 12px; background: #24232e; padding: 12px; color: #f3edf2; font: inherit; resize: vertical; }
 .pt-field-row { display: grid; grid-template-columns: 1fr 90px; gap: 12px; }
+
+/* MatchMe registration: fanned photo-card hero, adapted from the provided
+   prototype (src/assets/social/matchme). Scoped to .pt-form so Discover/
+   Likes/chat keep their existing look. */
+.pt-intro { position: relative; text-align: center; margin: 2px 0 6px; }
+.pt-intro h2 { font-family: Georgia, "Times New Roman", serif; margin: 6px 0 0; }
+.pt-spark { position: absolute; top: -4px; left: 8px; color: #f4a7a9; font-size: 20px; }
+.pt-spark.right { left: auto; right: 8px; top: 20px; font-size: 15px; }
+.pt-photo-cards { position: relative; height: 190px; margin: 8px auto 6px; width: min(100%, 360px); }
+.pt-photo-card { position: absolute; top: 14px; left: 50%; width: 130px; height: 166px; border: 2px solid #93577c; border-radius: 18px; background-color: #302333; background-size: cover; background-position: center; box-shadow: 0 10px 26px #100a142b; overflow: hidden; }
+.pt-photo-card.left { transform: translateX(-125%) rotate(-12deg); }
+.pt-photo-card.right { transform: translateX(25%) rotate(12deg); background-position: right; }
+.pt-photo-card.front { top: 0; left: 50%; transform: translateX(-50%) rotate(3deg); width: 148px; height: 184px; background-color: #332536; z-index: 2; padding: 6px; border-color: #c1769b; }
+.pt-photo-card.front button { width: 100%; height: 100%; padding: 0; border: 2px dashed #eb83b1; border-radius: 12px; background: transparent; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 11px; color: inherit; }
+.pt-photo-card.front img { width: 100%; height: 100%; object-fit: cover; border-radius: 12px; display: block; }
+.pt-add-circle { display: grid; place-items: center; width: 48px; height: 48px; border: 1.5px solid #d57ba8; border-radius: 50%; color: #f5acd2; }
+.pt-add-circle svg { width: 24px; height: 24px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+.pt-heart-float { position: absolute; right: 6px; top: 8px; width: 34px; height: 34px; display: grid; place-items: center; z-index: 3; transform: rotate(12deg); background: #de5084; border: 1.5px solid #f39ab9; border-radius: 50%; color: #fff0df; }
+.pt-heart-float svg { width: 20px; height: 20px; fill: currentColor; stroke: none; }
+@media (max-width: 420px) { .pt-photo-cards { transform: scale(0.86); transform-origin: top center; margin-bottom: -14px; } }
+
+.pt-bio-wrap { position: relative; }
+.pt-bio-wrap textarea { padding-bottom: 26px; }
+.pt-counter { position: absolute; bottom: 11px; right: 13px; color: #b6a5b5; font-size: 11px; }
+.pt-interests { display: flex; align-items: center; flex-wrap: wrap; gap: 7px; padding: 10px; border: 1px solid #433847; border-radius: 14px; background: #24232e; }
+.pt-interest-tag { display: flex; align-items: center; gap: 8px; padding: 7px 10px; background: #54374f; border: 1px solid #805574; border-radius: 24px; font-size: 12px; }
+.pt-interest-tag button { border: 0; background: none; padding: 0; color: #ff76a8; display: grid; place-items: center; }
+.pt-interest-tag svg { width: 13px; height: 13px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+.pt-interests .pt-interest-input { width: 130px; min-height: 30px; padding: 5px 8px; border-radius: 7px; font-size: 12px; }
+.pt-interest-add { width: 28px; height: 28px; flex: none; padding: 0; border: 1px solid #8a5c7d; border-radius: 50%; background: #553c52; color: #edb3d9; display: grid; place-items: center; }
+.pt-interest-add svg { width: 15px; height: 15px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+
 .pt-photo-heading { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 8px; margin-bottom: 12px; }
 .pt-photo-heading small { color: #b6a5b5; }
 .pt-photos { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
@@ -75,8 +107,11 @@
 .pt-seeking { border: 1px solid #433847; border-radius: 12px; padding: 14px; margin: 0; min-width: 0; }
 .pt-seeking legend { padding: 0 5px; font-size: 12px; font-weight: 600; }
 .pt-seeking > p { margin: 0 0 12px; }
-.pt-seeking label { display: flex; align-items: center; gap: 7px; margin: 0; padding: 10px 12px; border: 1px solid #ffffff18; border-radius: 12px; background: #ffffff04; cursor: pointer; }
-.pt-seeking input { accent-color: #e65c96; width: 17px; height: 17px; }
+.pt-seeking label { display: flex; align-items: center; gap: 9px; margin: 0; padding: 10px 12px; border: 1px solid #ffffff18; border-radius: 12px; background: #ffffff04; cursor: pointer; }
+.pt-seeking input { position: absolute; width: 1px; height: 1px; margin: 0; opacity: 0; }
+.pt-seeking label:has(input:focus-visible) { outline: 2px solid #d3bce1; outline-offset: 2px; }
+.pt-seeking-icon { display: grid; place-items: center; flex: none; width: 24px; height: 24px; border-radius: 50%; background: #644460; color: #f2c5df; font-size: 15px; font-style: normal; }
+.pt-seeking label.selected .pt-seeking-icon { background: #412338; color: #fff0df; }
 .pt-profile-details { display: grid; gap: 14px; padding: 16px; border: 1px solid #433847; border-radius: 12px; background: #20212c; }
 .pt-profile-details dt { color: #b6a5b5; font-size: 11px; margin-bottom: 5px; }
 .pt-profile-details dd { margin: 0; font-size: 13px; }
@@ -171,3 +206,50 @@
 @container (max-width: 560px) {
   .pt-match small.pt-match-unread { justify-content: center; white-space: normal; }
 }
+
+/* MatchMe registration: full reskin to match the provided prototype's deep
+   plum/aubergine palette (src/assets/social/matchme), not just new widgets
+   bolted onto the old dark-neutral skin. Scoped to the editing/registration
+   state only (:has(.pt-form)) so Discover/Likes/chat keep their own look. */
+.pt-main:has(.pt-form) {
+  background:
+    radial-gradient(circle at 18% -10%, rgba(255, 118, 168, 0.08), transparent 40%),
+    #1c1420;
+  color: #fff0df;
+}
+.pt-form input:not([type=file]):not([type=checkbox]),
+.pt-form textarea,
+.pt-form select,
+.pt-form .node-custom-select-button,
+.pt-app .pt-form .node-custom-select-button {
+  border: 1px solid #72506d;
+  border-radius: 13px;
+  background: #302333;
+  backdrop-filter: none;
+  color: #fff0df;
+}
+.pt-form .node-custom-select-button:hover,
+.pt-app .pt-form .node-custom-select-button:hover,
+.pt-form .node-custom-select-button[aria-expanded="true"],
+.pt-app .pt-form .node-custom-select-button[aria-expanded="true"] {
+  border-color: #ff76a8;
+  background: #3a2a3a;
+}
+.pt-form input::placeholder, .pt-form textarea::placeholder { color: #ab88ac; opacity: 1; }
+.pt-form .pt-subtle, .pt-form .pt-eyebrow + .pt-subtle { color: #bb94bd; }
+.pt-form .pt-eyebrow { color: #ff76a8; }
+.pt-form label { color: #fff0df; }
+.pt-form .pt-seeking { border-color: #72506d; background: transparent; }
+.pt-form .pt-seeking label { border-color: #ffffff18; background: #ffffff05; color: #fff0df; }
+.pt-form .pt-seeking label.selected { border-color: #ff76a8; background: #ff76a8; color: #291622; box-shadow: none; }
+.pt-form .pt-seeking label.selected .pt-seeking-icon { background: #412338; color: #fff0df; }
+.pt-form .pt-interests { border-color: #72506d; background: #302333; }
+.pt-form .pt-interest-tag { background: #54374f; border-color: #805574; color: #fff0df; }
+.pt-form .pt-photo { background: #302333; }
+.pt-form .pt-photo-actions button { border-color: #72506d; background: #302333; color: #f2b0d6; }
+.pt-form .pt-photo-actions button:hover:not(:disabled) { border-color: #ff76a8; background: #3a2a3a; }
+.pt-app .pt-form .pt-primary { background: #ff76a8; color: #291622; box-shadow: 0 7px 25px rgba(255, 118, 168, 0.28); }
+.pt-app .pt-form .pt-primary:hover:not(:disabled) { background: #ff92ba; box-shadow: 0 0 20px rgba(255, 118, 168, 0.4); filter: none; }
+.pt-form > button[type="button"] { border: 0; background: transparent; color: #bb94bd; }
+.pt-form > button[type="button"]:hover { color: #fff0df; text-decoration: underline; }
+
