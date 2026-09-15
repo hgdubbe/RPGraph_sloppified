@@ -26,9 +26,47 @@ upstream's new pattern and adapt our wiring to it," default to the latter.
 - NPCs should be able to use the phone's mood indicator
 - Themes per character
 - Some themes suck (esp. the girly ones look "dirty/dark", more pastel, brighter colors)
-- storybook editor needs an overhaul: 
--> character sheet: Export Character button should be right of import character button. name and role fields are disaligned. Images field servers no purpose other than counting images...remove it.
--> account page from character setup - Phoneapps should live in social
--> character setup: voice setup should live in Character sheet
--> and so on...reduce the amount of redundant menus and the depth of the menu structure. if it has a matching category one or two layers above, move it there and fit it in
+- storybook editor needs an overhaul:
+-> fixed (vanilla-rebuild, real V2-source rebuild pass, 2026-09-15): rebuilt both
+   `StorybookCreatorDialog` (`src/components/AppDialogs.tsx`) and
+   `StorybookEditorDialog` (`src/components/StorybookEditorDialog.tsx`) on the real
+   old V2 left-rail "workbench" layout, read directly from
+   `C:\Users\hen\Desktop\rpgraph\src\components\AppDialogs.tsx` /
+   `StorybookEditorDialog.tsx` / `src\styles.css` (not approximated). Left rail:
+   Story (Scenario/Intro/Opening History) / Characters (one item per character) /
+   Surfaces (Phone/Gallery/Social/Bank, each its own page) next to a focused
+   editor pane next to the existing AI assistant chat panel. CSS ported verbatim
+   into new `src/styles/storybook-editor.css` (the `.storybook-workbench-*` rule
+   block, `--storybook-*` palette scoped to `.storybook-creator-dialog` instead
+   of V2's `.storybook-workbench-dialog`).
+-> the `CharacterSetupDialog` modal (4 tabs: Phone Apps/Banking/Image/Voice) is
+   gone. Its content was dissolved into the matching rail page instead of staying
+   a separate dialog: Image Setup -> "Appearance & Image Generation" subsection
+   on the Character Detail page; Voice Setup -> "Voice" subsection on the same
+   page; Banking -> its own Bank rail page (starting balance + editable fixed
+   expenses, moved in place); the "Phone Apps" tab (actually social-account
+   management, `CharacterAppProfiles`) -> its own Social rail page, mounting the
+   real v3 `CharacterAppProfiles`/`SocialProfileEditor`/`PhoneDatingScreen`
+   components unmodified. All 4 "Character Setup" button entry points are gone.
+   Every subsection now autosaves immediately via `onUpdateStorybook` on each
+   change instead of buffering into a draft committed on modal close.
+-> Export Character moved up to the Character Detail section toolbar, next to
+   SillyTavern Import / Import Character (was previously a footer button, easy to
+   miss next to Character Images).
+-> Name/Role now share the same field-label/value layout as every other
+   character field. The count-only "Images" summary field is removed.
+-> Phone contact-visibility matrix (N×N table of who-can-see-whom) is new UI,
+   added on the new Phone rail page, wired to the already-existing backend in
+   `src/nodes/rp-storybook/model.ts` (`rpStorybookPhoneContactCharacters`,
+   `rpStorybookPhoneContactAllowed`, `withRpStorybookPhoneContactPairBlocked`) —
+   this function set previously had zero UI anywhere in the app.
+-> `CharacterRelationships`/`HiddenAgencyField` stay wired on the Character
+   Detail page's identity area, next to Description/Personality/Speech Style.
+-> `StorybookEditorDialog` (the secondary/JSON node editor) got a smaller, real
+   improvement in the same spirit rather than a full 3-column rail (it is a much
+   simpler dialog with no Character-Setup-modal equivalent to dissolve): the old
+   bottom `<details>` accordion listing every character's account editor at once
+   was replaced with a character-grid switcher (pick one character card, its
+   account editor appears below) — reduces menu depth the same way, without
+   duplicating the primary dialog's full rail machinery.
 - instead of switching between roleplay and graph mode, make them tabs of the main window

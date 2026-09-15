@@ -5,8 +5,6 @@ import { CharacterMentionInput } from './CharacterMentionInput';
 import { HiddenAgencyField } from './HiddenAgencyField';
 import { withCharacterPortrait } from '../characters/portrait';
 import { CharacterAppProfiles } from './CharacterAppProfiles';
-import { socialFromCharacterApps, type CharacterApps } from '../characters/character';
-import { StorybookInlineEditor } from '../storybook/StorybookInlineEditor';
 import { useEffect, useMemo, useRef, useState, type FormEvent, type PointerEvent as ReactPointerEvent } from 'react';
 import { DarkAudioPlayer } from './DarkAudioPlayer';
 import { LiveRunClock } from './LiveRunClock';
@@ -29,17 +27,18 @@ import {
   emptyRpStorybook,
   nextStorybookCharacterImageId,
   parseRpStorybookJson,
-  rpStorybookCharacterBanking,
   rpStorybookFormattedText,
   rpStorybookFormattedTextSettings,
   rpStorybookImageDescriptionPromptSettings,
   rpStorybookImageDescriptionPromptText,
   rpStorybookLogicCheckInstruction,
+  rpStorybookPhoneContactCharacters,
+  rpStorybookPhoneContactAllowed,
+  withRpStorybookPhoneContactPairBlocked,
   estimatedRpStorybookPromptTokens,
   storybookCharacterImageOwnerIdBase,
   type RpStorybookCharacterBanking,
   type RpStorybookCharacterComfyConfig,
-  type RpStorybookCharacterSocial,
   type RpStorybookCharacterVoiceConfig,
   type RpStorybookCharacter,
   type RpStorybookCharacterImage,
@@ -1359,23 +1358,6 @@ function storybookCharacterBanking(
     defaultRpStorybookCharacterBanking();
 }
 
-function withStorybookCharacterPhoneAccounts(
-  storybook: RpStorybook,
-  characterId: string,
-  banking: RpStorybookCharacterBanking,
-  social: RpStorybookCharacterSocial,
-  apps?: CharacterApps,
-): RpStorybook {
-  return {
-    ...storybook,
-    characters: storybook.characters.map((character) =>
-      character.id === characterId
-        ? { ...character, banking, social, apps: apps ?? character.apps }
-        : character
-    ),
-  };
-}
-
 function characterPhoneSummary(character: RpStorybookCharacter) {
   const banking = character.banking ?? defaultRpStorybookCharacterBanking();
   const accountStatus = (created: boolean) => (
@@ -2348,73 +2330,58 @@ function CharacterImagesDialog({
   );
 }
 
-function CharacterSetupDialog({
-  identityLocked,
+/**
+ * Character Detail page — "Appearance &amp; Image Generation" subsection.
+ *
+ * Dissolved from the old CharacterSetupDialog modal's "Image Setup" tab (per
+ * the redundancy-removal instruction: a submenu that fits thematically into a
+ * left-menu site gets folded into that site instead of staying a separate
+ * dialog). Writes straight to the character's comfyConfig via onUpdateStorybook
+ * on every change instead of buffering into a local draft committed on modal
+ * close — there is no modal/close step anymore. The Appearance textarea itself
+ * stays on the Character Detail identity fields (not duplicated here) since
+ * that field already lived on the character card even before this change.
+ */
+function CharacterImageSetupSection({
   storybook,
-  characterId,
+  character,
   workflowNodes,
   connections,
   providerHealthById,
+  promptActionSettings,
   onUpdateStorybook,
   onLoadCharacterComfyLoras,
   onGenerateCharacterComfyPreview,
-  onGenerateCharacterVoicePreview,
   onUnloadCharacterComfyModels,
-  promptActionSettings,
-  onClose,
 }: {
-  identityLocked: boolean;
   storybook: RpStorybook;
-  characterId: string;
+  character: RpStorybookCharacter;
   workflowNodes: WorkflowNode[];
   connections: ConnectionPreset[];
   providerHealthById: Record<string, ProviderConnectionHealth>;
+  promptActionSettings: PromptActionRuntimeSettings;
   onUpdateStorybook: (storybook: RpStorybook, status?: string) => boolean;
   onLoadCharacterComfyLoras: StorybookCreatorDialogProps['onLoadCharacterComfyLoras'];
   onGenerateCharacterComfyPreview: StorybookCreatorDialogProps['onGenerateCharacterComfyPreview'];
-  onGenerateCharacterVoicePreview: StorybookCreatorDialogProps['onGenerateCharacterVoicePreview'];
   onUnloadCharacterComfyModels: StorybookCreatorDialogProps['onUnloadCharacterComfyModels'];
-  promptActionSettings: PromptActionRuntimeSettings;
-  onClose: () => void;
 }) {
-  const character = storybook.characters.find((entry) => entry.id === characterId);
-  const characterName = character?.name || character?.id || 'Character';
-  const characterContext = character
-    ? [
-        character.name ? `Name: ${character.name}` : '',
-        character.description ? `Description: ${character.description}` : '',
-        character.role ? `Role: ${character.role}` : '',
-      ].filter(Boolean).join('\n')
-    : `Name: ${characterName}`;
+  const characterId = character.id;
+  const characterName = character.name || character.id || 'Character';
+  const characterContext = [
+    character.name ? `Name: ${character.name}` : '',
+    character.description ? `Description: ${character.description}` : '',
+    character.role ? `Role: ${character.role}` : '',
+  ].filter(Boolean).join('\n') || `Name: ${characterName}`;
   const comfyConnections = connections.filter(isComfyImageConnection);
-  const voiceConnections = connections.filter(isComfyVoiceConnection);
-  const [activeSetupTab, setActiveSetupTab] = useState<'phone' | 'banking' | 'image' | 'voice'>('phone');
-  const [phoneAppsViewKey, setPhoneAppsViewKey] = useState(0);
   const [providerId, setProviderId] = useState(comfyConnections[0]?.id ?? '');
-  const [voiceProviderId, setVoiceProviderId] = useState(voiceConnections[0]?.id ?? '');
   const [loraOptions, setLoraOptions] = useState<string[]>([]);
-  const [draft, setDraft] = useState(() => storybookCharacterComfyConfig(storybook, characterId));
-  const [voiceDraft, setVoiceDraft] = useState(() => storybookCharacterVoiceConfig(storybook, characterId));
-  const [bankingDraft, setBankingDraft] = useState(() => {
-    const banking = storybookCharacterBanking(storybook, characterId);
-    return {
-      startBalance: String(banking.startBalance),
-      fixedExpenses: banking.fixedExpenses.map((expense) => ({
-        label: expense.label,
-        amount: String(expense.amount),
-      })),
-    };
-  });
-  const [appsDraft, setAppsDraft] = useState<CharacterApps>(character?.apps ?? {});
-  const [voiceTestText, setVoiceTestText] = useState('');
-  const [voiceGenerating, setVoiceGenerating] = useState(false);
-  const [voiceClip, setVoiceClip] = useState<{ dataUrl: string; filename: string } | null>(null);
   const [previewScenarioId, setPreviewScenarioId] = useState<(typeof characterComfyPreviewScenarios)[number]['id']>('mirror-selfie');
   const [status, setStatus] = useState('');
   const [generating, setGenerating] = useState(false);
   const [unloading, setUnloading] = useState(false);
   const [previewImage, setPreviewImage] = useState<{ dataUrl: string; filename: string } | null>(null);
   const loraOptionsCacheRef = useRef<Record<string, string[]>>({});
+  const draft = storybookCharacterComfyConfig(storybook, characterId);
   const createImageActions = useMemo(() => usedCreateImagePromptActions(workflowNodes, promptActionSettings), [workflowNodes, promptActionSettings]);
   const comfyUsageStatus = storybookCharacterComfyStatus({
     character: { name: characterName, comfyConfig: draft },
@@ -2422,6 +2389,13 @@ function CharacterSetupDialog({
     connections,
     providerHealthById,
   });
+
+  function patchComfyConfig(patch: Partial<{ loraName: string; loraUrl: string; appearance: string }>) {
+    onUpdateStorybook(
+      withStorybookCharacterComfyConfig(storybook, characterId, { ...draft, ...patch }),
+      `Image setup updated for ${characterName}.`,
+    );
+  }
 
   useEffect(() => {
     let active = true;
@@ -2477,88 +2451,6 @@ function CharacterSetupDialog({
     };
   }, [onLoadCharacterComfyLoras, providerId]);
 
-  function commitCharacterSetup() {
-    return onUpdateStorybook(
-      withStorybookCharacterPhoneAccounts(
-        withStorybookCharacterVoiceConfig(
-          withStorybookCharacterComfyConfig(storybook, characterId, {
-            loraName: draft.loraName.trim(),
-            loraUrl: draft.loraUrl?.trim() ?? '',
-            appearance: draft.appearance.trim(),
-          }),
-          characterId,
-          voiceDraft.sampleDataUrl ? voiceDraft : defaultRpStorybookCharacterVoiceConfig(),
-        ),
-        characterId,
-        rpStorybookCharacterBanking({
-          startBalance: bankingDraft.startBalance.trim() ? Number(bankingDraft.startBalance) : undefined,
-          fixedExpenses: bankingDraft.fixedExpenses.map((expense) => ({
-            label: expense.label.trim(),
-            amount: Number(expense.amount),
-          })),
-        }),
-        socialFromCharacterApps(appsDraft),
-        appsDraft,
-      ),
-      `Character setup saved for ${characterName}.`,
-    );
-  }
-
-  async function chooseVoiceSample() {
-    try {
-      const result = await window.rpgraph.selectAudio();
-      if (result.canceled || !result.audio) {
-        return;
-      }
-      setVoiceDraft({
-        sampleName: result.audio.name,
-        sampleMimeType: result.audio.mimeType,
-        sampleDataUrl: result.audio.dataUrl,
-      });
-      setVoiceClip(null);
-      setStatus(`Voice sample selected: ${result.audio.name}. Close to keep it in the storybook.`);
-    } catch (error) {
-      setStatus(`Voice sample selection failed: ${error instanceof Error ? error.message : String(error)}`);
-    }
-  }
-
-  function removeVoiceSample() {
-    setVoiceDraft(defaultRpStorybookCharacterVoiceConfig());
-    setVoiceClip(null);
-    setStatus('Voice sample removed. Close to apply.');
-  }
-
-  async function generateVoicePreview() {
-    if (!voiceProviderId) {
-      setStatus('Choose a ComfyUI voice provider first.');
-      return;
-    }
-    if (!voiceDraft.sampleDataUrl) {
-      setStatus('Upload a voice sample for this character first.');
-      return;
-    }
-    if (!voiceTestText.trim()) {
-      setStatus('Enter a text the character should say.');
-      return;
-    }
-    setVoiceGenerating(true);
-    setVoiceClip(null);
-    setStatus('Unloading local LLM models and generating voice clip ...');
-    try {
-      const clips = await onGenerateCharacterVoicePreview({
-        providerId: voiceProviderId,
-        speechText: voiceTestText,
-        sampleDataUrl: voiceDraft.sampleDataUrl,
-      });
-      setVoiceClip(clips[0] ?? null);
-      setStatus(clips.length ? `Generated ${clips.length} voice clip${clips.length === 1 ? '' : 's'}.` : 'No voice clip returned.');
-    } catch (error) {
-      setStatus(`Voice generation failed: ${error instanceof Error ? error.message : String(error)}`);
-    } finally {
-      setVoiceGenerating(false);
-    }
-  }
-
   async function copyLoraUrl() {
     const loraUrl = draft.loraUrl?.trim() ?? '';
     if (!loraUrl) {
@@ -2598,22 +2490,6 @@ function CharacterSetupDialog({
     }
   }
 
-  async function closeDialog() {
-    if (!commitCharacterSetup()) { setStatus('Could not save character setup. Check the story identity restrictions.'); return; }
-    if (!providerId) {
-      onClose();
-      return;
-    }
-    setStatus('Unloading ComfyUI models ...');
-    try {
-      await onUnloadCharacterComfyModels(providerId);
-    } catch (error) {
-      setStatus(`Unload failed: ${error instanceof Error ? error.message : String(error)}`);
-    } finally {
-      onClose();
-    }
-  }
-
   async function unloadModels() {
     if (!providerId) {
       setStatus('Choose a ComfyUI provider first.');
@@ -2628,6 +2504,193 @@ function CharacterSetupDialog({
       setStatus(`Unload failed: ${error instanceof Error ? error.message : String(error)}`);
     } finally {
       setUnloading(false);
+    }
+  }
+
+  const loraPickerOptions = Array.from(
+    new Set(
+      [draft.loraName, ...loraOptions]
+        .map((name) => name.trim())
+        .filter((name) => name.length > 0 && name !== comfyCharacterLoraName),
+    ),
+  );
+
+  return (
+    <div className="character-voice-card-group storybook-workbench-field wide">
+      {status && <span className="run-note storybook-image-status">{status}</span>}
+      <div className="character-comfy-body">
+        <div className="character-comfy-form">
+          <label className="character-comfy-field">
+            <span>COMFYUI PROVIDER</span>
+            <NodeCustomSelect
+              value={providerId}
+              onChange={(value) => setProviderId(String(value))}
+              options={comfyConnections.length
+                ? comfyConnections.map((connection) => providerOption(connection, providerHealthById[connection.id]))
+                : [{ value: '', label: 'No ComfyUI provider', disabled: true }]}
+            />
+          </label>
+          <label className="character-comfy-field">
+            <span>CHARACTER LORA</span>
+            <ModelIdPicker
+              id={`character-comfy-lora-${characterId}`}
+              value={draft.loraName}
+              onChange={(value) => patchComfyConfig({ loraName: value })}
+              options={loraPickerOptions}
+              onOpenOptions={() => undefined}
+              placeholder="Type or select a character LoRA"
+              favoritesStorageKey={characterLoraFavoritesStorageKey}
+            />
+          </label>
+          <label className="character-comfy-field">
+            <span>LORA SOURCE URL</span>
+            <div className="character-comfy-url-row">
+              <input
+                className="node-text-input nodrag"
+                type="url"
+                value={draft.loraUrl ?? ''}
+                placeholder="https://..."
+                onChange={(event) => patchComfyConfig({ loraUrl: event.currentTarget.value })}
+              />
+              <button type="button" className="contextual-action-button nodrag" onClick={() => void copyLoraUrl()}>
+                Copy Link
+              </button>
+            </div>
+          </label>
+          <label className="character-comfy-field">
+            <span>GENERATION IMAGE</span>
+            <NodeCustomSelect
+              value={previewScenarioId}
+              onChange={(value) => setPreviewScenarioId(value)}
+              options={characterComfyPreviewScenarios.map((scenario) => ({
+                value: scenario.id,
+                label: scenario.label,
+              }))}
+            />
+          </label>
+          <div className="character-comfy-actions">
+            <button type="button" className="contextual-action-button nodrag" disabled={generating} onClick={() => void generatePreview()}>
+              {generating ? 'Generating ...' : 'Generate Image'}
+            </button>
+            <button type="button" className="contextual-action-button nodrag" disabled={unloading} onClick={() => void unloadModels()}>
+              {unloading ? 'Unloading ...' : 'Unload Models'}
+            </button>
+          </div>
+        </div>
+        <div className="character-comfy-preview">
+          {generating ? (
+            <div className="character-image-generating-box">
+              <div className="character-voice-spinner" />
+              <span>Generating test image ...</span>
+            </div>
+          ) : previewImage ? (
+            <>
+              <img src={previewImage.dataUrl} alt={previewImage.filename || `${characterName} generated preview`} />
+              <span>{previewImage.filename || 'Generated preview'}</span>
+            </>
+          ) : (
+            <p>Generate a test image to preview this character LoRA and appearance.</p>
+          )}
+        </div>
+      </div>
+      <p className={`character-comfy-usage-status${comfyUsageStatus.active ? ' active' : ''}`}>
+        {comfyUsageStatus.text}
+      </p>
+    </div>
+  );
+}
+
+/**
+ * Character Detail page — "Voice" subsection. Dissolved from the old
+ * CharacterSetupDialog modal's "Voice Setup" tab, same immediate-autosave
+ * treatment as CharacterImageSetupSection above (writes straight to the
+ * character's voiceConfig via onUpdateStorybook, no buffered draft).
+ */
+function CharacterVoiceSetupSection({
+  storybook,
+  character,
+  connections,
+  providerHealthById,
+  onUpdateStorybook,
+  onGenerateCharacterVoicePreview,
+  onUnloadCharacterComfyModels,
+}: {
+  storybook: RpStorybook;
+  character: RpStorybookCharacter;
+  connections: ConnectionPreset[];
+  providerHealthById: Record<string, ProviderConnectionHealth>;
+  onUpdateStorybook: (storybook: RpStorybook, status?: string) => boolean;
+  onGenerateCharacterVoicePreview: StorybookCreatorDialogProps['onGenerateCharacterVoicePreview'];
+  onUnloadCharacterComfyModels: StorybookCreatorDialogProps['onUnloadCharacterComfyModels'];
+}) {
+  const characterId = character.id;
+  const characterName = character.name || character.id || 'Character';
+  const voiceConnections = connections.filter(isComfyVoiceConnection);
+  const [voiceProviderId, setVoiceProviderId] = useState(voiceConnections[0]?.id ?? '');
+  const [voiceTestText, setVoiceTestText] = useState('');
+  const [voiceGenerating, setVoiceGenerating] = useState(false);
+  const [voiceClip, setVoiceClip] = useState<{ dataUrl: string; filename: string } | null>(null);
+  const [status, setStatus] = useState('');
+  const [unloading, setUnloading] = useState(false);
+  const voiceConfig = storybookCharacterVoiceConfig(storybook, characterId);
+
+  async function chooseVoiceSample() {
+    try {
+      const result = await window.rpgraph.selectAudio();
+      if (result.canceled || !result.audio) {
+        return;
+      }
+      onUpdateStorybook(
+        withStorybookCharacterVoiceConfig(storybook, characterId, {
+          sampleName: result.audio.name,
+          sampleMimeType: result.audio.mimeType,
+          sampleDataUrl: result.audio.dataUrl,
+        }),
+        `Voice sample updated for ${characterName}.`,
+      );
+      setVoiceClip(null);
+      setStatus(`Voice sample selected: ${result.audio.name}.`);
+    } catch (error) {
+      setStatus(`Voice sample selection failed: ${error instanceof Error ? error.message : String(error)}`);
+    }
+  }
+
+  function removeVoiceSample() {
+    onUpdateStorybook(
+      withStorybookCharacterVoiceConfig(storybook, characterId, defaultRpStorybookCharacterVoiceConfig()),
+      `Voice sample removed for ${characterName}.`,
+    );
+    setVoiceClip(null);
+  }
+
+  async function generateVoicePreview() {
+    if (!voiceProviderId) {
+      setStatus('Choose a ComfyUI voice provider first.');
+      return;
+    }
+    if (!voiceConfig.sampleDataUrl) {
+      setStatus('Upload a voice sample for this character first.');
+      return;
+    }
+    if (!voiceTestText.trim()) {
+      setStatus('Enter a text the character should say.');
+      return;
+    }
+    setVoiceGenerating(true);
+    setVoiceClip(null);
+    setStatus('Unloading local LLM models and generating voice clip ...');
+    try {
+      const clips = await onGenerateCharacterVoicePreview({
+        providerId: voiceProviderId,
+        speechText: voiceTestText,
+        sampleDataUrl: voiceConfig.sampleDataUrl,
+      });
+      setVoiceClip(clips[0] ?? null);
+      setStatus(clips.length ? `Generated ${clips.length} voice clip${clips.length === 1 ? '' : 's'}.` : 'No voice clip returned.');
+    } catch (error) {
+      setStatus(`Voice generation failed: ${error instanceof Error ? error.message : String(error)}`);
+    } finally {
+      setVoiceGenerating(false);
     }
   }
 
@@ -2648,369 +2711,144 @@ function CharacterSetupDialog({
     }
   }
 
-  const loraPickerOptions = Array.from(
-    new Set(
-      [draft.loraName, ...loraOptions]
-        .map((name) => name.trim())
-        .filter((name) => name.length > 0 && name !== comfyCharacterLoraName),
-    ),
-  );
-  const backdropDismiss = useBackdropDismiss<HTMLDivElement>(() => void closeDialog());
-
   return (
-    <div className="storybook-image-dialog-backdrop" role="presentation" {...backdropDismiss}>
-      <section
-        className="storybook-image-dialog character-comfy-dialog"
-        role="dialog"
-        aria-modal="true"
-        aria-label={`${characterName} character setup`}
-        onClick={(event) => event.stopPropagation()}
-      >
-        <div className="storybook-image-dialog-header">
-          <h3 className="character-setup-header-title">
-            Character Setup <span>{characterName}</span>
-          </h3>
-          <div className="storybook-image-dialog-actions">
-            <button type="button" className="close-button" onClick={() => void closeDialog()}>Close</button>
-          </div>
-        </div>
-        {status && <span className="run-note storybook-image-status">{status}</span>}
-        <div className="character-setup-layout">
-          <div className="character-setup-tabs" role="tablist" aria-label="Character setup sections">
-            <button
-              type="button"
-              role="tab"
-              aria-selected={activeSetupTab === 'phone'}
-              className={activeSetupTab === 'phone' ? 'active' : ''}
-              onClick={() => {
-                setActiveSetupTab('phone');
-                setPhoneAppsViewKey((current) => current + 1);
-              }}
-            >
-              <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <rect x="7" y="2" width="10" height="20" rx="2" ry="2" />
-                <line x1="11" y1="18" x2="13" y2="18" />
-              </svg>
-              <span>Phone Apps</span>
-            </button>
-            <button
-              type="button"
-              role="tab"
-              aria-selected={activeSetupTab === 'banking'}
-              className={activeSetupTab === 'banking' ? 'active' : ''}
-              onClick={() => setActiveSetupTab('banking')}
-            >
-              <span className="character-setup-tab-symbol" aria-hidden="true">$</span>
-              <span>Banking App</span>
-            </button>
-            <button
-              type="button"
-              role="tab"
-              aria-selected={activeSetupTab === 'image'}
-              className={activeSetupTab === 'image' ? 'active' : ''}
-              onClick={() => setActiveSetupTab('image')}
-            >
-              <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <rect x="3" y="3" width="18" height="18" rx="2" ry="2" />
-                <circle cx="8.5" cy="8.5" r="1.5" />
-                <polyline points="21 15 16 10 5 21" />
-              </svg>
-              <span>Image Setup</span>
-            </button>
-            <button
-              type="button"
-              role="tab"
-              aria-selected={activeSetupTab === 'voice'}
-              className={activeSetupTab === 'voice' ? 'active' : ''}
-              onClick={() => setActiveSetupTab('voice')}
-            >
-              <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5" />
-                <path d="M15.54 8.46a5 5 0 0 1 0 7.07" />
-                <path d="M19.07 4.93a10 10 0 0 1 0 14.14" />
-              </svg>
-              <span>Voice Setup</span>
-            </button>
-          </div>
-          {activeSetupTab === 'phone' ? (
-            <div className="character-voice-body">
-              {character && <CharacterAppProfiles key={phoneAppsViewKey} character={{ ...character, apps: appsDraft }} characters={storybook.characters}
-                locked={identityLocked} onChange={(next) => { setAppsDraft(next.apps!); return true; }} />}
-            </div>
-          ) : activeSetupTab === 'banking' ? (
-            <div className="character-voice-body">
-              <div className="character-voice-card">
-                <span className="character-voice-card-title">BANKING APP</span>
-                <p className="character-voice-hint">
-                  Bank account of this character in the phone Banking app. New characters start
-                  with $1000 unless you or the assistant set a value that fits their life situation.
-                </p>
-                <label className="character-comfy-field">
-                  <span>START BALANCE (USD)</span>
-                  <input
-                    className="node-text-input nodrag"
-                    type="number"
-                    min="0"
-                    step="0.01"
-                    value={bankingDraft.startBalance}
-                    onChange={(event) => {
-                      const startBalance = event.currentTarget.value;
-                      setBankingDraft((current) => ({ ...current, startBalance }));
-                    }}
-                  />
-                </label>
-                <label className="character-comfy-field">
-                  <span>FIXED EXPENSES</span>
-                </label>
-                {bankingDraft.fixedExpenses.map((expense, index) => (
-                  <div className="character-comfy-url-row" key={index}>
-                    <input
-                      className="node-text-input nodrag"
-                      type="text"
-                      value={expense.label}
-                      placeholder="Mobile plan"
-                      onChange={(event) => {
-                        const label = event.currentTarget.value;
-                        setBankingDraft((current) => ({
-                          ...current,
-                          fixedExpenses: current.fixedExpenses.map((entry, entryIndex) =>
-                            entryIndex === index ? { ...entry, label } : entry),
-                        }));
-                      }}
-                    />
-                    <input
-                      className="node-text-input nodrag"
-                      type="number"
-                      min="0"
-                      step="0.01"
-                      value={expense.amount}
-                      placeholder="24.99"
-                      onChange={(event) => {
-                        const amount = event.currentTarget.value;
-                        setBankingDraft((current) => ({
-                          ...current,
-                          fixedExpenses: current.fixedExpenses.map((entry, entryIndex) =>
-                            entryIndex === index ? { ...entry, amount } : entry),
-                        }));
-                      }}
-                    />
-                    <button
-                      type="button"
-                      className="contextual-action-button nodrag"
-                      onClick={() =>
-                        setBankingDraft((current) => ({
-                          ...current,
-                          fixedExpenses: current.fixedExpenses.filter((_, entryIndex) => entryIndex !== index),
-                        }))}
-                    >
-                      Remove
-                    </button>
-                  </div>
-                ))}
-                <div className="character-comfy-actions">
-                  <button
-                    type="button"
-                    className="contextual-action-button nodrag"
-                    onClick={() =>
-                      setBankingDraft((current) => ({
-                        ...current,
-                        fixedExpenses: [...current.fixedExpenses, { label: '', amount: '' }],
-                      }))}
-                  >
-                    Add Fixed Expense
-                  </button>
-                </div>
-                <p className="character-voice-hint">
-                  Recurring payments shown in the Banking app history (for example a mobile plan).
-                  The app fills the rest of the history with generated everyday spending.
-                </p>
-              </div>
-            </div>
-          ) : activeSetupTab === 'voice' ? (
-            <div className="character-voice-body">
-              <div className="character-voice-card">
-                <label className="character-comfy-field">
-                  <span>VOICE PROVIDER</span>
-                  <NodeCustomSelect
-                    value={voiceProviderId}
-                    onChange={(value) => setVoiceProviderId(String(value))}
-                    options={voiceConnections.length
-                      ? voiceConnections.map((connection) => providerOption(connection, providerHealthById[connection.id]))
-                      : [{ value: '', label: 'No ComfyUI voice provider', disabled: true }]}
-                  />
-                </label>
-              </div>
+    <div className="character-voice-body storybook-workbench-field wide">
+      {status && <span className="run-note storybook-image-status">{status}</span>}
+      <div className="character-voice-card">
+        <label className="character-comfy-field">
+          <span>VOICE PROVIDER</span>
+          <NodeCustomSelect
+            value={voiceProviderId}
+            onChange={(value) => setVoiceProviderId(String(value))}
+            options={voiceConnections.length
+              ? voiceConnections.map((connection) => providerOption(connection, providerHealthById[connection.id]))
+              : [{ value: '', label: 'No ComfyUI voice provider', disabled: true }]}
+          />
+        </label>
+      </div>
 
-              <div className="character-voice-card">
-                <div className="character-voice-card-header">
-                  <span className="character-voice-card-title">VOICE SAMPLE (MP3)</span>
-                  <button type="button" className="contextual-action-button nodrag" onClick={() => void chooseVoiceSample()}>
-                    {voiceDraft.sampleDataUrl ? 'Replace MP3 Sample' : 'Choose MP3 Sample'}
-                  </button>
-                </div>
-                <p className="character-voice-hint">
-                  Upload a short MP3 voice sample of this character — ideally 10 to 20 seconds of
-                  clear speech without music or background noise. It is stored in the storybook and
-                  used as the reference voice for cloning.
-                </p>
-                {voiceDraft.sampleDataUrl ? (
-                  <DarkAudioPlayer
-                    src={voiceDraft.sampleDataUrl}
-                    title={voiceDraft.sampleName || 'Voice sample'}
-                    onRemove={removeVoiceSample}
-                    className="voice-sample-player"
-                  />
-                ) : (
-                  <div className="character-voice-empty-sample">
-                    <span>No voice sample uploaded yet</span>
-                  </div>
-                )}
-              </div>
-
-              <div className="character-voice-card">
-                <span className="character-voice-card-title">VOICE GENERATION &amp; TESTING</span>
-                <label className="character-comfy-field">
-                  <span>TEST TEXT</span>
-                  <textarea
-                    className="node-textarea nodrag nowheel"
-                    rows={3}
-                    value={voiceTestText}
-                    placeholder="Write a sentence the character should say ..."
-                    onChange={(event) => setVoiceTestText(event.currentTarget.value)}
-                  />
-                </label>
-                <div className="character-comfy-actions">
-                  <button
-                    type="button"
-                    className="contextual-action-button nodrag"
-                    disabled={voiceGenerating}
-                    onClick={() => void generateVoicePreview()}
-                  >
-                    {voiceGenerating ? 'Generating ...' : 'Generate Voice'}
-                  </button>
-                  <button type="button" className="contextual-action-button nodrag" disabled={unloading} onClick={() => void unloadVoiceModels()}>
-                    {unloading ? 'Unloading ...' : 'Unload Models'}
-                  </button>
-                </div>
-
-                {voiceGenerating ? (
-                  <div className="character-voice-generating-box">
-                    <div className="character-voice-spinner" />
-                    <span>Generating voice clip ...</span>
-                  </div>
-                ) : voiceClip ? (
-                  <div className="character-voice-result-box">
-                    <span className="character-voice-result-label">GENERATED VOICE CLIP</span>
-                    <DarkAudioPlayer
-                      src={voiceClip.dataUrl}
-                      title={voiceClip.filename || 'Generated voice clip'}
-                      className="voice-generated-player"
-                    />
-                  </div>
-                ) : null}
-              </div>
-            </div>
-          ) : (
-        <div className="character-comfy-body">
-          <div className="character-comfy-form">
-            <label className="character-comfy-field">
-              <span>COMFYUI PROVIDER</span>
-              <NodeCustomSelect
-                value={providerId}
-                onChange={(value) => setProviderId(String(value))}
-                options={comfyConnections.length
-                  ? comfyConnections.map((connection) => providerOption(connection, providerHealthById[connection.id]))
-                  : [{ value: '', label: 'No ComfyUI provider', disabled: true }]}
-              />
-            </label>
-            <label className="character-comfy-field">
-              <span>CHARACTER LORA</span>
-              <ModelIdPicker
-                id={`character-comfy-lora-${characterId}`}
-                value={draft.loraName}
-                onChange={(value) => setDraft((current) => ({ ...current, loraName: value }))}
-                options={loraPickerOptions}
-                onOpenOptions={() => undefined}
-                placeholder="Type or select a character LoRA"
-                favoritesStorageKey={characterLoraFavoritesStorageKey}
-              />
-            </label>
-            <label className="character-comfy-field">
-              <span>LORA SOURCE URL</span>
-              <div className="character-comfy-url-row">
-                <input
-                  className="node-text-input nodrag"
-                  type="url"
-                  value={draft.loraUrl ?? ''}
-                  placeholder="https://..."
-                  onChange={(event) => {
-                    const loraUrl = event.currentTarget.value;
-                    setDraft((current) => ({ ...current, loraUrl }));
-                  }}
-                />
-                <button type="button" className="contextual-action-button nodrag" onClick={() => void copyLoraUrl()}>
-                  Copy Link
-                </button>
-              </div>
-            </label>
-            <label className="character-comfy-field">
-              <span>CHARACTER APPEARANCE</span>
-              <textarea
-                className="node-textarea nodrag nowheel"
-                rows={7}
-                value={draft.appearance}
-                placeholder="Hair, face, body type, glasses, clothing style, notable features..."
-                onChange={(event) => {
-                  const appearance = event.currentTarget.value;
-                  setDraft((current) => ({ ...current, appearance }));
-                }}
-              />
-            </label>
-            <label className="character-comfy-field">
-              <span>GENERATION IMAGE</span>
-              <NodeCustomSelect
-                value={previewScenarioId}
-                onChange={(value) => setPreviewScenarioId(value)}
-                options={characterComfyPreviewScenarios.map((scenario) => ({
-                  value: scenario.id,
-                  label: scenario.label,
-                }))}
-              />
-            </label>
-            <div className="character-comfy-actions">
-              <button type="button" className="contextual-action-button nodrag" disabled={generating} onClick={() => void generatePreview()}>
-                {generating ? 'Generating ...' : 'Generate Image'}
-              </button>
-              <button type="button" className="contextual-action-button nodrag" disabled={unloading} onClick={() => void unloadModels()}>
-                {unloading ? 'Unloading ...' : 'Unload Models'}
-              </button>
-            </div>
-          </div>
-          <div className="character-comfy-preview">
-            {generating ? (
-              <div className="character-image-generating-box">
-                <div className="character-voice-spinner" />
-                <span>Generating test image ...</span>
-              </div>
-            ) : previewImage ? (
-              <>
-                <img src={previewImage.dataUrl} alt={previewImage.filename || `${characterName} generated preview`} />
-                <span>{previewImage.filename || 'Generated preview'}</span>
-              </>
-            ) : (
-              <p>Generate a test image to preview this character LoRA and appearance.</p>
-            )}
-          </div>
+      <div className="character-voice-card">
+        <div className="character-voice-card-header">
+          <span className="character-voice-card-title">VOICE SAMPLE (MP3)</span>
+          <button type="button" className="contextual-action-button nodrag" onClick={() => void chooseVoiceSample()}>
+            {voiceConfig.sampleDataUrl ? 'Replace MP3 Sample' : 'Choose MP3 Sample'}
+          </button>
         </div>
-          )}
+        <p className="character-voice-hint">
+          Upload a short MP3 voice sample of this character — ideally 10 to 20 seconds of
+          clear speech without music or background noise. It is stored in the storybook and
+          used as the reference voice for cloning.
+        </p>
+        {voiceConfig.sampleDataUrl ? (
+          <DarkAudioPlayer
+            src={voiceConfig.sampleDataUrl}
+            title={voiceConfig.sampleName || 'Voice sample'}
+            onRemove={removeVoiceSample}
+            className="voice-sample-player"
+          />
+        ) : (
+          <div className="character-voice-empty-sample">
+            <span>No voice sample uploaded yet</span>
+          </div>
+        )}
+      </div>
+
+      <div className="character-voice-card">
+        <span className="character-voice-card-title">VOICE GENERATION &amp; TESTING</span>
+        <label className="character-comfy-field">
+          <span>TEST TEXT</span>
+          <textarea
+            className="node-textarea nodrag nowheel"
+            rows={3}
+            value={voiceTestText}
+            placeholder="Write a sentence the character should say ..."
+            onChange={(event) => setVoiceTestText(event.currentTarget.value)}
+          />
+        </label>
+        <div className="character-comfy-actions">
+          <button
+            type="button"
+            className="contextual-action-button nodrag"
+            disabled={voiceGenerating}
+            onClick={() => void generateVoicePreview()}
+          >
+            {voiceGenerating ? 'Generating ...' : 'Generate Voice'}
+          </button>
+          <button type="button" className="contextual-action-button nodrag" disabled={unloading} onClick={() => void unloadVoiceModels()}>
+            {unloading ? 'Unloading ...' : 'Unload Models'}
+          </button>
         </div>
-        {activeSetupTab === 'image' ? (
-          <p className={`character-comfy-usage-status${comfyUsageStatus.active ? ' active' : ''}`}>
-            {comfyUsageStatus.text}
-          </p>
+
+        {voiceGenerating ? (
+          <div className="character-voice-generating-box">
+            <div className="character-voice-spinner" />
+            <span>Generating voice clip ...</span>
+          </div>
+        ) : voiceClip ? (
+          <div className="character-voice-result-box">
+            <span className="character-voice-result-label">GENERATED VOICE CLIP</span>
+            <DarkAudioPlayer
+              src={voiceClip.dataUrl}
+              title={voiceClip.filename || 'Generated voice clip'}
+              className="voice-generated-player"
+            />
+          </div>
         ) : null}
-      </section>
+      </div>
     </div>
+  );
+}
+
+/**
+ * A single immediate-autosave field on the workbench rail's editor pages
+ * (`.storybook-workbench-field`, ported from V2's `InlineStorybookTextField`
+ * pattern) — every keystroke writes straight through `onChange` to
+ * `onUpdateStorybook`, there is no separate Apply/Save step.
+ */
+function WorkbenchTextField({
+  label,
+  hint,
+  value,
+  placeholder,
+  multiline = true,
+  disabled,
+  onChange,
+}: {
+  label: string;
+  hint?: string;
+  value: string;
+  placeholder?: string;
+  multiline?: boolean;
+  disabled?: boolean;
+  onChange: (value: string) => void;
+}) {
+  return (
+    <label className="storybook-workbench-field">
+      <span>
+        <span className="field-label">{label}</span>
+        {hint ? <span className="storybook-workbench-field-hint">{hint}</span> : null}
+      </span>
+      {multiline ? (
+        <textarea
+          className="storybook-inline-edit-control nodrag nowheel"
+          value={value}
+          placeholder={placeholder}
+          spellCheck={false}
+          disabled={disabled}
+          onChange={(event) => onChange(event.currentTarget.value)}
+        />
+      ) : (
+        <input
+          className="storybook-inline-edit-control nodrag"
+          type="text"
+          value={value}
+          placeholder={placeholder}
+          spellCheck={false}
+          disabled={disabled}
+          onChange={(event) => onChange(event.currentTarget.value)}
+        />
+      )}
+    </label>
   );
 }
 
@@ -3062,7 +2900,9 @@ export function StorybookCreatorDialog({
   const outputSettingsMenuRef = useRef<HTMLDivElement | null>(null);
   const [imageOwner, setImageOwner] = useState<StorybookImageOwner | null>(null);
   const [imageDialogMode, setImageDialogMode] = useState<CharacterImagesDialogMode>('images');
-  const [comfyConfigCharacterId, setComfyConfigCharacterId] = useState<string | null>(null);
+  type WorkbenchSection = 'scenario' | 'intro' | 'history' | 'character' | 'phone' | 'gallery' | 'social' | 'bank';
+  const [activeSection, setActiveSection] = useState<WorkbenchSection>('scenario');
+  const [activeCharacterId, setActiveCharacterId] = useState<string | null>(null);
   const [confirmAction, setConfirmAction] = useState<
     | {
         title: string;
@@ -3090,7 +2930,6 @@ export function StorybookCreatorDialog({
   const formattedTextSettings = rpStorybookFormattedTextSettings(node.data.storybookFormattedTextSettings);
   const [referenceIds, setReferenceIds] = useState<string[]>([]);
   const relationshipCharacters = characterReferenceCandidates(storybook.characters, referenceCharacters);
-  const createImageActions = useMemo(() => usedCreateImagePromptActions(workflowNodes, promptActionSettings), [workflowNodes, promptActionSettings]);
   const openingHistoryMessages = useMemo(
     () => {
       // Stored messages reference gallery images by id only; resolve the
@@ -3117,6 +2956,62 @@ export function StorybookCreatorDialog({
     },
     [storybook],
   );
+  const activeCharacter = storybook.characters.find((entry) => entry.id === activeCharacterId)
+    ?? (activeSection === 'character' ? storybook.characters[0] : undefined)
+    ?? null;
+  const phoneContactCharacters = useMemo(() => rpStorybookPhoneContactCharacters(storybook), [storybook]);
+  const identityWriteLocked = identityLocked || storybook.openingHistory.turns.length > 0 || storybook.openingHistory.events.length > 0;
+
+  function selectWorkbenchSection(section: WorkbenchSection, characterId?: string) {
+    setActiveSection(section);
+    setViewMode('ui');
+    if (characterId) {
+      setActiveCharacterId(characterId);
+    } else if (section === 'character' && !activeCharacterId && storybook.characters[0]) {
+      setActiveCharacterId(storybook.characters[0].id);
+    }
+  }
+
+  function updateStorybookTextField(field: 'title' | 'introduction' | 'scenario.summary' | 'scenario.openingSituation' | 'scenario.currentSituation', value: string) {
+    if (field === 'title') {
+      onUpdateStorybook({ ...storybook, title: value }, 'Title updated.');
+    } else if (field === 'introduction') {
+      onUpdateStorybook({ ...storybook, introduction: value }, 'Introduction updated.');
+    } else {
+      const key = field.split('.')[1] as 'summary' | 'openingSituation' | 'currentSituation';
+      onUpdateStorybook({ ...storybook, scenario: { ...storybook.scenario, [key]: value } }, 'Scenario updated.');
+    }
+  }
+
+  function updateCharacterTextField(
+    characterId: string,
+    field: 'name' | 'role' | 'description' | 'personality' | 'speechStyle' | 'appearance',
+    value: string,
+  ) {
+    if (field === 'appearance') {
+      onUpdateStorybook(
+        withStorybookCharacterComfyConfig(storybook, characterId, {
+          ...storybookCharacterComfyConfig(storybook, characterId),
+          appearance: value,
+        }),
+        'Appearance updated.',
+      );
+      return;
+    }
+    onUpdateStorybook({
+      ...storybook,
+      characters: storybook.characters.map((entry) => entry.id === characterId ? { ...entry, [field]: value } : entry),
+    }, 'Character updated.');
+  }
+
+  function updateCharacterBanking(characterId: string, patch: (banking: RpStorybookCharacterBanking) => RpStorybookCharacterBanking) {
+    const current = storybookCharacterBanking(storybook, characterId);
+    onUpdateStorybook({
+      ...storybook,
+      characters: storybook.characters.map((entry) => entry.id === characterId
+        ? { ...entry, banking: patch(current) } : entry),
+    }, 'Banking updated.');
+  }
 
   useEffect(() => {
     if (!outputSettingsOpen) {
@@ -3311,17 +3206,129 @@ export function StorybookCreatorDialog({
         <div className="storybook-creator-body">
           {fileActionStatus && <span className="run-note storybook-file-status">{fileActionStatus}</span>}
 
-          <div className="storybook-main-workspace">
-            {/* Left Column: Document Panel */}
-            <div className="storybook-document-panel">
-              <div className="storybook-panel-header">
-                <span className="panel-title">
-                  Storybook Document
-                  <span className="storybook-panel-token-estimate">
-                    ~{estimatedPromptTokens.toLocaleString('en-US')} tokens (images excluded)
+          <div className="storybook-main-workspace storybook-workbench-layout">
+            {/* Left rail: Story / Characters / Surfaces navigation, ported
+                from the real V2 source's storybook-workbench rail
+                (C:\Users\hen\Desktop\rpgraph\src\components\AppDialogs.tsx). */}
+            <aside className="storybook-workbench-rail">
+              <div className="storybook-workbench-rail-head">
+                <button
+                  type="button"
+                  className="storybook-workbench-primary-button nodrag"
+                  onClick={() => {
+                    void onImportCharacterCard();
+                    selectWorkbenchSection('character');
+                  }}
+                >
+                  Add Character
+                </button>
+              </div>
+              <nav className="storybook-workbench-nav" aria-label="Storybook sections">
+                <section className="storybook-workbench-nav-group">
+                  <h3>Story</h3>
+                  {([
+                    ['scenario', 'Scenario', 'summary, opening, current', undefined],
+                    ['intro', 'Intro', 'title and premise', undefined],
+                    ['history', 'Opening History', 'imported session memory', storybook.openingHistory.turns.length],
+                  ] as const).map(([id, label, detail, count]) => (
+                    <button
+                      type="button"
+                      className={`storybook-workbench-nav-item${activeSection === id && viewMode === 'ui' ? ' active' : ''}`}
+                      key={id}
+                      onClick={() => selectWorkbenchSection(id)}
+                    >
+                      <span className="storybook-workbench-nav-icon">{label.slice(0, 1)}</span>
+                      <span className="storybook-workbench-nav-copy">
+                        <strong>{label}</strong>
+                        <small>{detail}</small>
+                      </span>
+                      {count !== undefined ? <span className="storybook-workbench-badge">{count}</span> : null}
+                    </button>
+                  ))}
+                </section>
+                <section className="storybook-workbench-nav-group">
+                  <h3>Characters</h3>
+                  {storybook.characters.length ? storybook.characters.map((character) => (
+                    <button
+                      type="button"
+                      className={`storybook-workbench-nav-item${activeCharacter?.id === character.id ? ' selected-character' : ''}${activeSection === 'character' && activeCharacter?.id === character.id && viewMode === 'ui' ? ' active' : ''}`}
+                      key={character.id}
+                      onClick={() => selectWorkbenchSection('character', character.id)}
+                    >
+                      <span className="storybook-workbench-nav-icon">
+                        {(character.name || character.id || '?').slice(0, 1)}
+                      </span>
+                      <span className="storybook-workbench-nav-copy">
+                        <strong>{character.name || character.id || 'Unnamed'}</strong>
+                        <small>{character.role || 'identity, setup, images'}</small>
+                      </span>
+                      <span className="storybook-workbench-badge">{character.images.length}</span>
+                    </button>
+                  )) : (
+                    <span className="storybook-workbench-empty-note">No characters yet.</span>
+                  )}
+                </section>
+                <section className="storybook-workbench-nav-group">
+                  <h3>Surfaces</h3>
+                  {([
+                    ['phone', 'Phone', 'contacts and visibility', 'P'],
+                    ['gallery', 'Gallery', 'image libraries', 'G'],
+                    ['social', 'Social', 'Photogram / OnlyFriends / MatchMe', 'S'],
+                    ['bank', 'Bank', 'balances and expenses', 'B'],
+                  ] as const).map(([id, label, detail, icon]) => (
+                    <button
+                      type="button"
+                      className={`storybook-workbench-nav-item${activeSection === id && viewMode === 'ui' ? ' active' : ''}`}
+                      key={id}
+                      onClick={() => selectWorkbenchSection(id)}
+                    >
+                      <span className="storybook-workbench-nav-icon">{icon}</span>
+                      <span className="storybook-workbench-nav-copy">
+                        <strong>{label}</strong>
+                        <small>{detail}</small>
+                      </span>
+                    </button>
+                  ))}
+                </section>
+              </nav>
+            </aside>
+
+            <section className="storybook-document-panel storybook-workbench-editor" aria-label="Focused storybook editor">
+              <div className="storybook-panel-header storybook-workbench-editor-head">
+                <div>
+                  <span className="panel-title">
+                    {viewMode === 'json'
+                      ? 'Raw JSON'
+                      : viewMode === 'text'
+                        ? 'Formatted Text'
+                        : activeSection === 'intro'
+                          ? 'Intro'
+                          : activeSection === 'character'
+                            ? activeCharacter?.name || 'Character'
+                            : activeSection === 'gallery'
+                              ? `Gallery Libraries${activeCharacter ? ` - ${activeCharacter.name || activeCharacter.id}` : ''}`
+                              : activeSection === 'social'
+                                ? `Social Accounts${activeCharacter ? ` - ${activeCharacter.name || activeCharacter.id}` : ''}`
+                                : activeSection === 'bank'
+                                  ? `Banking${activeCharacter ? ` - ${activeCharacter.name || activeCharacter.id}` : ''}`
+                                  : activeSection === 'phone'
+                                    ? `Phone Contacts${activeCharacter ? ` - ${activeCharacter.name || activeCharacter.id}` : ''}`
+                                    : activeSection === 'history'
+                                      ? 'Opening History'
+                                      : 'Scenario'}
                   </span>
-                </span>
-                <div className="storybook-tabs">
+                  <div className="storybook-workbench-editor-meta">
+                    {viewMode === 'ui' && activeCharacter && activeSection !== 'scenario' && activeSection !== 'intro' && activeSection !== 'history' ? (
+                      <span className="storybook-workbench-editing-chip">
+                        Editing {activeCharacter.name || activeCharacter.id}
+                      </span>
+                    ) : null}
+                    <span className="storybook-panel-token-estimate">
+                      ~{estimatedPromptTokens.toLocaleString('en-US')} tokens (images excluded)
+                    </span>
+                  </div>
+                </div>
+                <div className="storybook-tabs storybook-workbench-mode-switch">
                   <button
                     type="button"
                     className={`tab-button ${viewMode === 'ui' ? 'active' : ''}`}
@@ -3401,65 +3408,169 @@ export function StorybookCreatorDialog({
                 {viewMode === 'ui' && !pendingConversion && (
                   <div className="storybook-ui-view">
                     {!parsedStorybook && <p role="alert">Stored Storybook JSON is invalid. Text editing is disabled.</p>}
-                    {/* Header: Title and Introduction */}
-                    <div className="storybook-ui-header">
-                      <div className="storybook-ui-cover-art">
-                        <div className="book-spine"></div>
-                        <StorybookInlineEditor
-                          label="Introduction"
-                          disabled={editingDisabled}
-                          fields={[
-                            { key: 'title', label: 'Title', value: storybook.title },
-                            { key: 'introduction', label: 'Introduction', value: storybook.introduction, multiline: true },
-                          ]}
-                          onSave={(values) => onUpdateStorybook({ ...storybook, title: values.title, introduction: values.introduction }, 'Introduction updated.')}
-                        >
-                        <div className="book-details">
-                          <h3>{storybook.title || 'Untitled RP Storybook'}</h3>
-                          <p className="storybook-intro">
-                            {storybook.introduction || 'No introduction defined.'}
-                          </p>
+
+                    {/* Section: Intro */}
+                    {activeSection === 'intro' && <section className="storybook-workbench-story-section">
+                      <div className="storybook-workbench-section-toolbar">
+                        <div>
+                          <h4>Intro</h4>
+                          <p>The opening label and player-facing premise for this storybook.</p>
                         </div>
-                        </StorybookInlineEditor>
                       </div>
-                    </div>
+                      <div className="storybook-workbench-field-grid">
+                        <WorkbenchTextField
+                          label="Title"
+                          hint="Shown in the node, files, and storybook headers."
+                          value={storybook.title}
+                          placeholder="Untitled RP Storybook"
+                          multiline={false}
+                          disabled={editingDisabled}
+                          onChange={(value) => updateStorybookTextField('title', value)}
+                        />
+                        <WorkbenchTextField
+                          label="Introduction"
+                          hint="Short player-facing premise: what this storybook is about."
+                          value={storybook.introduction}
+                          placeholder="No introduction defined."
+                          disabled={editingDisabled}
+                          onChange={(value) => updateStorybookTextField('introduction', value)}
+                        />
+                        <article className="storybook-workbench-passive-card storybook-workbench-readonly-field">
+                          <strong>Image Description Prompt</strong>
+                          <textarea
+                            className="storybook-inline-edit-control nodrag"
+                            value={rpStorybookImageDescriptionPromptText(storybook.imageDescriptionPrompt)}
+                            readOnly
+                            spellCheck={false}
+                          />
+                        </article>
+                      </div>
+                    </section>}
 
                     {/* Section: Scenario */}
-                    <section className="storybook-section scenario-section">
-                      <StorybookInlineEditor
-                        label="Scenario"
-                        heading={<h4>Scenario</h4>}
-                        disabled={editingDisabled}
-                        fields={[
-                          { key: 'summary', label: 'Summary', value: storybook.scenario.summary, multiline: true },
-                          { key: 'openingSituation', label: 'Opening Situation', value: storybook.scenario.openingSituation, multiline: true },
-                          { key: 'currentSituation', label: 'Current Situation', value: storybook.scenario.currentSituation, multiline: true },
-                        ]}
-                        onSave={(values) => onUpdateStorybook({ ...storybook, scenario: { ...storybook.scenario, summary: values.summary, openingSituation: values.openingSituation, currentSituation: values.currentSituation } }, 'Scenario updated.')}
-                      >
-                      <div className="section-content">
-                        <div className="scenario-field">
-                          <span className="field-label">Summary</span>
-                          <p>{storybook.scenario.summary || 'No scenario summary defined.'}</p>
-                        </div>
-                        <div className="scenario-grid">
-                          <div className="scenario-field">
-                            <span className="field-label">Opening Situation</span>
-                            <p>{storybook.scenario.openingSituation || 'No opening situation defined.'}</p>
-                          </div>
-                          <div className="scenario-field">
-                            <span className="field-label">Current Situation</span>
-                            <p>{storybook.scenario.currentSituation || 'No current situation defined.'}</p>
-                          </div>
+                    {activeSection === 'scenario' && <section className="storybook-workbench-story-section">
+                      <div className="storybook-workbench-section-toolbar">
+                        <div>
+                          <h4>Primary Story Fields</h4>
+                          <p>These fields define the default play setup.</p>
                         </div>
                       </div>
-                      </StorybookInlineEditor>
-                    </section>
+                      <div className="storybook-workbench-field-grid">
+                        <WorkbenchTextField
+                          label="Title"
+                          hint="Shown in the node, files, and storybook headers."
+                          value={storybook.title}
+                          placeholder="Untitled RP Storybook"
+                          multiline={false}
+                          disabled={editingDisabled}
+                          onChange={(value) => updateStorybookTextField('title', value)}
+                        />
+                        <WorkbenchTextField
+                          label="Introduction"
+                          hint="Short player-facing premise: what this storybook is about."
+                          value={storybook.introduction}
+                          placeholder="No introduction defined."
+                          disabled={editingDisabled}
+                          onChange={(value) => updateStorybookTextField('introduction', value)}
+                        />
+                        <WorkbenchTextField
+                          label="Scenario Summary"
+                          hint="Stable backdrop: genre, place, premise, relationships, and ongoing stakes."
+                          value={storybook.scenario.summary}
+                          placeholder="No scenario summary defined."
+                          disabled={editingDisabled}
+                          onChange={(value) => updateStorybookTextField('scenario.summary', value)}
+                        />
+                        <WorkbenchTextField
+                          label="Opening Situation"
+                          hint="Starting moment for a fresh run: where everyone is and what just begins."
+                          value={storybook.scenario.openingSituation}
+                          placeholder="No opening situation defined."
+                          disabled={editingDisabled}
+                          onChange={(value) => updateStorybookTextField('scenario.openingSituation', value)}
+                        />
+                        <WorkbenchTextField
+                          label="Current Situation"
+                          hint="Latest story state after play has moved on; update when the scene changes."
+                          value={storybook.scenario.currentSituation}
+                          placeholder="No current situation defined."
+                          disabled={editingDisabled}
+                          onChange={(value) => updateStorybookTextField('scenario.currentSituation', value)}
+                        />
+                      </div>
 
-                    {/* Section: Characters */}
-                    <section className="storybook-section actors-section">
-                      <div className="section-header">
-                        <h4>Characters</h4>
+                      <div className="storybook-workbench-section-toolbar">
+                        <div>
+                          <h4>Cast Overview</h4>
+                          <p>Open a card for full character editing.</p>
+                        </div>
+                        <button type="button" className="contextual-action-button nodrag" onClick={onImportCharacterCard}>
+                          Add Character
+                        </button>
+                      </div>
+                      {storybook.characters.length ? (
+                        <div className="storybook-workbench-character-grid">
+                          {storybook.characters.map((character) => (
+                            <button
+                              type="button"
+                              className={`storybook-workbench-character-card nodrag${activeCharacter?.id === character.id ? ' active' : ''}`}
+                              key={character.id}
+                              onClick={() => selectWorkbenchSection('character', character.id)}
+                            >
+                              <CharacterAvatar
+                                className="storybook-workbench-avatar"
+                                name={character.name || character.id}
+                                fallback={(character.name || character.id || '?').slice(0, 2).toUpperCase()}
+                                profileImageDataUrl={character.profileImage?.dataUrl}
+                              />
+                              <span className="storybook-workbench-character-copy">
+                                <strong>{character.name || character.id || 'Unnamed'}</strong>
+                                <small>{character.role || 'No role set'}</small>
+                              </span>
+                              <span className="storybook-workbench-chip-row">
+                                <span>{character.images.length} images</span>
+                                <span>{characterPhoneSummary(character)}</span>
+                              </span>
+                            </button>
+                          ))}
+                        </div>
+                      ) : (
+                        <p className="no-data-msg">No characters defined yet. Add a character or ask the assistant to create the cast.</p>
+                      )}
+
+                      <div className="storybook-workbench-media-grid">
+                        <article className="storybook-workbench-passive-card">
+                          <strong>Gallery Libraries</strong>
+                          <p>
+                            {storybook.characters.reduce((sum, character) => sum + character.images.length, 0)} stored character images across {storybook.characters.length} characters.
+                          </p>
+                          <div className="storybook-workbench-mini-gallery">
+                            {storybook.characters.flatMap((character) => character.images.slice(0, 2)).slice(0, 6).map((image) => (
+                              <img key={image.id} src={image.dataUrl} alt={image.name || image.id} />
+                            ))}
+                          </div>
+                        </article>
+                        <article className="storybook-workbench-passive-card">
+                          <strong>Phone Impact</strong>
+                          <p>{phoneContactCharacters.length} phone identities, {storybook.phoneContacts.blocked.length} hidden contact pairs.</p>
+                          <button
+                            type="button"
+                            className="contextual-action-button nodrag"
+                            onClick={() => selectWorkbenchSection('phone')}
+                          >
+                            Open Phone Surface
+                          </button>
+                        </article>
+                      </div>
+                    </section>}
+
+                    {/* Section: Character */}
+                    {activeSection === 'character' && <section className="storybook-workbench-story-section actors-section">
+                      <div className="storybook-workbench-section-toolbar">
+                        <div>
+                          <h4>Character Detail</h4>
+                          <p>Edit the selected character without losing access to phone and app setup.</p>
+                        </div>
                         <div className="storybook-section-header-actions">
                           <button
                             type="button"
@@ -3477,155 +3588,441 @@ export function StorybookCreatorDialog({
                           >
                             <span className="button-icon">+</span> Import Character
                           </button>
+                          {activeCharacter && (
+                            <button
+                              type="button"
+                              className="contextual-action-button nodrag"
+                              title={`Export ${activeCharacter.name || activeCharacter.id} as an RPGraph Character Container V2 file`}
+                              onClick={() => void onExportCharacter(activeCharacter.id)}
+                            >
+                              Export Character
+                            </button>
+                          )}
                         </div>
                       </div>
-                       {storybook.characters.length ? (
+                      {activeCharacter ? (
                         <div className="storybook-actor-grid">
-                          {storybook.characters.map((character) => {
-                            const comfyStatus = storybookCharacterComfyStatus({
-                              character,
-                              createImageActions,
-                              connections,
-                              providerHealthById,
-                            });
-                            return (
-                            <article className="storybook-actor-card" key={character.id}>
-                              <StorybookInlineEditor
-                                label={character.name || character.id}
-                                disabled={editingDisabled}
-                                fields={[
-                                  { key: 'name', label: 'Name', value: character.name },
-                                  { key: 'role', label: 'Role', value: character.role },
-                                  { key: 'description', label: 'Description', value: character.description, multiline: true },
-                                  { key: 'personality', label: 'Personality', value: character.personality, multiline: true },
-                                  { key: 'speechStyle', label: 'Speech Style', value: character.speechStyle, multiline: true },
-                                ]}
-                                onSave={(values) => onUpdateStorybook({
-                                  ...storybook,
-                                  characters: storybook.characters.map((entry) => entry.id === character.id ? {
-                                    ...entry, name: values.name, role: values.role, description: values.description,
-                                    personality: values.personality, speechStyle: values.speechStyle,
-                                  } : entry),
-                                }, 'Character updated.')}
+                          <article className="storybook-actor-card" key={activeCharacter.id}>
+                            <div className="character-card-header">
+                              <button
+                                type="button"
+                                className="character-avatar-button nodrag"
+                                title={`Change profile pic for ${activeCharacter.name || activeCharacter.id}`}
+                                onClick={() => {
+                                  setImageDialogMode('profile');
+                                  setImageOwner({ kind: 'character', characterId: activeCharacter.id });
+                                }}
                               >
-                              <div className="character-card-header">
-                                <button
-                                  type="button"
-                                  className="character-avatar-button nodrag"
-                                  title={`Change profile pic for ${character.name || character.id}`}
-                                  onClick={() => {
-                                    setImageDialogMode('profile');
-                                    setImageOwner({ kind: 'character', characterId: character.id });
-                                  }}
-                                >
-                                  <CharacterAvatar
-                                    className="avatar-circle actor-avatar"
-                                    name={character.name || character.id}
-                                    fallback={
-                                      character.name
-                                        ? character.name.substring(0, 2).toUpperCase()
-                                        : character.id.substring(0, 2).toUpperCase()
-                                    }
-                                    profileImageDataUrl={character.profileImage?.dataUrl}
-                                  />
-                                </button>
-                                <div className="character-card-title-side">
-                                  <h5 className="character-name">{character.name || character.id}</h5>
-                                  {character.role && <p className="character-subrole">{character.role}</p>}
-                                </div>
+                                <CharacterAvatar
+                                  className="avatar-circle actor-avatar"
+                                  name={activeCharacter.name || activeCharacter.id}
+                                  fallback={
+                                    activeCharacter.name
+                                      ? activeCharacter.name.substring(0, 2).toUpperCase()
+                                      : activeCharacter.id.substring(0, 2).toUpperCase()
+                                  }
+                                  profileImageDataUrl={activeCharacter.profileImage?.dataUrl}
+                                />
+                              </button>
+                              <div className="character-card-title-side">
+                                <WorkbenchTextField
+                                  label="Name"
+                                  hint="Display name used in chat, phone apps, and prompt references."
+                                  value={activeCharacter.name}
+                                  placeholder={activeCharacter.id || 'Character name'}
+                                  multiline={false}
+                                  disabled={editingDisabled}
+                                  onChange={(value) => updateCharacterTextField(activeCharacter.id, 'name', value)}
+                                />
+                                <WorkbenchTextField
+                                  label="Role"
+                                  hint="Quick story function: player, companion, rival, contact, narrator."
+                                  value={activeCharacter.role}
+                                  placeholder="Character role"
+                                  multiline={false}
+                                  disabled={editingDisabled}
+                                  onChange={(value) => updateCharacterTextField(activeCharacter.id, 'role', value)}
+                                />
                               </div>
-                              
-                              <div className="character-fields">
-                                {character.description && (
-                                  <div className="character-field">
-                                    <span className="field-label">Description</span>
-                                    <p>{character.description}</p>
-                                  </div>
-                                )}
-                                {character.personality && (
-                                  <div className="character-field">
-                                    <span className="field-label">Personality</span>
-                                    <p>{character.personality}</p>
-                                  </div>
-                                )}
-                                {character.speechStyle && (
-                                  <div className="character-field">
-                                    <span className="field-label">Speech Style</span>
-                                    <p>{character.speechStyle}</p>
-                                  </div>
-                                )}
-                              <CharacterRelationships character={character} characters={relationshipCharacters} disabled={editingDisabled}
-                                onChange={(relationships) => onUpdateStorybook({ ...storybook, characters: storybook.characters.map((entry) => entry.id === character.id ? { ...entry, relationships } : entry) }, 'Relationships updated.')} />
-                              <HiddenAgencyField value={character.hiddenAgency} disabled={editingDisabled}
+                            </div>
+
+                            <div className="character-fields">
+                              <WorkbenchTextField
+                                label="Description"
+                                hint="External facts and readable profile: who they are in the story."
+                                value={activeCharacter.description}
+                                placeholder="Character description"
+                                disabled={editingDisabled}
+                                onChange={(value) => updateCharacterTextField(activeCharacter.id, 'description', value)}
+                              />
+                              <WorkbenchTextField
+                                label="Personality"
+                                hint="Inner behavior: motives, temperament, boundaries, habits."
+                                value={activeCharacter.personality}
+                                placeholder="Character personality"
+                                disabled={editingDisabled}
+                                onChange={(value) => updateCharacterTextField(activeCharacter.id, 'personality', value)}
+                              />
+                              <WorkbenchTextField
+                                label="Speech Style"
+                                hint="How their messages sound: wording, rhythm, formality, quirks."
+                                value={activeCharacter.speechStyle}
+                                placeholder="How this character speaks"
+                                disabled={editingDisabled}
+                                onChange={(value) => updateCharacterTextField(activeCharacter.id, 'speechStyle', value)}
+                              />
+                              <WorkbenchTextField
+                                label="Appearance"
+                                hint="Visual prompt material for character image generation."
+                                value={activeCharacter.comfyConfig?.appearance ?? ''}
+                                placeholder="Visual appearance for image generation"
+                                disabled={editingDisabled}
+                                onChange={(value) => updateCharacterTextField(activeCharacter.id, 'appearance', value)}
+                              />
+                              <CharacterRelationships character={activeCharacter} characters={relationshipCharacters} disabled={editingDisabled}
+                                onChange={(relationships) => onUpdateStorybook({ ...storybook, characters: storybook.characters.map((entry) => entry.id === activeCharacter.id ? { ...entry, relationships } : entry) }, 'Relationships updated.')} />
+                              <HiddenAgencyField value={activeCharacter.hiddenAgency} disabled={editingDisabled}
                                 onSave={(hiddenAgency) => onUpdateStorybook({
                                   ...storybook,
-                                  characters: storybook.characters.map((entry) => entry.id === character.id
+                                  characters: storybook.characters.map((entry) => entry.id === activeCharacter.id
                                     ? { ...entry, hiddenAgency } : entry),
                                 }, 'Hidden agency updated.')} />
-                                <div className="character-field">
-                                  <span className="field-label">Phone Apps</span>
-                                  <p>{characterPhoneSummary(character)}</p>
-                                </div>
-                                <div className="character-field character-images-summary-field">
-                                  <span className="field-label">Images</span>
-                                  <p>{imageStatusText(character.images)}</p>
-                                </div>
+                              <div className="character-field">
+                                <span className="field-label">Phone Apps</span>
+                                <p>{characterPhoneSummary(activeCharacter)}</p>
                               </div>
+                            </div>
 
-                              </StorybookInlineEditor>
-
-                              <div className="character-card-footer">
-                                <div className="character-card-footer-actions">
-                                  <button
-                                    type="button"
-                                    className={`character-images-button character-comfy-config-button nodrag${comfyStatus.active ? ' configured' : ''}`}
-                                    onClick={() => setComfyConfigCharacterId(character.id)}
-                                  >
-                                    <span>Character Setup</span>
-                                    {comfyStatus.active ? <span aria-hidden="true">✓</span> : null}
-                                  </button>
-                                  <button
-                                    type="button"
-                                    className="character-images-button nodrag"
-                                    onClick={() => {
-                                      setImageDialogMode('images');
-                                      setImageOwner({ kind: 'character', characterId: character.id });
-                                    }}
-                                  >
-                                    Character Images
-                                  </button>
-                                  <button
-                                    type="button"
-                                    className="character-images-button nodrag"
-                                    title={`Export ${character.name || character.id} as an RPGraph Character Container V2 file`}
-                                    onClick={() => void onExportCharacter(character.id)}
-                                  >
-                                    Export Character
-                                  </button>
-                                  <button
-                                    type="button"
-                                    className="character-delete-button nodrag"
-                                    aria-label={`Remove ${character.name || character.id}`}
-                                    title={`Remove ${character.name || character.id}`}
-                                    onClick={() => onDeleteCharacter(character.id)}
-                                  >
-                                    Remove
-                                  </button>
-                                </div>
+                            <div className="storybook-workbench-section-toolbar">
+                              <div>
+                                <h4>Appearance &amp; Image Generation</h4>
+                                <p>LoRA and ComfyUI setup for this character's generated images. Dissolved here from the old Character Setup dialog.</p>
                               </div>
-                            </article>
-                          );
-                          })}
+                            </div>
+                            <CharacterImageSetupSection
+                              key={`image-${activeCharacter.id}`}
+                              storybook={storybook}
+                              character={activeCharacter}
+                              workflowNodes={workflowNodes}
+                              connections={connections}
+                              providerHealthById={providerHealthById}
+                              promptActionSettings={promptActionSettings}
+                              onUpdateStorybook={onUpdateStorybook}
+                              onLoadCharacterComfyLoras={onLoadCharacterComfyLoras}
+                              onGenerateCharacterComfyPreview={onGenerateCharacterComfyPreview}
+                              onUnloadCharacterComfyModels={onUnloadCharacterComfyModels}
+                            />
+
+                            <div className="storybook-workbench-section-toolbar">
+                              <div>
+                                <h4>Voice</h4>
+                                <p>Reference voice sample and ComfyUI voice cloning setup. Dissolved here from the old Character Setup dialog.</p>
+                              </div>
+                            </div>
+                            <CharacterVoiceSetupSection
+                              key={`voice-${activeCharacter.id}`}
+                              storybook={storybook}
+                              character={activeCharacter}
+                              connections={connections}
+                              providerHealthById={providerHealthById}
+                              onUpdateStorybook={onUpdateStorybook}
+                              onGenerateCharacterVoicePreview={onGenerateCharacterVoicePreview}
+                              onUnloadCharacterComfyModels={onUnloadCharacterComfyModels}
+                            />
+
+                            <div className="character-card-footer">
+                              <div className="character-card-footer-actions">
+                                <button
+                                  type="button"
+                                  className="character-images-button nodrag"
+                                  onClick={() => {
+                                    setImageDialogMode('images');
+                                    setImageOwner({ kind: 'character', characterId: activeCharacter.id });
+                                  }}
+                                >
+                                  Character Images
+                                </button>
+                              </div>
+                              <button
+                                type="button"
+                                className="character-delete-button nodrag"
+                                aria-label={`Delete ${activeCharacter.name || activeCharacter.id}`}
+                                title={`Delete ${activeCharacter.name || activeCharacter.id}`}
+                                onClick={() => askConfirm({
+                                  title: 'Delete Character',
+                                  message: `Delete ${activeCharacter.name || activeCharacter.id} from this Storybook? This cannot be undone.`,
+                                  confirmLabel: 'Delete Character',
+                                  danger: true,
+                                  action: () => onDeleteCharacter(activeCharacter.id),
+                                })}
+                              >
+                                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                                  <path d="M3 6h18M8 6V4a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1v2m2 0v14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2V6" />
+                                </svg>
+                              </button>
+                            </div>
+                          </article>
                         </div>
                       ) : (
                         <p className="no-data-msg">No characters defined yet. Click SillyTavern Import above or ask the assistant to add characters.</p>
                       )}
-                    </section>
+                    </section>}
+
+                    {/* Section: Gallery */}
+                    {activeSection === 'gallery' && <section className="storybook-workbench-story-section">
+                      <div className="storybook-workbench-section-toolbar">
+                        <div>
+                          <h4>Gallery Libraries</h4>
+                          <p>Character-owned image libraries used by prompts, phone shares, and gallery surfaces.</p>
+                        </div>
+                        {activeCharacter && (
+                          <button
+                            type="button"
+                            className="contextual-action-button nodrag"
+                            onClick={() => {
+                              setImageDialogMode('images');
+                              setImageOwner({ kind: 'character', characterId: activeCharacter.id });
+                            }}
+                          >
+                            Character Images
+                          </button>
+                        )}
+                      </div>
+                      {activeCharacter ? (
+                        <div className="storybook-workbench-gallery-list">
+                          <article className="storybook-workbench-image-editor">
+                            <button
+                              type="button"
+                              className="storybook-workbench-image-preview nodrag"
+                              onClick={() => {
+                                setImageDialogMode('images');
+                                setImageOwner({ kind: 'character', characterId: activeCharacter.id });
+                              }}
+                            >
+                              {activeCharacter.images[0] ? (
+                                <img src={activeCharacter.images[0].dataUrl} alt={activeCharacter.images[0].name || activeCharacter.images[0].id} />
+                              ) : (
+                                <span>No image</span>
+                              )}
+                            </button>
+                            <div>
+                              <strong>{activeCharacter.name || activeCharacter.id || 'Unnamed'}</strong>
+                              <p>{imageStatusText(activeCharacter.images)}</p>
+                              <p>{activeCharacter.images[0]?.description || 'Add image references for this character.'}</p>
+                            </div>
+                          </article>
+                          <div className="storybook-workbench-mini-gallery storybook-workbench-focused-gallery">
+                            {activeCharacter.images.map((image) => (
+                              <button
+                                type="button"
+                                className="nodrag"
+                                key={image.id}
+                                onClick={() => {
+                                  setImageDialogMode('images');
+                                  setImageOwner({ kind: 'character', characterId: activeCharacter.id });
+                                }}
+                              >
+                                <img src={image.dataUrl} alt={image.name || image.id} />
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+                      ) : (
+                        <p className="no-data-msg">No character selected.</p>
+                      )}
+                    </section>}
+
+                    {/* Section: Social — mounts the real v3 CharacterAppProfiles account
+                        manager (Photogram/OnlyFriends/MatchMe), moved here from the old
+                        Character Setup dialog's "Phone Apps" tab per the redundancy-removal
+                        instruction: this is its correct standalone home now. */}
+                    {activeSection === 'social' && <section className="storybook-workbench-story-section">
+                      <div className="storybook-workbench-section-toolbar">
+                        <div>
+                          <h4>Social Accounts</h4>
+                          <p>Photogram, OnlyFriends, and MatchMe account setup for this character.</p>
+                        </div>
+                      </div>
+                      {activeCharacter ? (
+                        <CharacterAppProfiles
+                          character={activeCharacter}
+                          characters={storybook.characters}
+                          locked={identityWriteLocked}
+                          onChange={(next) => onUpdateStorybook({
+                            ...storybook,
+                            characters: storybook.characters.map((entry) => entry.id === next.id ? { ...entry, ...next } : entry),
+                          }, 'Social profile updated.')}
+                        />
+                      ) : (
+                        <p className="no-data-msg">No character selected.</p>
+                      )}
+                    </section>}
+
+                    {/* Section: Bank — Banking tab dissolved here from the old Character
+                        Setup dialog, since this is where V2 itself places a Bank surface
+                        page. */}
+                    {activeSection === 'bank' && <section className="storybook-workbench-story-section">
+                      <div className="storybook-workbench-section-toolbar">
+                        <div>
+                          <h4>Banking</h4>
+                          <p>Starting balance and fixed costs for the character-owned banking app.</p>
+                        </div>
+                      </div>
+                      {activeCharacter ? (
+                        <div className="storybook-workbench-field-grid">
+                          <label className="storybook-workbench-field">
+                            <span>
+                              <span className="field-label">Starting Balance</span>
+                              <span className="storybook-workbench-field-hint">Initial money available when the banking app starts a new RP session.</span>
+                            </span>
+                            <input
+                              className="storybook-inline-edit-control nodrag"
+                              type="number"
+                              min="0"
+                              step="0.01"
+                              value={(activeCharacter.banking ?? defaultRpStorybookCharacterBanking()).startBalance}
+                              onChange={(event) => updateCharacterBanking(activeCharacter.id, (banking) => ({
+                                ...banking,
+                                startBalance: event.currentTarget.value.trim() ? Number(event.currentTarget.value) : 0,
+                              }))}
+                            />
+                          </label>
+                          <article className="storybook-workbench-passive-card storybook-workbench-field wide">
+                            <strong>Fixed Expenses</strong>
+                            <p>Recurring payments shown in the Banking app history (for example a mobile plan). The app fills the rest of the history with generated everyday spending.</p>
+                            {(activeCharacter.banking ?? defaultRpStorybookCharacterBanking()).fixedExpenses.map((expense, index) => (
+                              <div className="character-comfy-url-row" key={index}>
+                                <input
+                                  className="node-text-input nodrag"
+                                  type="text"
+                                  value={expense.label}
+                                  placeholder="Mobile plan"
+                                  onChange={(event) => updateCharacterBanking(activeCharacter.id, (banking) => ({
+                                    ...banking,
+                                    fixedExpenses: banking.fixedExpenses.map((entry, entryIndex) =>
+                                      entryIndex === index ? { ...entry, label: event.currentTarget.value } : entry),
+                                  }))}
+                                />
+                                <input
+                                  className="node-text-input nodrag"
+                                  type="number"
+                                  min="0"
+                                  step="0.01"
+                                  value={expense.amount}
+                                  placeholder="24.99"
+                                  onChange={(event) => updateCharacterBanking(activeCharacter.id, (banking) => ({
+                                    ...banking,
+                                    fixedExpenses: banking.fixedExpenses.map((entry, entryIndex) =>
+                                      entryIndex === index ? { ...entry, amount: Number(event.currentTarget.value) } : entry),
+                                  }))}
+                                />
+                                <button
+                                  type="button"
+                                  className="contextual-action-button nodrag"
+                                  onClick={() => updateCharacterBanking(activeCharacter.id, (banking) => ({
+                                    ...banking,
+                                    fixedExpenses: banking.fixedExpenses.filter((_, entryIndex) => entryIndex !== index),
+                                  }))}
+                                >
+                                  Remove
+                                </button>
+                              </div>
+                            ))}
+                            <div className="character-comfy-actions">
+                              <button
+                                type="button"
+                                className="contextual-action-button nodrag"
+                                onClick={() => updateCharacterBanking(activeCharacter.id, (banking) => ({
+                                  ...banking,
+                                  fixedExpenses: [...banking.fixedExpenses, { label: '', amount: 0 }],
+                                }))}
+                              >
+                                Add Fixed Expense
+                              </button>
+                            </div>
+                          </article>
+                        </div>
+                      ) : (
+                        <p className="no-data-msg">No character selected.</p>
+                      )}
+                    </section>}
+
+                    {/* Section: Phone — the contact-visibility matrix. This UI is new;
+                        it wires the already-existing backend helpers in
+                        src/nodes/rp-storybook/model.ts
+                        (rpStorybookPhoneContactCharacters/rpStorybookPhoneContactAllowed/
+                        withRpStorybookPhoneContactPairBlocked) that previously had no UI. */}
+                    {activeSection === 'phone' && <section className="storybook-workbench-story-section phone-contacts-section">
+                      <div className="storybook-workbench-section-toolbar">
+                        <div>
+                          <h4>Phone Contacts</h4>
+                          <p>Controls the default contact display in Phone and social apps. Everyone is connected by default. A real message can still make a hidden conversation appear; this does not block messages.</p>
+                        </div>
+                      </div>
+                      {phoneContactCharacters.length >= 2 ? (
+                        <div className="phone-contact-matrix-wrap">
+                          <table className="phone-contact-matrix">
+                            <thead>
+                              <tr>
+                                <th scope="col">Owner</th>
+                                {phoneContactCharacters.map((contact) => (
+                                  <th scope="col" key={contact.ref}>
+                                    <span title={contact.name}>{contact.name}</span>
+                                  </th>
+                                ))}
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {phoneContactCharacters.map((owner) => (
+                                <tr key={owner.ref}>
+                                  <th scope="row">
+                                    <span title={owner.name}>{owner.name}</span>
+                                  </th>
+                                  {phoneContactCharacters.map((contact) => {
+                                    const sameCharacter = owner.ref === contact.ref;
+                                    const allowed = rpStorybookPhoneContactAllowed(storybook, owner.ref, contact.ref);
+                                    return (
+                                      <td key={contact.ref}>
+                                        {sameCharacter ? (
+                                          <span className="phone-contact-self">-</span>
+                                        ) : (
+                                          <button
+                                            type="button"
+                                            className={`phone-contact-cell${allowed ? ' allowed' : ' blocked'}`}
+                                            aria-pressed={allowed}
+                                            title={`${owner.name} ${allowed ? 'can see' : 'cannot see'} ${contact.name}`}
+                                            onClick={() => {
+                                              onUpdateStorybook(
+                                                withRpStorybookPhoneContactPairBlocked(storybook, owner.ref, contact.ref, allowed),
+                                                allowed
+                                                  ? `Hid Phone contact ${owner.name} <-> ${contact.name}.`
+                                                  : `Added Phone contact ${owner.name} <-> ${contact.name}.`,
+                                              );
+                                            }}
+                                          >
+                                            {allowed ? '✓' : '×'}
+                                          </button>
+                                        )}
+                                      </td>
+                                    );
+                                  })}
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+                      ) : (
+                        <p className="no-data-msg">Add at least two characters to configure Phone contacts.</p>
+                      )}
+                    </section>}
 
                     {/* Section: Opening History */}
-                    <section className="storybook-section history-section">
-                      <div className="section-header">
-                        <h4>Opening History</h4>
+                    {activeSection === 'history' && <section className="storybook-workbench-story-section history-section">
+                      <div className="storybook-workbench-section-toolbar">
+                        <div>
+                          <h4>Opening History</h4>
+                          <p>Imported chat, phone, event, and app state used to start future runs.</p>
+                        </div>
                         <div className="header-actions">
                           <button
                             type="button"
@@ -3708,11 +4105,11 @@ export function StorybookCreatorDialog({
                           })}
                         </div>
                       )}
-                    </section>
+                    </section>}
                   </div>
                 )}
               </div>
-            </div>
+            </section>
 
             {/* Right Column: Chat Panel */}
             <div className="storybook-chat-panel">
@@ -3801,23 +4198,6 @@ export function StorybookCreatorDialog({
             onChangeImageCaptionUpdate={onChangeImageCaptionUpdate}
             onDescribeCharacterImage={onDescribeCharacterImage}
             onClose={() => setImageOwner(null)}
-          />
-        )}
-        {comfyConfigCharacterId && (
-          <CharacterSetupDialog
-            identityLocked={identityLocked || storybook.openingHistory.turns.length > 0 || storybook.openingHistory.events.length > 0}
-            storybook={storybook}
-            characterId={comfyConfigCharacterId}
-            workflowNodes={workflowNodes}
-            promptActionSettings={promptActionSettings}
-            connections={connections}
-            providerHealthById={providerHealthById}
-            onUpdateStorybook={onUpdateStorybook}
-            onLoadCharacterComfyLoras={onLoadCharacterComfyLoras}
-            onGenerateCharacterComfyPreview={onGenerateCharacterComfyPreview}
-            onGenerateCharacterVoicePreview={onGenerateCharacterVoicePreview}
-            onUnloadCharacterComfyModels={onUnloadCharacterComfyModels}
-            onClose={() => setComfyConfigCharacterId(null)}
           />
         )}
         {confirmAction && (

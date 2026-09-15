@@ -193,6 +193,12 @@ export function StorybookEditorDialog({ referenceCharacters = [], node, identity
   const [fieldsDraft, setFieldsDraft] = useState<RpStorybook>(() => structuredClone(storybook));
   const [status, setStatus] = useState('');
   const [seededFromJson, setSeededFromJson] = useState(node.data.storybookJson);
+  // Which character's account setup is open in the "Characters" rail item's
+  // grid switcher below — V2's own StorybookEditorDialog rail keeps a single
+  // "characters" nav entry that opens a character-grid switcher within the
+  // section (C:\Users\hen\Desktop\rpgraph\src\components\StorybookEditorDialog.tsx,
+  // ~line 100-230/655-800), rather than a flat per-character accordion list.
+  const [selectedAccountsCharacterId, setSelectedAccountsCharacterId] = useState<string | null>(null);
 
   // Reseed drafts when the node's stored storybook changes (render-time reset).
   if (node.data.storybookJson !== seededFromJson) {
@@ -370,20 +376,64 @@ export function StorybookEditorDialog({ referenceCharacters = [], node, identity
             </div>
           </div>
         </div>
-        <details className="storybook-section"><summary>Character accounts and export</summary>
-          {onImportCharacter && <button type="button" onClick={() => void onImportCharacter()}>Import Character</button>}
-          {storybook.characters.map((character) => <div key={character.id}>
-            <h3>{character.name}</h3>
-            <CharacterAppProfiles character={character} characters={storybook.characters}
-              locked={identityLocked || storybook.openingHistory.turns.length > 0 || storybook.openingHistory.events.length > 0}
-              onChange={(next) => {
-                const error = onCommit({ ...storybook, characters: storybook.characters.map((entry) => entry.id === next.id ? next : entry) }, 'Character profile saved.');
-                if (error) setStatus(error); return !error;
-              }} />
-            {onRemoveCharacter && <button type="button" className="character-delete-button" onClick={() => onRemoveCharacter(character.id)}>Remove</button>}
-            {onExportCharacter && <button type="button" onClick={() => void onExportCharacter(character.id)}>Export Character</button>}
-          </div>)}
-        </details>
+        {/* Characters rail item — a single "characters" nav group that opens a
+            character-grid switcher within the section (ported from V2's own
+            StorybookEditorDialog rail pattern), instead of a flat per-character
+            accordion listing every account editor at once. */}
+        <section className="storybook-section storybook-workbench-nav-group">
+          <div className="section-header">
+            <h4>Characters</h4>
+            {onImportCharacter && (
+              <button type="button" className="contextual-action-button nodrag" onClick={() => void onImportCharacter()}>
+                Import Character
+              </button>
+            )}
+          </div>
+          {storybook.characters.length ? (
+            <div className="storybook-workbench-character-grid">
+              {storybook.characters.map((character) => (
+                <button
+                  type="button"
+                  key={character.id}
+                  className={`storybook-workbench-character-card nodrag${selectedAccountsCharacterId === character.id ? ' active' : ''}`}
+                  onClick={() => setSelectedAccountsCharacterId(character.id === selectedAccountsCharacterId ? null : character.id)}
+                >
+                  <span className="storybook-workbench-character-copy">
+                    <strong>{character.name || character.id || 'Unnamed'}</strong>
+                    <small>{character.role || 'No role set'}</small>
+                  </span>
+                </button>
+              ))}
+            </div>
+          ) : (
+            <p className="storybook-empty-note">No characters yet.</p>
+          )}
+          {selectedAccountsCharacterId && (() => {
+            const character = storybook.characters.find((entry) => entry.id === selectedAccountsCharacterId);
+            if (!character) {
+              return null;
+            }
+            return (
+              <div className="storybook-workbench-passive-card">
+                <strong>{character.name || character.id}</strong>
+                <CharacterAppProfiles character={character} characters={storybook.characters}
+                  locked={identityLocked || storybook.openingHistory.turns.length > 0 || storybook.openingHistory.events.length > 0}
+                  onChange={(next) => {
+                    const error = onCommit({ ...storybook, characters: storybook.characters.map((entry) => entry.id === next.id ? next : entry) }, 'Character profile saved.');
+                    if (error) setStatus(error); return !error;
+                  }} />
+                <div className="character-comfy-actions">
+                  {onRemoveCharacter && (
+                    <button type="button" className="character-delete-button" onClick={() => onRemoveCharacter(character.id)}>Remove</button>
+                  )}
+                  {onExportCharacter && (
+                    <button type="button" className="contextual-action-button nodrag" onClick={() => void onExportCharacter(character.id)}>Export Character</button>
+                  )}
+                </div>
+              </div>
+            );
+          })()}
+        </section>
       </section>
     </div>
   );
