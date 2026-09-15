@@ -36,8 +36,11 @@ export function SocialProfileEditor({ account, accountId, name, images, profileI
       <h2>{creating ? 'Make yourself at home.' : 'A little more you.'}</h2>
       <p>{creating ? 'Set the scene for your first post.' : 'Give your profile a fresh look.'} Choose a photo, a display name, and a few words about yourself.</p>
     </header>
+    {app === 'onlyfriends' && <div className="social-profile-cover" aria-hidden="true" />}
     <section className="social-profile-preview" aria-label="Live profile preview">
-      <div className="social-profile-avatar">{avatar ? <img src={avatar} alt="Profile preview" /> : <span>{name.slice(0, 1).toUpperCase()}</span>}</div>
+      <div className="social-profile-avatar">
+        <span>{avatar ? <img src={avatar} alt="Profile preview" /> : name.slice(0, 1).toUpperCase()}</span>
+      </div>
       <div><span className="social-profile-eyebrow">Profile preview</span><h3>{draft.displayName.trim() || name}</h3><p>{draft.bio || 'Your story starts here.'}</p></div>
     </section>
     <section className="social-profile-section">

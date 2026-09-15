@@ -151,8 +151,11 @@
 }
 
 .social-profile-editor {
-  --profile-accent: #f1a1c6;
-  --profile-tint: #3b223e;
+  /* Fotogram's default palette matches its real in-phone theme
+     (.phone-social-screen's --social-accent purple/indigo, Instagram-esque). */
+  --profile-accent: #a855f7;
+  --profile-accent-strong: #6366f1;
+  --profile-tint: #1d1d35;
   display: flex;
   flex-direction: column;
   gap: 24px;
@@ -163,11 +166,24 @@
   overflow-y: auto;
   padding: clamp(18px, 4%, 40px);
   color: #f4f1f7;
-  background: radial-gradient(ellipse at top right, var(--profile-tint), transparent 65%), #111521;
+  background:
+    radial-gradient(circle at 78% -12%, rgba(168, 85, 247, 0.16), transparent 35%),
+    radial-gradient(circle at 18% 110%, rgba(99, 102, 241, 0.12), transparent 34%),
+    #0d111d;
   font-size: 13px;
   text-align: left;
 }
-.social-profile-editor--onlyfriends { --profile-accent: #79d9ee; --profile-tint: #143947; }
+/* OnlyFriends matches its own in-phone theme (rose/pink, OnlyFans-esque). */
+.social-profile-editor--onlyfriends {
+  --profile-accent: #f43f5e;
+  --profile-accent-strong: #e11d48;
+  --profile-tint: #32182e;
+  background:
+    radial-gradient(circle at 82% -10%, rgba(236, 72, 153, 0.17), transparent 36%),
+    radial-gradient(circle at 12% 110%, rgba(225, 29, 72, 0.13), transparent 34%),
+    #160d18;
+  padding-top: 0;
+}
 .social-profile-editor > * { width: 100%; max-width: 680px; margin: 0 auto; box-sizing: border-box; }
 .social-profile-editor h2 { margin: 8px 0; font-size: clamp(24px, 3vw, 34px); letter-spacing: -0.035em; }
 .social-profile-editor h3 { margin: 0; font-size: 16px; }
@@ -177,8 +193,40 @@
 .social-profile-preview > div:last-child { min-width: 0; overflow-wrap: anywhere; }
 .social-profile-preview h3 { margin-top: 6px; font-size: 22px; }
 .social-profile-preview p { white-space: pre-wrap; }
-.social-profile-avatar { flex: 0 0 80px; height: 80px; padding: 4px; border: 2px solid var(--profile-accent); border-radius: 50%; display: grid; place-items: center; font-size: 30px; color: var(--profile-accent); }
+
+/* Fotogram: Instagram-style gradient-ring avatar, inline with the heading. */
+.social-profile-avatar {
+  flex: 0 0 80px;
+  height: 80px;
+  padding: 3px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  font-size: 30px;
+  color: var(--profile-accent);
+  background: conic-gradient(from 200deg, #f59e0b, #ec4899, #a855f7, #6366f1, #f59e0b);
+}
+.social-profile-avatar > * { width: 100%; height: 100%; border-radius: 50%; background: #12162a; display: grid; place-items: center; }
 .social-profile-avatar img { width: 100%; height: 100%; object-fit: cover; border-radius: 50%; }
+
+/* OnlyFriends: OnlyFans-style cover band with a centered avatar overlapping it. */
+.social-profile-editor--onlyfriends .social-profile-cover {
+  width: 100%;
+  height: 108px;
+  margin-bottom: -38px;
+  background: linear-gradient(135deg, rgba(236, 72, 153, 0.55), rgba(225, 29, 72, 0.35)), #1e1220;
+}
+.social-profile-editor--onlyfriends .social-profile-preview {
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  padding-top: 0;
+}
+.social-profile-editor--onlyfriends .social-profile-avatar {
+  background: linear-gradient(135deg, var(--profile-accent), var(--profile-accent-strong));
+  border: 3px solid #160d18;
+}
+.social-profile-editor--onlyfriends .social-profile-avatar > * { background: transparent; }
 .social-profile-section { display: grid; gap: 18px; }
 .social-profile-section h3 { display: flex; align-items: center; gap: 10px; }
 .social-profile-section h3 > span { color: var(--profile-accent); font-size: 11px; }
