@@ -58,7 +58,11 @@ export function resolveSocialMessageIdentity(options: {
     (!!character.apps?.[app]?.displayName && normalizedName(character.apps[app]!.displayName) === normalizedName(identity)) ||
     storedHandle(character, app)?.toLowerCase() === key);
   const directory = buildSocialDirectory({ storyCharacters: options.characters, messages: options.messages });
-  const users = byAccountId.length ? [] : directory.users.filter((user) => user.source !== 'storybook' &&
+  // A real, already-matched Storybook character always wins — a bundled
+  // catalog name (e.g. a demo NPC that happens to share a name with a
+  // character the user actually created) must not compete and force a
+  // false "ambiguous" result.
+  const users = characters.length ? [] : directory.users.filter((user) => user.source !== 'storybook' &&
     (user.id === identity || user.handles[app]?.toLowerCase() === key || normalizedName(user.name) === normalizedName(identity)));
   if (!characters.length && !users.length) {
     const otherApp = app === 'fotogram' ? 'onlyfriends' : 'fotogram';

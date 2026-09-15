@@ -106,6 +106,20 @@ describe('social identity resolution', () => {
     },
   );
 
+  it('prefers a real Storybook character over a bundled catalog name collision', () => {
+    // "Zane Sable" is a bundled onlyfriends catalog identity the LLM is told
+    // it may use for background commenters; a Storybook character can
+    // coincidentally share that exact name.
+    const owner = character('zane', 'Zane Sable', { fotogramUsername: '', onlyfriendsUsername: 'zane.sable.real' });
+    const history: MessageRecord[] = [{ id: 1, role: 'output', originalText: '', socialReactions: {
+      app: 'onlyfriends', postId: 'post', likes: 0,
+      comments: [{ from: 'Zane Sable', handle: 'zanesable', text: 'Nice!' }],
+    } }];
+    const resolved = resolveSocialMessageIdentity({ characters: [owner], messages: history, app: 'onlyfriends', identity: 'Zane Sable' });
+    expect(resolved.available).toBe(true);
+    expect(resolved.character?.id).toBe('zane');
+  });
+
   it('still blocks a cross-app alias when that character has no account in the requested app', () => {
     const resolved = resolveSocialMessageIdentity({
       characters: [character('alias', 'Mira Vale', {
