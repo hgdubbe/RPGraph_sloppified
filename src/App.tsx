@@ -5109,6 +5109,39 @@ function App() {
     </svg>
   );
 
+  const topbarIconProps = {
+    width: 16,
+    height: 16,
+    viewBox: '0 0 24 24',
+    fill: 'none',
+    stroke: 'currentColor',
+    strokeWidth: 2,
+    strokeLinecap: 'round' as const,
+    strokeLinejoin: 'round' as const,
+    'aria-hidden': true,
+  };
+
+  const saveWorkflowIcon = (
+    <svg {...topbarIconProps}>
+      <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z" />
+      <polyline points="17 21 17 13 7 13 7 21" />
+      <polyline points="7 3 7 8 15 8" />
+    </svg>
+  );
+
+  const saveRpIcon = (
+    <svg {...topbarIconProps}>
+      <path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z" />
+    </svg>
+  );
+
+  const resetIcon = (
+    <svg {...topbarIconProps}>
+      <polyline points="1 4 1 10 7 10" />
+      <path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10" />
+    </svg>
+  );
+
   const textDialogSourceNode = nodes.find((node) => node.id === textDialogNodeId);
   const textDialogNode = textDialogSourceNode;
   const jsonDialogNode = nodes.find((node) => node.id === jsonDialogNodeId);
@@ -6207,22 +6240,35 @@ function App() {
               >
                 Runtime <LiveRunClock isRunning={isRunning} startTimeMs={runStartTimeMs} finalMs={runDurationMs} /> s
               </button>
-              <button className="graph-reset" type="button" onClick={() => void saveCurrentWorkflow()}>
-                Save Workflow
-              </button>
-              <button className="graph-reset graph-secondary-action" type="button" onClick={() => void saveCurrentSession()}>
-                Save RP
+              <button
+                className="graph-reset topbar-icon-button"
+                type="button"
+                onClick={() => void saveCurrentWorkflow()}
+                title="Save Workflow"
+                aria-label="Save Workflow"
+              >
+                {saveWorkflowIcon}
               </button>
               <button
-                className="graph-reset graph-secondary-action"
+                className="graph-reset graph-secondary-action topbar-icon-button"
+                type="button"
+                onClick={() => void saveCurrentSession()}
+                title="Save RP"
+                aria-label="Save RP"
+              >
+                {saveRpIcon}
+              </button>
+              <button
+                className="graph-reset graph-secondary-action topbar-icon-button"
                 type="button"
                 onClick={() => void resetWorkflow()}
                 disabled={!!activeSessionFileName}
                 title={activeSessionFileName
                   ? 'Workflow reset is unavailable while an RP save is active.'
-                  : 'Reset workflow'}
+                  : 'Reset Workflow'}
+                aria-label="Reset Workflow"
               >
-                Reset
+                {resetIcon}
               </button>
               <PromptPresetOverview
                 nodes={nodeViewNodes}

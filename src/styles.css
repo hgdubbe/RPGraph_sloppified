@@ -208,6 +208,12 @@ input[type="radio"]:focus-visible {
 }
 
 .topbar {
+  --graph-line: #303852;
+  --graph-text: #f2f6ff;
+  --graph-muted: #9aa8cc;
+  --graph-faint: #687494;
+  --graph-cyan: #79d7ef;
+  --graph-lime: #a4ec68;
   -webkit-app-region: drag;
   min-height: 42px;
   flex: none;
@@ -1137,6 +1143,25 @@ input[type="radio"]:focus-visible {
   border-color: rgba(121, 215, 239, 0.55);
   color: var(--soft-white);
   background: rgba(121, 215, 239, 0.1);
+}
+
+.topbar-icon-button {
+  display: grid;
+  place-items: center;
+  width: 28px;
+  padding: 0;
+}
+
+.topbar-icon-button svg {
+  color: var(--graph-muted);
+}
+
+.topbar-icon-button:not(:disabled):hover svg {
+  color: var(--graph-cyan);
+}
+
+.topbar-icon-button:disabled svg {
+  color: var(--graph-faint);
 }
 
 .graph-restore-deleted {
