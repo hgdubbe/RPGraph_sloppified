@@ -203,103 +203,6 @@
   background: rgba(19, 24, 42, 0.62);
 }
 
-.node-palette-tab {
-  position: absolute;
-  z-index: 6;
-  top: 14px;
-  right: 8px;
-  display: inline-flex;
-  width: 24px;
-  height: 34px;
-  align-items: center;
-  justify-content: center;
-  border: 1px solid rgba(125, 211, 252, 0.35);
-  border-radius: 8px;
-  color: #dff8ff;
-  background: rgba(12, 16, 29, 0.96);
-  font-size: 16px;
-  font-weight: 900;
-  line-height: 1;
-  cursor: pointer;
-}
-
-/* Upstream's .node-palette is a hover-triggered absolute-positioned
-   drawer (position: absolute + transform: translateX on :hover). Our
-   Graph Studio Shell instead docks it as a real grid-cell panel with a
-   click-toggle button (.studio-graph-palette-slot, sized by
-   .studio-graph-workbench's grid-template-columns) — override upstream's
-   positioning here to match how .graph-inspector, the equivalent panel
-   on the other side, already behaves. */
-.studio-graph-palette-slot .node-palette {
-  position: relative;
-  top: auto;
-  bottom: auto;
-  left: auto;
-  width: 100%;
-  height: 100%;
-  padding-right: 0;
-  transform: none;
-  transition: none;
-}
-
-/* The collapse tab sits absolutely at top:14px/right:8px over the drawer
-   — reserve that space in the header so the search input (width: 100%)
-   doesn't extend underneath it, and center the rotated label when
-   collapsed, matching .graph-inspector.collapsed's centering on the
-   other side. */
-.studio-graph-palette-slot .node-palette-drawer header {
-  padding-right: 42px;
-}
-
-.studio-graph-palette-slot .node-palette.collapsed {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.studio-graph-palette-slot .node-palette:hover,
-.studio-graph-palette-slot .node-palette:focus-within {
-  transform: none;
-}
-
-.node-palette.collapsed .node-palette-tab {
-  right: 9px;
-}
-
-.node-palette-tab:hover,
-.node-palette-tab:focus-visible {
-  border-color: rgba(125, 211, 252, 0.72);
-  color: #85d8f0;
-  outline: none;
-}
-
-.node-palette-collapsed-label {
-  display: block;
-  transform: rotate(-90deg);
-  color: var(--graph-muted);
-  font-size: 11px;
-  font-weight: 900;
-  letter-spacing: 0.14em;
-  text-transform: uppercase;
-  white-space: nowrap;
-}
-
-.node-palette-search {
-  width: 100%;
-  height: 34px;
-  padding: 0 11px;
-  border: 1px solid #354061;
-  border-radius: 8px;
-  color: var(--graph-text);
-  background: #0c101d;
-  outline: none;
-  font-size: 12px;
-}
-
-.node-palette-search:focus {
-  border-color: rgba(121, 215, 239, 0.55);
-}
-
 .graph-inspector {
   position: relative;
   display: flex;
@@ -381,6 +284,14 @@
   color: var(--graph-muted);
   font-size: 11px;
   font-weight: 700;
+}
+
+.graph-inspector-body {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  min-height: 0;
+  overflow-y: auto;
 }
 
 .graph-inspector-summary {

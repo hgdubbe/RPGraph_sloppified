@@ -5726,6 +5726,7 @@ function App() {
           <small>{selectedGraphNode ? 'Runtime, wiring, and editable payloads' : 'Workflow health and actions'}</small>
         </div>
       </header>
+      <div className="graph-inspector-body">
       {selectedGraphNode ? (
         <>
           <section className="graph-inspector-summary">
@@ -5948,6 +5949,7 @@ function App() {
           </section>
         </>
       )}
+      </div>
         </>
       )}
     </aside>
