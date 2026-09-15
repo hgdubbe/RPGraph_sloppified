@@ -1,19 +1,15 @@
 /* ============================================================
-   Aggregated stylesheet entry point.
+   This app's own CSS additions, split by feature area, on top
+   of vanilla upstream's untouched src/styles.css (imported
+   separately, before this file, from src/main.tsx — kept at
+   its original path/name on purpose so future upstream merges
+   diff cleanly against it instead of conflicting on a rename).
 
-   Split out of the former monolithic src/styles.css for
-   maintainability. Order matters here: it mirrors the exact
-   line order of the original file, so the cascade behaves
-   identically to before the split.
-
-   vanilla-base.css is the untouched original vanilla-upstream
-   CSS (no internal section structure to split further safely).
-   Everything after it is the studio-shell/phone-device/theme
-   CSS ported from the abandoned codex/code-quality-cleanup
-   branch, broken out by feature area.
+   Import order here matters: it mirrors the exact line order
+   these rules had when they were a single append to styles.css,
+   so the cascade behaves the same as before the split.
    ============================================================ */
 
-@import "./vanilla-base.css";
 @import "./studio-theme.css";
 @import "./graph-workbench-grid.css";
 @import "./popout.css";
