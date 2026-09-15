@@ -2900,7 +2900,7 @@ export function StorybookCreatorDialog({
   const outputSettingsMenuRef = useRef<HTMLDivElement | null>(null);
   const [imageOwner, setImageOwner] = useState<StorybookImageOwner | null>(null);
   const [imageDialogMode, setImageDialogMode] = useState<CharacterImagesDialogMode>('images');
-  type WorkbenchSection = 'scenario' | 'intro' | 'history' | 'character' | 'phone' | 'gallery' | 'social' | 'bank';
+  type WorkbenchSection = 'overview' | 'scenario' | 'intro' | 'history' | 'character' | 'phone' | 'gallery' | 'social' | 'bank';
   const [activeSection, setActiveSection] = useState<WorkbenchSection>('scenario');
   const [activeCharacterId, setActiveCharacterId] = useState<string | null>(null);
   const [confirmAction, setConfirmAction] = useState<
@@ -3225,6 +3225,21 @@ export function StorybookCreatorDialog({
               </div>
               <nav className="storybook-workbench-nav" aria-label="Storybook sections">
                 <section className="storybook-workbench-nav-group">
+                  <h3>Overview</h3>
+                  <button
+                    type="button"
+                    className={`storybook-workbench-nav-item${activeSection === 'overview' && viewMode === 'ui' ? ' active' : ''}`}
+                    onClick={() => selectWorkbenchSection('overview')}
+                  >
+                    <span className="storybook-workbench-nav-icon">O</span>
+                    <span className="storybook-workbench-nav-copy">
+                      <strong>Cast Overview</strong>
+                      <small>every character at a glance</small>
+                    </span>
+                    <span className="storybook-workbench-badge">{storybook.characters.length}</span>
+                  </button>
+                </section>
+                <section className="storybook-workbench-nav-group">
                   <h3>Story</h3>
                   {([
                     ['scenario', 'Scenario', 'summary, opening, current', undefined],
@@ -3498,7 +3513,16 @@ export function StorybookCreatorDialog({
                           onChange={(value) => updateStorybookTextField('scenario.currentSituation', value)}
                         />
                       </div>
+                    </section>}
 
+                    {/* Section: Overview — cast-at-a-glance, moved off Scenario so that
+                        page stays pure story fields. Card layout redesigned per approved
+                        draft: rectangular row (not square), photo clipped to a fixed
+                        frame (the old .storybook-workbench-avatar had no object-fit and
+                        blew out the whole layout when a real profile photo was set),
+                        bank balance as a minor inline note, real description text,
+                        social-account handles, and real relationship text. */}
+                    {activeSection === 'overview' && <section className="storybook-workbench-story-section">
                       <div className="storybook-workbench-section-toolbar">
                         <div>
                           <h4>Cast Overview</h4>
@@ -3509,30 +3533,68 @@ export function StorybookCreatorDialog({
                         </button>
                       </div>
                       {storybook.characters.length ? (
-                        <div className="storybook-workbench-character-grid">
-                          {storybook.characters.map((character) => (
-                            <button
-                              type="button"
-                              className={`storybook-workbench-character-card nodrag${activeCharacter?.id === character.id ? ' active' : ''}`}
-                              key={character.id}
-                              onClick={() => selectWorkbenchSection('character', character.id)}
-                            >
-                              <CharacterAvatar
-                                className="storybook-workbench-avatar"
-                                name={character.name || character.id}
-                                fallback={(character.name || character.id || '?').slice(0, 2).toUpperCase()}
-                                profileImageDataUrl={character.profileImage?.dataUrl}
-                              />
-                              <span className="storybook-workbench-character-copy">
-                                <strong>{character.name || character.id || 'Unnamed'}</strong>
-                                <small>{character.role || 'No role set'}</small>
-                              </span>
-                              <span className="storybook-workbench-chip-row">
-                                <span>{character.images.length} images</span>
-                                <span>{characterPhoneSummary(character)}</span>
-                              </span>
-                            </button>
-                          ))}
+                        <div className="storybook-overview-list">
+                          {storybook.characters.map((character) => {
+                            const banking = character.banking ?? defaultRpStorybookCharacterBanking();
+                            const accounts: Array<[label: string, app: 'fotogram' | 'onlyfriends' | 'matchme']> = [
+                              ['Fotogram', 'fotogram'],
+                              ['OnlyFriends', 'onlyfriends'],
+                              ['MatchMe', 'matchme'],
+                            ];
+                            return (
+                              <button
+                                type="button"
+                                className={`storybook-overview-card nodrag${activeCharacter?.id === character.id ? ' active' : ''}`}
+                                key={character.id}
+                                onClick={() => selectWorkbenchSection('character', character.id)}
+                              >
+                                <CharacterAvatar
+                                  className="storybook-overview-photo"
+                                  name={character.name || character.id}
+                                  fallback={(character.name || character.id || '?').slice(0, 2).toUpperCase()}
+                                  profileImageDataUrl={character.profileImage?.dataUrl}
+                                />
+                                <span className="storybook-overview-body">
+                                  <span className="storybook-overview-head">
+                                    <span className="storybook-overview-head-left">
+                                      <strong>{character.name || character.id || 'Unnamed'}</strong>
+                                      <span className="storybook-overview-role">{character.role || 'No role set'}</span>
+                                    </span>
+                                    <span className="storybook-overview-balance">Bank <b>${banking.startBalance}</b></span>
+                                  </span>
+                                  <span className="storybook-overview-desc">{character.description || 'No description written yet.'}</span>
+                                  <span className="storybook-overview-section-label">Social accounts</span>
+                                  <span className="storybook-workbench-chip-row">
+                                    {accounts.map(([label, app]) => {
+                                      const account = character.apps?.[app];
+                                      return (
+                                        <span key={app} className={`storybook-overview-chip${account?.enabled ? ' on' : ' off'}`}>
+                                          <span className="app">{label}</span>
+                                          {account?.enabled && account.username && <span className="handle">@{account.username}</span>}
+                                        </span>
+                                      );
+                                    })}
+                                  </span>
+                                  {(character.relationships?.length ?? 0) > 0 && (
+                                    <>
+                                      <span className="storybook-overview-section-label">Relationships</span>
+                                      <span className="storybook-overview-rel-row">
+                                        {character.relationships!.map((relationship) => {
+                                          const other = storybook.characters.find((entry) => entry.id === relationship.characterId);
+                                          return (
+                                            <span key={relationship.characterId} className="storybook-overview-rel-chip">
+                                              <span className="who">{other?.name || other?.id || relationship.characterId}</span>
+                                              <span className="what">{relationship.description || 'No relationship written yet.'}</span>
+                                            </span>
+                                          );
+                                        })}
+                                      </span>
+                                    </>
+                                  )}
+                                </span>
+                              </button>
+                            );
+                          })}
                         </div>
                       ) : (
                         <p className="no-data-msg">No characters defined yet. Add a character or ask the assistant to create the cast.</p>
