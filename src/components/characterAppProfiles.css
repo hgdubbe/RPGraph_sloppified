@@ -179,11 +179,10 @@
   --profile-accent-strong: #e11d48;
   --profile-tint: #32182e;
   position: relative;
-  background:
-    radial-gradient(circle at 50% 260px, rgba(244, 63, 94, 0.28), transparent 46%),
-    radial-gradient(circle at 88% -8%, rgba(236, 72, 153, 0.26), transparent 38%),
-    radial-gradient(circle at 6% 112%, rgba(245, 158, 11, 0.16), transparent 36%),
-    #0d070f;
+  background-color: #0d070f;
+  background-repeat: no-repeat;
+  background-position: center top;
+  background-size: cover;
 }
 .social-profile-editor > * { width: 100%; max-width: 680px; margin: 0 auto; box-sizing: border-box; }
 .social-profile-editor h2 { margin: 8px 0; font-size: clamp(24px, 3vw, 34px); letter-spacing: -0.035em; }
@@ -210,34 +209,15 @@
 .social-profile-avatar > * { position: relative; width: 100%; height: 100%; border-radius: 50%; background: #12162a; display: grid; place-items: center; overflow: hidden; }
 .social-profile-avatar img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; border-radius: 50%; }
 
-/* OnlyFriends: branded hero header (wordmark + tagline), large centered avatar
-   with a camera badge, and its own teaser-pic/CTA treatment — see below. */
+/* OnlyFriends: branded hero header (logo lockup), a large, prominent avatar
+   (models live off their looks — this is the focal point), and its own
+   teaser-pic/CTA treatment — see below. */
 .social-profile-wordmark {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 10px;
-  font-family: Georgia, "Times New Roman", serif;
-  font-size: clamp(28px, 6vw, 38px);
-  font-weight: 800;
-  letter-spacing: -0.02em;
-  color: #f4f1f7;
-}
-.social-profile-wordmark em {
-  color: var(--profile-accent);
-  font-style: italic;
-}
-.social-profile-age-badge {
-  display: inline-flex;
-  align-items: center;
-  padding: 3px 9px;
-  border-radius: 999px;
-  background: #f4f1f7;
-  color: #160d18;
-  font-family: "IBM Plex Sans", system-ui, sans-serif;
-  font-size: 11px;
-  font-weight: 800;
-  letter-spacing: 0.02em;
+  display: block;
+  width: min(320px, 78%);
+  height: auto;
+  margin: 0 auto;
+  filter: drop-shadow(0 2px 14px rgba(244, 63, 94, 0.35));
 }
 .social-profile-editor--onlyfriends .social-profile-heading {
   text-align: center;
@@ -252,29 +232,16 @@
 }
 .social-profile-editor--onlyfriends .social-profile-avatar {
   position: relative;
-  flex-basis: 132px;
-  width: 132px;
-  height: 132px;
-  padding: 4px;
+  flex-basis: 220px;
+  width: 220px;
+  height: 220px;
+  padding: 5px;
   background: linear-gradient(135deg, var(--profile-accent), #f59e0b);
-  box-shadow: 0 0 0 1px #160d18, 0 0 48px 6px rgba(244, 63, 94, 0.45), 0 8px 30px rgba(0, 0, 0, 0.5);
+  box-shadow: 0 0 0 1px #160d18, 0 0 60px 10px rgba(244, 63, 94, 0.5), 0 12px 40px rgba(0, 0, 0, 0.55);
 }
 .social-profile-editor--onlyfriends .social-profile-avatar > * {
   background: #1e1220;
-  font-size: 46px;
-}
-.social-profile-avatar-camera {
-  position: absolute;
-  right: -2px;
-  bottom: -2px;
-  display: grid;
-  place-items: center;
-  width: 36px;
-  height: 36px;
-  border-radius: 50%;
-  border: 2px solid #160d18;
-  background: #2a2530;
-  font-size: 16px;
+  font-size: 72px;
 }
 .social-profile-editor--onlyfriends .social-profile-preview h3 {
   font-size: 24px;
@@ -384,7 +351,8 @@
 @media (max-width: 480px) {
   .social-profile-preview { padding: 16px; gap: 14px; }
   .social-profile-avatar { flex-basis: 60px; height: 60px; }
-  .social-profile-editor--onlyfriends .social-profile-avatar { flex-basis: 104px; width: 104px; height: 104px; }
+  .social-profile-editor--onlyfriends .social-profile-avatar { flex-basis: 168px; width: 168px; height: 168px; }
+  .social-profile-editor--onlyfriends .social-profile-avatar > * { font-size: 56px; }
   .social-profile-actions button { flex: 1; }
   .social-profile-editor--onlyfriends .social-profile-actions button { flex: none; }
 }

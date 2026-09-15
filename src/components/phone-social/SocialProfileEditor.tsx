@@ -3,6 +3,8 @@ import { appAvatarDataUrl } from '../../characters/portrait';
 import type { RpStorybookCharacterProfileImage } from '../../nodes/rp-storybook/model';
 import type { CharacterAppAccount } from '../../characters/character';
 import { profileIdentityError } from '../../characters/profiles';
+import onlyFriendsBgUrl from '../../assets/social/onlyfriends/bg_of_reg.png';
+import onlyFriendsLogoUrl from '../../assets/social/onlyfriends/logo_of.png';
 import '../characterAppProfiles.css';
 
 /** Shared by Character Setup and the phone apps. Images remain gallery references. */
@@ -23,19 +25,21 @@ export function SocialProfileEditor({ account, accountId, name, images, profileI
   const [error, setError] = useState('');
   const creating = !account?.enabled && app === 'onlyfriends';
   const appName = app === 'fotogram' ? 'Photogram' : 'OnlyFriends';
-  return <form className={`social-profile-editor social-profile-editor--${app}`} onSubmit={(event) => {
-    event.preventDefault();
-    const next = { ...draft, displayName: draft.displayName.trim() };
-    if (!next.displayName) { setError('Add a display name for your profile.'); return; }
-    const reason = profileIdentityError(account, next, locked);
-    if (reason) { setError(reason); return; }
-    if (!onSave(next)) setError('Could not save the profile. Please check the account identity and try again.');
-  }}>
+  return <form
+    className={`social-profile-editor social-profile-editor--${app}`}
+    style={app === 'onlyfriends' ? {
+      backgroundImage: `linear-gradient(rgba(13, 7, 15, 0.45), rgba(13, 7, 15, 0.78) 55%, rgba(13, 7, 15, 0.94)), url(${onlyFriendsBgUrl})`,
+    } : undefined}
+    onSubmit={(event) => {
+      event.preventDefault();
+      const next = { ...draft, displayName: draft.displayName.trim() };
+      if (!next.displayName) { setError('Add a display name for your profile.'); return; }
+      const reason = profileIdentityError(account, next, locked);
+      if (reason) { setError(reason); return; }
+      if (!onSave(next)) setError('Could not save the profile. Please check the account identity and try again.');
+    }}>
     {app === 'onlyfriends' && (
-      <div className="social-profile-wordmark" aria-hidden="true">
-        <span><em>Only</em>Friends</span>
-        <span className="social-profile-age-badge">18+</span>
-      </div>
+      <img className="social-profile-wordmark" src={onlyFriendsLogoUrl} alt="OnlyFriends, 18+" />
     )}
     <header className="social-profile-heading">
       <span className="social-profile-eyebrow">{appName} / {creating ? 'Your debut' : 'Your profile'}</span>
@@ -45,7 +49,6 @@ export function SocialProfileEditor({ account, accountId, name, images, profileI
     <section className="social-profile-preview" aria-label="Live profile preview">
       <div className="social-profile-avatar">
         <span>{avatar ? <img src={avatar} alt="Profile preview" /> : name.slice(0, 1).toUpperCase()}</span>
-        {app === 'onlyfriends' && <span className="social-profile-avatar-camera" aria-hidden="true">📷</span>}
       </div>
       <div><span className="social-profile-eyebrow">Profile preview</span><h3>{draft.displayName.trim() || name}</h3><p>{draft.bio || 'Your story starts here.'}</p></div>
     </section>
