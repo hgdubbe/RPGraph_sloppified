@@ -862,7 +862,7 @@ state. Do not expose persistent NPC conversations before this gate is satisfied.
 Implemented in `src/characters/npcParticipants.ts`, `npcParticipantRuntime.ts`
 and `useNpcParticipants.ts`, with session, turn-commit, social-action and
 Opening History integration. The archive is keyed by stable character ID and
-stores an immutable copy of the used payload, complete gallery, source and
+stores an isolated copy of the used payload, complete gallery, source and
 aliases. Only structured account/character/post references pin revisions;
 free text, display names and ambiguous seed IDs cannot pin another person.
 `npcSeedPostKey(accountId, seedId)` supplies an ownership-scoped reversible key
@@ -876,12 +876,16 @@ required. Timeline messages/matches and existing UI records remain the activity
 authorities; the archive contains no parallel live-state database.
 
 Checkpoint policy: pinned revisions survive undo/redo, including after their
-last active reference is rolled back. This immutable revision archive is
+last active reference is rolled back. This RP revision archive is
 shared by current state and checkpoints, so retry/redo cannot silently acquire
 a new personality or lose a referenced image after a library reload. Undo still
 removes activity through the existing timeline/checkpoint behavior; retaining a
 revision does not recreate a match, message or like. Reset/new-workflow loading
 replaces the archive, and a fresh story sees current library revisions.
+Explicit RP-copy edits and acquired contacts update the pinned payload; external
+Library changes do not. Message-owned app flags follow the retained messages even
+though the pinned character itself survives a rollback. See
+[contacts acquired during play](#contacts-acquired-during-play).
 
 Import Current Session as Opening History copies the pinned archive alongside
 activity and checkpoints. Save Storybook preserves only that configured history
@@ -1300,6 +1304,45 @@ shown as unavailable in the editor. References resolve only through stable
 character IDs, never filenames or fallback names. Adding a contact does not copy
 an NPC into the Storybook or make them playable. Promotion retains the same ID;
 the effective Storybook definition replaces the Library representation.
+
+### Contacts acquired during play
+
+`src/characters/messageContacts.ts` updates RP-owned character relationships when
+a WhatsUp, Fotogram or OnlyFriends direct message is recorded. Both resolved
+participants acquire the other character with that app enabled. Fotogram and
+OnlyFriends DMs therefore establish mutual follows; an ordinary follow remains
+directed. Public posts, profile discovery and activity badges do not establish
+personal contacts.
+
+Shared WhatsUp, Fotogram and OnlyFriends account links add the linked character
+only to the recipient, including playable recipients, without requiring a click.
+Sharing a third party's account does not connect that third party back to the
+recipient. Existing MatchMe link navigation and matching rules are unchanged;
+these contact updates never create MatchMe matches or paid OnlyFriends access.
+
+Updates merge by stable character ID, preserve existing descriptions and app
+flags, and leave new descriptions empty. Unknown, disabled or ambiguous accounts
+grant nothing; a stored account ID never falls back to a new namesake. Repeated
+delivery is idempotent. Storybook characters are updated in the current node;
+Library NPCs are captured first and updated in the RP participant archive. The
+source Library files remain untouched. Saves persist both containers through
+their existing storage paths, and Opening History imports the current archive.
+Loaded RP saves and Opening History also acquire contacts from historical DMs,
+covering older files that only stored app connections. Historical backfills also
+extend the corresponding turn checkpoints, including portable Opening History
+checkpoints, so jumping back removes contacts first acquired by the removed turn.
+Earlier and authored contacts remain intact. Regeneration restores the before
+state and acquires contacts from the retained input and replacement output.
+
+NPC participant snapshots optionally store `messageContacts`, recording the
+original app flags for message-owned contacts separately from the portable
+character payload. Removing or replacing messages reconciles only these flags
+against the remaining history. Empty, automatically created relationship rows
+are removed; descriptions and independently authored app connections survive.
+The character revision itself stays pinned, and restoring messages after a
+cancelled regeneration restores their contacts. Source Library files remain
+unchanged. `src/characters/historicalContactCheckpoints.ts` handles backfilled
+Storybook checkpoints; `reconcileNpcMessageContacts` handles pinned NPC contacts.
 
 ### Authoring and assistant references
 

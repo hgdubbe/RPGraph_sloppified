@@ -152,6 +152,13 @@ WhatsUp supports contact lists, unread conversations, replies, text and voice me
 
 ## Story And Session Data
 
+Delivered WhatsUp, Fotogram and OnlyFriends DMs add reciprocal contacts to the
+participants' RP character relationships. Shared account links add only the linked
+contact to the recipient, including playable recipients, without a click. These
+updates preserve relationship descriptions and use current Storybook characters
+or pinned NPC copies; source Library files and MatchMe matching stay unchanged.
+See [contacts acquired during play](character-container-v2.md#contacts-acquired-during-play).
+
 The app separates the workflow graph from roleplay session data.
 
 - **Workflow**: graph nodes, graph edges, viewport, defaults, and optional bundled storybook data.

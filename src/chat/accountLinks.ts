@@ -90,21 +90,34 @@ export function bindAccountLinks(text: string, characters: StorybookCharacter[])
   return parseAccountLinks(text, characters).map(({ token, app, accountId, characterId }) => ({ token, app, accountId, characterId }));
 }
 
+/** Stored account IDs must not be rebound through a coincidentally matching display name. */
+export function resolveMessageAccount(app: AccountLinkApp, accountId: string | undefined, identity: string | undefined,
+  characters: StorybookCharacter[]) {
+  const value = accountId ?? identity;
+  if (!value) return undefined;
+  const target = resolveAccountLink(app, value, characters);
+  if (accountId && target?.accountId !== accountId && !target?.character.identityAliases?.accountIds?.[app]?.includes(accountId)) return undefined;
+  return target;
+}
+
 function messageAccountLinks(message: MessageRecord, characters: StorybookCharacter[]) {
   const text = message.socialDirectMessage?.text ?? message.originalText;
   return parseAccountLinks(text, characters, message.socialDirectMessage?.accountLinks ?? message.accountLinks);
 }
 
-/** User-sent DMs are received by the simulation; player recipients of generated DMs must click. */
+/** Delivered account links grant contacts to the recipient, including playable characters. */
 export function automaticAccountLinkGrants(messages: MessageRecord[], characters: StorybookCharacter[]) {
   return messages.flatMap((message) => {
+    if (message.role !== 'user' && message.role !== 'output') return [];
     const dm = message.socialDirectMessage;
     if (!dm && !message.phoneMessage) return [];
     const app = dm?.app ?? 'whatsup';
-    const identity = dm?.toAccountId ?? message.phoneToAccountId ?? dm?.to ?? message.phoneTo;
-    const recipient = identity ? resolveAccountLink(app, identity, characters)?.character : undefined;
-    if (!recipient || (message.role !== 'user' && recipient.playerSelectable !== false)) return [];
+    const recipient = resolveMessageAccount(app, dm?.toAccountId ?? message.phoneToAccountId,
+      dm?.toHandle || dm?.to || message.phoneTo, characters)?.character;
+    if (!recipient) return [];
+    // MatchMe retains its existing behavior; sharing a profile never creates a match.
     return messageAccountLinks(message, characters).filter((link) => link.characterId !== recipient.sourceId)
+      .filter((link) => link.app !== 'matchme' || message.role === 'user' || recipient.playerSelectable === false)
       .map((link) => ({ owner: recipient, link }));
   });
 }
