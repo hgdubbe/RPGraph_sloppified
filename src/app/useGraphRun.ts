@@ -349,22 +349,6 @@ function currentStorybookImageAttachmentById(
   return source ? chatAttachmentFromStorybookImage(source.image) : undefined;
 }
 
-/**
- * decision-v1/staged-v1's `primaryCharacterId` decides whose turn gets generated. For a
- * genuine human-typed phone message (`turnMode === 'user'`) addressed to a resolvable
- * recipient, that's the recipient — the model should reply as them, not extend the sender's
- * own turn. For every other turn kind (`auto-turn`, `narrator`, ...) the sender is correct:
- * Auto Turn's own instruction template is literally "<Sender> texts <Recipient>," i.e. it asks
- * the model to autonomously write the *sender's* own outgoing action, not the recipient's reply.
- */
-export function resolveDecisionPrimaryCharacterId(
-  turnMode: TurnRecordMode,
-  inputCharacter: StorybookCharacter | undefined,
-  phoneRecipientCharacter: StorybookCharacter | undefined,
-): string | undefined {
-  return turnMode === 'user' && phoneRecipientCharacter ? phoneRecipientCharacter.id : inputCharacter?.id;
-}
-
 export function useGraphRun(options: UseGraphRunOptions) {
   // React Compiler explicitly opted out: runGraph writes options-provided refs
   // (nodesRef, activeRun, messagesRef, ...) manually mid-run by design so async
@@ -1114,8 +1098,8 @@ export function useGraphRun(options: UseGraphRunOptions) {
       (isAutoplayRun || isNarratorTurn || (isAutoTurn && !inputCharacter)
         ? narratorSpeakerName
         : inputCharacter!.name);
-    // Resolved as a character object (not just a name) so decision-v1/staged-v1 can tell it
-    // apart from `inputCharacter` (the sender) below — see `resolveDecisionPrimaryCharacterId`.
+    // Resolved as a character object (not just a name) so it can be told apart from
+    // `inputCharacter` (the sender) below.
     // `existingInputMessage?.phoneTo` (a persisted name) is looked up the same way
     // `inputCharacterName`'s `speakerName` branch above resolves the sender, so a regenerate/
     // reflavor of a past phone turn keeps pointing at the original recipient.

@@ -110,8 +110,3 @@ export function isCompositeConnection(connection: ConnectionPreset): boolean {
 export function isVeniceConnection(connection: ConnectionPreset): boolean {
   return llmProviderKind(connection) === 'venice';
 }
-
-export function shouldBackgroundPollProviderConnection(connection: ConnectionPreset): boolean {
-  void connection;
-  return false;
-}
