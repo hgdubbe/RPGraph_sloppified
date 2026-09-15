@@ -31,15 +31,21 @@ export function SocialProfileEditor({ account, accountId, name, images, profileI
     if (reason) { setError(reason); return; }
     if (!onSave(next)) setError('Could not save the profile. Please check the account identity and try again.');
   }}>
+    {app === 'onlyfriends' && (
+      <div className="social-profile-wordmark" aria-hidden="true">
+        <span><em>Only</em>Friends</span>
+        <span className="social-profile-age-badge">18+</span>
+      </div>
+    )}
     <header className="social-profile-heading">
       <span className="social-profile-eyebrow">{appName} / {creating ? 'Your debut' : 'Your profile'}</span>
       <h2>{creating ? 'Make yourself at home.' : 'A little more you.'}</h2>
       <p>{creating ? 'Set the scene for your first post.' : 'Give your profile a fresh look.'} Choose a photo, a display name, and a few words about yourself.</p>
     </header>
-    {app === 'onlyfriends' && <div className="social-profile-cover" aria-hidden="true" />}
     <section className="social-profile-preview" aria-label="Live profile preview">
       <div className="social-profile-avatar">
         <span>{avatar ? <img src={avatar} alt="Profile preview" /> : name.slice(0, 1).toUpperCase()}</span>
+        {app === 'onlyfriends' && <span className="social-profile-avatar-camera" aria-hidden="true">📷</span>}
       </div>
       <div><span className="social-profile-eyebrow">Profile preview</span><h3>{draft.displayName.trim() || name}</h3><p>{draft.bio || 'Your story starts here.'}</p></div>
     </section>
@@ -49,18 +55,28 @@ export function SocialProfileEditor({ account, accountId, name, images, profileI
       <label>Bio<textarea rows={4} maxLength={500} value={draft.bio} onChange={(event) => setDraft({ ...draft, bio: event.target.value })} placeholder="A few words, a little personality…" /><small className="social-profile-count">{draft.bio.length} / 500</small></label>
     </section>
     <section className="social-profile-section">
-      <h3><span aria-hidden="true">02</span> Your profile photo</h3>
-      <p>Choose your character portrait or a photo from your album.</p>
+      <h3><span aria-hidden="true">02</span> {app === 'onlyfriends' ? 'Choose your public teaser pic' : 'Your profile photo'}</h3>
+      <p>{app === 'onlyfriends' ? 'The one photo everyone sees before they unlock the rest.' : 'Choose your character portrait or a photo from your album.'}</p>
       <div className="social-profile-photos">
         <button type="button" className="social-profile-photo" aria-pressed={!draft.avatarImageId} onClick={() => setDraft({ ...draft, avatarImageId: undefined })}>
-          {portrait ? <img src={portrait} alt="Character portrait" /> : <span className="social-profile-photo-fallback">{name.slice(0, 1).toUpperCase()}</span>}<span>Portrait</span>
+          {portrait ? <img src={portrait} alt="Character portrait" /> : <span className="social-profile-photo-fallback">{name.slice(0, 1).toUpperCase()}</span>}
+          {app === 'onlyfriends' && !draft.avatarImageId && <span className="social-profile-photo-check" aria-hidden="true">✓</span>}
+          <span>Portrait</span>
         </button>
         {images.map((image) => <button key={image.id} type="button" className="social-profile-photo" aria-pressed={draft.avatarImageId === image.id} onClick={() => setDraft({ ...draft, avatarImageId: image.id })}>
-          <img src={image.dataUrl} alt={image.name || 'Album photo'} loading="lazy" /><span>{image.name || 'Album photo'}</span>
+          <img src={image.dataUrl} alt={image.name || 'Album photo'} loading="lazy" />
+          {app === 'onlyfriends' && draft.avatarImageId === image.id && <span className="social-profile-photo-check" aria-hidden="true">✓</span>}
+          <span>{image.name || 'Album photo'}</span>
         </button>)}
       </div>
     </section>
     {error && <p className="social-profile-error" role="alert">{error}</p>}
-    <footer className="social-profile-actions"><button type="button" onClick={onCancel}>Cancel</button><button className="social-profile-save" type="submit">{creating ? 'Create profile' : 'Save changes'} <span aria-hidden="true">→</span></button></footer>
+    <footer className="social-profile-actions">
+      <button type="button" className="social-profile-cancel" onClick={onCancel}>Cancel</button>
+      <button className="social-profile-save" type="submit">
+        {creating ? (app === 'onlyfriends' ? 'Join OnlyFriends' : 'Create profile') : 'Save changes'} <span aria-hidden="true">→</span>
+      </button>
+    </footer>
+    {app === 'onlyfriends' && creating && <p className="social-profile-fineprint">You must be 18+ to use OnlyFriends.</p>}
   </form>;
 }
