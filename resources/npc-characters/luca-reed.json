@@ -37,16 +37,20 @@
       "whatsup": {
         "accountId": "character:luca_reed:whatsup",
         "enabled": true,
-        "username": "Luca Reed",
-        "displayName": "Luca Reed",
+        "legacyHandles": [
+          "Luca Reed"
+        ],
         "bio": "",
         "avatarImageId": "luca_reed:image:day-drive"
       },
       "fotogram": {
         "accountId": "character:luca_reed:fotogram",
         "enabled": true,
-        "username": "luca.moving",
-        "displayName": "Luca Reed",
+        "profileName": "luca.moving",
+        "legacyHandles": [
+          "luca.moving",
+          "Luca Reed"
+        ],
         "bio": "Training days, long drives and nights worth losing sleep over.",
         "avatarImageId": "luca_reed:image:day-drive",
         "initialPosts": [
@@ -60,13 +64,14 @@
       "matchme": {
         "accountId": "character:luca_reed:matchme",
         "enabled": true,
-        "username": "luca.reed",
-        "displayName": "Luca Reed",
+        "profileName": "luca.reed",
+        "legacyHandles": [
+          "luca.reed",
+          "Luca Reed"
+        ],
         "bio": "Active, easygoing and always ready for a drive with no destination. Looking for confidence, honesty and someone who can tease back.",
         "avatarImageId": "luca_reed:image:day-drive",
         "profile": {
-          "username": "luca.reed",
-          "name": "Luca Reed",
           "age": 27,
           "bio": "Active, easygoing and always ready for a drive with no destination. Looking for confidence, honesty and someone who can tease back.",
           "interests": "Fitness, Road trips, Nightlife, Playlists",

@@ -33,7 +33,7 @@ export function PhoneDatingScreen({ profileOnly = false, unread, onMarkSeen, ope
   const [profile, setProfile] = useState(normalizeDatingProfile(owner?.social.plotTwist));
   const [editing, setEditing] = useState(profileOnly || !profile);
   const [tab, setTab] = useState<'discover' | 'likes' | 'profile'>('discover');
-  const [draft, setDraft] = useState<DatingProfile>(profile ?? normalizeDatingProfile(owner?.apps?.matchme?.profile, true) ?? { username: owner?.apps?.matchme?.username || `matchme.${(owner?.sourceId ?? 'character').replace(/[^a-zA-Z0-9._-]/g, '')}`, name: owner?.name ?? '', age: 18, seeking: [], bio: '', interests: '', photoIds: [], decisions: {} });
+  const [draft, setDraft] = useState<DatingProfile>(profile ?? normalizeDatingProfile({ ...owner?.apps?.matchme?.profile, name: owner?.apps?.matchme?.profileName ?? owner?.apps?.matchme?.profile?.name }, true) ?? { name: owner?.name ?? '', age: 18, seeking: [], bio: '', interests: '', photoIds: [], decisions: {} });
   const [chatDrafts, setChatDrafts] = useState<Record<string, string>>({});
   const [recentEmojis, setRecentEmojis] = useState(recentlyUsedEmojis);
   const [gallery, setGallery] = useState(false);
@@ -155,7 +155,7 @@ export function PhoneDatingScreen({ profileOnly = false, unread, onMarkSeen, ope
         }}>
           <div className="pt-intro"><span className="pt-eyebrow">A NEW CHAPTER STARTS HERE</span>
             <h2>{profile ? 'Make it you.' : 'Find your match.'}</h2></div>
-          <div className="pt-field-row"><label>Display name<input required maxLength={60} value={draft.name} onChange={(e) => setDraft({ ...draft, name: e.target.value })} /></label>
+          <div className="pt-field-row"><label>Profile name<input required maxLength={60} value={draft.name} onChange={(e) => setDraft({ ...draft, name: e.target.value })} /></label>
             <label>Age<input required type="number" min={18} max={120} value={draft.age || ''} onChange={(e) => setDraft({ ...draft, age: Number(e.target.value) })} /></label></div>
           <div className="pt-gender-field"><label htmlFor="matchme-gender">I am</label>
             <NodeCustomSelect<DatingGender | ''> id="matchme-gender" value={draft.gender ?? ''}

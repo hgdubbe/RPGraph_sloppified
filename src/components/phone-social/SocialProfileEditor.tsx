@@ -1,3 +1,4 @@
+import { migratedProfileName } from '../../characters/character';
 import { useState } from 'react';
 import { appAvatarDataUrl } from '../../characters/portrait';
 import type { RpStorybookCharacterProfileImage } from '../../nodes/rp-storybook/model';
@@ -15,8 +16,7 @@ export function SocialProfileEditor({ account, accountId, name, images, profileI
 }) {
   const [draft, setDraft] = useState<CharacterAppAccount>(() => ({
     ...account, accountId: account?.accountId ?? accountId, enabled: true,
-    username: account?.username || `${name.toLowerCase().replace(/[^a-z0-9]+/g, '.').replace(/^\.|\.$/g, '') || 'character'}.${accountId.replace(/[^a-zA-Z0-9]/g, '')}`,
-    displayName: account?.displayName || name, bio: account?.bio ?? '',
+    profileName: account ? migratedProfileName(account, name) : name, bio: account?.bio ?? '',
   }));
   const avatar = appAvatarDataUrl({ profileImage }, images.find((image) => image.id === draft.avatarImageId));
   const portrait = appAvatarDataUrl({ profileImage });
@@ -25,8 +25,8 @@ export function SocialProfileEditor({ account, accountId, name, images, profileI
   const appName = app === 'fotogram' ? 'Photogram' : 'OnlyFriends';
   return <form className={`social-profile-editor social-profile-editor--${app}`} onSubmit={(event) => {
     event.preventDefault();
-    const next = { ...draft, displayName: draft.displayName.trim() };
-    if (!next.displayName) { setError('Add a display name for your profile.'); return; }
+    const next = { ...draft, profileName: (draft.profileName ?? '').trim() };
+    if (!next.profileName) { setError('Add a profile name for your profile.'); return; }
     const reason = profileIdentityError(account, next, locked);
     if (reason) { setError(reason); return; }
     if (!onSave(next)) setError('Could not save the profile. Please check the account identity and try again.');
@@ -34,15 +34,15 @@ export function SocialProfileEditor({ account, accountId, name, images, profileI
     <header className="social-profile-heading">
       <span className="social-profile-eyebrow">{appName} / {creating ? 'Your debut' : 'Your profile'}</span>
       <h2>{creating ? 'Make yourself at home.' : 'A little more you.'}</h2>
-      <p>{creating ? 'Set the scene for your first post.' : 'Give your profile a fresh look.'} Choose a photo, a display name, and a few words about yourself.</p>
+      <p>{creating ? 'Set the scene for your first post.' : 'Give your profile a fresh look.'} Choose a photo, a profile name, and a few words about yourself.</p>
     </header>
     <section className="social-profile-preview" aria-label="Live profile preview">
       <div className="social-profile-avatar">{avatar ? <img src={avatar} alt="Profile preview" /> : <span>{name.slice(0, 1).toUpperCase()}</span>}</div>
-      <div><span className="social-profile-eyebrow">Profile preview</span><h3>{draft.displayName.trim() || name}</h3><p>{draft.bio || 'Your story starts here.'}</p></div>
+      <div><span className="social-profile-eyebrow">Profile preview</span><h3>{name}</h3><p>@{(draft.profileName ?? '').trim().replace(/^@/, '')}</p><p>{draft.bio || 'Your story starts here.'}</p></div>
     </section>
     <section className="social-profile-section">
       <h3><span aria-hidden="true">01</span> The essentials</h3>
-      <label>Display name<input required maxLength={60} value={draft.displayName} onChange={(event) => setDraft({ ...draft, displayName: event.target.value })} placeholder="How you appear on your profile" /></label>
+      <label>Profile name<input required maxLength={60} value={draft.profileName} onChange={(event) => setDraft({ ...draft, profileName: event.target.value })} placeholder="How you appear on your profile" /></label>
       <label>Bio<textarea rows={4} maxLength={500} value={draft.bio} onChange={(event) => setDraft({ ...draft, bio: event.target.value })} placeholder="A few words, a little personality…" /><small className="social-profile-count">{draft.bio.length} / 500</small></label>
     </section>
     <section className="social-profile-section">

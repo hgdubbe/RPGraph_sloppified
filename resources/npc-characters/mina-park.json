@@ -25,15 +25,19 @@
       "whatsup": {
         "accountId": "character:mina_park:whatsup",
         "enabled": true,
-        "username": "Mina Park",
-        "displayName": "Mina Park",
+        "legacyHandles": [
+          "Mina Park"
+        ],
         "bio": ""
       },
       "fotogram": {
         "accountId": "character:mina_park:fotogram",
         "enabled": true,
-        "username": "minapark",
-        "displayName": "Mina Park",
+        "profileName": "minapark",
+        "legacyHandles": [
+          "minapark",
+          "Mina Park"
+        ],
         "bio": "Mina Park shares the outdoors and slow weekends, everyday moments and personal recommendations.",
         "initialPosts": [
           {

@@ -1,3 +1,5 @@
+import { accountHandle } from '../../characters/character';
+import { socialAccountPresentation } from '../../chat/socialMedia';
 import { appAvatarDataUrl } from '../../characters/portrait';
 import { postsWithInitialContent } from '../../characters/publications';
 import { SocialProfileEditor } from './SocialProfileEditor';
@@ -620,6 +622,8 @@ export function PhoneSocialFeedScreen({
       id: message.socialPost.postId,
       authorName: message.socialPost.author,
       authorHandle: message.socialPost.authorHandle,
+      authorAccountId: message.socialPost.authorAccountId,
+      authorCharacterId: message.socialPost.authorCharacterId,
       caption: message.socialPost.caption,
       likeCount: 0,
       commentCount: 0,
@@ -1223,11 +1227,11 @@ export function PhoneSocialFeedScreen({
   if (editingProfile && owner) return <SocialProfileEditor app={app.id} account={owner.apps?.[app.id]}
     accountId={`character:${owner.sourceId}:${app.id}`} name={owner.name} profileImage={owner.profileImage} images={phoneGalleryImages}
     locked={socialMediaMessages.length > 0 || bankTransferMessages.length > 0}
-    onSave={(profile) => { const saved = onCreateSocialAccount(owner, app.id, profile.username, profile); if (saved) { setAccount(profile.username); setEditingProfile(false); } return saved; }}
+    onSave={(profile) => { const saved = onCreateSocialAccount(owner, app.id, accountHandle(profile), profile); if (saved) { setAccount(accountHandle(profile)); setEditingProfile(false); } return saved; }}
     onCancel={() => setEditingProfile(false)} />;
   if (!account && owner) return <SocialProfileEditor app={app.id} account={owner.apps?.[app.id]} accountId={`character:${owner.sourceId}:${app.id}`}
     name={owner.name} profileImage={owner.profileImage} images={phoneGalleryImages} locked={false}
-    onSave={(profile) => { const saved = onCreateSocialAccount(owner, app.id, profile.username, profile); if (saved) { setAccount(profile.username); setEditingProfile(false); } return saved; }}
+    onSave={(profile) => { const saved = onCreateSocialAccount(owner, app.id, accountHandle(profile), profile); if (saved) { setAccount(accountHandle(profile)); setEditingProfile(false); } return saved; }}
     onCancel={onBack} />;
   if (!account) return <p>Select a character to open this app.</p>;
 
@@ -1271,6 +1275,8 @@ export function PhoneSocialFeedScreen({
         postId: post.id,
         author: post.authorName,
         authorHandle: post.authorHandle,
+        authorAccountId: post.authorAccountId,
+        authorCharacterId: post.authorCharacterId,
         caption: post.caption,
       }, storyCharacters),
     })),
@@ -1409,7 +1415,7 @@ export function PhoneSocialFeedScreen({
               />
               <span className="phone-social-account-main">
                 <strong style={ownerColor ? { color: ownerColor } : undefined}>Your Feed</strong>
-                <span>@{account}</span>
+                <span>@{socialAccountPresentation(app.id, owner, owner?.name ?? '', account).handle}</span>
               </span>
             </button>
             {followedAccounts.map((entry) => {
@@ -1435,8 +1441,8 @@ export function PhoneSocialFeedScreen({
                     style={color ? { borderColor: color, color } : undefined}
                   />
                   <span className="phone-social-account-main">
-                    <strong style={color ? { color } : undefined}>{entry.name}</strong>
-                    <span>@{entry.handle}</span>
+                    <strong style={color ? { color } : undefined}>{socialAccountPresentation(app.id, entry.character, entry.name, entry.handle).name}</strong>
+                    <span>@{socialAccountPresentation(app.id, entry.character, entry.name, entry.handle).handle}</span>
                   </span>
                   {unread && (
                     <span className="phone-social-dm-badges">
@@ -1466,12 +1472,13 @@ export function PhoneSocialFeedScreen({
                 {directorySearchResults.length > 0 ? (
                   <div className="phone-social-user-results" role="listbox" aria-label="Matching users">
                     {directorySearchResults.map((user) => {
+                      const userIdentity = socialAccountPresentation(app.id, storyCharacters.find((character) => character.id === user.characterId), user.name, user.handles[app.id] ?? '');
                       const alreadyAdded = knownSocialUserIds.has(user.id);
                       return (
                         <div className="phone-social-user-result" key={user.id} role="option">
                           <span>
-                            <strong>{user.name}</strong>
-                            <small>@{user.handles[app.id]}</small>
+                            <strong>{userIdentity.name}</strong>
+                            <small>@{userIdentity.handle}</small>
                           </span>
                           <button
                             type="button"
@@ -1609,6 +1616,7 @@ export function PhoneSocialFeedScreen({
         </div>
         {directMessagesOpen && owner ? (
           <PhoneSocialDirectMessages
+            characters={storyCharacters}
             app={app.id}
             owner={owner}
             ownerHandle={account}
@@ -1691,8 +1699,11 @@ export function PhoneSocialFeedScreen({
                   postId: post.id,
                   author: post.authorName,
                   authorHandle: post.authorHandle,
+                  authorAccountId: post.authorAccountId,
+                  authorCharacterId: post.authorCharacterId,
                   caption: post.caption,
                 }, storyCharacters);
+            const postIdentity = socialAccountPresentation(app.id, postAuthorCharacter, post.authorName, post.authorHandle);
             const postAuthorColor = postAuthorCharacter
               ? characterColors.get(postAuthorCharacter.name)
               : undefined;
@@ -1735,8 +1746,8 @@ export function PhoneSocialFeedScreen({
                         : undefined}
                     />
                     <div className="phone-social-post-author-info">
-                      <strong>{post.authorName}</strong>
-                      <span>@{post.authorHandle}</span>
+                      <strong>{postIdentity.name}</strong>
+                      <span>@{postIdentity.handle}</span>
                     </div>
                   </button>
                   <div className="phone-social-post-header-right">
@@ -1754,7 +1765,7 @@ export function PhoneSocialFeedScreen({
                 {post.textOnly ? (
                   <>
                     <p className="phone-social-post-caption text-only-caption">
-                      <strong>{post.authorName}</strong> {post.caption}
+                      <strong>{postIdentity.name}</strong> {post.caption}
                     </p>
                     <hr className="phone-social-post-separator" />
                     <div className="phone-social-post-footer">
@@ -1888,7 +1899,7 @@ export function PhoneSocialFeedScreen({
                       <>
                         <hr className="phone-social-post-separator" />
                         <p className="phone-social-post-caption">
-                          <strong>{post.authorName}</strong> {post.caption}
+                          <strong>{postIdentity.name}</strong> {post.caption}
                         </p>
                         <div className="phone-social-post-footer">
                           <button
@@ -1914,6 +1925,10 @@ export function PhoneSocialFeedScreen({
                 {commentsOpen && (
                   <div className="phone-social-comments">
                     {comments.map((comment) => {
+                      const commentCharacter = socialCharacterForPost({ app: app.id, postId: '',
+                        author: comment.authorName ?? '', authorHandle: comment.authorHandle, caption: '' }, storyCharacters);
+                      const commentIdentity = socialAccountPresentation(app.id, commentCharacter,
+                        comment.authorName ?? comment.authorHandle, comment.authorHandle);
                       const isOwnComment = socialIdentityMatches(comment.authorHandle, account);
                       return (
                         <button
@@ -1956,7 +1971,7 @@ export function PhoneSocialFeedScreen({
                             ? undefined
                             : `Message ${comment.authorName ?? `@${comment.authorHandle}`}`}
                         >
-                          <strong>{comment.authorName ?? `@${comment.authorHandle}`}</strong>
+                          <strong>{commentIdentity.name}{commentIdentity.handle && ` (@${commentIdentity.handle})`}</strong>
                           <span>{comment.text}</span>
                         </button>
                       );

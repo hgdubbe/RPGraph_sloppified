@@ -27,16 +27,20 @@
       "whatsup": {
         "accountId": "character:nika_brooks:whatsup",
         "enabled": true,
-        "username": "Nika Brooks",
-        "displayName": "Nika Brooks",
+        "legacyHandles": [
+          "Nika Brooks"
+        ],
         "bio": "",
         "avatarImageId": "nika_brooks:image:studio-selfie"
       },
       "fotogram": {
         "accountId": "character:nika_brooks:fotogram",
         "enabled": true,
-        "username": "nika.lines",
-        "displayName": "Nika Brooks",
+        "profileName": "nika.lines",
+        "legacyHandles": [
+          "nika.lines",
+          "Nika Brooks"
+        ],
         "bio": "Ink, silver, unfinished sketches and songs after midnight.",
         "avatarImageId": "nika_brooks:image:studio-selfie",
         "initialPosts": []
@@ -44,13 +48,14 @@
       "matchme": {
         "accountId": "character:nika_brooks:matchme",
         "enabled": true,
-        "username": "nika.brooks",
-        "displayName": "Nika Brooks",
+        "profileName": "nika.brooks",
+        "legacyHandles": [
+          "nika.brooks",
+          "Nika Brooks"
+        ],
         "bio": "Draws for a living, overthinks playlists for fun. Tell me about something you care about more than is reasonable.",
         "avatarImageId": "nika_brooks:image:studio-selfie",
         "profile": {
-          "username": "nika.brooks",
-          "name": "Nika Brooks",
           "age": 25,
           "bio": "Draws for a living, overthinks playlists for fun. Tell me about something you care about more than is reasonable.",
           "interests": "Drawing, Tattoos, Alternative music, Flea markets",

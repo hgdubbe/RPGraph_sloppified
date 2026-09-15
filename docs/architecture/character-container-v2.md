@@ -1,5 +1,7 @@
 # Character Container V2 — Implementation Plan
 
+App naming uses one canonical profileName per social app; WhatsUp uses the real character name. See [App profile names](app-profile-names.md) for the current schema and legacy import rules. This supersedes older username/display-name distinctions below.
+
 Status: Character Container V2 is implemented through Stage 7. Fresh demo discovery now uses image-backed character containers; image-less placeholders were removed. Stage 8 remains optional.
 Character Container V2 and Storybook V3 use independent version numbers.
 Last reconciled with the implementation: 2026-09-13.

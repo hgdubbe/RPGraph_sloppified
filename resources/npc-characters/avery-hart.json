@@ -37,16 +37,20 @@
       "whatsup": {
         "accountId": "character:avery_hart:whatsup",
         "enabled": true,
-        "username": "Avery Hart",
-        "displayName": "Avery Hart",
+        "legacyHandles": [
+          "Avery Hart"
+        ],
         "bio": "",
         "avatarImageId": "avery_hart:image:cafe-afternoon"
       },
       "fotogram": {
         "accountId": "character:avery_hart:fotogram",
         "enabled": true,
-        "username": "avery.afterfive",
-        "displayName": "Avery Hart",
+        "profileName": "avery.afterfive",
+        "legacyHandles": [
+          "avery.afterfive",
+          "Avery Hart"
+        ],
         "bio": "City corners, good coffee, little reasons to dress up.",
         "avatarImageId": "avery_hart:image:cafe-afternoon",
         "initialPosts": [
@@ -60,13 +64,14 @@
       "matchme": {
         "accountId": "character:avery_hart:matchme",
         "enabled": true,
-        "username": "avery.hart",
-        "displayName": "Avery Hart",
+        "profileName": "avery.hart",
+        "legacyHandles": [
+          "avery.hart",
+          "Avery Hart"
+        ],
         "bio": "Equal parts cozy cafe and last-minute night out. Looking for someone kind, curious and able to laugh at a plan going sideways.",
         "avatarImageId": "avery_hart:image:cafe-afternoon",
         "profile": {
-          "username": "avery.hart",
-          "name": "Avery Hart",
           "age": 26,
           "bio": "Equal parts cozy cafe and last-minute night out. Looking for someone kind, curious and able to laugh at a plan going sideways.",
           "interests": "Coffee, City walks, Live music, Cooking",

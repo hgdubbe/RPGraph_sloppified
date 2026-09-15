@@ -25,15 +25,19 @@
       "whatsup": {
         "accountId": "character:nova_reyes:whatsup",
         "enabled": true,
-        "username": "Nova Reyes",
-        "displayName": "Nova Reyes",
+        "legacyHandles": [
+          "Nova Reyes"
+        ],
         "bio": ""
       },
       "fotogram": {
         "accountId": "character:nova_reyes:fotogram",
         "enabled": true,
-        "username": "nova.reyes",
-        "displayName": "Nova Reyes",
+        "profileName": "nova.reyes",
+        "legacyHandles": [
+          "nova.reyes",
+          "Nova Reyes"
+        ],
         "bio": "Nova Reyes shares local culture, everyday moments and personal recommendations.",
         "initialPosts": [
           {

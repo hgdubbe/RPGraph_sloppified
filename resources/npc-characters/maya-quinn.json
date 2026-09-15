@@ -27,16 +27,20 @@
       "whatsup": {
         "accountId": "character:maya_quinn:whatsup",
         "enabled": true,
-        "username": "Maya Quinn",
-        "displayName": "Maya Quinn",
+        "legacyHandles": [
+          "Maya Quinn"
+        ],
         "bio": "",
         "avatarImageId": "maya_quinn:image:mirror-portrait"
       },
       "fotogram": {
         "accountId": "character:maya_quinn:fotogram",
         "enabled": true,
-        "username": "maya.inframe",
-        "displayName": "Maya Quinn",
+        "profileName": "maya.inframe",
+        "legacyHandles": [
+          "maya.inframe",
+          "Maya Quinn"
+        ],
         "bio": "Vintage finds, strong coffee and photos I almost did not post.",
         "avatarImageId": "maya_quinn:image:mirror-portrait",
         "initialPosts": []
@@ -44,13 +48,14 @@
       "matchme": {
         "accountId": "character:maya_quinn:matchme",
         "enabled": true,
-        "username": "maya.quinn",
-        "displayName": "Maya Quinn",
+        "profileName": "maya.quinn",
+        "legacyHandles": [
+          "maya.quinn",
+          "Maya Quinn"
+        ],
         "bio": "Vintage hunter, accidental night owl, and firm believer that chemistry matters more than a perfect opening line.",
         "avatarImageId": "maya_quinn:image:mirror-portrait",
         "profile": {
-          "username": "maya.quinn",
-          "name": "Maya Quinn",
           "age": 23,
           "bio": "Vintage hunter, accidental night owl, and firm believer that chemistry matters more than a perfect opening line.",
           "interests": "Fashion, Photography, Vintage shops, R&B",

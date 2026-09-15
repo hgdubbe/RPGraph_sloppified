@@ -1,3 +1,4 @@
+import { accountHandle } from './character';
 import type { Character } from './character';
 import { characterContentEqual } from './contentComparison';
 import type { EffectiveCharacter, CharacterRegistryAliases } from './registry';
@@ -11,7 +12,7 @@ export function characterUsageReasons(character: Character, aliases: CharacterRe
     ...Object.values(character.apps ?? {}).map((account) => account.accountId),
     ...Object.values(aliases.accountIds ?? {}).flat()];
   const identities = new Set([...directoryIds.flatMap((id) => [id, `storybook:${id}`]),
-    ...Object.values(character.apps ?? {}).map((account) => account.username).filter(Boolean),
+    ...Object.values(character.apps ?? {}).map((account) => accountHandle(account)).filter(Boolean),
     ...character.images.map((image) => image.id),
     ...Object.values(character.apps ?? {}).flatMap((account) => account.initialPosts?.map((post) => post.id) ?? [])]);
   const name = character.name.trim();

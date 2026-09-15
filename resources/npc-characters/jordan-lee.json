@@ -25,15 +25,19 @@
       "whatsup": {
         "accountId": "character:jordan_lee:whatsup",
         "enabled": true,
-        "username": "Jordan Lee",
-        "displayName": "Jordan Lee",
+        "legacyHandles": [
+          "Jordan Lee"
+        ],
         "bio": ""
       },
       "fotogram": {
         "accountId": "character:jordan_lee:fotogram",
         "enabled": true,
-        "username": "jordansayshi",
-        "displayName": "Jordan Lee",
+        "profileName": "jordansayshi",
+        "legacyHandles": [
+          "jordansayshi",
+          "Jordan Lee"
+        ],
         "bio": "Jordan Lee shares local culture, everyday moments and personal recommendations.",
         "initialPosts": [
           {

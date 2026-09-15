@@ -1,3 +1,4 @@
+import type { StorybookCharacter } from '../storybook/runtime';
 import {
   useCallback,
   useEffect,
@@ -116,6 +117,7 @@ function formatFileDate(value: string | number) {
 }
 
 type StudioDialogsProps = {
+  appCharacters?: StorybookCharacter[];
   textDialogNode?: WorkflowNode;
   nodes: WorkflowNode[];
   textDialogView:
@@ -719,8 +721,9 @@ function formatChatHistoryFromRaw(
   fallback: string | undefined,
   rpDateTimeFormat: RpDateTimeFormat,
   rpWeekdayLanguage: RpWeekdayLanguage,
+  characters: StorybookCharacter[] = [],
 ) {
-  const segments = formatChatHistorySegmentsFromRaw(rawHistory, rpDateTimeFormat, rpWeekdayLanguage);
+  const segments = formatChatHistorySegmentsFromRaw(rawHistory, rpDateTimeFormat, rpWeekdayLanguage, characters);
   return segments.length ? segments.map((segment) => segment.text).join('\n\n') : fallback ?? '';
 }
 
@@ -728,6 +731,7 @@ function formatChatHistorySegmentsFromRaw(
   rawHistory: string | undefined,
   rpDateTimeFormat: RpDateTimeFormat,
   rpWeekdayLanguage: RpWeekdayLanguage,
+  characters: StorybookCharacter[] = [],
 ) {
   if (!rawHistory) {
     return [];
@@ -740,6 +744,7 @@ function formatChatHistorySegmentsFromRaw(
           false,
           rpDateTimeFormat,
           rpWeekdayLanguage,
+          undefined, characters,
         )
       : [];
   } catch {
@@ -772,6 +777,7 @@ const rpWeekdayLanguageOptions: Array<{ value: RpWeekdayLanguage; label: string 
 ];
 
 export function StudioDialogs({
+  appCharacters = [],
   textDialogNode,
   nodes,
   textDialogView,
@@ -1327,6 +1333,7 @@ export function StudioDialogs({
           textDialogNode.data.originalHistory,
           rpDateTimeFormat,
           rpWeekdayLanguage,
+          appCharacters,
         )
       : '';
   const formattedHistorySegments =
@@ -1335,6 +1342,7 @@ export function StudioDialogs({
           textDialogNode.data.rawHistory,
           rpDateTimeFormat,
           rpWeekdayLanguage,
+          appCharacters,
         )
       : [];
   const rawHistoryDisplayText =

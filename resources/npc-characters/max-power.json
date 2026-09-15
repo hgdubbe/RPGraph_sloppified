@@ -25,15 +25,19 @@
       "whatsup": {
         "accountId": "character:max_power:whatsup",
         "enabled": true,
-        "username": "Max Power",
-        "displayName": "Max Power",
+        "legacyHandles": [
+          "Max Power"
+        ],
         "bio": ""
       },
       "fotogram": {
         "accountId": "character:max_power:fotogram",
         "enabled": true,
-        "username": "maxpower_official",
-        "displayName": "Max Power",
+        "profileName": "maxpower_official",
+        "legacyHandles": [
+          "maxpower_official",
+          "Max Power"
+        ],
         "bio": "Max Power shares music and live events, everyday moments and personal recommendations.",
         "initialPosts": [
           {

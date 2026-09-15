@@ -11,7 +11,7 @@ import type {
   SocialDmUnreadByHandle,
 } from '../../types';
 import { formatBankingAmount } from '../../chat/bankTransfers';
-import { socialIdentityMatches } from '../../chat/socialMedia';
+import { socialIdentityMatches, socialAccountPresentation, socialCharacterForPost } from '../../chat/socialMedia';
 import { formatRpDateTimeParts } from '../../workflow';
 import { CharacterAvatar } from '../CharacterAvatar';
 
@@ -26,6 +26,7 @@ export type SocialDirectMessageParticipant = {
 type PhoneSocialDirectMessagesProps = {
   app: SocialAppKind;
   owner: StorybookCharacter;
+  characters: StorybookCharacter[];
   ownerHandle: string;
   participants: SocialDirectMessageParticipant[];
   unreadByHandle: SocialDmUnreadByHandle;
@@ -51,6 +52,7 @@ type PhoneSocialDirectMessagesProps = {
 export function PhoneSocialDirectMessages({
   app,
   owner,
+  characters,
   ownerHandle,
   participants,
   unreadByHandle,
@@ -72,6 +74,13 @@ export function PhoneSocialDirectMessages({
   onBack,
   onSend,
 }: PhoneSocialDirectMessagesProps) {
+  const participantIdentity = (participant: SocialDirectMessageParticipant) => socialAccountPresentation(
+    app,
+    socialCharacterForPost({ app, postId: '', author: participant.name, authorHandle: participant.handle,
+      authorAccountId: participant.character?.apps?.[app]?.accountId, caption: '' }, characters),
+    participant.name,
+    participant.handle,
+  );
   // One draft per app, viewing account, and conversation partner, so switching
   // the partner never carries an unsent private message into the wrong chat.
   const [drafts, setDrafts] = useState<Record<string, string>>({});
@@ -206,8 +215,8 @@ export function PhoneSocialDirectMessages({
                   style={color ? { borderColor: color, color } : undefined}
                 />
                 <span className="phone-social-dm-contact-copy">
-                  <strong>{participant.name}</strong>
-                  <span>{latest?.displayText ?? latest?.text ?? `@${participant.handle}`}</span>
+                  <strong>{participantIdentity(participant).name}</strong>
+                  <span>{latest?.displayText ?? latest?.text ?? `@${participantIdentity(participant).handle}`}</span>
                 </span>
                 {unread && (
                   <span className="phone-social-dm-badges">
@@ -245,10 +254,10 @@ export function PhoneSocialDirectMessages({
     socialIdentityMatches(origin.commentAuthorHandle, ownerHandle);
   const originLabel = origin?.commentText
     ? originOutgoing
-      ? `Your comment on @${origin.postAuthorHandle}'s post`
+      ? `Your comment on @${socialAccountPresentation(app, socialCharacterForPost({ app, postId: origin.postId, author: origin.postAuthor, authorHandle: origin.postAuthorHandle, caption: '' }, characters), origin.postAuthor, origin.postAuthorHandle).handle}'s post`
       : socialIdentityMatches(origin.postAuthorHandle, ownerHandle)
         ? 'Comment on your post'
-        : `Comment on @${origin.postAuthorHandle}'s post`
+        : `Comment on @${socialAccountPresentation(app, socialCharacterForPost({ app, postId: origin.postId, author: origin.postAuthor, authorHandle: origin.postAuthorHandle, caption: '' }, characters), origin.postAuthor, origin.postAuthorHandle).handle}'s post`
     : '';
   return (
     <section className="phone-social-dm" aria-label={`Conversation with ${selectedParticipant.name}`}>
@@ -266,8 +275,8 @@ export function PhoneSocialDirectMessages({
           style={participantColor ? { borderColor: participantColor, color: participantColor } : undefined}
         />
         <div>
-          <strong>{selectedParticipant.name}</strong>
-          <span>@{selectedParticipant.handle}</span>
+          <strong>{participantIdentity(selectedParticipant).name}</strong>
+          <span>@{participantIdentity(selectedParticipant).handle}</span>
         </div>
       </header>
       {origin && (
@@ -306,8 +315,8 @@ export function PhoneSocialDirectMessages({
               profileImageDataUrl={selectedParticipant.character?.profileImage?.dataUrl}
               style={participantColor ? { borderColor: participantColor, color: participantColor } : undefined}
             />
-            <strong>{selectedParticipant.name}</strong>
-            <span>@{selectedParticipant.handle}</span>
+            <strong>{participantIdentity(selectedParticipant).name}</strong>
+            <span>@{participantIdentity(selectedParticipant).handle}</span>
             <small>Start your conversation</small>
           </div>
         )}

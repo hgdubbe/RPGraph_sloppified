@@ -58,7 +58,7 @@ describe('effective character registry', () => {
     ]);
     expect(saved.characters).toHaveLength(1);
     expect(saved.characters[0]).toMatchObject({ provenance: { tier: 'storybook' }, playerSelectable: true });
-    expect(saved.characters[0].character.apps?.fotogram).toMatchObject({ enabled: true, displayName: saved.characters[0].character.name });
+    expect(saved.characters[0].character.apps?.fotogram).toMatchObject({ enabled: true, profileName: expect.any(String) });
     expect(registryAccounts(saved, 'fotogram').map(({ account }) => account.accountId)).toEqual(['character:nova:fotogram']);
     expect(saved.characters[0].character.apps?.fotogram?.bio).toBe('');
   });
@@ -182,7 +182,7 @@ describe('effective character registry', () => {
       entry('user', first), entry('user', duplicateA), entry('user', duplicateB),
       entry('storybook', character('player', { username: 'TAKEN' })),
     ]);
-    expect(() => validateCandidateCharacterRegistry(current, conflicting)).toThrow('username');
+    expect(() => validateCandidateCharacterRegistry(current, conflicting)).toThrow('profile name');
   });
 
   it('rejects raw account IDs reused across different apps', () => {

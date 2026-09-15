@@ -1,3 +1,5 @@
+import type { StorybookCharacter } from '../storybook/runtime';
+import { socialDirectMessageDisplayText } from '../chat/socialMedia';
 import type {
   MessageRecord,
   RpDateTimeFormat,
@@ -14,6 +16,7 @@ export type HistoryOutputs = {
 
 export type HistoryViewOptions = {
   messages: MessageRecord[];
+  characters?: StorybookCharacter[];
   fallbackOriginalHistory: string;
   fallbackTranslatedHistory: string;
   lastTurnsCount: number;
@@ -58,7 +61,7 @@ export function currentLocalDateTime() {
   ].join('T');
 }
 
-export function formatHistoryMessageForAnalysis(message: MessageRecord) {
+export function formatHistoryMessageForAnalysis(message: MessageRecord, characters: StorybookCharacter[] = []) {
   return {
     messageId: message.id,
     turn: message.turnNumber,
@@ -67,7 +70,7 @@ export function formatHistoryMessageForAnalysis(message: MessageRecord) {
     channel: message.channel ?? 'rp',
     from: message.phoneFrom ?? message.speakerName,
     to: message.phoneTo,
-    text: message.originalText,
+    text: socialDirectMessageDisplayText(message, false, characters),
     rpDateTime: message.rpDateTime,
   };
 }
@@ -115,6 +118,7 @@ export function lastTurnMessages(messages: MessageRecord[], count: number) {
 
 export function buildHistoryOutputs({
   messages,
+  characters,
   fallbackOriginalHistory,
   fallbackTranslatedHistory,
   lastTurnsCount,
@@ -128,6 +132,7 @@ export function buildHistoryOutputs({
         false,
         rpDateTimeFormat,
         rpWeekdayLanguage,
+        messages, characters,
       )
     : fallbackOriginalHistory;
   const translatedSessionHistory = hasStructuredHistory
@@ -136,6 +141,7 @@ export function buildHistoryOutputs({
         true,
         rpDateTimeFormat,
         rpWeekdayLanguage,
+        messages, characters,
       )
     : fallbackTranslatedHistory;
   const recentMessages = hasStructuredHistory
@@ -153,7 +159,7 @@ export function buildHistoryOutputs({
           false,
           rpDateTimeFormat,
           rpWeekdayLanguage,
-          messages,
+          messages, characters,
         )
       : fallbackOriginalHistory,
   };

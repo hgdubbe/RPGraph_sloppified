@@ -1,3 +1,4 @@
+import { accountHandle, accountHandleMatches } from './character';
 import { normalizeCharacterApps } from './character';
 import type { Character, CharacterAppAccount, CharacterApps } from './character';
 
@@ -197,12 +198,16 @@ export function buildCharacterRegistry(entries: CharacterRegistryEntry[]): Effec
   }
   for (const app of apps) {
     const appAccounts = accounts.filter((entry) => entry.app === app);
-    const withUsername = appAccounts.filter((entry) => !!entry.account.username.trim());
-    const byUsername = groupBy(withUsername, (entry) => normalizedAlias(entry.account.username));
+    const byUsername = new Map<string, EffectiveCharacterAccount[]>();
+    for (const entry of appAccounts) {
+      for (const alias of new Set([accountHandle(entry.account), entry.account.profileName ?? ''].map(normalizedAlias).filter(Boolean))) {
+        byUsername.set(alias, [...(byUsername.get(alias) ?? []), entry]);
+      }
+    }
     for (const [username, collisions] of byUsername) {
       if (collisions.length < 2) continue;
       diagnostics.push({ code: 'duplicate-username', app, identity: username,
-        message: `${app} username "${username}" belongs to multiple effective characters.`,
+        message: `${app} profile name "${username}" belongs to multiple effective characters.`,
         characterIds: collisions.map((entry) => entry.character.character.id),
         sources: collisions.map((entry) => entry.character.provenance.source) });
     }
@@ -259,7 +264,7 @@ export function resolveRegistryAccount(
   const byLegacyId = accounts.filter((entry) => entry.character.aliases.accountIds?.[app]?.includes(identity));
   if (byLegacyId.length) return availableResolution(byLegacyId);
   const key = normalizedAlias(identity);
-  return availableResolution(accounts.filter((entry) => normalizedAlias(entry.account.username) === key ||
+  return availableResolution(accounts.filter((entry) => accountHandleMatches(entry.account, identity) ||
     normalizedAlias(entry.character.character.name) === key));
 }
 

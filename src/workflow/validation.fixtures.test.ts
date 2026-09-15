@@ -3406,7 +3406,7 @@ export function verifyWorkflowValidationFixtures() {
       phoneTo: 'Sara Steiner',
     }], false) === [
       'Robert pulls over.',
-      'Robert Miller texts Sara Steiner: Which flowers does Lara like?',
+      '[WhatsUp] Robert Miller texts Sara Steiner: Which flowers does Lara like?',
       'He puts his phone away.',
     ].join('\n\n'),
     'chat history must inline embedded phone messages at their RP text position',
@@ -3427,7 +3427,7 @@ export function verifyWorkflowValidationFixtures() {
       inputPromptSlot: 0,
       rpDateTime: '2026-06-22T15:40',
     }], false, 'eu', 'en-US') === [
-      "[22.06.26 MON 15:40] Emily Miller sends an image to Sarah Miller: [emily_miller_image_01: Emily Miller and Sarah Miller sitting on a red tiled patio, both wearing sunglasses; Emily looks forward while Sarah looks down.] Hey that's us together at the party from last weekend jack sent the picture",
+      "[22.06.26 MON 15:40] [WhatsUp] Emily Miller sends an image to Sarah Miller: [emily_miller_image_01: Emily Miller and Sarah Miller sitting on a red tiled patio, both wearing sunglasses; Emily looks forward while Sarah looks down.] Hey that's us together at the party from last weekend jack sent the picture",
     ].join('\n\n'),
     'chat history must label phone user-image inputs with their Storybook image id',
   );
@@ -3454,8 +3454,8 @@ export function verifyWorkflowValidationFixtures() {
       phoneTo: 'Emily Miller',
       replyToMessageId: 1,
     }], false) === [
-      'Emily Miller sends an image to Sarah Miller: [emily_miller_image_01: Emily and Sarah sitting together on a red tiled patio.] Hey, that is us at the party.',
-      'Sarah Miller replies to Emily Miller:\n[Replied to Emily Miller: [emily_miller_image_01: Emily and Sarah sitting together on a red tiled patio.] Hey, that is us at the party.]\nSarah Miller\'s message: I love this one.',
+      '[WhatsUp] Emily Miller sends an image to Sarah Miller: [emily_miller_image_01: Emily and Sarah sitting together on a red tiled patio.] Hey, that is us at the party.',
+      '[WhatsUp] Sarah Miller replies to Emily Miller:\n[Replied to Emily Miller: [emily_miller_image_01: Emily and Sarah sitting together on a red tiled patio.] Hey, that is us at the party.]\nSarah Miller\'s message: I love this one.',
     ].join('\n\n'),
     'chat history must include the replied phone message and its image id',
   );

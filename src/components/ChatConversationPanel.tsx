@@ -1,3 +1,4 @@
+import { socialDirectMessageDisplayText, socialDirectMessageParty } from '../chat/socialMedia';
 import { socialTimelineGroups, socialTimelineMessageText } from '../chat/socialTimeline';
 import { AccountLinkText } from './AccountLinkText';
 import {
@@ -188,6 +189,9 @@ type ChatConversationPanelProps = {
   runtimeNodes: WorkflowNode[];
   messages: MessageRecord[];
   storyCharacters: StorybookCharacter[];
+  appCharacters?: StorybookCharacter[];
+  /** Show app profile names in chat cards; reserved for a future display setting. */
+  showProfileNames?: boolean;
   characterColors: Map<string, string>;
   selectedCharacter?: StorybookCharacter;
   isNarratorSelected: boolean;
@@ -284,6 +288,8 @@ export function ChatConversationPanel({
   runtimeNodes,
   messages,
   storyCharacters,
+  appCharacters = storyCharacters,
+  showProfileNames = false,
   characterColors,
   selectedCharacter,
   isNarratorSelected,
@@ -746,9 +752,7 @@ export function ChatConversationPanel({
           }
           const displayText = message.eventInput && message.eventDisplayText
             ? message.eventDisplayText
-            : englishProcessingEnabled
-              ? message.translatedText ?? message.originalText
-              : message.originalText;
+            : socialDirectMessageDisplayText(message, englishProcessingEnabled, appCharacters);
           const speakerNames =
             message.role === 'error'
               ? ['Error']
@@ -975,6 +979,7 @@ export function ChatConversationPanel({
           };
           const renderPhoneActionContent = (phoneMessage: EmbeddedPhoneMessageLink) => (
             <>
+              <span>[WhatsUp]</span>
               <strong style={characterNameStyle(phoneMessage.from)}>{phoneMessage.from}</strong>
               {phoneAuthorBadgesEnabled && (
                 <span
@@ -1273,6 +1278,7 @@ export function ChatConversationPanel({
                       className="chat-phone-card"
                       key={`${segment[0]?.phoneMessageId ?? 'segment'}-${segmentIndex}`}
                     >
+                      <header className="chat-social-message-header"><strong>[WhatsUp]</strong></header>
                       {phoneBubbleHeadersEnabled && segment[0] && phoneConversationCardTitle(segment[0])}
                       <div className="chat-phone-card-messages">
                         {segment.map((phoneMessage, messageIndex) =>
@@ -1312,6 +1318,7 @@ export function ChatConversationPanel({
                   }
                   const anchorSender = first.from.trim().toLocaleLowerCase();
                   const appName = socialAppNames[first.app];
+                  const firstMessage = socialMessagesById.get(first.socialMessageId);
                   return (
                     <section
                       className={`chat-social-message-card ${first.app}`}
@@ -1319,7 +1326,9 @@ export function ChatConversationPanel({
                     >
                       <header className="chat-social-message-header">
                         <strong>{appName}{first.app === 'matchme' && <span aria-hidden="true"> ♥</span>}</strong>
-                        <span>{first.from} and {first.to}</span>
+                        <span>{firstMessage
+                          ? `${socialDirectMessageParty(firstMessage, 'from', appCharacters, showProfileNames)} to ${socialDirectMessageParty(firstMessage, 'to', appCharacters, showProfileNames)}`
+                          : `${first.from} to ${first.to}`}</span>
                       </header>
                       <div className="chat-social-message-thread">
                         {segment.map((socialMessage, messageIndex) => {
@@ -1348,10 +1357,10 @@ export function ChatConversationPanel({
                                 style={{ fontSize: chatTextSize || defaultChatTextSize }}
                               >
                                 <strong className={messageIndex === 0 ? 'chat-phone-bubble-route' : undefined}>
-                                  <span style={fromColor ? { color: fromColor } : undefined}>{socialMessage.from}</span>
+                                  <span style={fromColor ? { color: fromColor } : undefined}>{linkedMessage ? socialDirectMessageParty(linkedMessage, 'from', appCharacters, showProfileNames) : socialMessage.from}</span>
                                   {messageIndex === 0 && <>
                                     <span>texts</span>
-                                    <span style={{ color: characterColors.get(socialMessage.to) }}>{socialMessage.to}</span>
+                                    <span style={{ color: characterColors.get(socialMessage.to) }}>{linkedMessage ? socialDirectMessageParty(linkedMessage, 'to', appCharacters, showProfileNames) : socialMessage.to}</span>
                                   </>}
                                 </strong>
                                 <span><AccountLinkText text={text} bindings={linkedMessage?.accountLinks} /></span>
@@ -1646,7 +1655,7 @@ export function ChatConversationPanel({
               likeCount: 0,
               commentCount: 0,
             };
-            const authorCharacter = socialCharacterForPost(socialPost, storyCharacters);
+            const authorCharacter = socialCharacterForPost(socialPost, appCharacters);
             const authorColor = authorCharacter
               ? characterColors.get(authorCharacter.name)
               : undefined;
@@ -1655,6 +1664,7 @@ export function ChatConversationPanel({
                 {dayLabel && <div className="rp-day-divider chat-day-divider"><span>{dayLabel}</span></div>}
                 <SocialPostCard
                   post={socialPost}
+                  showProfileNames={showProfileNames}
                   imageDataUrl={socialPost.imageId
                     ? socialImageById(socialPost.imageId, socialPost.authorAccountId ?? socialPost.authorCharacterId)?.dataUrl
                     : undefined}

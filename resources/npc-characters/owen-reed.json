@@ -25,15 +25,19 @@
       "whatsup": {
         "accountId": "character:owen_reed:whatsup",
         "enabled": true,
-        "username": "Owen Reed",
-        "displayName": "Owen Reed",
+        "legacyHandles": [
+          "Owen Reed"
+        ],
         "bio": ""
       },
       "fotogram": {
         "accountId": "character:owen_reed:fotogram",
         "enabled": true,
-        "username": "owenreed",
-        "displayName": "Owen Reed",
+        "profileName": "owenreed",
+        "legacyHandles": [
+          "owenreed",
+          "Owen Reed"
+        ],
         "bio": "Owen Reed shares food and neighborhood finds, everyday moments and personal recommendations.",
         "initialPosts": [
           {

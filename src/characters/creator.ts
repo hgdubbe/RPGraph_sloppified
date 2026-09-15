@@ -1,4 +1,4 @@
-import { characterPayload, validateCharacterContainer, validateCharacterPayload, type CharacterApps } from './character';
+import { characterPayload, validateCharacterContainer, validateCharacterPayload, migratedProfileName, type CharacterApps } from './character';
 import formatVersions from '../storybook/formatVersions.json';
 
 /** Shared public serialization boundary for authored containers and UI exports. */
@@ -30,8 +30,9 @@ export function createAuthoredCharacter(specification: CharacterSpecification, n
   const apps: CharacterApps = {};
   for (const [app, account] of Object.entries(source.apps ?? {})) {
     apps[app as keyof CharacterApps] = {
-      enabled: true, username: '', displayName: source.name, bio: '',
-      ...account, accountId: account.accountId ?? `character:${id}:${app}`,
+      enabled: true, bio: '',
+      ...account,
+      ...(app !== 'whatsup' ? { profileName: migratedProfileName(account, source.name, account.profile?.name ?? '') } : {}), accountId: account.accountId ?? `character:${id}:${app}`,
     };
   }
   const character = { description: '', personality: '', speechStyle: '', role: '', playable: false,

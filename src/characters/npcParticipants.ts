@@ -1,3 +1,4 @@
+import { accountHandle, characterPayload } from './character';
 import { validateCharacterPayload, type Character } from './character';
 import {
   buildCharacterRegistry, registryAccounts,
@@ -47,7 +48,8 @@ export function parseNpcParticipantSnapshots(value: unknown): NpcParticipantSnap
       throw new Error('Invalid saved NPC participant aliases.');
     }
   }
-  return structuredClone(value) as NpcParticipantSnapshots;
+  return Object.fromEntries(Object.entries(structuredClone(value) as NpcParticipantSnapshots)
+    .map(([id, snapshot]) => [id, { ...snapshot, character: { ...snapshot.character, apps: characterPayload(snapshot.character).apps } }]));
 }
 
 export function npcSnapshotEntries(snapshots: NpcParticipantSnapshots): CharacterRegistryEntry[] {
@@ -83,7 +85,7 @@ function referencedParticipant(registry: EffectiveCharacterRegistry, reference: 
     const aliases = accounts.filter((entry) => entry.character.aliases.accountIds?.[reference.app]?.includes(reference.id));
     const handle = reference.id.trim().replace(/^@/, '').toLowerCase();
     const matches = exact.length ? exact : aliases.length ? aliases : reference.canonical ? [] :
-      accounts.filter((entry) => !!handle && entry.account.username.trim().replace(/^@/, '').toLowerCase() === handle);
+      accounts.filter((entry) => !!handle && accountHandle(entry.account).trim().replace(/^@/, '').toLowerCase() === handle);
     return matches.length === 1 ? matches[0].character : undefined;
   }
   let id = reference.id;
@@ -113,7 +115,7 @@ export function captureNpcParticipants(
     if (!entry || entry.provenance.tier === 'storybook' || captured.has(entry.character.id)) return;
     validateCharacterPayload(entry.character);
     captured.add(entry.character.id);
-    additions.push([entry.character.id, structuredClone({ character: entry.character,
+    additions.push([entry.character.id, structuredClone({ character: { ...entry.character, apps: characterPayload(entry.character).apps },
       source: entry.provenance.source, aliases: entry.aliases })]);
   };
   references.forEach((reference) => capture(referencedParticipant(registry, reference)));

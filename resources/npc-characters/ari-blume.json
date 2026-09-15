@@ -35,16 +35,20 @@
       "whatsup": {
         "accountId": "character:ari_blume:whatsup",
         "enabled": true,
-        "username": "Ari Blume",
-        "displayName": "Ari Blume",
+        "legacyHandles": [
+          "Ari Blume"
+        ],
         "bio": "",
         "avatarImageId": "ari_blume:image:market-portrait"
       },
       "fotogram": {
         "accountId": "character:ari_blume:fotogram",
         "enabled": true,
-        "username": "ariblume",
-        "displayName": "Ari Blume",
+        "profileName": "ariblume",
+        "legacyHandles": [
+          "ariblume",
+          "Ari Blume"
+        ],
         "bio": "Ari Blume shares music and live events, everyday moments and personal recommendations.",
         "avatarImageId": "ari_blume:image:market-portrait",
         "initialPosts": [

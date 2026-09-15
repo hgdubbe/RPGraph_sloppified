@@ -19,7 +19,7 @@ export function datingSeekingOrder(gender?: DatingGender): DatingGender[] {
 
 /** Gallery references keep profile media in the existing Storybook image pipeline. */
 export type DatingProfile = {
-  /** Runtime projection of the canonical MatchMe username. */
+  /** Legacy import field only; canonical accounts use profileName. */
   username?: string;
   name: string;
   age: number;

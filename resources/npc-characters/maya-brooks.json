@@ -25,15 +25,19 @@
       "whatsup": {
         "accountId": "character:maya_brooks:whatsup",
         "enabled": true,
-        "username": "Maya Brooks",
-        "displayName": "Maya Brooks",
+        "legacyHandles": [
+          "Maya Brooks"
+        ],
         "bio": ""
       },
       "fotogram": {
         "accountId": "character:maya_brooks:fotogram",
         "enabled": true,
-        "username": "mayabrooks",
-        "displayName": "Maya Brooks",
+        "profileName": "mayabrooks",
+        "legacyHandles": [
+          "mayabrooks",
+          "Maya Brooks"
+        ],
         "bio": "Maya Brooks shares art and design, everyday moments and personal recommendations.",
         "initialPosts": [
           {

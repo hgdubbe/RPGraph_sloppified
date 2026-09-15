@@ -1,5 +1,7 @@
 # Character creator and demo conversion
 
+App naming uses one canonical profileName per social app; WhatsUp uses the real character name. See [App profile names](app-profile-names.md) for the current schema and legacy import rules. This supersedes older username/display-name distinctions below.
+
 Stage 6 uses `src/characters/creator.ts` for authored payloads and UI character
 exports. Both produce plain `rpgraph-character` 2.0.0 documents validated by
 `shared/character-container.cjs`. Storybook and node versions remain 3.0.0.

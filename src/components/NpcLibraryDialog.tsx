@@ -1,3 +1,4 @@
+import { migratedProfileName } from '../characters/character';
 import { characterUsageReasons } from '../characters/lifecycle';
 import type { NpcParticipantSnapshots } from '../characters/npcParticipants';
 import { Fragment, useEffect, useMemo, useRef, useState } from 'react';
@@ -123,7 +124,7 @@ function CharacterRow({ display, issues, canImport, onImport, onEdit, onRemove }
             : app === 'whatsup' ? 'Account ready' : posts ? `${posts} post${posts === 1 ? '' : 's'}` : 'No posts';
           return <div key={app} className={`npc-library-account ${enabled ? populated || app === 'whatsup' ? 'published' : 'ready' : 'inactive'}`}>
             <span className="npc-library-account-mark" aria-hidden="true">{enabled ? populated ? '✓✓' : '✓' : '—'}</span>
-            <div><strong>{label}</strong><span className="npc-library-handle">{account?.username ? `@${account.username.replace(/^@/, '')}` : '—'}</span>
+            <div><strong>{label}</strong><span className="npc-library-handle">{app === 'whatsup' ? character.name : account && migratedProfileName(account, character.name) ? `@${migratedProfileName(account, character.name)}` : '—'}</span>
               <small>{activity}</small></div>
           </div>;
         })}

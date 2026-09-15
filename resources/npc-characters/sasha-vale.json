@@ -25,15 +25,19 @@
       "whatsup": {
         "accountId": "character:sasha_vale:whatsup",
         "enabled": true,
-        "username": "Sasha Vale",
-        "displayName": "Sasha Vale",
+        "legacyHandles": [
+          "Sasha Vale"
+        ],
         "bio": ""
       },
       "fotogram": {
         "accountId": "character:sasha_vale:fotogram",
         "enabled": true,
-        "username": "sashavale",
-        "displayName": "Sasha Vale",
+        "profileName": "sashavale",
+        "legacyHandles": [
+          "sashavale",
+          "Sasha Vale"
+        ],
         "bio": "Sasha Vale shares local culture, everyday moments and personal recommendations.",
         "initialPosts": [
           {

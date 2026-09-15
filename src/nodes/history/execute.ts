@@ -92,6 +92,7 @@ function dateWithWeekday(date: string) {
 function currentOutputs(node: WorkflowNode, context: ExecuteContext): HistoryOutputs {
   return buildHistoryOutputs({
     messages: context.historyMessages,
+    characters: context.appCharacters,
     fallbackOriginalHistory: context.originalHistory,
     fallbackTranslatedHistory: context.translatedHistory,
     lastTurnsCount: historyLastTurnsCount(node),
@@ -175,9 +176,9 @@ async function executeHistoryOutputs(node: WorkflowNode, context: ExecuteContext
         PreviousRpTimeOrNone: usesAutomaticStart ? '(none)' : previousDateTime,
         FallbackDate: dateWithWeekday(fallbackDate),
         OpeningSituation: openingSituationText || '(none)',
-        PreviousFiveTurns: formatChatHistory(previousMessages, false, 'iso', 'en-US') || '(none)',
-        NewTurnJson: JSON.stringify(currentTurnMessages.map(formatHistoryMessageForAnalysis)),
-        PendingMessagesJson: JSON.stringify(pendingMessages.map(formatHistoryMessageForAnalysis)),
+        PreviousFiveTurns: formatChatHistory(previousMessages, false, 'iso', 'en-US', undefined, context.appCharacters) || '(none)',
+        NewTurnJson: JSON.stringify(currentTurnMessages.map((message) => formatHistoryMessageForAnalysis(message, context.appCharacters))),
+        PendingMessagesJson: JSON.stringify(pendingMessages.map((message) => formatHistoryMessageForAnalysis(message, context.appCharacters))),
         StartModeInstructions: usesAutomaticStart
           ? [
               'First pass: establish the initial fictional RP date and time from the OPENING SITUATION and the NEW TURN.',
@@ -283,6 +284,7 @@ async function executeHistoryOutputs(node: WorkflowNode, context: ExecuteContext
       });
       outputs = buildHistoryOutputs({
         messages: patchedMessages,
+        characters: context.appCharacters,
         fallbackOriginalHistory: context.originalHistory,
         fallbackTranslatedHistory: context.translatedHistory,
         lastTurnsCount: historyLastTurnsCount(node),

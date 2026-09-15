@@ -1,3 +1,5 @@
+import { buildHistoryOutputs } from '../data-management/historyStore';
+import { socialAccountPresentation, socialCharacterForPost, socialDirectMessageDisplayText, socialDirectMessageHistoryText } from './socialMedia';
 import { describe, expect, it } from 'vitest';
 import { defaultRpStorybookCharacterBanking } from '../nodes/rp-storybook/model';
 import type { StorybookCharacter } from '../storybook/runtime';
@@ -203,5 +205,160 @@ describe('MatchMe prompt slot installation', () => {
     const before = JSON.stringify(node);
     expect(() => prepareMatchMePromptSlots([node])).toThrow('No free');
     expect(JSON.stringify(node)).toBe(before);
+  });
+});
+
+describe('MatchMe display identities', () => {
+  it.each(['matchme', 'fotogram', 'onlyfriends'] as const)(
+    'uses real character names and app-specific public names separately for %s',
+    (app) => {
+      const { owner, outgoing } = fixture();
+      const partner = character('alex', 'Alex Realname');
+      owner.name = 'Mia Realname';
+      owner.apps = { [app]: { accountId: outgoing.fromAccountId!, username: 'mia.handle',
+        enabled: true, displayName: 'Sender Profile', bio: '', profile: owner.social.plotTwist! } };
+      partner.apps = { [app]: { accountId: outgoing.toAccountId!, username: 'alex.handle',
+        enabled: true, displayName: 'Recipient Profile', bio: '', profile: partner.social.plotTwist! } };
+      owner.social.plotTwist!.name = 'Sender Profile';
+      partner.social.plotTwist!.name = 'Recipient Profile';
+      const characters = [owner, partner];
+      const direct = { ...outgoing, app, from: 'Sender Profile', to: 'Recipient Profile',
+        text: 'Keep Sender Profile and @fotogram:Alex unchanged.' };
+      const record: MessageRecord = { id: 2, role: 'user', isOpening: true,
+        originalText: socialDirectMessageHistoryText(direct),
+        translatedText: socialDirectMessageHistoryText({ ...direct, text: 'Translated Sender Profile' }),
+        socialDirectMessage: direct };
+      const before = JSON.stringify(record);
+      const senderHandle = 'Sender Profile';
+      const recipientHandle = 'Recipient Profile';
+      const parties = `Mia Realname (@${senderHandle}) to Alex Realname (@${recipientHandle})`;
+      expect(socialDirectMessageHistoryText(direct, characters)).toContain(parties);
+      expect(socialDirectMessageDisplayText(record, false, characters)).toContain(parties);
+      expect(socialDirectMessageDisplayText(record, true, characters)).toContain(parties);
+      expect(socialDirectMessageDisplayText(record, false, characters)).toContain(direct.text);
+      expect(socialDirectMessageDisplayText(record, true, characters)).toContain('Translated Sender Profile');
+      const input = socialDirectMessageInputText(direct, [], characters);
+      expect(input).toContain(`Sender: Mia Realname (@${senderHandle})`);
+      expect(input).toContain(`Recipient: Alex Realname (@${recipientHandle})`);
+      const outputs = buildHistoryOutputs({ messages: [record], characters, fallbackOriginalHistory: '',
+        fallbackTranslatedHistory: '', lastTurnsCount: 5, rpDateTimeFormat: 'iso', rpWeekdayLanguage: 'en-US' });
+      for (const history of [outputs.originalHistory, outputs.translatedHistory, outputs.lastTurnsHistory]) {
+        expect(history).toContain(parties);
+      }
+      expect(JSON.stringify(record)).toBe(before);
+      owner.apps[app]!.displayName = 'MiaLove';
+      expect(socialDirectMessageDisplayText(record, false, characters)).toContain('Mia Realname (@MiaLove)');
+      expect(socialDirectMessageDisplayText(record, true, characters)).toContain('Mia Realname (@MiaLove)');
+      expect(owner.apps[app]!.username).toBe('mia.handle');
+
+      owner.apps[app]!.displayName = '';
+      expect(socialDirectMessageHistoryText(direct, characters)).toContain(`Mia Realname to Alex Realname (@${recipientHandle})`);
+      expect(socialDirectMessageHistoryText(direct, [partner])).toContain(`Sender Profile to Alex Realname (@${recipientHandle})`);
+    },
+  );
+
+  it('resolves configured usernames for new and saved histories without changing identities or bodies', () => {
+    const { owner, outgoing, messages } = fixture();
+    owner.apps = { matchme: { accountId: datingAccountId(owner), enabled: true,
+      username: 'generated.mia', displayName: 'Mia_actual', bio: '', profile: owner.social.plotTwist! } };
+    const body = 'Keep @fotogram:Avery Hart and character:mia:matchme: "quoted"\nunchanged.';
+    const direct = { ...outgoing, text: body };
+    const legacy = `[MatchMe DM] ${direct.from} (@${direct.fromHandle}) to ${direct.to} (@${direct.toHandle}): "${body}"`;
+    const record: MessageRecord = { id: 2, role: 'user', isOpening: true, originalText: legacy,
+      translatedText: legacy.replace(body, 'Translated @fotogram:Avery Hart'), socialDirectMessage: direct };
+    const before = JSON.stringify(record);
+    expect(socialDirectMessageHistoryText(direct, [owner])).toBe(`[MatchMe DM] Mia (@Mia_actual) to Alex: "${body}"`);
+    expect(socialDirectMessageDisplayText(record, false, [owner])).toBe(socialDirectMessageHistoryText(direct, [owner]));
+    expect(socialDirectMessageDisplayText(record, true, [owner])).toBe('[MatchMe DM] Mia (@Mia_actual) to Alex: "Translated @fotogram:Avery Hart"');
+    const outputs = buildHistoryOutputs({ messages: [record], characters: [owner], fallbackOriginalHistory: '',
+      fallbackTranslatedHistory: '', lastTurnsCount: 5, rpDateTimeFormat: 'iso', rpWeekdayLanguage: 'en-US' });
+    expect(outputs.originalHistory).toContain('Mia (@Mia_actual) to Alex');
+    expect(outputs.lastTurnsHistory).toContain('Mia (@Mia_actual) to Alex');
+    expect(outputs.translatedHistory).toContain('Translated @fotogram:Avery Hart');
+    expect(outputs.translatedHistory).toContain('Mia (@Mia_actual) to Alex');
+    expect(outputs.rawHistory).toContain(direct.fromAccountId);
+    expect(JSON.stringify(record)).toBe(before);
+    const nameOnly = { ...record, originalText: `[MatchMe DM] Mia to Alex: "${body}"` };
+    expect(socialDirectMessageDisplayText(nameOnly, false, [owner])).toBe(socialDirectMessageHistoryText(direct, [owner]));
+    const reversed = { ...direct, from: direct.to, to: direct.from,
+      fromAccountId: direct.toAccountId, toAccountId: direct.fromAccountId };
+    expect(socialDirectMessageHistoryText(reversed, [owner])).toContain('Alex to Mia (@Mia_actual)');
+
+    expect(matchMeMessageAllowed(direct, matchMeState([owner], messages))).toBe(true);
+    expect(socialDirectMessageInputText(direct, messages, [owner])).toContain('Sender: Mia (@Mia_actual)');
+  });
+
+  it('uses explicit historical IDs but never names, guessed handles or ambiguous profiles', () => {
+    const { owner, outgoing } = fixture();
+    owner.apps = { matchme: { accountId: 'canonical', enabled: true, username: 'generated.mia',
+      displayName: '@real.user', bio: '', profile: owner.social.plotTwist! } };
+    owner.identityAliases = { accountIds: { matchme: [outgoing.fromAccountId!] } };
+    expect(socialDirectMessageHistoryText(outgoing, [owner])).toContain('Mia (@real.user)');
+    expect(socialDirectMessageHistoryText(outgoing, [owner, { ...owner, id: 'duplicate' }])).toContain('Mia to Alex');
+    expect(socialDirectMessageHistoryText({ ...outgoing, fromAccountId: undefined }, [owner])).toContain('Mia to Alex');
+    expect(socialDirectMessageHistoryText({ ...outgoing, fromAccountId: 'Mia' }, [owner])).toContain('Mia to Alex');
+    expect(socialDirectMessageHistoryText(outgoing, [])).toContain('Mia to Alex');
+    owner.apps.matchme!.displayName = '';
+    expect(socialDirectMessageHistoryText(outgoing, [owner])).toContain('Mia to Alex');
+  });
+
+  it.each(['fotogram', 'onlyfriends'] as const)('resolves %s profiles in old and translated histories', (app) => {
+    const { outgoing, owner } = fixture();
+    const partner = character('alex', 'Alex');
+    owner.apps = { [app]: { accountId: outgoing.fromAccountId!, username: '@configured.sender',
+      enabled: true, displayName: 'configured.sender', bio: '' } };
+    partner.apps = { [app]: { accountId: outgoing.toAccountId!, username: 'configured.recipient',
+      enabled: true, displayName: 'configured.recipient', bio: '' } };
+    const characters = [owner, partner];
+    const direct = { ...outgoing, app, fromHandle: 'stale.sender', toHandle: 'stale.recipient' };
+    const label = app === 'fotogram' ? 'Fotogram' : 'OnlyFriends';
+    const originalText = `[${label} DM] Mia (@stale.sender) to Alex (@stale.recipient): "Keep @fotogram:Alex"`;
+    const record: MessageRecord = { id: 1, role: 'user', originalText,
+      translatedText: originalText.replace('Keep', 'Translated'), socialDirectMessage: direct };
+    const before = JSON.stringify(record);
+    expect(socialDirectMessageHistoryText(direct, characters)).toContain('Mia (@configured.sender) to Alex (@configured.recipient)');
+    expect(socialDirectMessageDisplayText(record, false, characters)).toBe(
+      `[${label} DM] Mia (@configured.sender) to Alex (@configured.recipient): "Keep @fotogram:Alex"`);
+    expect(socialDirectMessageDisplayText(record, true, characters)).toContain('"Translated @fotogram:Alex"');
+    expect(socialDirectMessageInputText(direct, [], characters)).toContain('Sender: Mia (@configured.sender)');
+    const outputs = buildHistoryOutputs({ messages: [record], characters, fallbackOriginalHistory: '',
+      fallbackTranslatedHistory: '', lastTurnsCount: 5, rpDateTimeFormat: 'iso', rpWeekdayLanguage: 'en-US' });
+    for (const history of [outputs.originalHistory, outputs.translatedHistory, outputs.lastTurnsHistory]) {
+      expect(history).toContain('Mia (@configured.sender) to Alex (@configured.recipient)');
+      expect(history).not.toContain('stale.sender');
+    }
+    expect(outputs.rawHistory).toContain('stale.sender');
+
+    expect(socialDirectMessageHistoryText(direct, [])).toContain('Mia to Alex');
+    expect(socialDirectMessageHistoryText(direct, [...characters, { ...owner, id: 'duplicate' }])).toContain('Mia to Alex (@configured.recipient)');
+    expect(socialDirectMessageHistoryText({ ...direct, fromAccountId: 'missing' }, characters)).toContain('Mia to Alex');
+    expect(JSON.stringify(record)).toBe(before);
+    const authored = { ...record, originalText: 'Authored text', translatedText: 'Translation' };
+    expect(socialDirectMessageDisplayText(authored, false, characters)).toBe('Authored text');
+    expect(socialDirectMessageDisplayText(authored, true, characters)).toBe('Translation');
+  });
+});
+
+
+describe('Social app profile labels', () => {
+  it.each(['fotogram', 'onlyfriends'] as const)('refreshes %s labels without changing account routing', (app) => {
+    const owner = character('helga', 'Helga Harper');
+    owner.apps = { [app]: { accountId: 'helga-account', username: 'helga.harper',
+      displayName: 'Helga Photogram', enabled: true, bio: '' } };
+    const post = { app, postId: 'post-1', author: 'Old profile name', authorHandle: 'old.handle',
+      authorAccountId: 'helga-account', caption: 'Keep @fotogram:Helga Harper' };
+    const before = JSON.stringify(post);
+    const resolve = () => socialAccountPresentation(app, socialCharacterForPost(post, [owner]), post.author, post.authorHandle);
+    expect(resolve()).toEqual({ name: 'Helga Harper', handle: 'Helga Photogram' });
+    owner.apps[app]!.displayName = '@New Display Name';
+    expect(resolve()).toEqual({ name: 'Helga Harper', handle: 'New Display Name' });
+    expect(owner.apps[app]!.username).toBe('helga.harper');
+    expect(JSON.stringify(post)).toBe(before);
+    expect(socialCharacterForPost(post, [owner, { ...owner, id: 'duplicate' }])).toBeUndefined();
+    expect(socialCharacterForPost({ ...post, authorAccountId: 'missing' }, [owner])).toBeUndefined();
+    expect(socialCharacterForPost({ ...post, authorAccountId: undefined, authorHandle: 'helga.harper' }, [owner])).toBe(owner);
+    expect(socialCharacterForPost({ ...post, authorAccountId: undefined, author: owner.name }, [owner])).toBeUndefined();
+    expect(socialAccountPresentation(app, undefined, 'Troll872', 'troll872'))
+      .toEqual({ name: 'Troll872', handle: 'troll872' });
   });
 });

@@ -27,16 +27,20 @@
       "whatsup": {
         "accountId": "character:noah_blake:whatsup",
         "enabled": true,
-        "username": "Noah Blake",
-        "displayName": "Noah Blake",
+        "legacyHandles": [
+          "Noah Blake"
+        ],
         "bio": "",
         "avatarImageId": "noah_blake:image:terrace-dinner"
       },
       "fotogram": {
         "accountId": "character:noah_blake:fotogram",
         "enabled": true,
-        "username": "noah.citynotes",
-        "displayName": "Noah Blake",
+        "profileName": "noah.citynotes",
+        "legacyHandles": [
+          "noah.citynotes",
+          "Noah Blake"
+        ],
         "bio": "Good streets, long dinners and notes from wherever I am.",
         "avatarImageId": "noah_blake:image:terrace-dinner",
         "initialPosts": []
@@ -44,13 +48,14 @@
       "matchme": {
         "accountId": "character:noah_blake:matchme",
         "enabled": true,
-        "username": "noah.blake",
-        "displayName": "Noah Blake",
+        "profileName": "noah.blake",
+        "legacyHandles": [
+          "noah.blake",
+          "Noah Blake"
+        ],
         "bio": "Here for easy conversation, thoughtful company and a reason to order dessert. Tell me which city you would revisit tomorrow.",
         "avatarImageId": "noah_blake:image:terrace-dinner",
         "profile": {
-          "username": "noah.blake",
-          "name": "Noah Blake",
           "age": 30,
           "bio": "Here for easy conversation, thoughtful company and a reason to order dessert. Tell me which city you would revisit tomorrow.",
           "interests": "Architecture, Travel, Cooking, Long walks",

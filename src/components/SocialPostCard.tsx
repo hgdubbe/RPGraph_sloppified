@@ -4,13 +4,14 @@ import type {
   RpWeekdayLanguage,
   SocialPostRecord,
 } from '../types';
-import { socialAppNames } from '../chat/socialMedia';
+import { socialAppNames, socialAccountPresentation } from '../chat/socialMedia';
 import { formatRpDateTimeParts } from '../workflow';
 import { CharacterAvatar } from './CharacterAvatar';
 import { formatSocialCount } from './phone-social/socialPostPresentation';
 
 type SocialPostCardProps = {
   post: SocialPostRecord;
+  showProfileNames?: boolean;
   /** Resolved Gallery image of the post (posts only store the image id). */
   imageDataUrl?: string;
   authorCharacter?: StorybookCharacter;
@@ -27,6 +28,7 @@ type SocialPostCardProps = {
 
 export function SocialPostCard({
   post,
+  showProfileNames = false,
   imageDataUrl,
   authorCharacter,
   authorColor,
@@ -42,6 +44,7 @@ export function SocialPostCard({
   const timeParts = rpDateTime
     ? formatRpDateTimeParts(rpDateTime, rpDateTimeFormat, rpWeekdayLanguage)
     : undefined;
+  const identity = socialAccountPresentation(post.app, authorCharacter, post.author, post.authorHandle);
   const appName = socialAppNames[post.app];
   const authorIdentity = (
     <span className="chat-social-post-author">
@@ -53,8 +56,8 @@ export function SocialPostCard({
         style={authorColor ? { borderColor: authorColor, color: authorColor } : undefined}
       />
       <span>
-        <strong style={authorColor ? { color: authorColor } : undefined}>{post.author}</strong>
-        <small>@{post.authorHandle}</small>
+        <strong style={authorColor ? { color: authorColor } : undefined}>{identity.name}</strong>
+        {showProfileNames && identity.handle && <small>@{identity.handle}</small>}
       </span>
     </span>
   );
@@ -98,7 +101,7 @@ export function SocialPostCard({
         <>
           {authorIdentity}
           <span className="chat-social-post-caption">
-            <strong>{post.author}</strong>
+            <strong>{identity.name}</strong>
             <span>{post.caption}</span>
           </span>
         </>

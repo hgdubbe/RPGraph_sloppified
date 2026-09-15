@@ -1,3 +1,4 @@
+import { accountHandle, accountHandleMatches } from '../characters/character';
 import { matchMeState, incomingMatchMeMessage } from './matchMe';
 import { resolveDatingAccount } from './datingAccounts';
 import type { StorybookCharacter } from '../storybook/runtime';
@@ -48,7 +49,7 @@ export function resolveSocialMessageIdentity(options: {
   const byAccountId = options.characters.filter((character) => character.apps?.[app]?.accountId === identity);
   const characters = byAccountId.length ? byAccountId : options.characters.filter((character) => character.id === identity || character.sourceId === identity ||
     character.apps?.[app]?.accountId === identity || normalizedName(character.name) === normalizedName(identity) ||
-    (!!character.apps?.[app]?.displayName && normalizedName(character.apps[app]!.displayName) === normalizedName(identity)) ||
+    accountHandleMatches(character.apps?.[app], identity) ||
     storedHandle(character, app)?.toLowerCase() === key);
   const directory = buildSocialDirectory({ storyCharacters: options.characters, messages: options.messages });
   const users = byAccountId.length ? [] : directory.users.filter((user) => user.source !== 'storybook' &&
@@ -60,7 +61,7 @@ export function resolveSocialMessageIdentity(options: {
       reason: `${crossApp[0].name} has no matching ${app === 'fotogram' ? 'Fotogram' : 'OnlyFriends'} username. Use the full character name or the username in this app.` };
     if (options.allowNewNpc && key && !identity.includes(':') && !options.characters.some((entry) =>
       Object.values(entry.apps ?? {}).some((account) => account.accountId === identity ||
-        !!account.username && cleanHandle(account.username).toLowerCase() === key))) {
+        !!accountHandle(account) && cleanHandle(accountHandle(account)).toLowerCase() === key))) {
       const handle = /^[a-zA-Z0-9._-]+$/.test(cleanHandle(identity)) ? key : socialHandleForName(identity);
       // A derived handle must not silently claim an existing person's account.
       const occupied = directory.users.some((user) => user.handles[app]?.toLowerCase() === handle);

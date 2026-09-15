@@ -7,6 +7,7 @@ export type SocialDirectoryUser = {
   id: string;
   name: string;
   handles: Partial<Record<SocialAppKind, string>>;
+  profileNames?: Partial<Record<SocialAppKind, string>>;
   source: 'bundled' | 'storybook' | 'dynamic';
   characterId?: string;
   aliases?: string[];
@@ -24,7 +25,8 @@ export function socialHandleAvailable(
   const normalizedHandle = handle.trim().replace(/^@/, '');
   return !!normalizedHandle && !users.some((user) =>
     user.characterId !== characterId &&
-    socialIdentityMatches(user.handles[app] ?? '', normalizedHandle)
+    (socialIdentityMatches(user.handles[app] ?? '', normalizedHandle) ||
+      socialIdentityMatches(user.profileNames?.[app] ?? '', normalizedHandle))
   );
 }
 
@@ -215,6 +217,7 @@ function storybookSocialUsers(characters: StorybookCharacter[]): SocialDirectory
         character.apps?.onlyfriends?.accountId ?? '',
       ].flatMap((id) => id ? [id, `storybook:${id}`] : []))],
       name: character.name,
+      profileNames: { fotogram: character.apps?.fotogram?.profileName, onlyfriends: character.apps?.onlyfriends?.profileName },
       handles: {
         ...(fotogram ? { fotogram } : {}),
         ...(onlyfriends ? { onlyfriends } : {}),
@@ -397,7 +400,8 @@ export function searchSocialDirectory(
       !!user.handles[app] &&
       (
         normalizedIdentity(user.name).includes(search) ||
-        normalizedIdentity(user.handles[app] ?? '').includes(search)
+        normalizedIdentity(user.handles[app] ?? '').includes(search) ||
+        normalizedIdentity(user.profileNames?.[app] ?? '').includes(search)
       )
     )
     .sort((left, right) => {

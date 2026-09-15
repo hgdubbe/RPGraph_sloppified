@@ -27,10 +27,9 @@ describe('Character Container and Storybook V3', () => {
     expect(payload.images).toEqual(source.characters[0].images);
     expect(payload.profileImage).not.toHaveProperty('dataUrl');
     expect(payload).not.toHaveProperty('social');
-    expect(payload.apps.fotogram?.username).toBe('nova.art');
+    expect(payload.apps.fotogram?.profileName).toBe('nova.art');
     expect(payload.apps.whatsup).toMatchObject({
       accountId: 'character:nova:whatsup', enabled: true,
-      username: 'Nova', displayName: 'Nova',
     });
     expect(payload.apps.matchme?.profile?.photoIds).toEqual([image.id]);
     expect(payload.banking?.startBalance).toBe(1400);
@@ -87,7 +86,7 @@ describe('Character Container and Storybook V3', () => {
       { op: 'replace', path: '/characters/0/apps/fotogram/enabled', value: false },
     ] }), story).storybook;
     const payload = JSON.parse(rpStorybookJsonText(result)).characters[0];
-    expect(payload.apps.fotogram.username).toBe('new.handle');
+    expect(payload.apps.fotogram.profileName).toBe('new.handle');
     expect(payload.apps.fotogram.enabled).toBe(false);
   });
 

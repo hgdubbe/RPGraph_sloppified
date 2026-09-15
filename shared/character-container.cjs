@@ -117,9 +117,19 @@ function validateCharacterPayload(value) {
     if (!appNames.includes(app)) throw new Error(`Unknown character app: ${app}`);
     const account = record(raw);
     if (!nonEmptyString(account.accountId) || accountIds.has(account.accountId) ||
-        typeof account.enabled !== 'boolean' || typeof account.username !== 'string' ||
-        typeof account.displayName !== 'string' || typeof account.bio !== 'string') {
+        typeof account.enabled !== 'boolean' ||
+        (app !== 'whatsup' && typeof account.profileName !== 'string' &&
+          !(typeof account.username === 'string' && typeof account.displayName === 'string')) ||
+        typeof account.bio !== 'string') {
       throw new Error('App accounts require stable IDs, profile strings and an enabled flag.');
+    }
+    if (account.profileName !== undefined && (typeof account.profileName !== 'string' ||
+        account.profileName.length > 60 || (account.enabled && app !== 'whatsup' && !account.profileName.trim()))) {
+      throw new Error('App profile names require 1–60 characters.');
+    }
+    if (account.legacyHandles !== undefined && (!Array.isArray(account.legacyHandles) ||
+        account.legacyHandles.some((alias) => typeof alias !== 'string' || !alias.trim()))) {
+      throw new Error('Historical account handles must be non-empty strings.');
     }
     accountIds.add(account.accountId);
     if (account.avatarImageId !== undefined) requireImage(account.avatarImageId);
@@ -136,7 +146,7 @@ function validateCharacterPayload(value) {
       if (post.imageId !== undefined) requireImage(post.imageId);
     }
     if (app === 'matchme' && account.profile !== undefined) {
-      validateDatingProfile(account.profile, requireImage, account.enabled === false);
+      validateDatingProfile({ ...account.profile, name: account.profileName ?? account.profile.name }, requireImage, account.enabled === false);
     }
   }
   return character;

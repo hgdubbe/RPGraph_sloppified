@@ -18,6 +18,7 @@ import {
   type FormEvent,
   useCallback,
   useEffect,
+  useEffectEvent,
   useMemo,
   useRef,
   useState,
@@ -424,6 +425,7 @@ function lastMessageNodeText(
   includeRpDateTime: boolean | undefined,
   rpDateTimeFormat: RpDateTimeFormat,
   rpWeekdayLanguage: RpWeekdayLanguage,
+  characters: StorybookCharacter[],
 ) {
   if (!message) {
     return '';
@@ -434,6 +436,7 @@ function lastMessageNodeText(
     rpDateTimeFormat,
     rpWeekdayLanguage,
     includeRpDateTime ?? false,
+    characters,
   );
 }
 
@@ -1880,6 +1883,8 @@ function App() {
     );
   }, [activeTokenEstimateBytesPerToken, setNodes]);
 
+  const historyAppCharacters = useEffectEvent(() => npcParticipants.characters());
+
   useEffect(() => {
     // Streaming updates the live output message repeatedly. Rebuilding all
     // history strings for every partial chunk creates extreme allocation
@@ -1889,18 +1894,23 @@ function App() {
     if (isRunning) {
       return;
     }
+    const characters = historyAppCharacters();
     const rawHistory = JSON.stringify(messages, null, 2);
     const originalHistory = formatChatHistory(
       messages,
       false,
       rpDateTimeFormat,
       rpWeekdayLanguage,
+      undefined,
+      characters,
     );
     const translatedHistory = formatChatHistory(
       messages,
       true,
       rpDateTimeFormat,
       rpWeekdayLanguage,
+      undefined,
+      characters,
     );
     const latestHistoryMessage = [...messages].reverse().find(
       (message) =>
@@ -1947,6 +1957,7 @@ function App() {
                     node.data.includeRpDateTime,
                     rpDateTimeFormat,
                     rpWeekdayLanguage,
+                    characters,
                   ),
                 },
               }
@@ -1961,6 +1972,7 @@ function App() {
                     node.data.includeRpDateTime,
                     rpDateTimeFormat,
                     rpWeekdayLanguage,
+                    characters,
                   ),
                 },
               }
@@ -3012,8 +3024,8 @@ function App() {
         position: node.position,
         createId: (prefix) => `${prefix}-${uniqueId()}`,
         readNodes: () => nodesRef.current,
-        originalHistory: formatChatHistory(messages, false, rpDateTimeFormat, rpWeekdayLanguage),
-        translatedHistory: formatChatHistory(messages, true, rpDateTimeFormat, rpWeekdayLanguage),
+        originalHistory: formatChatHistory(messages, false, rpDateTimeFormat, rpWeekdayLanguage, undefined, npcParticipants.characters()),
+        translatedHistory: formatChatHistory(messages, true, rpDateTimeFormat, rpWeekdayLanguage, undefined, npcParticipants.characters()),
       },
       hydrateContext: {
         defaultConnectionId,
@@ -5588,6 +5600,7 @@ function App() {
           <div className="chat-lockable">
           {chatPanelView === 'chat' ? (
             <ChatConversationPanel
+              appCharacters={npcParticipants.characters()}
               runtimeNodes={nodes}
               messages={messages}
               storyCharacters={storyCharacters}
@@ -5737,6 +5750,7 @@ function App() {
                 rpDateTimeFormat,
                 rpWeekdayLanguage,
                 messages,
+                npcParticipants.characters(),
               )}
               characterColors={characterColors}
               selectedPhoneContact={selectedPhoneContact}
@@ -6156,6 +6170,7 @@ function App() {
       )}
 
       <StudioDialogs
+        appCharacters={npcParticipants.characters()}
         textDialogNode={textDialogNode}
         nodes={nodeViewNodes}
         textDialogView={textDialogView}

@@ -1,3 +1,4 @@
+import { accountHandle, migratedProfileName } from '../characters/character';
 import { resolveWhatsUpRecipient } from '../characters/messageIdentity';
 import type { StorybookCharacter } from '../storybook/runtime';
 import type { MessageRecord } from '../types';
@@ -20,12 +21,12 @@ function accountLinkTargets(characters: StorybookCharacter[]) {
       try {
         const phone = resolveWhatsUpRecipient(characters, [], character.sourceId);
         return [{ token: '', app, accountId: phone.accountId, characterId: character.sourceId,
-          name: account?.displayName || character.name, username: account?.username ?? '', character }];
+          name: character.name, username: accountHandle(account) ?? '', character }];
       } catch { return []; }
     }
     if (!account?.enabled) return [];
     return [{ token: '', app, accountId: account.accountId, characterId: character.sourceId,
-      name: account.displayName || character.name, username: account.username, character }];
+      name: migratedProfileName(account) || character.name, username: accountHandle(account), character }];
   }));
 }
 
@@ -39,7 +40,8 @@ export function resolveAccountLink(app: AccountLinkApp, identity: string, charac
   }
   const canonical = characters.filter((character) => character.apps?.[app]?.accountId === identity.trim());
   const owners = canonical.length ? canonical : characters.filter((character) =>
-    [character.name, character.apps?.[app]?.displayName, character.apps?.[app]?.username,
+    [character.name, character.apps?.[app]?.profileName, accountHandle(character.apps?.[app]),
+      ...(character.apps?.[app]?.legacyHandles ?? []),
       ...(character.identityAliases?.accountIds?.[app] ?? [])].some((alias) => !!alias && key(alias) === key(identity)));
   if (owners.length !== 1) return undefined;
   const target = accountLinkTargets(owners).find((entry) => entry.app === app);
@@ -58,7 +60,7 @@ export function parseAccountLinks(text: string, characters: StorybookCharacter[]
     const app = appAliases[match[1].toLowerCase()];
     const tail = text.slice(start + match[0].length);
     const candidates = targets.filter((target) => target.app === app).flatMap((target) =>
-      [target.accountId, target.character.name, target.name, target.username,
+      [target.accountId, target.character.name, target.name, target.username, ...(target.character.apps?.[app]?.legacyHandles ?? []),
         ...(target.character.identityAliases?.accountIds?.[app] ?? [])]);
     const bound = bindings?.filter((link) => link.app === app && text.startsWith(link.token, start))
       .sort((a, b) => b.token.length - a.token.length)[0];

@@ -27,16 +27,20 @@
       "whatsup": {
         "accountId": "character:eli_ward:whatsup",
         "enabled": true,
-        "username": "Eli Ward",
-        "displayName": "Eli Ward",
+        "legacyHandles": [
+          "Eli Ward"
+        ],
         "bio": "",
         "avatarImageId": "eli_ward:image:mirror-before-class"
       },
       "fotogram": {
         "accountId": "character:eli_ward:fotogram",
         "enabled": true,
-        "username": "eli.offgrid",
-        "displayName": "Eli Ward",
+        "profileName": "eli.offgrid",
+        "legacyHandles": [
+          "eli.offgrid",
+          "Eli Ward"
+        ],
         "bio": "Frames, shadows, side streets and songs without skips.",
         "avatarImageId": "eli_ward:image:mirror-before-class",
         "initialPosts": []
@@ -44,13 +48,14 @@
       "matchme": {
         "accountId": "character:eli_ward:matchme",
         "enabled": true,
-        "username": "eli.ward",
-        "displayName": "Eli Ward",
+        "profileName": "eli.ward",
+        "legacyHandles": [
+          "eli.ward",
+          "Eli Ward"
+        ],
         "bio": "Quiet until the conversation gets interesting. Show me your favorite overlooked place in the city and I will show you mine.",
         "avatarImageId": "eli_ward:image:mirror-before-class",
         "profile": {
-          "username": "eli.ward",
-          "name": "Eli Ward",
           "age": 24,
           "bio": "Quiet until the conversation gets interesting. Show me your favorite overlooked place in the city and I will show you mine.",
           "interests": "Photography, Streetwear, Indie music, Night walks",

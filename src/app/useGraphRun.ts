@@ -1,3 +1,4 @@
+import { accountHandle } from '../characters/character';
 import { postsWithInitialContent } from '../characters/publications';
 import { resolveWhatsUpMessageParticipants } from '../characters/messageIdentity';
 import { matchMeState, matchMeMessageAllowed, incomingMatchMeMessage } from '../chat/matchMe';
@@ -808,12 +809,16 @@ export function useGraphRun(options: UseGraphRunOptions) {
       false,
       rpDateTimeFormat,
       rpWeekdayLanguage,
+      undefined,
+      appCharacters(),
     );
     const translatedHistory = formatChatHistory(
       historyMessages,
       true,
       rpDateTimeFormat,
       rpWeekdayLanguage,
+      undefined,
+      appCharacters(),
     );
     const turnModeOverrideValue = turnModeOverride;
     const shouldAppendInputMessage =
@@ -1294,8 +1299,8 @@ export function useGraphRun(options: UseGraphRunOptions) {
     const availableSocialAccounts = socialCatalogApp
       ? appCharacters().flatMap((character) => {
           const account = character.apps?.[socialCatalogApp];
-          return account?.enabled && account.username.trim()
-            ? [`- ${character.name} (@${account.username.replace(/^@/, '')})`]
+          return account?.enabled && accountHandle(account).trim()
+            ? [`- ${character.name} (@${accountHandle(account).replace(/^@/, '')})`]
             : [];
         })
       : [];
@@ -2961,12 +2966,16 @@ export function useGraphRun(options: UseGraphRunOptions) {
         false,
         rpDateTimeFormat,
         rpWeekdayLanguage,
+        undefined,
+        appCharacters(),
       );
       const completedTranslatedHistory = formatChatHistory(
         completedHistoryMessages,
         true,
         rpDateTimeFormat,
         rpWeekdayLanguage,
+        undefined,
+        appCharacters(),
       );
       if (!directActionOnly) {
         tracePhase = 'prepare-next-turn';
@@ -2988,6 +2997,7 @@ export function useGraphRun(options: UseGraphRunOptions) {
           originalHistory: completedOriginalHistory,
           translatedHistory: completedTranslatedHistory,
           historyMessages: completedHistoryMessages,
+          appCharacters: appCharacters(),
           recentTurns,
           currentTurnId: collectedTurn?.turnId,
           updateHistoryMessageTimes,

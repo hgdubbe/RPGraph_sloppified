@@ -42,20 +42,21 @@ describe('bundled authored MatchMe characters', () => {
 
       const fotogram = character.apps?.fotogram;
       const matchme = character.apps?.matchme;
-      expect(fotogram).toMatchObject({ enabled: true, displayName: character.name });
-      expect(matchme).toMatchObject({ enabled: true, displayName: character.name });
-      expect(fotogram?.username).toBe(expected.fotogram);
-      expect(matchme?.username).toBe(expected.matchme);
-      expect(matchme?.profile).toMatchObject({ name: expected.name, username: expected.matchme });
+      expect(fotogram).toMatchObject({ enabled: true, profileName: expect.any(String) });
+      expect(matchme).toMatchObject({ enabled: true, profileName: expect.any(String) });
+      expect(fotogram?.profileName).toBe(expected.fotogram);
+      expect(matchme?.profileName).toBe(expected.matchme);
+      expect(matchme?.profile).not.toHaveProperty('name');
+      expect(matchme?.profile).not.toHaveProperty('username');
       expect(fotogram?.avatarImageId).toBeTruthy();
       expect(matchme?.profile?.photoIds).toHaveLength(1);
       expect(fotogram?.initialPosts).toHaveLength(['avery_hart', 'chloe_lane', 'luca_reed'].includes(character.id) ? 1 : 0);
       expect(character.hiddenAgency).toBe('');
       for (const account of [fotogram!, matchme!]) {
         expect(accountIds.has(account.accountId)).toBe(false);
-        expect(usernames.has(account.username)).toBe(false);
+        expect(usernames.has((account.profileName ?? account.username ?? ''))).toBe(false);
         accountIds.add(account.accountId);
-        usernames.add(account.username);
+        usernames.add((account.profileName ?? account.username ?? ''));
       }
     }
   });
@@ -68,7 +69,7 @@ it('provides Eli Ward with a stable authored WhatsUp account', async () => {
   const registry = buildCharacterRegistry([entry]);
   const characters = appCharactersFromRegistry(registry);
   const context = recipientCharacterContext(characters[0]);
-  expect(context).toContain('WhatsUp\nUsername: @Eli Ward');
+  expect(context).toContain('WhatsUp\nProfile photo');
   expect(context).toContain('No account: OnlyFriends');
   expect(resolveRegistryAccount(registry, 'whatsup', 'Eli Ward').status).toBe('found');
   expect(resolveWhatsUpRecipient(characters, [], 'Eli Ward').accountId).toBe('character:eli_ward:whatsup');

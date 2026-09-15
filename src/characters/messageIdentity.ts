@@ -1,3 +1,4 @@
+import { accountHandleMatches } from './character';
 import type { StorybookCharacter } from '../storybook/runtime';
 import type { MessageRecord } from '../types';
 
@@ -18,8 +19,7 @@ export function resolveWhatsUpRecipient(characters: StorybookCharacter[], messag
     character.identityAliases?.accountIds?.whatsup?.includes(identity));
   const identityCharacters = canonical.length ? canonical : stable.length ? stable : characters.filter((character) =>
     key(character.name) === key(identity) ||
-    (!!character.apps?.whatsup?.displayName && key(character.apps.whatsup.displayName) === key(identity)) ||
-    (!!character.apps?.whatsup?.username && key(character.apps.whatsup.username) === key(identity)));
+    accountHandleMatches(character.apps?.whatsup, identity));
   if (identityCharacters.length > 1) {
     throw new Error(`Ambiguous WhatsUp recipient "${identity}". Use a unique account ID.`);
   }
@@ -54,7 +54,7 @@ export function resolveWhatsUpRecipient(characters: StorybookCharacter[], messag
     return { name: contact.name, accountId: contact.accountId };
   }
   if (distinct.size > 1) throw new Error(`Ambiguous WhatsUp recipient "${identity}". Use a unique account ID.`);
-  throw new Error(`Unknown WhatsUp recipient "${identity}". Use an existing full character name or WhatsUp username.`);
+  throw new Error(`Unknown WhatsUp recipient "${identity}". Use an existing full character name or account ID.`);
 }
 
 /** Resolve both endpoints before a phone message can create any side effect. */

@@ -25,15 +25,19 @@
       "whatsup": {
         "accountId": "character:lena_ford:whatsup",
         "enabled": true,
-        "username": "Lena Ford",
-        "displayName": "Lena Ford",
+        "legacyHandles": [
+          "Lena Ford"
+        ],
         "bio": ""
       },
       "fotogram": {
         "accountId": "character:lena_ford:fotogram",
         "enabled": true,
-        "username": "lenaford",
-        "displayName": "Lena Ford",
+        "profileName": "lenaford",
+        "legacyHandles": [
+          "lenaford",
+          "Lena Ford"
+        ],
         "bio": "Lena Ford shares music and live events, everyday moments and personal recommendations.",
         "initialPosts": [
           {

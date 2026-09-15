@@ -25,15 +25,19 @@
       "whatsup": {
         "accountId": "character:kit_harlow:whatsup",
         "enabled": true,
-        "username": "Kit Harlow",
-        "displayName": "Kit Harlow",
+        "legacyHandles": [
+          "Kit Harlow"
+        ],
         "bio": ""
       },
       "fotogram": {
         "accountId": "character:kit_harlow:fotogram",
         "enabled": true,
-        "username": "kitharlow",
-        "displayName": "Kit Harlow",
+        "profileName": "kitharlow",
+        "legacyHandles": [
+          "kitharlow",
+          "Kit Harlow"
+        ],
         "bio": "Kit Harlow shares food and neighborhood finds, everyday moments and personal recommendations.",
         "initialPosts": [
           {

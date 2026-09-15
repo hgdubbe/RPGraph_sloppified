@@ -1,3 +1,5 @@
+import { socialDirectMessageDisplayText } from '../chat/socialMedia';
+import type { StorybookCharacter } from '../storybook/runtime';
 import type {
   ChatDialogueQuote,
   MessageRecord,
@@ -112,11 +114,11 @@ function phoneImageContext(message: MessageRecord) {
 function phoneMessagePrefix(message: MessageRecord, from: string, to: string) {
   const imageCount = phoneImageIds(message).length;
   if (imageCount > 1) {
-    return `${from} sends images to ${to}:`;
+    return `[WhatsUp] ${from} sends images to ${to}:`;
   }
   return imageCount === 1
-    ? `${from} sends an image to ${to}:`
-    : `${from} texts ${to}:`;
+    ? `[WhatsUp] ${from} sends an image to ${to}:`
+    : `[WhatsUp] ${from} texts ${to}:`;
 }
 
 function formatMessageRecordForContext(
@@ -149,7 +151,7 @@ function formatMessageRecordForContext(
       ? linkedPhoneMessages.get(contextMessage.replyToMessageId)
       : undefined;
     const formatted = replyTo
-      ? formatPhoneReplyInput(phoneMessage.from, replyTo, text, translated)
+      ? `[WhatsUp] ${formatPhoneReplyInput(phoneMessage.from, replyTo, text, translated)}`
       : `${phoneMessagePrefix(contextMessage, phoneMessage.from, phoneMessage.to)} ${phoneImageContext(contextMessage)}${text}`;
     return includeRpDateTime
       ? withRpDateTime(
@@ -172,7 +174,7 @@ function formatMessageRecordForContext(
       : undefined;
     if (replyTo) {
       return withPhoneAppCommandHistory(
-        withOptionalRpDateTime(formatPhoneReplyInput(from, replyTo, text, translated)),
+        withOptionalRpDateTime(`[WhatsUp] ${formatPhoneReplyInput(from, replyTo, text, translated)}`),
         message,
       );
     }
@@ -247,10 +249,9 @@ export function formatLastMessageForContext(
   rpDateTimeFormat?: RpDateTimeFormat,
   rpWeekdayLanguage?: RpWeekdayLanguage,
   includeRpDateTime = false,
+  characters: StorybookCharacter[] = [],
 ) {
-  const text = translated
-    ? message.translatedText ?? message.originalText
-    : message.originalText;
+  const text = socialDirectMessageDisplayText(message, translated, characters);
   const withOptionalRpDateTime = (value: string) =>
     includeRpDateTime
       ? withRpDateTime(value, message.rpDateTime, rpDateTimeFormat, rpWeekdayLanguage)
@@ -504,6 +505,7 @@ export function formatChatHistory(
   rpDateTimeFormat?: RpDateTimeFormat,
   rpWeekdayLanguage?: RpWeekdayLanguage,
   linkedMessages: MessageRecord[] = messages,
+  characters: StorybookCharacter[] = [],
 ) {
   return formatChatHistorySegments(
     messages,
@@ -511,6 +513,7 @@ export function formatChatHistory(
     rpDateTimeFormat,
     rpWeekdayLanguage,
     linkedMessages,
+    characters,
   )
     .map((segment) => segment.text)
     .join('\n\n');
@@ -581,7 +584,13 @@ export function formatChatHistorySegments(
   rpDateTimeFormat?: RpDateTimeFormat,
   rpWeekdayLanguage?: RpWeekdayLanguage,
   linkedMessages: MessageRecord[] = messages,
+  characters: StorybookCharacter[] = [],
 ): FormattedChatHistorySegment[] {
+  messages = messages.map((message) => message.socialDirectMessage
+    ? { ...message,
+        originalText: socialDirectMessageDisplayText(message, false, characters),
+        translatedText: message.translatedText === undefined ? undefined : socialDirectMessageDisplayText(message, true, characters) }
+    : message);
   const isIncludedHistoryMessage = (message: MessageRecord) =>
     message.includeInHistory !== false &&
     !isAutoTurnHistoryMarker(message) &&

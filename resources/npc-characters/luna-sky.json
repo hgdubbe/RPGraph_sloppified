@@ -25,15 +25,19 @@
       "whatsup": {
         "accountId": "character:luna_sky:whatsup",
         "enabled": true,
-        "username": "Luna Sky",
-        "displayName": "Luna Sky",
+        "legacyHandles": [
+          "Luna Sky"
+        ],
         "bio": ""
       },
       "fotogram": {
         "accountId": "character:luna_sky:fotogram",
         "enabled": true,
-        "username": "luna.sky",
-        "displayName": "Luna Sky",
+        "profileName": "luna.sky",
+        "legacyHandles": [
+          "luna.sky",
+          "Luna Sky"
+        ],
         "bio": "Luna Sky shares local culture, everyday moments and personal recommendations.",
         "initialPosts": [
           {

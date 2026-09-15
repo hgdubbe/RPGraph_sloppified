@@ -45,16 +45,20 @@
       "whatsup": {
         "accountId": "character:eden_moss:whatsup",
         "enabled": true,
-        "username": "Eden Moss",
-        "displayName": "Eden Moss",
+        "legacyHandles": [
+          "Eden Moss"
+        ],
         "bio": "",
         "avatarImageId": "eden_moss:image:pasta-kitchen-portrait"
       },
       "fotogram": {
         "accountId": "character:eden_moss:fotogram",
         "enabled": true,
-        "username": "edenmoss",
-        "displayName": "Eden Moss",
+        "profileName": "edenmoss",
+        "legacyHandles": [
+          "edenmoss",
+          "Eden Moss"
+        ],
         "bio": "Eden Moss shares local culture, everyday moments and personal recommendations.",
         "avatarImageId": "eden_moss:image:pasta-kitchen-portrait",
         "initialPosts": [
@@ -73,13 +77,14 @@
       "matchme": {
         "accountId": "character:eden_moss:matchme",
         "enabled": true,
-        "username": "eden.moss",
-        "displayName": "Eden Moss",
+        "profileName": "eden.moss",
+        "legacyHandles": [
+          "eden.moss",
+          "Eden Moss"
+        ],
         "bio": "Eden Moss shares local culture, everyday moments and personal recommendations.",
         "avatarImageId": "eden_moss:image:pasta-kitchen-portrait",
         "profile": {
-          "username": "eden.moss",
-          "name": "Eden Moss",
           "age": 26,
           "bio": "Eden Moss shares local culture, everyday moments and personal recommendations.",
           "interests": "",

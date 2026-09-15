@@ -37,16 +37,20 @@
       "whatsup": {
         "accountId": "character:chloe_lane:whatsup",
         "enabled": true,
-        "username": "Chloe Lane",
-        "displayName": "Chloe Lane",
+        "legacyHandles": [
+          "Chloe Lane"
+        ],
         "bio": "",
         "avatarImageId": "chloe_lane:image:music-night"
       },
       "fotogram": {
         "accountId": "character:chloe_lane:fotogram",
         "enabled": true,
-        "username": "chloe.onrepeat",
-        "displayName": "Chloe Lane",
+        "profileName": "chloe.onrepeat",
+        "legacyHandles": [
+          "chloe.onrepeat",
+          "Chloe Lane"
+        ],
         "bio": "Small stages, loud choruses and very slow Sundays.",
         "avatarImageId": "chloe_lane:image:music-night",
         "initialPosts": [
@@ -60,13 +64,14 @@
       "matchme": {
         "accountId": "character:chloe_lane:matchme",
         "enabled": true,
-        "username": "chloe.lane",
-        "displayName": "Chloe Lane",
+        "profileName": "chloe.lane",
+        "legacyHandles": [
+          "chloe.lane",
+          "Chloe Lane"
+        ],
         "bio": "I will pick the concert if you pick the late-night food. Bonus points for dancing without pretending to be good at it.",
         "avatarImageId": "chloe_lane:image:music-night",
         "profile": {
-          "username": "chloe.lane",
-          "name": "Chloe Lane",
           "age": 24,
           "bio": "I will pick the concert if you pick the late-night food. Bonus points for dancing without pretending to be good at it.",
           "interests": "Live music, Dancing, Brunch, Nightlife",

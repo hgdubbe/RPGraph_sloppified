@@ -109,7 +109,12 @@ describe('assistant app profile lifecycle', () => {
       { op: 'replace', path: '/characters/0/apps/onlyfriends/bio', value: '' },
     ], created).storybook;
     expect(edited.characters[0].name).toBe(starterRpStorybook.characters[0].name);
-    expect(edited.characters[0].apps?.onlyfriends).toEqual({ ...account('onlyfriends'), displayName: 'New display', bio: '' });
+    expect(edited.characters[0].apps?.onlyfriends).toMatchObject({
+      accountId: account('onlyfriends').accountId, enabled: true, profileName: 'New display', bio: '',
+      legacyHandles: expect.arrayContaining(['nova.profile', 'Nova online']),
+    });
+    expect(edited.characters[0].apps?.onlyfriends).not.toHaveProperty('username');
+    expect(edited.characters[0].apps?.onlyfriends).not.toHaveProperty('displayName');
     const deleted = apply([{ op: 'remove', path: '/characters/0/apps/onlyfriends' }], edited).storybook;
     expect(deleted.characters[0].apps?.onlyfriends).toBeUndefined();
     expect(deleted.characters[0].social?.onlyfriendsUsername).toBe('');

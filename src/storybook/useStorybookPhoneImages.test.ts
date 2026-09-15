@@ -39,12 +39,13 @@ it.each(['fotogram', 'matchme'] as const)('rejects a phone %s username taken by 
   npc.name = 'Library NPC';
   for (const [kind, account] of Object.entries(npc.apps!)) {
     account.accountId = `library-${kind}`;
-    account.username = `library.${kind}`;
+    account.profileName = `library.${kind}`;
+    account.legacyHandles = [];
   }
   library.push({ character: npc, tier: 'user', source: 'npc.json' });
-  const username = npc.apps![app]!.username;
+  const username = npc.apps![app]!.profileName!;
   const saved = app === 'fotogram' ? api.saveSocialUsername(owner, app, username) :
-    api.saveDatingProfile(owner, { ...book.characters[0].apps!.matchme!.profile!, username });
+    api.saveDatingProfile(owner, { ...book.characters[0].apps!.matchme!.profile!, name: username });
   expect(saved).toBe(false);
   expect(updateRuntimeNode).not.toHaveBeenCalled();
 });

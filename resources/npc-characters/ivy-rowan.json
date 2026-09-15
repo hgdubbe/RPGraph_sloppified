@@ -35,16 +35,20 @@
       "whatsup": {
         "accountId": "character:ivy_rowan:whatsup",
         "enabled": true,
-        "username": "Ivy Rowan",
-        "displayName": "Ivy Rowan",
+        "legacyHandles": [
+          "Ivy Rowan"
+        ],
         "bio": "",
         "avatarImageId": "ivy_rowan:image:neighborhood-cafe"
       },
       "fotogram": {
         "accountId": "character:ivy_rowan:fotogram",
         "enabled": true,
-        "username": "ivyrowan",
-        "displayName": "Ivy Rowan",
+        "profileName": "ivyrowan",
+        "legacyHandles": [
+          "ivyrowan",
+          "Ivy Rowan"
+        ],
         "bio": "Ivy Rowan shares food and neighborhood finds, everyday moments and personal recommendations.",
         "avatarImageId": "ivy_rowan:image:neighborhood-cafe",
         "initialPosts": [
@@ -58,13 +62,14 @@
       "matchme": {
         "accountId": "character:ivy_rowan:matchme",
         "enabled": true,
-        "username": "ivy.rowan",
-        "displayName": "Ivy Rowan",
+        "profileName": "ivy.rowan",
+        "legacyHandles": [
+          "ivy.rowan",
+          "Ivy Rowan"
+        ],
         "bio": "Ivy Rowan shares food and neighborhood finds, everyday moments and personal recommendations.",
         "avatarImageId": "ivy_rowan:image:neighborhood-cafe",
         "profile": {
-          "username": "ivy.rowan",
-          "name": "Ivy Rowan",
           "age": 25,
           "bio": "Ivy Rowan shares food and neighborhood finds, everyday moments and personal recommendations.",
           "interests": "",

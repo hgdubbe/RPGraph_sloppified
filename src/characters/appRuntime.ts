@@ -1,3 +1,4 @@
+import { migratedProfileName } from './character';
 import { runtimeRelationshipContext } from './relationships';
 import { portraitDataUrl } from './portrait';
 import { defaultRpStorybookCharacterBanking, defaultRpStorybookCharacterPhoneSettings } from '../nodes/rp-storybook/model';
@@ -39,8 +40,7 @@ export function appCharacterImage(characters: StorybookCharacter[], imageId: str
 export function recipientCharacterContext(character: StorybookCharacter) {
   const publicProfiles = Object.fromEntries((['whatsup', 'fotogram', 'onlyfriends', 'matchme'] as const).map((app) => {
     const account = character.apps?.[app];
-    return [app, account?.enabled ? { accountId: account.accountId, username: account.username,
-      displayName: account.displayName, bio: account.bio,
+    return [app, account?.enabled ? { accountId: account.accountId, profileName: migratedProfileName(account, character.name), bio: account.bio,
       posts: account.initialPosts?.map((post) => ({ text: post.text,
         imageDescription: character.images?.find((image) => image.id === post.imageId)?.description })),
       photos: (app === 'matchme' ? character.apps?.matchme?.profile?.photoIds ?? [] : [account.avatarImageId])
@@ -56,8 +56,7 @@ export function recipientCharacterContext(character: StorybookCharacter) {
     if (!account) { absent.push(name); return []; }
     return [
       '', name,
-      ...field('Username', account.username ? `@${account.username.replace(/^@/, '')}` : undefined),
-      ...field('Display name', account.displayName),
+      ...(app === 'whatsup' ? [] : field('Profile name', account.profileName ? `@${account.profileName}` : undefined)),
       ...field('Bio', account.bio),
       ...account.photos.flatMap((photo, index) => field(`Profile photo ${index + 1}`, photo)),
       ...(account.posts ?? []).flatMap((post, index) => [

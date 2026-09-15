@@ -57,8 +57,6 @@ describe('inline account links', () => {
       expect(character.apps?.whatsup).toMatchObject({
         accountId: `character:${character.sourceId}:whatsup`,
         enabled: true,
-        username: name,
-        displayName: name,
       });
       // Existing messages from the broken implementation persisted empty bindings.
       const links = parseAccountLinks(text, characters, []);
@@ -98,7 +96,7 @@ describe('inline account links', () => {
     }
     const duplicate = structuredClone(characters[2]); duplicate.name = 'Nova Vale';
     expect(parseAccountLinks('@fotogram:Nova Vale', [...characters, duplicate])).toEqual([]);
-    characters[2].apps!.fotogram!.displayName = 'nova.fotogram';
+    characters[2].apps!.fotogram!.profileName = 'nova.fotogram';
     expect(parseAccountLinks('@fotogram:nova.fotogram', characters)).toEqual([]);
     expect(parseAccountLinks('@fotogram:nova:fotogram', characters)).toHaveLength(1);
     characters[1].apps!.fotogram!.enabled = false;
