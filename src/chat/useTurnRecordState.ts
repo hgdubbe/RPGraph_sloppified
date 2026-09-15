@@ -42,6 +42,7 @@ export type TurnReplacement = {
 type UseTurnRecordStateOptions = {
   appCharacters: () => StorybookCharacter[];
   captureNpcMessages: (messages: MessageRecord[]) => void;
+  reconcileNpcMessages: (messages: MessageRecord[]) => void;
   nodesRef: RefObject<WorkflowNode[]>;
   setNodes: Dispatch<SetStateAction<WorkflowNode[]>>;
   workflowVariablesRef: RefObject<Record<string, string>>;
@@ -53,6 +54,7 @@ type AppendMessageInput = Omit<MessageRecord, 'id' | 'isOpening'>;
 export function useTurnRecordState({
   appCharacters,
   captureNpcMessages,
+  reconcileNpcMessages,
   nodesRef,
   setNodes,
   workflowVariablesRef,
@@ -71,6 +73,7 @@ export function useTurnRecordState({
   // state without ref writes during render.
   function setMessages(update: SetStateAction<MessageRecord[]>) {
     const next = typeof update === 'function' ? update(messagesRef.current) : update;
+    reconcileNpcMessages(next);
     messagesRef.current = next;
     setMessagesState(next);
   }
@@ -260,9 +263,11 @@ export function useTurnRecordState({
         messages: patchMessages(turn.output.messages),
       },
     }));
-    captureNpcMessages(nextTurns.flatMap((turn) => [...turn.input.messages, ...turn.output.messages]));
+    const nextMessages = patchMessages(messagesRef.current);
+    const updatedMessage = nextMessages.find((message) => message.id === messageId);
+    if (updatedMessage) captureNpcMessages([updatedMessage]);
     setTurns(nextTurns);
-    messagesRef.current = patchMessages(messagesRef.current);
+    messagesRef.current = nextMessages;
     setMessages(messagesRef.current);
   }
 
@@ -386,6 +391,9 @@ export function useTurnRecordState({
     if (!collector) {
       return undefined;
     }
+    // Regeneration keeps input records without appending them again. Their
+    // contacts must be reacquired after restoring the turn's before state.
+    captureNpcMessages([...collector.inputMessages, ...collector.outputMessages]);
     const turn: TurnRecord = {
       id: collector.turnId,
       number: collector.turnNumber,

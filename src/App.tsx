@@ -873,7 +873,7 @@ function App() {
   const [activeStorybookProtection, setActiveStorybookProtection] = useState<'plain' | 'encrypted'>('plain');
   const [flowInstance, setFlowInstance] = useState<ReactFlowInstance<WorkflowNode> | null>(null);
   const flowInstanceRef = useRef<ReactFlowInstance<WorkflowNode> | null>(null);
-  const npcParticipants = useNpcParticipants(nodesRef, npcLibrary.snapshot);
+  const npcParticipants = useNpcParticipants(nodesRef, npcLibrary.snapshot, setNodes);
   const lifecycleRunningRef = useRef(isRunning);
   useEffect(() => { lifecycleRunningRef.current = isRunning; }, [isRunning]);
   const imageInputRef = useRef<HTMLInputElement | null>(null);
@@ -904,6 +904,7 @@ function App() {
   } = useTurnRecordState({
     appCharacters: npcParticipants.characters,
     captureNpcMessages: npcParticipants.captureMessages,
+    reconcileNpcMessages: npcParticipants.reconcileMessages,
     nodesRef,
     setNodes,
     workflowVariablesRef: workflowSettingsValuesRef,
@@ -2509,6 +2510,7 @@ function App() {
       );
       commitNodes(nodesWithOpeningEvents);
     }
+    setTurnCheckpoints(npcParticipants.captureHistory(nextMessages, nextTurns, nextTurnCheckpoints));
   }
 
   function storybookOpeningHistorySignature(storybookJson?: string) {
@@ -2834,6 +2836,7 @@ function App() {
     setDisplayLanguage(sessionState.settings.displayLanguage);
     replaceWorkflowSettingsValues(sessionState.workflowVariables);
     commitNodes(loadedRuntimeNodes);
+    setTurnCheckpoints(npcParticipants.captureHistory(loadedMessages, loadedTurns, sessionState.turnCheckpoints));
     setActiveSessionFileName(fileName);
     setActiveSessionSavedTurn(latestSessionTurnNumber(session));
     activeSessionPathRef.current = filePath;
@@ -2933,6 +2936,7 @@ function App() {
       setTurnCheckpoints(openingCheckpoints);
       setTurns(openingTurns);
       setMessages(openingMessages);
+      setTurnCheckpoints(npcParticipants.captureHistory(openingMessages, openingTurns, openingCheckpoints));
       setPhoneSeenByConversation(phoneSeenStateForLoadedMessages(openingMessages));
       setBankingSeenByCharacter(
         bankingSeenStateFromMessages(storyCharactersFromNodes(loadedNodes), openingMessages),
