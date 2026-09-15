@@ -750,6 +750,7 @@
   border: 1px solid var(--storybook-line);
   border-radius: 16px;
   overflow: hidden;
+  background: rgba(9, 11, 20, 0.9);
   box-shadow: 0 10px 30px rgba(0, 0, 0, 0.28);
   color: var(--storybook-text);
   text-align: left;
@@ -768,34 +769,6 @@
   inset: 0 auto 0 0;
   width: 4px;
   background: linear-gradient(var(--storybook-violet), var(--storybook-cyan));
-}
-
-/* Ambient background copy of the character's own photo: ratio preserved
-   (not cropped/stretched), sized to half the card's width, slightly
-   blurred, at 25% opacity, fading to fully transparent as it blends into
-   the right side of the card (mask starts the fade at 66% of the image's
-   own width, reaching 0 by its right edge). */
-.storybook-overview-bg {
-  position: absolute;
-  top: 0;
-  left: 0;
-  bottom: 0;
-  width: 50%;
-  z-index: 0;
-  background-repeat: no-repeat;
-  background-position: left center;
-  background-size: contain;
-  filter: blur(1.5px);
-  opacity: 0.45;
-  -webkit-mask-image: linear-gradient(to right, black 0%, black 66%, transparent 100%);
-  mask-image: linear-gradient(to right, black 0%, black 66%, transparent 100%);
-}
-
-.storybook-overview-scrim {
-  position: absolute;
-  inset: 0;
-  z-index: 0;
-  background: linear-gradient(100deg, rgba(9, 11, 20, 0.3) 0%, rgba(9, 11, 20, 0.68) 40%, rgba(9, 11, 20, 0.9) 100%);
 }
 
 /* The clear, sharp photo on the left. Rounded explicitly on its own two

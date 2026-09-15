@@ -3549,14 +3549,6 @@ export function StorybookCreatorDialog({
                                 key={character.id}
                                 onClick={() => selectWorkbenchSection('character', character.id)}
                               >
-                                {photoUrl && (
-                                  <span
-                                    className="storybook-overview-bg"
-                                    style={{ backgroundImage: `url(${photoUrl})` }}
-                                    aria-hidden="true"
-                                  />
-                                )}
-                                <span className="storybook-overview-scrim" aria-hidden="true" />
                                 <CharacterAvatar
                                   className="storybook-overview-photo"
                                   name={character.name || character.id}
