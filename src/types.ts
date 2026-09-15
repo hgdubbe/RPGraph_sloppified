@@ -265,6 +265,8 @@ type RpStorybookFormattedTextSettings = {
   characters: boolean;
   openingHistory: boolean;
   characterImages: boolean;
+  relationships?: boolean;
+  hiddenAgency?: boolean;
 };
 
 export type SettingsValueDefinition = {

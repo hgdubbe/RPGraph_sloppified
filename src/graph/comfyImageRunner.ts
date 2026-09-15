@@ -89,6 +89,12 @@ function dataUrlMimeType(dataUrl: string) {
   return match?.[1] || 'image/png';
 }
 
+function throwIfAborted(signal?: AbortSignal) {
+  if (signal?.aborted) {
+    throw new Error('The graph run was cancelled.');
+  }
+}
+
 /**
  * Builds a `CreateComfyImageForCharacterRunner`: resolves a phone owner/LoRA character by
  * name or id, runs the actual ComfyUI generation, captions the result (if vision is
@@ -250,11 +256,13 @@ export function createComfyImageRunner(options: ComfyImageRunnerOptions): Create
       ? await activeLocalLlmConnections(request.llmConnectionId)
       : [];
     const manageModelMemory = localConnections.length > 0;
+    throwIfAborted(options.signal);
     if (manageModelMemory) {
       await unloadLocalLlmModelsBeforeComfy(warn, localConnections);
     }
 
     const generationPrompt = prompt;
+    throwIfAborted(options.signal);
     const characterLoraName = resolvedLoraCharacter?.createImage.loraName ?? '';
 
     let result: Awaited<ReturnType<typeof window.rpgraph.runComfyWorkflowPath>>;
@@ -286,6 +294,7 @@ export function createComfyImageRunner(options: ComfyImageRunnerOptions): Create
       }
     }
 
+    throwIfAborted(options.signal);
     const normalizedImages = await Promise.all(
       result.images.map((image, index) =>
         normalizeImageAttachment({
@@ -306,6 +315,7 @@ export function createComfyImageRunner(options: ComfyImageRunnerOptions): Create
       warn,
     });
 
+    throwIfAborted(options.signal);
     const storybookNodeCandidate = nodeById.get(phoneOwner.storybookNodeId);
     const storybookNode = storybookNodeCandidate && isStorybookSourceNode(storybookNodeCandidate)
       ? storybookNodeCandidate

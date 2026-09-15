@@ -115,6 +115,8 @@ declare global {
       listCharacterFiles: () => Promise<SavedFileSummary[]>;
       getNpcLibrary: () => Promise<NpcLibrarySnapshot>;
       reloadNpcLibrary: () => Promise<NpcLibrarySnapshot>;
+      setWorkspaceProtection: (password: string) => Promise<NpcLibrarySnapshot>;
+      onNpcLibraryChanged: (callback: () => void) => () => void;
       openNpcLibraryFolder: () => Promise<{ path: string }>;
       saveNamedWorkflow: (
         name: string,
@@ -163,7 +165,7 @@ declare global {
         fileName?: string;
         name?: string;
       }>;
-      loadFile: (fileName: string, password?: string, storage?: 'files' | 'characters') => Promise<{
+      loadFile: (fileName: string, password?: string, storage?: 'files' | 'characters' | 'npc-characters') => Promise<{
         fileName: string;
         name: string;
         filePath: string;
@@ -471,6 +473,7 @@ declare global {
         password: string,
         overwrite?: boolean,
       ) => Promise<{ fileName: string; name: string; filePath: string; conflict?: boolean }>;
+      detectCharacterFace: (image: { id: string; dataUrl: string }) => Promise<{ faces: number; crop?: { x: number; y: number; size: number } }>;
       saveCharacter: (
         name: string,
         characterCard: RpCharacterCard,

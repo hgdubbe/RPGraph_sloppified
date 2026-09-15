@@ -493,7 +493,7 @@ export function useGraphRun(options: UseGraphRunOptions) {
       !narratorAutoTurn &&
       messageFormatOverride !== socialMediaMessageFormat &&
       messageFormatOverride !== autoplayMessageFormat;
-    const runtimeNodes = nodesRef.current;
+    let runtimeNodes = nodesRef.current;
     const { inputNode, outputNode } = findChatEndpoints(runtimeNodes);
     if (!outputNode || !inputNode) {
       notifySystem('error', 'The graph requires exactly one User Input and one RP Output.');
@@ -576,6 +576,7 @@ export function useGraphRun(options: UseGraphRunOptions) {
         socialDirectMessage,
       );
     };
+    let stopObservingRequests: () => void = () => {};
     const finishRun = () => {
       stopObservingRequests();
       if (activeRun.current?.id !== runId) {
@@ -600,6 +601,11 @@ export function useGraphRun(options: UseGraphRunOptions) {
       retry: retryRun,
     };
     setActiveRunId(runId);
+    runStartTimeRef.current = runClockNow();
+    setRunStartTimeMs(runStartTimeRef.current);
+    runEndTimeRef.current = null;
+    setRunDurationMs(0);
+    setIsRunning(true);
     if (runLlmReport) {
       setRunHistory((prev) =>
         [{ report: runLlmReport, durationMs: runDurationMs }, ...prev].slice(0, 3),
@@ -613,11 +619,35 @@ export function useGraphRun(options: UseGraphRunOptions) {
     activeRunLlmReport.current = initialRunLlmReport;
     setRunLlmReport(initialRunLlmReport);
     activeRunCancelReason.current = 'cancel';
+    const restorePreflightInput = () => {
+      if (replacement || !shouldRestoreCancelledInput || activeRunCancelReason.current === 'restart') return;
+      if (isPhoneMessage) {
+        setPhoneDraft(displayText);
+        setPhoneDraftCommands(commandInputCommandsFromStructured(structuredInput?.commands ?? []));
+        setPhoneImages(inputImages);
+        if (phoneReplyToOverride) selectPhoneReply(phoneReplyToOverride);
+      } else {
+        setDraft(displayText);
+        setDraftCommands(commandInputCommandsFromStructured(structuredInput?.commands ?? []));
+        setDraftImages(inputImages);
+      }
+    };
     // The health check runs after the run is registered as active, so a
     // second trigger during this await cannot slip in as a parallel run.
-    const providerHealthForRun = directActionOnly
-      ? {}
-      : await checkProviderConnections(connections);
+    let providerHealthForRun: Record<string, ProviderConnectionHealth>;
+    try {
+      providerHealthForRun = directActionOnly ? {} : await checkProviderConnections(connections);
+      if (runSignal.aborted) {
+        restorePreflightInput();
+        finishRun();
+        return false;
+      }
+    } catch (error) {
+      if (!runSignal.aborted) notifySystem('error', `Provider check failed: ${error instanceof Error ? error.message : String(error)}`);
+      restorePreflightInput();
+      finishRun();
+      return false;
+    }
     const usedLlmConnectionIds = new Set(
       runtimeNodes.flatMap((node) => {
         if (node.data.kind !== undefined || !Object.prototype.hasOwnProperty.call(node.data, 'connectionId')) {
@@ -638,8 +668,8 @@ export function useGraphRun(options: UseGraphRunOptions) {
         'error',
         `Provider ${offlineLlmConnection.label} is offline${detail ? `: ${detail}` : '.'}`,
       );
-      activeRun.current = null;
-      setActiveRunId(null);
+      restorePreflightInput();
+      finishRun();
       activeRunLlmReport.current = null;
       setRunLlmReport(null);
       return false;
@@ -655,6 +685,9 @@ export function useGraphRun(options: UseGraphRunOptions) {
     };
     const runEnglishProcessing = !directActionOnly && turnContext.englishProcessingEnabled;
     const translateInputOnly = !directActionOnly && !runEnglishProcessing && !!turnContext.inputTranslationOnlyEnabled;
+    const runtimeBeforeReplacement = captureTurnRuntime(nodesRef.current, workflowSettingsValuesRef.current);
+    if (replacement) applyTurnCheckpointRuntime(replacement.turn, 'before');
+    runtimeNodes = nodesRef.current;
     let executionNodes = runtimeNodes;
     const workflowVariablesBeforeAttempt = structuredClone(workflowSettingsValuesRef.current);
     const runtimeBeforeAttempt = captureTurnRuntime(runtimeNodes, workflowVariablesBeforeAttempt);
@@ -664,8 +697,8 @@ export function useGraphRun(options: UseGraphRunOptions) {
       const timeCommandResult = applyTimeCommandsToWorkflowNodes(nodesRef.current, structuredInput.commands);
       if (timeCommandResult.error) {
         notifySystem('warning', timeCommandResult.error);
-        activeRun.current = null;
-        setActiveRunId(null);
+        if (replacement) applyTurnRuntime(runtimeBeforeReplacement);
+        finishRun();
         activeRunLlmReport.current = null;
         setRunLlmReport(null);
         return false;
@@ -759,11 +792,6 @@ export function useGraphRun(options: UseGraphRunOptions) {
     nodesRef.current = resetRunNodes;
     setNodes(resetRunNodes);
     removeReplacedMessages();
-    runStartTimeRef.current = runClockNow();
-    setRunStartTimeMs(runStartTimeRef.current);
-    runEndTimeRef.current = null;
-    setRunDurationMs(0);
-    setIsRunning(true);
     runtimeNodes
       .filter((node) =>
         node.data.kind === undefined &&
@@ -814,7 +842,7 @@ export function useGraphRun(options: UseGraphRunOptions) {
     const runTraceEvents: TurnTraceEvent[] = [];
     let tracePhase: 'response' | 'prepare-next-turn' = 'response';
     const traceRecorder = createTurnTraceRecorder((id) => nodesRef.current.find((node) => node.id === id));
-    const stopObservingRequests = nodeLlm.observeRequestsForSignal(runSignal, traceRecorder.observe('response'));
+    stopObservingRequests = nodeLlm.observeRequestsForSignal(runSignal, traceRecorder.observe('response'));
     const nodeExecutions: TurnTraceNodeExecution[] = [];
     const recordNodeExecution = (event: TurnTraceNodeExecution) => {
       nodeExecutions.push(traceRecorder.captureNodeExecution(event));
@@ -890,6 +918,7 @@ export function useGraphRun(options: UseGraphRunOptions) {
       }
     };
     const flushLiveOutput = () => {
+      if (runSignal.aborted || activeRun.current?.id !== runId) return;
       const pending = pendingLiveOutput;
       if (!pending) {
         return;
@@ -924,6 +953,7 @@ export function useGraphRun(options: UseGraphRunOptions) {
       originalText = '',
       extraFields?: Partial<MessageRecord>,
     ) => {
+      if (runSignal.aborted || activeRun.current?.id !== runId) return;
       pendingLiveOutput = { text, translated, originalText, extraFields };
       scheduleLiveOutputFlush();
     };
@@ -973,7 +1003,7 @@ export function useGraphRun(options: UseGraphRunOptions) {
         recordFailedAttempt(error, inputText);
         restoreReplacedMessages();
         if (replacement) {
-          applyTurnCheckpointRuntime(replacement.turn, 'after');
+          applyTurnRuntime(runtimeBeforeReplacement);
         } else {
           applyTurnRuntime(runtimeBeforeAttempt);
         }
@@ -1058,7 +1088,7 @@ export function useGraphRun(options: UseGraphRunOptions) {
         recordFailedAttempt(error, inputText);
         restoreReplacedMessages();
         if (replacement) {
-          applyTurnCheckpointRuntime(replacement.turn, 'after');
+          applyTurnRuntime(runtimeBeforeReplacement);
         } else {
           applyTurnRuntime(runtimeBeforeAttempt);
         }
@@ -2924,7 +2954,7 @@ export function useGraphRun(options: UseGraphRunOptions) {
       messagesRef.current = messagesRef.current.filter((entry) => !collectedIds.has(entry.id));
       setMessages(messagesRef.current);
       if (replacement) {
-        applyTurnCheckpointRuntime(replacement.turn, 'after');
+        applyTurnRuntime(runtimeBeforeReplacement);
       } else {
         applyTurnRuntime(runtimeBeforeAttempt);
         pruneStorybookExternalImagesForMessages();

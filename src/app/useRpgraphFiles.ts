@@ -65,6 +65,9 @@ type UseRpgraphFilesOptions = {
   setActiveWorkflowProtection: (protection: FileProtection) => void;
   setActiveStorybookProtection: (protection: FileProtection) => void;
   clearWorkspaceForLockedStartup: () => void;
+  onWorkspacePasswordChange?: (password: string) => Promise<unknown>;
+  workflowRequiresProtection?: () => boolean;
+  workflowFollowsStorybookProtection?: () => boolean;
 };
 
 export function workflowName(filePath: string) {
@@ -88,7 +91,25 @@ export function useRpgraphFiles({
   setActiveWorkflowProtection,
   setActiveStorybookProtection,
   clearWorkspaceForLockedStartup,
+  onWorkspacePasswordChange,
+  workflowRequiresProtection,
+  workflowFollowsStorybookProtection,
 }: UseRpgraphFilesOptions) {
+  const workspacePasswordRef = useRef('');
+  const [workspacePassword, setWorkspacePasswordState] = useState('');
+  const [encryptionRequired, setEncryptionRequired] = useState(false);
+  function setWorkspacePassword(password: string) {
+    workspacePasswordRef.current = password;
+    setWorkspacePasswordState(password);
+    setEncryptionRequired(!!password);
+    void onWorkspacePasswordChange?.(password).catch((error) => notifySystem('error', `Unable to update game protection: ${errorMessage(error)}`));
+  }
+  function checkImportedPassword(password: string) {
+    if (workspacePasswordRef.current && workspacePasswordRef.current !== password &&
+      !workflowFollowsStorybookProtection?.() && (workflowRequiresProtection?.() ?? true)) {
+      throw new Error('Use the same password as the current protected game, or open a different RP Save or workflow first.');
+    }
+  }
   const [showFiles, setShowFiles] = useState(false);
   const [turnAutosaveChoices, setTurnAutosaveChoices] = useState<LoadedRpgraphFile[]>([]);
   const [showStorybookPicker, setShowStorybookPicker] = useState(false);
@@ -105,14 +126,17 @@ export function useRpgraphFiles({
   const [activeSessionProtection, setActiveSessionProtection] = useState<FileProtection>('plain');
   const activeSessionPasswordRef = useRef('');
   const [sessionName, setSessionName] = useState('');
-  const [sessionPassword, setSessionPassword] = useState('');
+  const [sessionPasswordDraft, setSessionPassword] = useState('');
   const [sessionPasswordAction, setSessionPasswordAction] =
     useState<'save-workflow' | 'save-session' | 'save-storybook' | 'save-character' | 'load' | 'open-file' | 'load-storybook' | 'load-character' | null>(null);
-  const [fileProtection, setFileProtection] = useState<FileProtection>('plain');
+  const [fileProtectionDraft, setFileProtection] = useState<FileProtection>('plain');
+  const inheritedProtection = encryptionRequired && !!sessionPasswordAction?.startsWith('save-');
+  const fileProtection = inheritedProtection ? 'encrypted' : fileProtectionDraft;
+  const sessionPassword = inheritedProtection ? workspacePassword : sessionPasswordDraft;
   const [workflowSaveScope, setWorkflowSaveScope] = useState<WorkflowSaveScope>('workflow-storybook');
   const [sessionOverwritePending, setSessionOverwritePending] = useState(false);
   const [chooseSaveLocation, setChooseSaveLocation] = useState(false);
-  const [characterSaveLocation, setCharacterSaveLocation] = useState<CharacterSaveLocation>('characters');
+  const [characterSaveLocation, setCharacterSaveLocation] = useState<CharacterSaveLocation>('npc-characters');
   const [includeCharacterOwnPosts, setIncludeCharacterOwnPosts] = useState(true);
   const returnToFilesAfterSaveRef = useRef(false);
   const [pendingSessionFilePath, setPendingSessionFilePath] = useState<string | null>(null);
@@ -150,6 +174,20 @@ export function useRpgraphFiles({
       fileName,
     };
     activateWorkflowPath(null, fileName);
+  }
+
+  function completeStorybookReplacement(protection: FileProtection) {
+    const followsStorybook = workflowFollowsStorybookProtection?.() === true;
+    if (followsStorybook) {
+      setActiveWorkflowProtection(protection);
+      activeWorkflowResetSnapshotRef.current = null;
+    }
+    if (protection === 'plain' && (followsStorybook || workflowRequiresProtection?.() === false)) {
+      // Never restore a snapshot containing the previous protected Storybook
+      // after releasing its password.
+      activeWorkflowResetSnapshotRef.current = null;
+      setWorkspacePassword('');
+    }
   }
 
   function updateStorybookPickerForWorkflow(workflow: unknown) {
@@ -247,6 +285,7 @@ export function useRpgraphFiles({
         activateWorkflowSnapshot(workflow, result.fileName);
       }
       setActiveWorkflowProtection(fileProtection);
+      if (fileProtection === 'encrypted') setWorkspacePassword(sessionPassword);
       await refreshFiles(result.fileName);
       notifySystem('info', `Saved: ${workflowName(result.filePath)}`);
       setFileStorageStatus(
@@ -305,6 +344,7 @@ export function useRpgraphFiles({
         activateWorkflowSnapshot(workflow, result.fileName ?? name);
       }
       setActiveWorkflowProtection(fileProtection);
+      if (fileProtection === 'encrypted') setWorkspacePassword(sessionPassword);
       notifySystem('info', `Saved workflow file: ${result.fileName ?? workflowName(result.filePath ?? '')}`);
       setFileStorageStatus(`Saved workflow file: ${result.filePath}`);
       setSessionPasswordAction(null);
@@ -349,7 +389,7 @@ export function useRpgraphFiles({
     setFileProtection('plain');
     setSessionOverwritePending(false);
     setChooseSaveLocation(false);
-    setCharacterSaveLocation('characters');
+    setCharacterSaveLocation('npc-characters');
     setIncludeCharacterOwnPosts(true);
     setFileStorageStatus('');
     returnToFilesAfterSaveRef.current = returnToFilesAfterSave;
@@ -642,9 +682,9 @@ export function useRpgraphFiles({
       setActiveSessionSavedTurn(latestSessionTurnNumber(session));
       activeSessionPathRef.current = result.filePath;
       setActiveSessionProtection(fileProtection);
+      if (fileProtection === 'encrypted') setWorkspacePassword(sessionPassword);
       activeSessionPasswordRef.current = fileProtection === 'encrypted' ? sessionPassword : '';
-      activateWorkflowSnapshot(await currentWorkflowForSave(), 'embedded workflow');
-      setActiveWorkflowProtection(fileProtection);
+      activateWorkflowSnapshot(await currentWorkflowForSave(), activeWorkflowFileName ?? 'Untitled workflow');
       setSessionName(result.name);
       setSessionOverwritePending(false);
       setSessionPassword('');
@@ -684,10 +724,10 @@ export function useRpgraphFiles({
         setActiveSessionSavedTurn(latestSessionTurnNumber(session));
         activeSessionPathRef.current = result.filePath;
         setActiveSessionProtection(fileProtection);
+        if (fileProtection === 'encrypted') setWorkspacePassword(sessionPassword);
         activeSessionPasswordRef.current = fileProtection === 'encrypted' ? sessionPassword : '';
       }
-      activateWorkflowSnapshot(await currentWorkflowForSave(), 'embedded workflow');
-      setActiveWorkflowProtection(fileProtection);
+      activateWorkflowSnapshot(await currentWorkflowForSave(), activeWorkflowFileName ?? 'Untitled workflow');
       setSessionName(result.name ?? name);
       setSessionOverwritePending(false);
       setSessionPassword('');
@@ -742,6 +782,7 @@ export function useRpgraphFiles({
       });
       setStorybookNameDraft(result.name);
       setActiveStorybookProtection(fileProtection);
+      if (fileProtection === 'encrypted') setWorkspacePassword(sessionPassword);
       setSessionOverwritePending(false);
       setSessionPassword('');
       await refreshFiles(result.fileName);
@@ -784,6 +825,7 @@ export function useRpgraphFiles({
       });
       setStorybookNameDraft(result.name ?? name);
       setActiveStorybookProtection(fileProtection);
+      if (fileProtection === 'encrypted') setWorkspacePassword(sessionPassword);
       setSessionOverwritePending(false);
       setSessionPassword('');
       setFileStorageStatus(`Saved storybook file: ${result.filePath}`);
@@ -821,6 +863,7 @@ export function useRpgraphFiles({
       setFileStorageStatus('Unlocking storybook ...');
       updateRuntimeNode(pending.nodeId, { storybookStatus: `Unlocking encrypted storybook: ${pending.fileName}` });
       const result = await window.rpgraph.loadFilePath(pending.filePath, sessionPassword);
+      checkImportedPassword(sessionPassword);
       if (result.type !== 'storybook') {
         throw new Error('The selected file is not an RP Storybook.');
       }
@@ -837,6 +880,7 @@ export function useRpgraphFiles({
         return;
       }
       setActiveStorybookProtection('encrypted');
+      setWorkspacePassword(sessionPassword);
       await refreshFiles(result.fileName);
       setPendingStorybookLoad(null);
       setPendingSessionFilePath(null);
@@ -882,8 +926,8 @@ export function useRpgraphFiles({
       requestSaveSession();
       return;
     }
-    const protection = activeSessionProtection;
-    const password = activeSessionPasswordRef.current;
+    const protection = workspacePasswordRef.current ? 'encrypted' : activeSessionProtection;
+    const password = workspacePasswordRef.current || activeSessionPasswordRef.current;
     if (protection === 'encrypted' && !password) {
       notifySystem('error', 'Save RP failed: the password is no longer available in memory.');
       return;
@@ -897,9 +941,10 @@ export function useRpgraphFiles({
         protection,
         password,
       );
+      setActiveSessionProtection(protection);
+      activeSessionPasswordRef.current = password;
       setActiveSessionSavedTurn(latestSessionTurnNumber(session));
-      activateWorkflowSnapshot(await currentWorkflowForSave(), 'embedded workflow');
-      setActiveWorkflowProtection(protection);
+      activateWorkflowSnapshot(await currentWorkflowForSave(), activeWorkflowFileName ?? 'Untitled workflow');
       await refreshFiles(activeSessionFileName);
       notifySystem(
         'info',
@@ -1075,6 +1120,10 @@ export function useRpgraphFiles({
   }
 
   async function saveCurrentWorkflow() {
+    if (workspacePasswordRef.current) {
+      requestExportWorkflow();
+      return;
+    }
     if (!activeWorkflowPath) {
       await saveWorkflowAs();
       return;
@@ -1093,6 +1142,12 @@ export function useRpgraphFiles({
   }
 
   return {
+    workspacePasswordRef,
+    workspacePassword,
+    setWorkspacePassword,
+    completeStorybookReplacement,
+    checkImportedPassword,
+    encryptionRequired,
     showFiles,
     setShowFiles,
     turnAutosaveChoices,

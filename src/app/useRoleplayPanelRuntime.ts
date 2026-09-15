@@ -1,3 +1,4 @@
+import { hasAuthoredConnection } from '../characters/relationships';
 import { automaticAccountLinkGrants, resolveAccountLink, type AccountLinkTarget } from '../chat/accountLinks';
 import type { AccountLinkOpenRequest } from '../chat/accountLinkContext';
 import { appCharacterImage } from '../characters/appRuntime';
@@ -36,6 +37,7 @@ import { normalizePhoneName } from '../chat/phoneMessages';
 import {
   buildSocialDirectory,
   withSocialDirectoryConnectionAdded,
+  withAuthoredSocialConnections,
   withSocialConnectionAdded,
   socialConnectionIds,
   type DynamicSocialUsers,
@@ -266,7 +268,7 @@ export function useRoleplayPanelRuntime({
     }),
     [messages, savedDynamicSocialUsers, appCharacters],
   );
-  const socialConnectionsByCharacter = useMemo(() => {
+  const persistedSocialConnectionsByCharacter = useMemo(() => {
     let connections = savedSocialConnectionsByCharacter;
     for (const { owner, link } of automaticAccountLinkGrants(messages, appCharacters)) {
       if (link.app === 'matchme') continue;
@@ -276,6 +278,9 @@ export function useRoleplayPanelRuntime({
     }
     return connections;
   }, [savedSocialConnectionsByCharacter, messages, appCharacters, socialDirectory]);
+  const socialConnectionsByCharacter = useMemo(() => withAuthoredSocialConnections(
+    persistedSocialConnectionsByCharacter, appCharacters, socialDirectory.users,
+  ), [persistedSocialConnectionsByCharacter, appCharacters, socialDirectory.users]);
   const phoneCharacters = useMemo(
     () => phoneRuntimeCharactersFromMessages(appCharacters, messages,
       new Set(Object.values(socialConnectionsByCharacter).flatMap((apps) => apps.whatsup ?? []))),
@@ -295,7 +300,7 @@ export function useRoleplayPanelRuntime({
     () => Object.fromEntries(storyCharacters.map((viewer) => [
       viewer.id,
       storyCharacters.flatMap((contact) => {
-        if (viewer.id === contact.id) {
+        if (viewer.relationships !== undefined || viewer.id === contact.id) {
           return [];
         }
         if (viewer.storybookNodeId !== contact.storybookNodeId) {
@@ -328,6 +333,10 @@ export function useRoleplayPanelRuntime({
         socialUserId,
       )
     );
+  }
+  if (selectedCharacterId && selectedCharacterId !== narratorCharacterId &&
+      !playerCharacters.some((character) => character.id === selectedCharacterId)) {
+    setSelectedCharacterId(playerCharacters[0]?.id ?? narratorCharacterId);
   }
   const selectedCharacter =
     selectedCharacterId === narratorCharacterId
@@ -536,13 +545,14 @@ export function useRoleplayPanelRuntime({
     if (phoneConversationInfo.has(phoneConversationKey(viewer.name, contact.name))) {
       return true;
     }
+    if (viewer.relationships !== undefined) return hasAuthoredConnection(viewer, contact, 'whatsup');
     if (viewer.storybookNodeId && viewer.storybookNodeId === contact.storybookNodeId) {
       const storybook = storybooksByNodeId.get(viewer.storybookNodeId);
       if (storybook) {
         return rpStorybookPhoneContactAllowed(storybook, viewer.sourceId, contact.sourceId);
       }
     }
-    return !viewer.temporaryPhone && !contact.temporaryPhone && !viewer.libraryNpc && !contact.libraryNpc;
+    return viewer.relationships === undefined && !viewer.temporaryPhone && !contact.temporaryPhone && !viewer.libraryNpc && !contact.libraryNpc;
   }, [phoneConversationInfo, storybooksByNodeId, socialConnectionsByCharacter, appCharacters]);
 
   const markPhoneConversationsSeen = useCallback((updates: Array<{ key: string; latestId: number }>) => {
@@ -1626,6 +1636,10 @@ export function useRoleplayPanelRuntime({
     dynamicSocialUsers: socialDirectory.dynamicUsers,
     setDynamicSocialUsers,
     socialConnectionsByCharacter,
+    persistedSocialConnectionsByCharacter,
+    // Automatic grants are rebuilt from timeline messages. Saving the merged
+    // view would turn them into permanent manual contacts after reload.
+    savedSocialConnectionsByCharacter,
     setSocialConnectionsByCharacter,
     addSocialConnection,
     phoneNotesByCharacter,
