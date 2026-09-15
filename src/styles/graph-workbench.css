@@ -242,6 +242,21 @@
   transition: none;
 }
 
+/* The collapse tab sits absolutely at top:14px/right:8px over the drawer
+   — reserve that space in the header so the search input (width: 100%)
+   doesn't extend underneath it, and center the rotated label when
+   collapsed, matching .graph-inspector.collapsed's centering on the
+   other side. */
+.studio-graph-palette-slot .node-palette-drawer header {
+  padding-right: 42px;
+}
+
+.studio-graph-palette-slot .node-palette.collapsed {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
 .studio-graph-palette-slot .node-palette:hover,
 .studio-graph-palette-slot .node-palette:focus-within {
   transform: none;
