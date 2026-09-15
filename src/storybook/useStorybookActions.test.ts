@@ -11,6 +11,8 @@ import fixture from '../characters/fixtures/stage4-npc.json';
 import { normalizeRpStorybook } from '../nodes/rp-storybook/model';
 import { useRuntimeNodePatching } from '../app/useRuntimeNodePatching';
 import { openingHistoryTurnsFromNodes } from './openingHistoryRuntime';
+import { appCharactersFromRegistry } from '../characters/appRuntime';
+import { buildSocialDirectory } from '../chat/socialDirectory';
 
 // Exercise delayed model replies without launching a UI or provider.
 const hooks = vi.hoisted(() => ({ slots: [] as unknown[], index: 0 }));
@@ -50,6 +52,13 @@ function harness() {
     characterRegistryForStorybook: ((nodeId, characters, candidateOptions) => candidateStorybookRegistry(
       [...library, ...storybookRegistryEntries(nodesRef.current)], snapshots, nodeId, characters, candidateOptions)) as Options['characterRegistryForStorybook'],
     currentTimelineMessages: () => messages,
+    currentNpcParticipants: () => snapshots,
+    restoreNpcParticipants: (next: NpcParticipantSnapshots) => {
+      Object.keys(snapshots).forEach((id) => delete snapshots[id]); Object.assign(snapshots, next);
+    },
+    currentLibraryEntries: () => library.map((entry) => ({ ...entry, fileName: 'npc.json' })),
+    currentSocialLikesByAccount: () => ({}), currentSocialConnectionsByCharacter: () => ({}),
+    currentPhoneNotesByCharacter: () => ({}), currentChatGpdChatsByCharacter: () => ({}),
     clearCurrentSession,
     replaceCurrentChatWithOpeningHistoryRef: { current: false },
     updateRuntimeNode: (id: string, patch: object) => {
@@ -171,6 +180,91 @@ function reviewBook(id = 'player') {
   return normalizeRpStorybook({ ...emptyRpStorybook, characters: [character] });
 }
 
+it('offers and imports Characters Folder, NPC Library, and built-in characters', async () => {
+  const state = harness();
+  const libraryNpc = reviewBook('library-npc').characters[0];
+  libraryNpc.name = 'Library NPC';
+  const builtIn = reviewBook('built-in').characters[0];
+  builtIn.name = 'Built-in NPC';
+  state.library.push(
+    { character: libraryNpc, source: 'library.json', tier: 'user' },
+    { character: builtIn, source: 'built-in.json', tier: 'bundled' },
+  );
+  vi.stubGlobal('window', { rpgraph: {
+    listCharacterFiles: vi.fn(async () => [{
+      fileName: 'local.json', name: 'Local Character', characterName: 'Local Character',
+      updatedAt: '2026-09-14T12:00:00Z', type: 'character-card', protection: 'plain',
+      formatVersion: '3.0.0', storage: 'characters', compatible: true,
+    }]),
+  } });
+  try {
+    await state.render().importCharacterCard('book');
+    const choices = state.render().characterImportChoices;
+    expect(choices.map((choice) => choice.source)).toEqual(['characters', 'npc-library', 'built-in']);
+    const selected = choices.find((choice) => choice.source === 'built-in');
+    expect(selected).toBeDefined();
+    await state.render().importSelectedCharacterCard(selected);
+    expect(parseRpStorybookJson(state.nodesRef.current[0].data.storybookJson!).characters.map((character) => character.name))
+      .toEqual(['Built-in NPC']);
+    expect(state.render().showCharacterFiles).toBe(false);
+  } finally {
+    vi.unstubAllGlobals();
+  }
+});
+
+it('imports a session-unlocked NPC without requesting its password again', async () => {
+  const state = harness();
+  state.options.workspacePassword = () => 'game-secret';
+  state.options.currentLibraryEntries = () => [{ tier: 'user', source: 'user:locked.json', fileName: 'locked.json',
+    character: normalizeRpStorybook({ characters: [fixture.character] }).characters[0] }];
+  state.options.currentLibraryFiles = () => [{ tier: 'user', fileName: 'locked.json', name: fixture.character.name,
+    updatedAt: '', type: 'character-card', protection: 'encrypted', compatible: true, unlocked: true }];
+  const loadFile = vi.fn();
+  vi.stubGlobal('window', { rpgraph: { listCharacterFiles: async () => [], loadFile } });
+  try {
+    await state.render().importCharacterCard('book');
+    await state.render().importSelectedCharacterCard(state.render().characterImportChoices[0]);
+    expect(loadFile).not.toHaveBeenCalled();
+    expect(parseRpStorybookJson(state.nodesRef.current[0].data.storybookJson!).characters[0].name).toBe(fixture.character.name);
+  } finally { vi.unstubAllGlobals(); }
+});
+
+it('requires a protected game before importing encrypted NPC files', async () => {
+  const state = harness();
+  state.options.currentLibraryFiles = () => [{
+    tier: 'user', fileName: 'locked.json', name: 'Locked NPC', characterName: 'Locked NPC',
+    updatedAt: '2026-09-15T01:00:00Z', type: 'character-card', protection: 'encrypted',
+    envelopeFormatVersion: '1.0', formatVersion: '2.0.0', storage: 'npc-characters', compatible: true,
+  }];
+  state.options.setPendingSessionFilePath = vi.fn();
+  state.options.setSessionPassword = vi.fn();
+  state.options.setFileStorageStatus = vi.fn();
+  state.options.setSessionPasswordAction = vi.fn();
+  state.options.sessionPassword = '';
+  const loadFile = vi.fn(async () => ({
+    fileName: 'locked.json', name: 'Locked NPC', filePath: '/profile/npc-characters/locked.json',
+    type: 'character-card' as const, protection: 'encrypted' as const, value: fixture,
+  }));
+  vi.stubGlobal('window', { rpgraph: { listCharacterFiles: vi.fn(async () => []), loadFile } });
+  try {
+    await state.render().importCharacterCard('book');
+    const selected = state.render().characterImportChoices[0];
+    expect(selected.source).toBe('npc-library');
+    await state.render().importSelectedCharacterCard(selected);
+    expect(loadFile).not.toHaveBeenCalled();
+    expect(state.render().showCharacterFiles).toBe(true);
+    expect(state.render().characterFileStatus).toContain('Open a protected Storybook');
+
+    state.options.workspacePassword = () => 'secret';
+    await state.render().importSelectedCharacterCard(selected);
+    expect(loadFile).toHaveBeenCalledWith('locked.json', 'secret', 'npc-characters');
+    expect(parseRpStorybookJson(state.nodesRef.current[0].data.storybookJson!).characters[0].name)
+      .toBe(fixture.character.name);
+  } finally {
+    vi.unstubAllGlobals();
+  }
+});
+
 it('checks real library identities during editor commits', () => {
   const state = harness();
   const npc = reviewBook('npc').characters[0];
@@ -261,4 +355,117 @@ it('rejects newly added Opening History collisions with existing starting posts'
     input: { graphText: '', messages: [] }, output: { graphText: '', messages: [{ id: 1, role: 'output',
       originalText: '', socialPost: { app: 'fotogram', postId: 'first-post', author: 'Foreign', authorHandle: 'foreign', caption: '' } }] } }];
   expect(state.render().commitStorybookToNode('book', incoming, {})).toContain('timeline author');
+});
+
+
+it.each(['rp-storybook', 'rp-storybook-editor'])('deletes an unused character despite unrelated history in %s', async (nodeType) => {
+  const state = harness();
+  const book = normalizeRpStorybook({ characters: [fixture.character] });
+  state.nodesRef.current[0].data.nodeType = nodeType as 'rp-storybook';
+  state.nodesRef.current[0].data.storybookJson = rpStorybookJsonText(book);
+  state.messages.push({ id: 1, role: 'user', originalText: 'A conversation with someone else.' });
+  state.options.turnsRef.current.push({ id: 'turn', number: 1, createdAt: '2026-09-14T00:00:00Z',
+    input: { graphText: 'Context includes Nova Vale', messages: state.messages }, output: { graphText: '', messages: [] } });
+  expect(state.render().removalInfo('book', fixture.character.id).reasons).toEqual([]);
+  await state.render().removeStorybookCharacter('book', fixture.character.id, 'delete');
+  expect(parseRpStorybookJson(state.nodesRef.current[0].data.storybookJson!).characters).toHaveLength(0);
+});
+
+it('blocks direct and raw JSON deletion of a used character but retains an edited NPC with its history', async () => {
+  const state = harness();
+  const book = normalizeRpStorybook({ characters: [fixture.character] });
+  book.characters[0].description = 'Story-specific revision';
+  state.nodesRef.current[0].data.storybookJson = rpStorybookJsonText(book);
+  state.messages.push({ id: 1, role: 'user', originalText: '', socialDirectMessage: {
+    app: 'fotogram', fromHandle: 'someone', toHandle: 'nova.vale.art', toAccountId: 'stage4-nova-fg', text: 'Hello',
+  } } as MessageRecord);
+  expect(state.render().removalInfo('book', fixture.character.id).reasons.length).toBeGreaterThan(0);
+  await expect(state.render().removeStorybookCharacter('book', fixture.character.id, 'delete')).rejects.toThrow('in use');
+  expect(state.render().commitStorybookToNode('book', { ...book, characters: [] }, {})).toContain('Cannot delete');
+  await state.render().removeStorybookCharacter('book', fixture.character.id, 'npc');
+  const next = parseRpStorybookJson(state.nodesRef.current[0].data.storybookJson!);
+  expect(next.characters).toHaveLength(0);
+  expect(next.openingHistory.npcParticipants![fixture.character.id].character.description).toBe('Story-specific revision');
+  expect(state.snapshots[fixture.character.id].character.description).toBe('Story-specific revision');
+  expect(state.messages).toHaveLength(1);
+});
+
+it('keeps the playable character and snapshots unchanged when saving fails or generation is active', async () => {
+  const state = harness();
+  state.nodesRef.current[0].data.storybookJson = rpStorybookJsonText(normalizeRpStorybook({ characters: [fixture.character] }));
+  const original = state.nodesRef.current[0].data.storybookJson;
+  state.options.saveNpcCharacter = vi.fn(async () => { throw new Error('Disk unavailable'); });
+  await expect(state.render().removeStorybookCharacter('book', fixture.character.id, 'save')).rejects.toThrow('Disk unavailable');
+  expect(state.nodesRef.current[0].data.storybookJson === original).toBe(true);
+  expect(state.snapshots).toEqual({});
+  state.options.lifecycleBusy = () => true;
+  await expect(state.render().removeStorybookCharacter('book', fixture.character.id, 'npc')).rejects.toThrow('generation');
+  expect(state.nodesRef.current[0].data.storybookJson === original).toBe(true);
+});
+
+it('saves before retirement and retains portable NPCs when Opening History is cleared', async () => {
+  const state = harness();
+  state.nodesRef.current[0].data.storybookJson = rpStorybookJsonText(normalizeRpStorybook({ characters: [fixture.character] }));
+  const save = vi.fn(async () => {});
+  state.options.saveNpcCharacter = save;
+  await state.render().removeStorybookCharacter('book', fixture.character.id, 'save', true);
+  expect(save).toHaveBeenCalledOnce();
+  expect(save.mock.calls[0]?.length).toBe(2);
+  state.render().clearStorybookOpeningHistory('book');
+  expect(parseRpStorybookJson(state.nodesRef.current[0].data.storybookJson!).openingHistory.npcParticipants![fixture.character.id].character.playable).toBe(false);
+});
+
+it('updates all retained Opening History copies atomically without replaying history', async () => {
+  const state = harness();
+  const book = normalizeRpStorybook({ characters: [fixture.character] });
+  const character = book.characters[0];
+  const original = { character: { ...character, playable: false }, source: 'book', aliases: { characterIds: ['book:character:stage4-nova'] } };
+  state.snapshots[character.id] = original;
+  book.openingHistory.npcParticipants = { [character.id]: original };
+  const other = { ...book, characters: [] };
+  state.nodesRef.current.push({ ...state.nodesRef.current[0], id: 'other', data: {
+    ...state.nodesRef.current[0].data, storybookJson: rpStorybookJsonText(other),
+  } } as WorkflowNode);
+  book.characters[0] = { ...character, description: 'Latest revision' };
+  state.nodesRef.current[0].data.storybookJson = rpStorybookJsonText(book);
+  const commit = vi.fn((next: WorkflowNode[]) => { state.nodesRef.current = next; });
+  state.options.commitLifecycleNodes = commit;
+  await state.render().removeStorybookCharacter('book', character.id, 'npc');
+  expect(commit).toHaveBeenCalledOnce();
+  for (const node of state.nodesRef.current) {
+    expect(parseRpStorybookJson(node.data.storybookJson!).openingHistory.npcParticipants![character.id].character.description).toBe('Latest revision');
+  }
+});
+
+it('does not remove the character if the RP changes while its NPC file is being saved', async () => {
+  const state = harness();
+  state.nodesRef.current[0].data.storybookJson = rpStorybookJsonText(normalizeRpStorybook({ characters: [fixture.character] }));
+  state.options.saveNpcCharacter = async () => {
+    const current = parseRpStorybookJson(state.nodesRef.current[0].data.storybookJson!);
+    current.characters[0].description = 'Edited while saving';
+    state.nodesRef.current = state.nodesRef.current.map((node) => node.id === 'book'
+      ? { ...node, data: { ...node.data, storybookJson: rpStorybookJsonText(current) } }
+      : node);
+  };
+  await expect(state.render().removeStorybookCharacter('book', fixture.character.id, 'save')).rejects.toThrow('RP changed');
+  expect(parseRpStorybookJson(state.nodesRef.current[0].data.storybookJson!).characters[0].description).toBe('Edited while saving');
+  expect(state.snapshots).toEqual({});
+});
+
+it('protects a followed character without chat and preserves the connection when retired', async () => {
+  const state = harness();
+  const book = normalizeRpStorybook({ characters: [fixture.character] });
+  state.nodesRef.current[0].data.storybookJson = rpStorybookJsonText(book);
+  const directory = () => buildSocialDirectory({
+    storyCharacters: appCharactersFromRegistry(state.options.currentCharacterRegistry()), messages: [],
+  }).users;
+  const originalUserId = directory()[0].id;
+  state.options.currentSocialConnectionsByCharacter = () => ({
+    other: { fotogram: [originalUserId] },
+  });
+  expect(state.render().removalInfo('book', fixture.character.id).reasons.length).toBeGreaterThan(0);
+  await expect(state.render().removeStorybookCharacter('book', fixture.character.id, 'delete')).rejects.toThrow('in use');
+  await state.render().removeStorybookCharacter('book', fixture.character.id, 'npc');
+  expect(directory()[0].id).toBe(originalUserId);
+  expect(state.snapshots[fixture.character.id].character.playable).toBe(false);
 });

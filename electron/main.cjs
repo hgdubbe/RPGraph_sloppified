@@ -50,6 +50,7 @@ const {
 } = require('./lmStudioChat.cjs');
 const { reasoningTextFromChatMessage } = require('./reasoningStream.cjs');
 const { createNpcLibraryService, npcLibraryRoots } = require('./npcLibrary.cjs');
+const workspaceProtection = require('./workspaceProtection.cjs').createWorkspaceProtection();
 
 const developmentUrl = 'http://localhost:5173';
 const projectRootPath = path.join(__dirname, '..');
@@ -190,6 +191,12 @@ const npcLibraryService = createNpcLibraryService({
     userDataPath: app.getPath('userData'),
   }),
   openPath: (directory) => shell.openPath(directory),
+  decryptCharacter: (envelope, password) => decryptCharacterCard(envelope, password),
+  onChanged: () => {
+    for (const window of BrowserWindow.getAllWindows()) {
+      if (!window.isDestroyed()) window.webContents.send('npc-library:changed');
+    }
+  },
 });
 
 function normalizedWorkflowPath(filePath) {
@@ -358,7 +365,9 @@ function charactersDirectory() {
 }
 
 function storedFileDirectory(storage) {
-  return storage === 'characters' ? charactersDirectory() : filesDirectory();
+  if (storage === 'characters') return charactersDirectory();
+  if (storage === 'npc-characters') return npcLibraryService.current().roots.user;
+  return filesDirectory();
 }
 
 async function listedFilesInDirectory(directory, storage) {
@@ -1265,6 +1274,10 @@ async function decryptCharacterCard(envelope, password) {
 }
 
 async function readRpgraphFile(filePath, password) {
+  return readRpgraphFileContents(filePath, password);
+}
+
+async function readRpgraphFileContents(filePath, password) {
   const value = JSON.parse(await fs.readFile(filePath, 'utf8'));
   const metadata = storedFileMetadata(value);
   if (!metadata.compatible) {
@@ -4633,10 +4646,15 @@ ipcMain.handle('character:list', async () => {
 ipcMain.handle('npc-library:get', async () => npcLibraryService.current());
 
 ipcMain.handle('npc-library:reload', async () => npcLibraryService.reload());
+ipcMain.handle('workspace:protection', async (_event, password) => {
+  workspaceProtection.activate(password);
+  return npcLibraryService.setGamePassword(password);
+});
 
 ipcMain.handle('npc-library:open-folder', async () => npcLibraryService.openUserDirectory());
 
 ipcMain.handle('workflow:save-named', async (_event, request) => {
+  workspaceProtection.require(request);
   const directory = filesDirectory();
   await fs.mkdir(directory, { recursive: true });
   const baseName = safeWorkflowBaseName(request?.name);
@@ -4671,6 +4689,7 @@ ipcMain.handle('workflow:save-named', async (_event, request) => {
 });
 
 ipcMain.handle('storybook:save', async (_event, request) => {
+  workspaceProtection.require(request);
   const directory = filesDirectory();
   await fs.mkdir(directory, { recursive: true });
   const baseName = safeStorybookBaseName(request?.name ?? request?.storybook?.title);
@@ -4701,7 +4720,21 @@ ipcMain.handle('storybook:save', async (_event, request) => {
   return { fileName, name: baseName, filePath };
 });
 
+ipcMain.handle('character:detect-face', async (_event, image) => {
+  if (!image || typeof image.id !== 'string' || typeof image.dataUrl !== 'string' ||
+      image.dataUrl.length > 45 * 1024 * 1024 || !/^data:image\/jpeg;base64,[A-Za-z0-9+/]+={0,2}$/.test(image.dataUrl)) {
+    throw new Error('Face detection requires an embedded JPEG image of at most 32 MB.');
+  }
+  const { pathToFileURL } = require('node:url');
+  const directory = app.isPackaged ? path.join(process.resourcesPath, 'character-face-tools') : path.join(projectRootPath, 'scripts');
+  const { detectFaces } = await import(pathToFileURL(path.join(directory, 'character-faces.mjs')).href);
+  const [result] = await detectFaces([{ id: image.id, dataUrl: image.dataUrl }], { cacheDirectory: path.join(app.getPath('userData'), 'face-detection-cache') });
+  if (!result || !Number.isInteger(result.faces)) throw new Error('Face detection returned an invalid result.');
+  return { faces: result.faces, crop: result.crop };
+});
+
 ipcMain.handle('character:save', async (_event, request) => {
+  workspaceProtection.require(request);
   const destination = request?.destination ?? 'characters';
   if (destination !== 'characters' && destination !== 'npc-characters') {
     throw new Error('Choose a valid character export location.');
@@ -4753,6 +4786,7 @@ ipcMain.handle('character:save', async (_event, request) => {
 });
 
 ipcMain.handle('file:save-to-path', async (_event, request) => {
+  workspaceProtection.require(request);
   const kind = request?.kind;
   const protection = request?.protection;
   let baseName;
@@ -4951,6 +4985,7 @@ ipcMain.handle('workflow:reload', async (_event, filePath) => {
 });
 
 ipcMain.handle('workflow:save-current', async (_event, request) => {
+  workspaceProtection.require({ protection: 'plain' });
   const validatedPath = validateWorkflowPath(request?.filePath);
   await assertOverwriteType(validatedPath, 'workflow');
   await writeTextFileAtomically(validatedPath, `${JSON.stringify(request.workflow, null, 2)}\n`);
@@ -4996,6 +5031,7 @@ ipcMain.handle('settings:save', async (_event, settings) => {
 });
 
 ipcMain.handle('session:save', async (_event, request) => {
+  workspaceProtection.require(request);
   const directory = filesDirectory();
   await fs.mkdir(directory, { recursive: true });
   const baseName = safeSessionBaseName(request.name);
@@ -5195,6 +5231,7 @@ ipcMain.handle('file:load', async (_event, request) => {
 });
 
 ipcMain.handle('session:save-current', async (_event, request) => {
+  workspaceProtection.require(request);
   const filePath = validateFilePath(request.filePath);
   await assertOverwriteType(filePath, 'session');
   const session = request.protection === 'encrypted'

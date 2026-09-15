@@ -1,3 +1,6 @@
+import { planNpcCopyEdit } from './characters/editNpcCopy';
+import { CharacterRemovalDialog } from './components/CharacterRemovalDialog';
+import { createCharacterContainer } from './characters/creator';
 import { shieldTranslationAccountLinks, restoreTranslationAccountLinks } from './chat/accountLinks';
 import { AccountLinkContext } from './chat/accountLinkContext';
 import { npcSeedPostAccountId } from './characters/npcParticipants';
@@ -213,6 +216,7 @@ import { latestOutputTurnMessages } from './chat/dialogueVoiceSegments';
 import { WelcomeDialog } from './components/WelcomeDialog';
 import { npcPromotionCard } from './characters/promotion';
 import { NpcLibraryDialog } from './components/NpcLibraryDialog';
+import { CharacterAssistantDialog } from './components/CharacterAssistantDialog';
 import { useNpcLibrary } from './characters/useNpcLibrary';
 import { WorkflowCapabilityStrip } from './components/WorkflowCapabilityStrip';
 import {
@@ -248,6 +252,7 @@ import {
   emptyRpStorybook,
   isEmptyRpStorybook,
   parseRpStorybookJson,
+  parseNodeStorybookJson,
   type RpStorybookCharacterImage,
   type RpStorybook,
 } from './nodes/rp-storybook/model';
@@ -446,20 +451,19 @@ function workflowFileMissing(error: unknown) {
 function displayStorybookName(
   headerStorybookFileName: string | undefined,
   headerStorybookJson: string | undefined,
-  activeSessionFileName: string | null,
 ) {
   if (!headerStorybookJson || isEmptyRpStorybook(headerStorybookJson)) {
     return 'not loaded';
   }
   if (headerStorybookFileName) {
-    return `${headerStorybookFileName} (file)`;
+    return headerStorybookFileName.replace(/\.json$/i, '');
   }
   try {
     const storybook = parseRpStorybookJson(headerStorybookJson);
     const title = storybook.title || 'untitled';
-    return `${title} - embedded in ${activeSessionFileName ? 'RP' : 'WF'}`;
+    return title;
   } catch {
-    return `embedded in ${activeSessionFileName ? 'RP' : 'WF'}`;
+    return 'Untitled storybook';
   }
 }
 
@@ -615,6 +619,10 @@ type PreviewImageState = {
 
 function App() {
   const npcLibrary = useNpcLibrary();
+  const [characterRemoval, setCharacterRemoval] = useState<{ nodeId: string; characterId: string } | null>(null);
+  const editedNpcSnapshotRef = useRef<import('./characters/npcParticipants').NpcParticipantSnapshots[string] | undefined>(undefined);
+  const [characterAssistantEntry, setCharacterAssistantEntry] = useState<import('./characters/npcLibrary').NpcLibraryEntry | undefined>();
+  const [showCharacterAssistant, setShowCharacterAssistant] = useState(false);
   const [nodes, setNodes, onNodesChange] = useNodesState<WorkflowNode>(createInitialNodes());
   const [edges, setEdges, onEdgesChange] = useEdgesState(createInitialEdges());
   const nodesRef = useRef(nodes);
@@ -861,10 +869,13 @@ function App() {
   const [isResizing, setIsResizing] = useState(false);
   const [showDeletedNodeRestoreButton, setShowDeletedNodeRestoreButton] = useState(false);
   const [activeWorkflowProtection, setActiveWorkflowProtection] = useState<'plain' | 'encrypted'>('plain');
+  const workflowFromRpSaveRef = useRef(false);
   const [activeStorybookProtection, setActiveStorybookProtection] = useState<'plain' | 'encrypted'>('plain');
   const [flowInstance, setFlowInstance] = useState<ReactFlowInstance<WorkflowNode> | null>(null);
   const flowInstanceRef = useRef<ReactFlowInstance<WorkflowNode> | null>(null);
   const npcParticipants = useNpcParticipants(nodesRef, npcLibrary.snapshot);
+  const lifecycleRunningRef = useRef(isRunning);
+  useEffect(() => { lifecycleRunningRef.current = isRunning; }, [isRunning]);
   const imageInputRef = useRef<HTMLInputElement | null>(null);
   const characterDropdownRef = useRef<HTMLDivElement | null>(null);
   const {
@@ -987,6 +998,8 @@ function App() {
     dynamicSocialUsers,
     setDynamicSocialUsers,
     socialConnectionsByCharacter,
+    persistedSocialConnectionsByCharacter,
+    savedSocialConnectionsByCharacter,
     setSocialConnectionsByCharacter,
     addSocialConnection,
     accountLinkContext,
@@ -1415,6 +1428,12 @@ function App() {
     restoreDefaultFiles,
     resetWorkflow,
     saveCurrentWorkflow,
+    workspacePasswordRef,
+    workspacePassword,
+    setWorkspacePassword,
+    completeStorybookReplacement,
+    checkImportedPassword,
+    encryptionRequired,
   } = useRpgraphFiles({
     currentWorkflowForSave,
     currentSession,
@@ -1432,6 +1451,9 @@ function App() {
     setActiveWorkflowProtection,
     setActiveStorybookProtection,
     clearWorkspaceForLockedStartup,
+    onWorkspacePasswordChange: npcLibrary.setGamePassword,
+    workflowRequiresProtection: () => activeWorkflowProtection === 'encrypted',
+    workflowFollowsStorybookProtection: () => workflowFromRpSaveRef.current,
   });
   const nodeLlm = useNodeLlmApi({
     resolveConnection,
@@ -1452,7 +1474,6 @@ function App() {
     imageDescriptionById: storybookImageDescriptionById,
     imageCaptionChangesById: phoneImageCaptionChangesById,
     currentImageSourceById: currentStorybookImageSourceById,
-    allowPhoneContactPair: allowStorybookPhoneContactPair,
     changePhoneWallpaper: changeStorybookPhoneWallpaper,
     saveSocialUsername: saveStorybookSocialUsername,
     saveDatingProfile,
@@ -1506,13 +1527,14 @@ function App() {
     resetStorybook,
     importSillyTavernCharacter,
     exportStorybookCharacter,
-    deleteStorybookCharacter,
+    removeStorybookCharacter,
+    removalInfo,
     importCharacterCard,
     showCharacterFiles,
-    characterFiles,
-    selectedCharacterFile,
+    characterImportChoices,
+    selectedCharacterImportKey,
     characterFileStatus,
-    setSelectedCharacterFile,
+    setSelectedCharacterImportKey,
     closeCharacterFiles,
     cancelCharacterCardUnlock,
     importSelectedCharacterCard,
@@ -1540,16 +1562,38 @@ function App() {
     sessionPassword,
     setFileStorageStatus,
     setSessionPasswordAction,
-    setActiveStorybookProtection,
+    setActiveStorybookProtection: (protection) => {
+      setActiveStorybookProtection(protection);
+      if (typeof protection === 'string') completeStorybookReplacement(protection);
+    },
     notifySystem,
     usedStorybookImageIds,
     currentNpcParticipants: npcParticipants.current,
+    restoreNpcParticipants: npcParticipants.restore,
+    commitLifecycleNodes: (nextNodes) => commitNodes(nextNodes),
+    currentLibraryEntries: () => npcLibrary.snapshot?.entries ?? [],
+    currentLibraryFiles: () => npcLibrary.snapshot?.files ?? [],
+    reloadLibrary: () => npcLibrary.reload(),
+    workspacePassword: () => workspacePasswordRef.current,
+    lifecycleBusy: () => !!activeRunRef.current || lifecycleRunningRef.current,
+    saveNpcCharacter: async (character, overwrite) => {
+      if (!window.rpgraph?.saveCharacter) throw new Error('Saving requires the desktop application.');
+      const library = await window.rpgraph.reloadNpcLibrary();
+      const matches = library.entries.filter((entry) => entry.tier === 'user' && entry.character.id === character.id);
+      if (matches.length > 1) throw new Error('Multiple local NPC files use this identity. Resolve the duplicate files first.');
+      if (matches.length && !overwrite) throw new Error('A local NPC with this identity now exists. Reopen Remove to review the overwrite option.');
+      const name = matches[0]?.fileName.replace(/\.json$/i, '') ?? character.name;
+      const password = workspacePasswordRef.current;
+      const result = await window.rpgraph.saveCharacter(name, createCharacterContainer(character, true), password ? 'encrypted' : 'plain', password, !!matches.length && overwrite, 'npc-characters');
+      if (result.conflict) throw new Error('A different NPC file already uses this filename. Save through Export Character with a unique filename first.');
+      await npcLibrary.reload();
+    },
     currentCharacterRegistry: npcParticipants.registry,
     characterRegistryForStorybook: npcParticipants.registryForStorybook,
     currentTimelineMessages: () => messagesRef.current,
     currentSocialLikesByAccount: () => socialLikesByAccount,
     currentDynamicSocialUsers: () => dynamicSocialUsers,
-    currentSocialConnectionsByCharacter: () => socialConnectionsByCharacter,
+    currentSocialConnectionsByCharacter: () => persistedSocialConnectionsByCharacter,
     currentPhoneNotesByCharacter: () => phoneNotesByCharacter,
     currentChatGpdChatsByCharacter: () => chatGpdChatsByCharacter,
     clearCurrentSession: () => clearCurrentSession(),
@@ -2498,7 +2542,7 @@ function App() {
       bankingContactsByCharacter,
       socialLikesByAccount,
       dynamicSocialUsers,
-      socialConnectionsByCharacter,
+      socialConnectionsByCharacter: savedSocialConnectionsByCharacter,
       onlyFriendsPurchasesByCharacter,
       phoneDividerAfterByConversation,
       recentlyUsedEmojis,
@@ -2508,13 +2552,19 @@ function App() {
   }
 
   async function currentSession(name: string): Promise<RpgraphSessionV2> {
+    if (activeRunRef.current) throw new Error('Wait for the current run to finish before replacing or saving the RP.');
     const savedAt = new Date().toISOString();
-    return sessionV2FromCurrentState(
+    const session = sessionV2FromCurrentState(
       currentSessionState(name),
-      await currentWorkflowForSave(),
+      currentWorkflow(),
       nodesRef.current,
       savedAt,
     );
+    session.metadata.workflowFileName = activeWorkflowFileName ?? undefined;
+    session.metadata.storybookFileNames = Object.fromEntries(nodesRef.current
+      .filter((node) => isStorybookSourceNode(node) && node.data.storybookFileName)
+      .map((node) => [node.id, node.data.storybookFileName as string]));
+    return session;
   }
 
   function latestSessionTurnNumber(session: RpgraphSessionV2) {
@@ -2549,6 +2599,7 @@ function App() {
   }
 
   function clearCurrentSession() {
+    if (activeRunRef.current) throw new Error('Wait for the current run to finish before replacing or saving the RP.');
     npcParticipants.reset();
     clearTemporaryReferenceImages();
     clearTurnTraces();
@@ -2578,8 +2629,8 @@ function App() {
     activeSessionPathRef.current = null;
     setActiveSessionProtection('plain');
     activeSessionPasswordRef.current = '';
-    setActiveWorkflowProtection('plain');
     setActiveStorybookProtection('plain');
+    // Clearing chat history alone must not remove protection from the loaded cast.
     setSessionName('');
     setDraft('');
     nextMessageIdRef.current = 1;
@@ -2610,6 +2661,7 @@ function App() {
     },
     password = '',
   ) {
+    if (activeRunRef.current) throw new Error('Wait for the current run to finish before loading a file.');
     if (result.type === 'workflow') {
       const hydratedWorkflow = prepareLoadedWorkflow(result.value);
       clearCurrentSession();
@@ -2621,6 +2673,7 @@ function App() {
         result.fileName,
         result.protection === 'encrypted' ? result.fileName : undefined,
       );
+      setWorkspacePassword(result.protection === 'encrypted' ? password : '');
       setWorkflowNameDraft(result.name);
       setSelectedFile(result.fileName);
       setWorkflowOverwritePending(false);
@@ -2630,6 +2683,7 @@ function App() {
       return;
     }
     if (result.type === 'storybook') {
+      if (result.protection === 'encrypted') checkImportedPassword(password);
       const storybookNode =
         nodesRef.current.find((node) => node.id === storybookCreatorNodeId && node.data.nodeType === 'rp-storybook') ??
         nodesRef.current.find((node) => node.data.nodeType === 'rp-storybook');
@@ -2649,6 +2703,7 @@ function App() {
         return;
       }
       setActiveStorybookProtection(result.protection === 'encrypted' ? 'encrypted' : 'plain');
+      if (result.protection === 'encrypted') setWorkspacePassword(password);
       setSelectedFile(result.fileName);
       setFileStorageStatus(`Loaded storybook: ${result.name}`);
       setSessionPasswordAction(null);
@@ -2656,6 +2711,9 @@ function App() {
       return;
     }
     if (result.type === 'character-card') {
+      if (result.protection === 'encrypted' && (!workspacePasswordRef.current || workspacePasswordRef.current !== password)) {
+        throw new Error('Open a protected Storybook or RP Save with the matching character password first.');
+      }
       const storybookNode =
         nodesRef.current.find((node) => node.id === storybookCreatorNodeId && node.data.nodeType === 'rp-storybook') ??
         nodesRef.current.find((node) => node.data.nodeType === 'rp-storybook');
@@ -2690,9 +2748,16 @@ function App() {
     session: RpgraphSessionV2,
     password: string,
   ) {
+    if (activeRunRef.current) throw new Error('Wait for the current run to finish before loading an RP.');
     // Prepare everything that can fail before touching any state, so a
     // corrupted session cannot leave a half-loaded mix of old and new data.
     const hydratedWorkflow = prepareLoadedWorkflow(workflowV2ToWorkflowFile(session.workflow), false);
+    hydratedWorkflow.nodes = hydratedWorkflow.nodes.map((node) => {
+      const storybookFileName = session.metadata.storybookFileNames?.[node.id];
+      return isStorybookSourceNode(node) && storybookFileName
+        ? { ...node, data: { ...node.data, storybookFileName } }
+        : node;
+    });
     const sessionState = appStateFromSessionV2(session);
     const canonicalAppointments = normalizedEventAppointments(
       appointmentsFromEventEntities(session.entities.events),
@@ -2727,11 +2792,12 @@ function App() {
       hydratedWorkflow,
       null,
       'Loaded session workflow',
-      'embedded workflow',
-      'embedded workflow',
+      session.metadata.workflowFileName || 'Workflow from RP Save',
+      session.metadata.workflowFileName || 'Workflow from RP Save',
       false,
     );
     npcParticipants.restore(sessionState.npcParticipants);
+    workflowFromRpSaveRef.current = true;
     const openingMessages = sessionState.openingMessages;
     const loadedTurns = sessionState.turns;
     const loadedMessages = [
@@ -2773,6 +2839,7 @@ function App() {
     activeSessionPathRef.current = filePath;
     setActiveSessionProtection(protection === 'encrypted' ? 'encrypted' : 'plain');
     activeSessionPasswordRef.current = protection === 'encrypted' ? password : '';
+    setWorkspacePassword(protection === 'encrypted' ? password : '');
     setSessionName(name);
     setDraft('');
     nextMessageIdRef.current =
@@ -2821,6 +2888,7 @@ function App() {
     // Validate and hydrate before any state is cleared, so a corrupted file
     // cannot wipe the running session.
     const hydratedWorkflow = prepareLoadedWorkflow(workflow, hydrateOpeningHistory);
+    clearCurrentSession();
     commitHydratedWorkflow(
       hydratedWorkflow,
       filePath,
@@ -2829,6 +2897,10 @@ function App() {
       resetSnapshotFileName,
       hydrateOpeningHistory,
     );
+    if (!resetSnapshotFileName) {
+      setActiveWorkflowProtection('plain');
+      setWorkspacePassword('');
+    }
   }
 
   function commitHydratedWorkflow(
@@ -2839,12 +2911,14 @@ function App() {
     resetSnapshotFileName?: string,
     hydrateOpeningHistory = true,
   ) {
+    if (activeRunRef.current) throw new Error('Wait for the current run to finish before loading a workflow.');
     customNodeAssistant.clearState();
     clearTemporaryReferenceImages();
     if (hydrateOpeningHistory) {
       clearTurnTraces();
     }
     const loadedNodes = hydratedWorkflow.nodes;
+    workflowFromRpSaveRef.current = false;
     const loadedEdges = hydratedWorkflow.edges;
     commitNodes(loadedNodes);
     commitEdges(loadedEdges);
@@ -3638,7 +3712,6 @@ function App() {
       storedImage?.ownerName,
     ) ?? sourceImageAttachments;
     const phoneImageIds = imageIdsFromAttachments(imageAttachments);
-    allowStorybookPhoneContactPair(canonicalMessage.from, canonicalMessage.to);
     const id = appendMessage({
       role,
       originalText: canonicalMessage.message,
@@ -3906,7 +3979,6 @@ function App() {
       return;
     }
     if (turn.directAction) {
-      applyTurnCheckpointRuntime(turn, 'before');
       void runGraph(
         turn.input.graphText,
         inputMessage?.imageAttachments ?? [],
@@ -4015,7 +4087,6 @@ function App() {
           return;
         }
       }
-      applyTurnCheckpointRuntime(turn, 'before');
       void runGraph(
         displayText,
         inputImages,
@@ -4044,7 +4115,6 @@ function App() {
       return;
     }
     if (turn.messageFormat === autoplayMessageFormat) {
-      applyTurnCheckpointRuntime(turn, 'before');
       void runGraph(
         turn.input.graphText,
         [],
@@ -4074,7 +4144,6 @@ function App() {
       const phoneRecipient = phoneInput
         ? phoneCharacters.find((character) => phoneNamesMatch(character.name, phoneInput.to))
         : undefined;
-      applyTurnCheckpointRuntime(turn, 'before');
       void runGraph(
         storedAutoTurnInputText(turn.input.graphText),
         [],
@@ -4091,7 +4160,6 @@ function App() {
       return;
     }
     if (turn.mode === 'narrator') {
-      applyTurnCheckpointRuntime(turn, 'before');
       void runGraph(
         storedNarratorInputText(turn.input.graphText),
         inputMessage?.imageAttachments ?? [],
@@ -4112,7 +4180,6 @@ function App() {
     const inputCharacter = inputMessage.speakerName
       ? phoneCharacters.find((character) => phoneNamesMatch(character.name, inputMessage.speakerName ?? ''))
       : selectedCharacter;
-    applyTurnCheckpointRuntime(turn, 'before');
     void runGraph(
       inputMessage.translatedText ?? inputMessage.originalText,
       inputMessage.imageAttachments ?? [],
@@ -4134,6 +4201,7 @@ function App() {
   }
 
   function undoLastTurn() {
+    if (activeRunRef.current) return;
     const turnIndex = lastSessionTurnIndex(turnsRef.current);
     const turn = turnIndex >= 0 ? turnsRef.current[turnIndex] : undefined;
     if (isRunning) {
@@ -4226,7 +4294,6 @@ function App() {
     }
     const replacedMessageIds = turnMessageIds(turn);
     cancelEditMessage();
-    applyTurnCheckpointRuntime(turn, 'before');
     void runGraph(
       editedText,
       inputMessage.imageAttachments ?? [],
@@ -4359,7 +4426,6 @@ function App() {
     isRunning,
     messagesRef,
     turnsRef,
-    applyTurnCheckpointRuntime,
     undoLastTurn,
     replaceLastTurnCreatedPhoneNote,
     removeLastTurnCreatedPhoneNote,
@@ -4792,8 +4858,8 @@ function App() {
 
   const displayedWorkflowName = activeWorkflowFileName
     ? activeWorkflowFileName === 'embedded workflow'
-      ? 'embedded in RP'
-      : activeWorkflowFileName
+      ? 'Workflow from RP Save'
+      : activeWorkflowFileName.replace(/\.json$/i, '')
     : 'not saved';
   const displayedSessionSavedTurn =
     activeSessionFileName && activeSessionSavedTurn !== null
@@ -4808,36 +4874,17 @@ function App() {
   const displayedStorybookName = displayStorybookName(
     headerStorybookFileName,
     headerStorybookJson,
-    activeSessionFileName,
   );
 
-  const formatEncryptedFileName = (fileName: string | null | undefined) => {
-    if (!fileName) return '';
-    return /\.json$/i.test(fileName) ? fileName : `${fileName}.json`;
-  };
-
   const isSessionEncrypted = activeSessionProtection === 'encrypted';
-  const displayedSessionFileName = isSessionEncrypted && activeSessionFileName
-    ? formatEncryptedFileName(activeSessionFileName)
-    : (activeSessionFileName ?? 'not saved');
+  const displayedSessionFileName = activeSessionFileName?.replace(/\.json$/i, '')
+    ?? 'New game · Not saved';
 
   const isWorkflowEncrypted = activeWorkflowProtection === 'encrypted' && !!activeWorkflowFileName;
-  const displayedWorkflowNameFormatted = isWorkflowEncrypted
-    ? activeWorkflowFileName === 'embedded workflow'
-      ? displayedWorkflowName
-      : formatEncryptedFileName(activeWorkflowFileName)
-    : displayedWorkflowName;
-
   const isStorybookEncrypted =
     (activeStorybookProtection === 'encrypted' && !!headerStorybookNode?.data.storybookFileName && headerHasStorybook) ||
     (isSessionEncrypted && !headerStorybookNode?.data.storybookFileName && headerHasStorybook) ||
     (activeWorkflowProtection === 'encrypted' && !headerStorybookNode?.data.storybookFileName && headerHasStorybook);
-  const displayedStorybookNameFormatted = isStorybookEncrypted
-    ? headerStorybookNode?.data.storybookFileName
-      ? formatEncryptedFileName(headerStorybookNode.data.storybookFileName)
-      : displayedStorybookName
-    : displayedStorybookName;
-
   const headerLockIcon = (
     <svg
       width="11"
@@ -4993,18 +5040,17 @@ function App() {
       <header className="topbar">
         <div className="brand">
           <h1>
-            <span className="brand-name"><span className="brand-name-rp">RP</span>graph Studio</span>
+            <button
+              className="brand-name"
+              type="button"
+              onClick={() => setShowWelcome(true)}
+              aria-label="RPgraph Studio: open welcome guide"
+            >
+              <span className="brand-name-rp">RP</span>graph Studio
+            </button>
             <span className="app-version">v{packageMetadata.version} Beta</span>
           </h1>
           <div className="header-brand-actions">
-            <button
-              className="connection-button"
-              type="button"
-              onClick={() => setShowWelcome(true)}
-              title="Show first-run welcome and onboarding guide"
-            >
-              Welcome
-            </button>
             <button className="connection-button" type="button" onClick={() => setShowOptions(true)}>
               Options
             </button>
@@ -5031,11 +5077,11 @@ function App() {
               Log
               {systemLogBadgeCount > 0 && <span key={systemLogBadgeCount}>{systemLogBadgeCount}</span>}
             </button>
-            <button className="connection-button" type="button" onClick={() => void openFiles()}>
-              Files
-            </button>
             <button className="connection-button" type="button" onClick={npcLibrary.show}>
               NPC Library
+            </button>
+            <button className="connection-button" type="button" onClick={() => void openFiles()}>
+              Files
             </button>
           </div>
         </div>
@@ -5055,14 +5101,14 @@ function App() {
             <div className="status-badge">
               <span className="session-label">workflow:</span>
               <span className="session-file">
-                {displayedWorkflowNameFormatted}
+                {displayedWorkflowName}
                 {isWorkflowEncrypted && headerLockIcon}
               </span>
             </div>
             <div className="status-badge">
               <span className="session-label">storybook:</span>
               <span className="session-file">
-                {displayedStorybookNameFormatted}
+                {displayedStorybookName}
                 {isStorybookEncrypted && headerLockIcon}
               </span>
             </div>
@@ -5967,6 +6013,7 @@ function App() {
 
       {storybookCreatorNode && storybookCreatorNode.data.nodeType === 'rp-storybook' && (
         <StorybookCreatorDialog
+          referenceCharacters={npcParticipants.registry().characters.map((entry) => entry.character)}
           node={storybookCreatorNode}
           workflowNodes={nodeViewNodes}
           promptActionSettings={promptActionSettings}
@@ -5975,7 +6022,7 @@ function App() {
           isSubmitting={storybookCreatorSubmitting}
           connections={connections}
           providerHealthById={providerHealthById}
-          onSubmit={submitStorybookCreatorMessage}
+          onSubmit={(message, referenceIds) => submitStorybookCreatorMessage(message, message, referenceIds)}
           onLoad={async () => {
             await openStorybookPicker();
             return true;
@@ -6007,7 +6054,7 @@ function App() {
           onImportSillyTavernCharacter={() => importSillyTavernCharacter(storybookCreatorNode.id)}
           onImportCharacterCard={() => importCharacterCard(storybookCreatorNode.id)}
           onExportCharacter={(characterId) => exportStorybookCharacter(storybookCreatorNode.id, characterId)}
-          onDeleteCharacter={(characterId) => deleteStorybookCharacter(storybookCreatorNode.id, characterId)}
+          onDeleteCharacter={(characterId) => setCharacterRemoval({ nodeId: storybookCreatorNode.id, characterId })}
           pendingConversion={
             pendingStorybookConversion?.nodeId === storybookCreatorNode.id
               ? pendingStorybookConversion
@@ -6023,8 +6070,10 @@ function App() {
 
       {storybookEditorNode && storybookEditorNode.data.nodeType === 'rp-storybook-editor' && (
         <StorybookEditorDialog
+          referenceCharacters={npcParticipants.registry().characters.map((entry) => entry.character)}
           node={storybookEditorNode}
           identityLocked={messages.length > 0}
+          onRemoveCharacter={(characterId) => setCharacterRemoval({ nodeId: storybookEditorNode.id, characterId })}
           onExportCharacter={(characterId) => exportStorybookCharacter(storybookEditorNode.id, characterId)}
           onImportCharacter={() => importCharacterCard(storybookEditorNode.id)}
           onCommit={(storybook, status) =>
@@ -6267,6 +6316,7 @@ function App() {
         sessionName={sessionName}
         sessionPassword={sessionPassword}
         fileProtection={fileProtection}
+        encryptionRequired={encryptionRequired}
         workflowSaveScope={workflowSaveScope}
         chooseSaveLocation={chooseSaveLocation}
         characterSaveLocation={characterSaveLocation}
@@ -6341,12 +6391,12 @@ function App() {
           )
         }
         showCharacterFiles={showCharacterFiles}
-        characterFiles={characterFiles}
-        selectedCharacterFile={selectedCharacterFile}
+        characterImportChoices={characterImportChoices}
+        selectedCharacterImportKey={selectedCharacterImportKey}
         characterFileStatus={characterFileStatus}
         onCloseCharacterFiles={closeCharacterFiles}
-        onSelectCharacterFile={(file) => setSelectedCharacterFile(file.fileName)}
-        onImportCharacterFile={(file) => void importSelectedCharacterCard(file)}
+        onSelectCharacterImport={(choice) => setSelectedCharacterImportKey(choice?.key ?? null)}
+        onImportCharacterChoice={(choice) => void importSelectedCharacterCard(choice)}
         onOpenExternalCharacterFile={() => void openExternalCharacterCard()}
         showConnections={showConnections}
         connections={connections}
@@ -6415,14 +6465,51 @@ function App() {
           onClose={() => setShowSystemLog(false)}
         />
       )}
-      {npcLibrary.open && (
+      {showCharacterAssistant && (
+        <CharacterAssistantDialog referenceCharacters={npcParticipants.registry().characters.map((entry) => entry.character)} initialEntry={characterAssistantEntry} nodeLlm={nodeLlm} connections={connections} defaultConnectionId={defaultConnectionId}
+          requiredPassword={workspacePassword}
+          rpBusy={isRunning}
+          onApplyToRp={characterAssistantEntry?.source === `snapshot:${characterAssistantEntry?.character.id}` ? (character) => {
+            if (activeRunRef.current) throw new Error('Wait for the current run to finish before editing the RP copy.');
+            const expected = editedNpcSnapshotRef.current;
+            if (!expected) throw new Error('Reopen the active RP copy before applying edits.');
+            const plan = planNpcCopyEdit(nodesRef.current, npcParticipants.current(), npcParticipants.registry(), expected, character, messagesRef.current);
+            npcParticipants.restore(plan.participants);
+            commitNodes(plan.nodes);
+            editedNpcSnapshotRef.current = npcParticipants.current()[character.id];
+            plan.warnings.forEach((warning) => notifySystem('warning', warning.message));
+          } : undefined}
+          snapshot={npcLibrary.snapshot} onSaved={async () => { await npcLibrary.reload(); }}
+          onClose={() => setShowCharacterAssistant(false)} />
+      )}
+      {characterRemoval && npcParticipants.registry().characters.some((entry) => entry.character.id === characterRemoval.characterId && entry.provenance.tier === 'storybook' && entry.provenance.source === characterRemoval.nodeId) && <CharacterRemovalDialog
+        key={`${characterRemoval.nodeId}:${characterRemoval.characterId}`}
+        info={removalInfo(characterRemoval.nodeId, characterRemoval.characterId)}
+        blocked={isRunning} canSave={!!window.rpgraph?.saveCharacter}
+        onRemove={(mode, overwrite) => removeStorybookCharacter(characterRemoval.nodeId, characterRemoval.characterId, mode, overwrite)}
+        onClose={() => setCharacterRemoval(null)} />}
+      {npcLibrary.open && !showCharacterAssistant && (
         <NpcLibraryDialog
+          onCreateCharacter={() => { setCharacterAssistantEntry(undefined); setShowCharacterAssistant(true); }}
+          onEditCharacter={(entry) => { editedNpcSnapshotRef.current = npcParticipants.current()[entry.character.id]; setCharacterAssistantEntry(entry); setShowCharacterAssistant(true); }}
+          onOpenStorybook={(nodeId) => {
+            openStorybookCreator(nodeId);
+            npcLibrary.close();
+          }}
           snapshot={npcLibrary.snapshot}
           activeRegistry={npcParticipants.registry()}
+          participants={npcParticipants.current()}
+          activity={[messages, turns, socialLikesByAccount, persistedSocialConnectionsByCharacter,
+            phoneNotesByCharacter, chatGpdChatsByCharacter,
+            nodes.filter(isStorybookSourceNode).map((node) => parseNodeStorybookJson(node.data.storybookJson)?.openingHistory)]}
+          onRemove={(characterId, nodeId) => setCharacterRemoval({ nodeId, characterId })}
+          busy={isRunning}
+          dismissOnEscape={!characterRemoval}
           storybookNodeId={nodes.find(isStorybookSourceNode)?.id}
           onAddToStorybook={(characterId, nodeId) => {
             const previous = npcParticipants.current();
             try {
+              if (isRunning) throw new Error('Wait for the current generation to finish.');
               const card = npcPromotionCard(npcParticipants.registry(), characterId);
               npcParticipants.capture([{ kind: 'character', id: characterId }]);
               applyCharacterCardToNode(nodeId, card, 'NPC Library');

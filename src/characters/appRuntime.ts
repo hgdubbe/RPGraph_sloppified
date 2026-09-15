@@ -1,3 +1,4 @@
+import { runtimeRelationshipContext } from './relationships';
 import { portraitDataUrl } from './portrait';
 import { defaultRpStorybookCharacterBanking, defaultRpStorybookCharacterPhoneSettings } from '../nodes/rp-storybook/model';
 import type { StorybookCharacter } from '../storybook/runtime';
@@ -9,12 +10,14 @@ export function appCharactersFromRegistry(registry: EffectiveCharacterRegistry):
   return registry.characters.map(({ character, provenance, aliases, npcOrigin, playerSelectable }) => {
     const portrait = character.images.find((image) => image.id === character.profileImage?.imageId);
     return {
-      id: provenance.tier === 'storybook' ? aliases.characterIds?.[0] ?? character.id : character.id,
+      id: provenance.tier === 'storybook' || provenance.tier === 'snapshot' ? aliases.characterIds?.[0] ?? character.id : character.id,
       sourceId: character.id, storybookNodeId: provenance.tier === 'storybook' ? provenance.source : '',
       libraryNpc: provenance.tier !== 'storybook', npcOrigin, playerSelectable, identityAliases: aliases,
       kind: 'character', name: character.name, label: character.name,
       profile: { name: character.name, description: character.description,
         personality: character.personality, speechStyle: character.speechStyle, role: character.role },
+      relationships: character.relationships,
+      relationshipContext: runtimeRelationshipContext(character, registry.characters.map((entry) => entry.character)),
       apps: character.apps, social: socialFromCharacterApps(character.apps ?? {}), images: character.images,
       ...(character.profileImage ? { profileImage: { ...character.profileImage, ...(portrait ? { dataUrl: portraitDataUrl(portrait, character.profileImage.crop) } : {}) } } : {}),
       phoneSettings: character.phoneSettings ?? defaultRpStorybookCharacterPhoneSettings(),
@@ -72,6 +75,7 @@ export function recipientCharacterContext(character: StorybookCharacter) {
     ...field('Personality', character.profile.personality),
     ...field('Speech style', character.profile.speechStyle),
     ...field('Role', character.profile.role),
+    ...field('Relationship context', character.relationshipContext),
     '', 'Public social profiles',
     ...profiles,
     ...(absent.length ? ['', `No account: ${absent.join(', ')}`] : []),

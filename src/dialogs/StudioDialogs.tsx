@@ -7,6 +7,7 @@ import {
   type MouseEvent,
   type PointerEvent as ReactPointerEvent,
 } from 'react';
+import { CharacterSaveOptions } from '../components/CharacterSaveOptions';
 import { StatLine } from '../components/StatLine';
 import { ModelIdPicker } from '../components/ModelIdPicker';
 import { DarkAudioPlayer } from '../components/DarkAudioPlayer';
@@ -72,6 +73,7 @@ import { comfyConnectionRole } from '../comfy/connectionRole';
 import { copyTextToClipboard } from '../utils/clipboard';
 import { StorybookReadonlyPreview } from '../components/StorybookReadonlyPreview';
 import { normalizeRpStorybook, type RpStorybook } from '../nodes/rp-storybook/model';
+import type { CharacterImportChoice } from '../storybook/useStorybookActions';
 
 type ComfyModelLists = {
   checkpoints: string[];
@@ -215,6 +217,7 @@ type StudioDialogsProps = {
   sessionName: string;
   sessionPassword: string;
   fileProtection: 'plain' | 'encrypted';
+  encryptionRequired: boolean;
   workflowSaveScope: 'workflow' | 'workflow-storybook';
   chooseSaveLocation: boolean;
   characterSaveLocation: CharacterSaveLocation;
@@ -229,12 +232,12 @@ type StudioDialogsProps = {
   onIncludeCharacterOwnPostsChange: (enabled: boolean) => void;
   onSubmitSessionPassword: () => void;
   showCharacterFiles: boolean;
-  characterFiles: SavedFileSummary[];
-  selectedCharacterFile: string | null;
+  characterImportChoices: CharacterImportChoice[];
+  selectedCharacterImportKey: string | null;
   characterFileStatus: string;
   onCloseCharacterFiles: () => void;
-  onSelectCharacterFile: (file: SavedFileSummary) => void;
-  onImportCharacterFile: (file?: SavedFileSummary) => void;
+  onSelectCharacterImport: (choice: CharacterImportChoice | null) => void;
+  onImportCharacterChoice: (choice?: CharacterImportChoice) => void;
   onOpenExternalCharacterFile: () => void;
   showConnections: boolean;
   connections: ConnectionPreset[];
@@ -861,6 +864,7 @@ export function StudioDialogs({
   sessionName,
   sessionPassword,
   fileProtection,
+  encryptionRequired,
   workflowSaveScope,
   chooseSaveLocation,
   characterSaveLocation,
@@ -875,12 +879,12 @@ export function StudioDialogs({
   onIncludeCharacterOwnPostsChange,
   onSubmitSessionPassword,
   showCharacterFiles,
-  characterFiles,
-  selectedCharacterFile,
+  characterImportChoices,
+  selectedCharacterImportKey,
   characterFileStatus,
   onCloseCharacterFiles,
-  onSelectCharacterFile,
-  onImportCharacterFile,
+  onSelectCharacterImport,
+  onImportCharacterChoice,
   onOpenExternalCharacterFile,
   showConnections,
   connections,
@@ -948,6 +952,12 @@ export function StudioDialogs({
   const [activeOptionsTab, setActiveOptionsTab] = useState<OptionsTabId>('chat');
   const [deleteFileCandidate, setDeleteFileCandidate] = useState<SavedFileSummary | null>(null);
   const [fileFilter, setFileFilter] = useState<'all' | 'workflow' | 'storybook' | 'session' | 'character-card'>('all');
+  const [characterImportFilters, setCharacterImportFilters] = useState<Record<CharacterImportChoice['source'], boolean>>({
+    characters: true,
+    'npc-library': true,
+    'built-in': true,
+  });
+
   const [editingWorkflowVariableKey, setEditingWorkflowVariableKey] = useState<string | null>(null);
   const [workflowVariableNameDraft, setWorkflowVariableNameDraft] = useState('');
   const [workflowVariableStatus, setWorkflowVariableStatus] = useState('');
@@ -972,6 +982,16 @@ export function StudioDialogs({
   const hasStoredWorkflow = savedFiles.some((file) => file.type === 'workflow');
   const hasStoredStorybook = savedFiles.some((file) => file.type === 'storybook');
   const storybookPickerFiles = savedFiles.filter((file) => file.type === 'storybook');
+  const characterImportSections = ([
+    { source: 'characters', title: 'Characters Folder' },
+    { source: 'npc-library', title: 'NPC Library Folder' },
+    { source: 'built-in', title: 'Built-in Characters' },
+  ] as const).map((section) => ({
+    ...section,
+    choices: characterImportChoices
+      .filter((choice) => choice.source === section.source)
+      .sort((left, right) => left.name.localeCompare(right.name) || left.fileName.localeCompare(right.fileName)),
+  })).filter((section) => characterImportFilters[section.source]);
   const connectionModelOptions = Array.from(
     new Set(
       [editingConnection.model, ...availableConnectionModels].filter(
@@ -2420,55 +2440,61 @@ export function StudioDialogs({
           >
             <div className="dialog-header">
               <div>
-                <h2 className="workflow-dialog-title">Characters</h2>
-                <p>Select a Character Card from your local characters folder</p>
+                <h2 className="workflow-dialog-title">Import Character</h2>
+                <p>Select a character from a local folder or the built-in library</p>
               </div>
               <button type="button" className="close-button" onClick={onCloseCharacterFiles}>
                 Close
               </button>
             </div>
             <div className="chat-files-form">
-              <div className="saved-chat-list" aria-label="Saved RPGraph characters">
-                {characterFiles.length === 0 ? (
-                  <p className="empty-chat-list">No saved characters yet.</p>
-                ) : characterFiles.map((file) => (
-                  <div
-                    className={`saved-chat-row${selectedCharacterFile === file.fileName ? ' selected' : ''}`}
-                    key={file.fileName}
-                    onDoubleClick={() => onImportCharacterFile(file)}
-                  >
-                    <button
-                      className="saved-chat-select"
-                      type="button"
-                      onClick={() => onSelectCharacterFile(file)}
-                    >
-                      <span className="saved-file-summary">
-                        <strong className="saved-file-name-container">
-                          <span className="file-type-badge character-card">Character</span>
-                          <span className="saved-file-name-text">{file.name}</span>
-                          {file.protection === 'encrypted' && (
-                            <svg
-                              width="12"
-                              height="12"
-                              viewBox="0 0 24 24"
-                              fill="none"
-                              stroke="currentColor"
-                              strokeWidth="2.5"
-                              strokeLinecap="round"
-                              strokeLinejoin="round"
-                              aria-label="Encrypted"
-                            >
-                              <rect x="3" y="11" width="18" height="11" rx="2" ry="2" />
-                              <path d="M7 11V7a5 5 0 0 1 10 0v4" />
-                            </svg>
-                          )}
-                        </strong>
-                        <small>
-                          {formatFileDate(file.updatedAt)} · v{file.formatVersion ?? 'Unknown'} ·{' '}
-                          {file.protection === 'encrypted' ? 'Encrypted' : 'Plain JSON'}
-                        </small>
-                      </span>
-                    </button>
+              <div className="saved-chat-list character-import-list" aria-label="Available RPGraph characters">
+                {characterImportSections.length === 0 ? (
+                  <p className="empty-chat-list">Select at least one source below.</p>
+                ) : characterImportSections.map((section) => (
+                  <div className="character-import-section" key={section.source}>
+                    <div className="character-import-section-heading" role="separator">
+                      <span>{section.title}</span>
+                    </div>
+                    {section.choices.length === 0 ? (
+                      <p className="character-import-empty">Empty</p>
+                    ) : section.choices.map((choice) => {
+                      const file = choice.file;
+                      return (
+                        <div
+                          className={`saved-chat-row${selectedCharacterImportKey === choice.key ? ' selected' : ''}`}
+                          key={choice.key}
+                          onDoubleClick={() => onImportCharacterChoice(choice)}
+                        >
+                          <button
+                            className="saved-chat-select"
+                            type="button"
+                            onClick={() => onSelectCharacterImport(choice)}
+                          >
+                            <span className="saved-file-summary">
+                              <strong className="saved-file-name-container">
+                                <span className="saved-file-name-text">{choice.name}</span>
+                                {file.protection === 'encrypted' && (
+                                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none"
+                                    stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"
+                                    strokeLinejoin="round" aria-label="Encrypted">
+                                    <rect x="3" y="11" width="18" height="11" rx="2" ry="2" />
+                                    <path d="M7 11V7a5 5 0 0 1 10 0v4" />
+                                  </svg>
+                                )}
+                              </strong>
+                              <small>
+                                {choice.fileName} · {file.updatedAt ? `Modified ${formatFileDate(file.updatedAt)}` : 'Modified date unavailable'} ·{' '}
+                                Container v{file.formatVersion ?? 'Unknown'} ·{' '}
+                                {file.protection === 'encrypted' ? 'Encrypted' : 'Plain JSON'}
+                                {'unlocked' in file && file.unlocked ? ' · Unlocked for this session' : ''}
+                                {file.protection === 'encrypted' && ` · Envelope v${file.envelopeFormatVersion ?? 'Unknown'}`}
+                              </small>
+                            </span>
+                          </button>
+                        </div>
+                      );
+                    })}
                   </div>
                 ))}
               </div>
@@ -2477,10 +2503,29 @@ export function StudioDialogs({
               )}
             </div>
             <div className="dialog-actions chat-files-actions">
+              <div className="character-import-filters" role="group" aria-label="Character source filters">
+                {([
+                  ['characters', 'Characters'],
+                  ['npc-library', 'NPC Library'],
+                  ['built-in', 'Built-in'],
+                ] as const).map(([source, label]) => (
+                  <label key={source}>
+                    <input type="checkbox" checked={characterImportFilters[source]} onChange={(event) => {
+                      setCharacterImportFilters((current) => ({ ...current, [source]: event.target.checked }));
+                      if (!event.target.checked && characterImportChoices.some((choice) => (
+                        choice.key === selectedCharacterImportKey && choice.source === source
+                      ))) {
+                        onSelectCharacterImport(null);
+                      }
+                    }} />
+                    <span>{label}</span>
+                  </label>
+                ))}
+              </div>
               <button type="button" className="secondary" onClick={onOpenExternalCharacterFile}>
                 Open File
               </button>
-              <button type="button" onClick={() => onImportCharacterFile()}>
+              <button type="button" onClick={() => onImportCharacterChoice()}>
                 Import Character
               </button>
             </div>
@@ -2997,6 +3042,7 @@ export function StudioDialogs({
                         type="radio"
                         name="file-protection"
                         checked={fileProtection === 'plain'}
+                        disabled={encryptionRequired}
                         onChange={() => onFileProtectionChange('plain')}
                       />
                       <span><strong>Plain JSON</strong><small>Readable and shareable</small></span>
@@ -3006,6 +3052,7 @@ export function StudioDialogs({
                         type="radio"
                         name="file-protection"
                         checked={fileProtection === 'encrypted'}
+                        disabled={encryptionRequired}
                         onChange={() => onFileProtectionChange('encrypted')}
                       />
                       <span><strong>Password encrypted</strong><small>Protect the complete file</small></span>
@@ -3034,32 +3081,13 @@ export function StudioDialogs({
                     </div>
                   )}
                   {isSavingCharacter && (
-                    <div className="character-export-options">
-                      <label className="dialog-action-checkbox character-export-posts">
-                        <input
-                          type="checkbox"
-                          checked={includeCharacterOwnPosts}
-                          onChange={(event) => onIncludeCharacterOwnPostsChange(event.target.checked)}
-                        />
-                        <span>
-                          <strong>Export Character with Own Posts</strong>
-                          <small>Include posts published by this character</small>
-                        </span>
-                      </label>
-                      <label className="character-export-location" htmlFor="character-export-location">
-                        <span>EXPORT LOCATION</span>
-                        <NodeCustomSelect<CharacterSaveLocation>
-                          id="character-export-location"
-                          value={characterSaveLocation}
-                          options={[
-                            { value: 'characters', label: 'Characters Folder' },
-                            { value: 'npc-characters', label: 'NPC Library Folder' },
-                            { value: 'choose', label: 'Choose Save Location…' },
-                          ]}
-                          onChange={onCharacterSaveLocationChange}
-                        />
-                      </label>
-                    </div>
+                    <CharacterSaveOptions includePosts={includeCharacterOwnPosts} onIncludePostsChange={onIncludeCharacterOwnPostsChange}
+                      destination={characterSaveLocation} onDestinationChange={onCharacterSaveLocationChange}
+                      destinations={[
+                        { value: 'npc-characters', label: 'NPC Library Folder' },
+                        { value: 'characters', label: 'Characters Folder' },
+                        { value: 'choose', label: 'Choose Save Location…' },
+                      ]} />
                   )}
                 </>
               )}
@@ -3073,7 +3101,8 @@ export function StudioDialogs({
                   </p>
                 </div>
               )}
-              {(!isSavingFile || fileProtection === 'encrypted') && (
+              {isSavingFile && encryptionRequired && <p className="chat-security-info">Encryption is required. The existing game password is used automatically.</p>}
+              {(!isSavingFile || (fileProtection === 'encrypted' && !encryptionRequired)) && (
                 <label className="chat-file-field" htmlFor="chat-password">
                   PASSWORD OR PIN
                   <input
