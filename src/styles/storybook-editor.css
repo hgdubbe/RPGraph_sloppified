@@ -785,8 +785,8 @@
   background-repeat: no-repeat;
   background-position: left center;
   background-size: contain;
-  filter: blur(7px);
-  opacity: 0.25;
+  filter: blur(4px);
+  opacity: 0.45;
   -webkit-mask-image: linear-gradient(to right, black 0%, black 66%, transparent 100%);
   mask-image: linear-gradient(to right, black 0%, black 66%, transparent 100%);
 }
@@ -795,7 +795,7 @@
   position: absolute;
   inset: 0;
   z-index: 0;
-  background: linear-gradient(100deg, rgba(9, 11, 20, 0.55) 0%, rgba(9, 11, 20, 0.82) 34%, rgba(9, 11, 20, 0.94) 100%);
+  background: linear-gradient(100deg, rgba(9, 11, 20, 0.3) 0%, rgba(9, 11, 20, 0.68) 40%, rgba(9, 11, 20, 0.9) 100%);
 }
 
 /* The clear, sharp photo on the left. Rounded explicitly on its own two
