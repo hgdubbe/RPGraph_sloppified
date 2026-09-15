@@ -184,6 +184,19 @@
   background-position: center top;
   background-size: 100% auto;
 }
+/* Fotogram registration: 1:1 port of the provided prototype's dark theme
+   (src/assets/social/fotogram) — the prototype is dark-mode-only (its
+   light :root is unconditionally overridden, no @media guard), so these
+   are its actually-rendered colors, not the unused light variant.
+   Scoped to the signup form only — the live Fotogram feed keeps its own
+   purple/indigo --social-accent elsewhere. */
+.social-profile-editor--fotogram {
+  --profile-accent: #f17ba6;
+  --profile-accent-strong: #f17ba6;
+  --profile-tint: #29212b;
+  font-family: "Segoe UI", sans-serif;
+  background: #141216;
+}
 .social-profile-editor > * { width: 100%; max-width: 680px; margin: 0 auto; box-sizing: border-box; }
 .social-profile-editor h2 { margin: 8px 0; font-size: clamp(24px, 3vw, 34px); letter-spacing: -0.035em; }
 .social-profile-editor h3 { margin: 0; font-size: 16px; }
@@ -212,7 +225,7 @@
 /* OnlyFriends: branded hero header (logo lockup), a large, prominent avatar
    (models live off their looks — this is the focal point), and its own
    teaser-pic/CTA treatment — see below. */
-.social-profile-wordmark {
+.social-profile-editor--onlyfriends .social-profile-wordmark {
   display: block;
   width: min(320px, 78%);
   height: auto;
@@ -221,6 +234,187 @@
 }
 .social-profile-editor--onlyfriends .social-profile-heading {
   text-align: center;
+}
+
+/* Fotogram wordmark: icon + italic serif logotype (prototype: italic bold
+   31px Georgia, letter-spacing -1.6px), plus a "Your world" tag chip. */
+.social-profile-editor--fotogram .social-profile-wordmark {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  height: 77px;
+  padding-bottom: 0;
+  border-bottom: 1px solid #302a32;
+}
+.social-profile-wordmark-mark {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-family: Georgia, "Times New Roman", serif;
+  font-style: italic;
+  font-weight: 700;
+  font-size: 31px;
+  letter-spacing: -1.6px;
+  color: #f6f1f4;
+}
+.social-profile-wordmark-mark svg {
+  width: 27px;
+  height: 27px;
+  color: var(--profile-accent);
+}
+.social-profile-tag {
+  flex: none;
+  padding: 6px 9px;
+  border: 1px solid #302a32;
+  border-radius: 20px;
+  color: #ada3ad;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 1.2px;
+  text-transform: uppercase;
+}
+.social-profile-editor--fotogram .social-profile-eyebrow {
+  color: #e99ab5;
+  letter-spacing: 1.8px;
+}
+.social-profile-editor--fotogram h2 {
+  font-size: 35px;
+  font-weight: 750;
+  letter-spacing: -1.5px;
+  line-height: 1.12;
+}
+.social-profile-editor--fotogram h2 em {
+  font-family: Georgia, serif;
+  font-style: italic;
+  font-weight: 500;
+  color: var(--profile-accent);
+}
+.social-profile-editor--fotogram .social-profile-heading p {
+  max-width: 300px;
+}
+.social-profile-live-badge {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 5px 8px;
+  border: 1px solid #50323f;
+  border-radius: 20px;
+  background: #211a22;
+  color: #e4b4c7;
+  font-size: 9px;
+  letter-spacing: 0.5px;
+}
+.social-profile-live-badge::before {
+  content: "";
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: var(--profile-accent);
+}
+.social-profile-editor--fotogram .social-profile-preview {
+  position: relative;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  border-color: #3d2b35;
+  background:
+    radial-gradient(ellipse at 90% 0%, #432b20, transparent 60%),
+    radial-gradient(ellipse at 0% 0%, #422035, transparent 65%),
+    #1d181e;
+}
+.social-profile-plus-badge {
+  position: absolute;
+  right: -2px;
+  bottom: -2px;
+  display: grid;
+  place-items: center;
+  width: 26px;
+  height: 26px;
+  border: 3px solid #211a22;
+  border-radius: 50%;
+  background: #f6f1f4;
+  color: #241b23;
+  font-size: 17px;
+  line-height: 1;
+}
+.social-profile-editor--fotogram .social-profile-avatar {
+  position: relative;
+  flex: none;
+  width: 104px;
+  height: 104px;
+}
+.social-profile-editor--fotogram .social-profile-avatar > * {
+  background: #302832;
+}
+.social-profile-handle {
+  margin-top: 2px;
+  color: #d7a1b8;
+  font-size: 12px;
+}
+.social-profile-username-wrap {
+  position: relative;
+}
+.social-profile-at {
+  position: absolute;
+  left: 14px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: #c3a8b8;
+  pointer-events: none;
+}
+.social-profile-username-wrap input {
+  padding-left: 34px;
+}
+.social-profile-optional {
+  font-weight: 400;
+  color: #ada3ad;
+}
+.social-profile-section-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 15px;
+}
+.social-profile-section-heading h3 {
+  font-size: 15px;
+  letter-spacing: -0.2px;
+}
+.social-profile-section-heading > span {
+  font-size: 11px;
+  color: #ada3ad;
+}
+.social-profile-field-foot {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  margin-top: 6px;
+  font-size: 10px;
+  color: #ada3ad;
+}
+.social-profile-text-button {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  min-height: 44px;
+  padding: 0 4px;
+  border: 0;
+  background: none;
+  color: var(--profile-accent);
+  font-size: 12px;
+  font-weight: 650;
+}
+.social-profile-text-button svg {
+  width: 15px;
+  height: 15px;
+}
+.social-profile-album-note {
+  font-size: 11px;
+  color: #ada3ad;
+  line-height: 1.5;
 }
 .social-profile-editor--onlyfriends .social-profile-eyebrow {
   text-shadow: 0 0 12px rgba(244, 63, 94, 0.65);
@@ -293,6 +487,53 @@
 .social-profile-actions .social-profile-save { background: var(--profile-accent); color: #111521; border-color: transparent; }
 .social-profile-save span { margin-left: 16px; }
 .social-profile-editor .social-profile-error { padding: 12px; border: 1px solid #fb8a9a; border-radius: 10px; color: #ffbcc6; background: #411d2c; }
+.social-profile-editor--fotogram .social-profile-save {
+  background: linear-gradient(115deg, #a94624, #b62957 48%, #952575);
+  color: white;
+  border-radius: 12px;
+  box-shadow: 0 5px 18px rgba(199, 50, 97, 0.15);
+}
+.social-profile-editor--fotogram .social-profile-save:hover { filter: brightness(1.06); }
+.social-profile-editor--fotogram input,
+.social-profile-editor--fotogram textarea {
+  border-color: #3a323d;
+  border-radius: 11px;
+  background: #1e1a21;
+  color: #f6f1f4;
+  font-size: 16px;
+  transition: border-color 0.15s;
+}
+.social-profile-editor--fotogram input::placeholder,
+.social-profile-editor--fotogram textarea::placeholder {
+  color: #a397a3;
+  font-size: 14px;
+}
+.social-profile-editor--fotogram :is(input, textarea):focus-visible {
+  outline: none;
+  border-color: var(--profile-accent);
+  box-shadow: 0 0 0 3px rgba(241, 123, 166, 0.11);
+}
+.social-profile-editor--fotogram .social-profile-photo {
+  border-radius: 13px;
+  background-color: #29212b;
+}
+.social-profile-editor--fotogram .social-profile-photo[aria-pressed="true"] {
+  border-color: var(--profile-accent);
+  background-color: #29212b;
+  box-shadow: 0 0 0 2px #211a22 inset;
+}
+.social-profile-editor--fotogram .social-profile-photo-check {
+  width: 19px;
+  height: 19px;
+  border: 1px solid #ffffffc4;
+  background: #00000025;
+  box-shadow: none;
+  font-size: 12px;
+}
+.social-profile-editor--fotogram .social-profile-photo[aria-pressed="true"] .social-profile-photo-check {
+  border-color: white;
+  background: #b72861;
+}
 
 /* OnlyFriends: rounder "pill" fields, 3-up teaser grid, gradient CTA, and a
    plain text-link Cancel to match a native mobile sign-up sheet. */

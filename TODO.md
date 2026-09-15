@@ -35,7 +35,7 @@ upstream's new pattern and adapt our wiring to it," default to the latter.
 - Themes per character
 - Some themes suck (esp. the girly ones look "dirty/dark", more pastel, brighter colors)
 - Instead of switching between roleplay and graph mode, make them tabs of the main window
-
+- match phone app design to registration pages
 ## Done
 
 - Applying a provider to all nodes now also updates the phone apps Notes node's
