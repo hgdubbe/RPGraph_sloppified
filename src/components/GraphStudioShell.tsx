@@ -1,7 +1,6 @@
 import type { ReactNode } from 'react';
 
 export type GraphStudioShellProps = {
-  toolbar: ReactNode;
   canvas: ReactNode;
   canvasHud: ReactNode;
   nodePalette: ReactNode;
@@ -12,7 +11,6 @@ export type GraphStudioShellProps = {
 };
 
 export function GraphStudioShell({
-  toolbar,
   canvas,
   canvasHud,
   nodePalette,
@@ -23,9 +21,6 @@ export function GraphStudioShell({
 }: GraphStudioShellProps) {
   return (
     <section className="studio-shell studio-shell-graph graph-panel" aria-label="Graph Mode">
-      <header className="studio-graph-commandbar">
-        <div className="studio-graph-toolbar-slot">{toolbar}</div>
-      </header>
       <section
         className={[
           'studio-graph-workbench',

@@ -27,22 +27,12 @@
     min-width: 70px;
   }
 
-  .studio-graph-commandbar {
-    grid-template-columns: 1fr;
-  }
-
   .studio-graph-workbench {
     grid-template-columns: 290px minmax(360px, 1fr);
   }
 
   .studio-graph-inspector-slot {
     display: none;
-  }
-
-  .graph-context,
-  .graph-actions {
-    flex-wrap: wrap;
-    justify-content: flex-start;
   }
 }
 

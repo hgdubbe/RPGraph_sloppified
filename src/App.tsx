@@ -5522,94 +5522,6 @@ function App() {
     </div>
   );
 
-  const graphToolbar = (
-    <div className="graph-toolbar">
-      <div className="graph-context">
-        <span>{nodes.length} nodes</span>
-        <span>
-          {displayedWorkflowName}
-          {isWorkflowEncrypted && headerLockIcon}
-        </span>
-        <span>
-          {displayedStorybookName}
-          {isStorybookEncrypted && headerLockIcon}
-        </span>
-      </div>
-      <div className="graph-actions">
-        <span className="graph-ready-chip">
-          <span aria-hidden="true" />
-          Ready
-        </span>
-        <button
-          className="runtime-summary-button"
-          type="button"
-          onClick={() => setShowRunLlmReport(true)}
-          disabled={!runLlmReport}
-          title="Show LLM calls for the current or last run"
-        >
-          Runtime <LiveRunClock isRunning={isRunning} startTimeMs={runStartTimeMs} finalMs={runDurationMs} /> s
-        </button>
-        <button className="graph-reset" type="button" onClick={() => void saveCurrentWorkflow()}>
-          Save Workflow
-        </button>
-        <button className="graph-reset graph-secondary-action" type="button" onClick={() => void saveCurrentSession()}>
-          Save RP
-        </button>
-        <button
-          className="graph-reset graph-secondary-action"
-          type="button"
-          onClick={() => void resetWorkflow()}
-          disabled={!!activeSessionFileName}
-          title={activeSessionFileName
-            ? 'Workflow reset is unavailable while an RP save is active.'
-            : 'Reset workflow'}
-        >
-          Reset
-        </button>
-        <PromptPresetOverview
-          nodes={nodeViewNodes}
-          connections={connections}
-          providerHealthById={providerHealthById}
-          onCheckProviderConnection={(connectionId) => {
-            void checkProviderConnectionById(connectionId);
-          }}
-          promptActionCustomPresets={promptActionCustomPresets}
-          setPromptActionCustomPresets={setPromptActionCustomPresets}
-          promptActionSettings={promptActionSettings}
-          setPromptActionSettings={setPromptActionSettings}
-          promptTextCustomPresets={promptTextCustomPresets}
-          setPromptTextCustomPresets={setPromptTextCustomPresets}
-          updateNodeData={updateRuntimeNode}
-        />
-        <WorkflowCapabilityStrip indicators={workflowCapabilityIndicators} />
-        {visibleLogEntry && (
-          <div
-            key={visibleLogEntry.id}
-            className={`graph-system-toast ${visibleLogEntry.level}`}
-            role="status"
-            aria-live="polite"
-          >
-            <div className="graph-system-toast-content">
-              <strong>{visibleLogEntry.level}</strong>
-              <span>{visibleLogEntry.text}</span>
-            </div>
-          </div>
-        )}
-      </div>
-      {showDeletedNodeRestoreButton && (
-        <button
-          className="graph-restore-deleted"
-          type="button"
-          onClick={restoreLastDeletedNodes}
-          title="Restore last deleted node"
-          aria-label="Restore last deleted node"
-        >
-          ↶
-        </button>
-      )}
-    </div>
-  );
-
   const graphCanvas = (
     <NodeActionsContext.Provider value={nodeActions}>
       <NodeViewContext.Provider value={nodeViewValues}>
@@ -5697,6 +5609,17 @@ function App() {
       </div>
       <div className="graph-canvas-hud-group">
         <span className="graph-hud-pill">Run Trace</span>
+        {showDeletedNodeRestoreButton && (
+          <button
+            className="graph-restore-deleted"
+            type="button"
+            onClick={restoreLastDeletedNodes}
+            title="Restore last deleted node"
+            aria-label="Restore last deleted node"
+          >
+            ↶
+          </button>
+        )}
       </div>
     </>
   );
@@ -6268,6 +6191,70 @@ function App() {
         </div>
         <div className="header-actions">
           {settingsStatus && <span className="workflow-status">{settingsStatus}</span>}
+          {studioMode === 'graph' && (
+            <div className="topbar-graph-actions">
+              <span className="graph-node-count">{nodes.length} nodes</span>
+              <span className="graph-ready-chip">
+                <span aria-hidden="true" />
+                Ready
+              </span>
+              <button
+                className="runtime-summary-button"
+                type="button"
+                onClick={() => setShowRunLlmReport(true)}
+                disabled={!runLlmReport}
+                title="Show LLM calls for the current or last run"
+              >
+                Runtime <LiveRunClock isRunning={isRunning} startTimeMs={runStartTimeMs} finalMs={runDurationMs} /> s
+              </button>
+              <button className="graph-reset" type="button" onClick={() => void saveCurrentWorkflow()}>
+                Save Workflow
+              </button>
+              <button className="graph-reset graph-secondary-action" type="button" onClick={() => void saveCurrentSession()}>
+                Save RP
+              </button>
+              <button
+                className="graph-reset graph-secondary-action"
+                type="button"
+                onClick={() => void resetWorkflow()}
+                disabled={!!activeSessionFileName}
+                title={activeSessionFileName
+                  ? 'Workflow reset is unavailable while an RP save is active.'
+                  : 'Reset workflow'}
+              >
+                Reset
+              </button>
+              <PromptPresetOverview
+                nodes={nodeViewNodes}
+                connections={connections}
+                providerHealthById={providerHealthById}
+                onCheckProviderConnection={(connectionId) => {
+                  void checkProviderConnectionById(connectionId);
+                }}
+                promptActionCustomPresets={promptActionCustomPresets}
+                setPromptActionCustomPresets={setPromptActionCustomPresets}
+                promptActionSettings={promptActionSettings}
+                setPromptActionSettings={setPromptActionSettings}
+                promptTextCustomPresets={promptTextCustomPresets}
+                setPromptTextCustomPresets={setPromptTextCustomPresets}
+                updateNodeData={updateRuntimeNode}
+              />
+              <WorkflowCapabilityStrip indicators={workflowCapabilityIndicators} />
+              {visibleLogEntry && (
+                <div
+                  key={visibleLogEntry.id}
+                  className={`graph-system-toast ${visibleLogEntry.level}`}
+                  role="status"
+                  aria-live="polite"
+                >
+                  <div className="graph-system-toast-content">
+                    <strong>{visibleLogEntry.level}</strong>
+                    <span>{visibleLogEntry.text}</span>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
           <div className="topbar-file-status" aria-label="Active RP files">
             <div className="status-badge">
               <span className="session-label">RP save:</span>
@@ -6341,7 +6328,6 @@ function App() {
         {studioMode === 'graph' && (
         <ErrorBoundary label="Graph Panel">
           <GraphStudioShell
-            toolbar={graphToolbar}
             canvas={graphCanvas}
             canvasHud={graphCanvasHud}
             nodePalette={graphNodePalette}

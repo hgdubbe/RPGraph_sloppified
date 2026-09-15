@@ -752,17 +752,6 @@ input[type="radio"]:focus-visible {
   position: relative;
 }
 
-.graph-toolbar {
-  position: absolute;
-  z-index: 5;
-  left: 20px;
-  top: 20px;
-  display: flex;
-  max-width: calc(100vw - 40px);
-  gap: 8px;
-  align-items: stretch;
-}
-
 .panel-label {
   display: flex;
   max-width: 100%;
@@ -5423,6 +5412,28 @@ input[type="number"]::-webkit-outer-spin-button {
 
 .topbar-file-status .status-badge:hover .session-file {
   color: #f1f5f9;
+}
+
+.topbar-graph-actions {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 8px;
+  overflow-x: auto;
+  overflow-y: hidden;
+  scrollbar-width: none;
+}
+
+.topbar-graph-actions::-webkit-scrollbar {
+  display: none;
+}
+
+.graph-node-count {
+  flex: none;
+  color: #8794b1;
+  font-size: 12px;
+  font-weight: 700;
+  white-space: nowrap;
 }
 
 .npc-library-dialog {

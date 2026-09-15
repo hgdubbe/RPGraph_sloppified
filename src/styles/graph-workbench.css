@@ -14,7 +14,7 @@
   --graph-lime: #a4ec68;
   --graph-violet: #a277ff;
   display: grid;
-  grid-template-rows: 42px minmax(0, 1fr);
+  grid-template-rows: minmax(0, 1fr);
   height: 100%;
   min-height: 0;
   background:
@@ -27,16 +27,6 @@
 
 .studio-shell-graph .react-flow__node {
   visibility: visible !important;
-}
-
-.studio-graph-commandbar {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  min-width: 0;
-  padding: 7px 12px;
-  border-bottom: 1px solid #252b3d;
-  background: rgba(9, 11, 20, 0.95);
 }
 
 .studio-graph-canvas {
@@ -114,65 +104,6 @@
   min-width: 0;
   border-left: 1px solid var(--graph-line);
   background: rgba(18, 22, 37, 0.98);
-}
-
-/* Upstream's .graph-toolbar is a floating overlay (position: absolute,
-   left/top offsets) meant to sit directly over its own canvas in
-   upstream's single-pane layout. This branch's Graph Studio Shell docks
-   it as a normal-flow row inside .studio-graph-commandbar instead, so it
-   needs the plain flex layout here — upstream's absolute positioning,
-   left unoverridden, was fighting the new 42px commandbar row it's
-   actually rendered in (buttons overflowing/misaligned). */
-.graph-toolbar {
-  position: static;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  min-width: 0;
-  width: 100%;
-  max-width: none;
-}
-
-.studio-graph-toolbar-slot {
-  display: flex;
-  align-items: center;
-  min-width: 0;
-  width: 100%;
-  overflow: hidden;
-}
-
-.graph-actions {
-  display: flex;
-  align-items: center;
-  justify-content: flex-end;
-  gap: 7px;
-  min-width: 0;
-}
-
-.graph-context {
-  display: flex;
-  align-items: center;
-  gap: 9px;
-  min-width: 0;
-  overflow: hidden;
-  color: var(--graph-muted);
-  font-size: 12px;
-  font-weight: 700;
-  letter-spacing: 0;
-  white-space: nowrap;
-}
-
-.graph-context span {
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.graph-context span:not(:last-child)::after {
-  content: "·";
-  margin-left: 9px;
-  color: var(--graph-faint);
 }
 
 .graph-ready-chip {
