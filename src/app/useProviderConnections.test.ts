@@ -60,7 +60,7 @@ function harness(providerKind: LlmProviderKind, model = 'text-model') {
       // eslint-disable-next-line react-hooks/rules-of-hooks
       return useProviderConnections({
         connections, setConnections, defaultConnectionId: 'provider', setDefaultConnectionId: vi.fn(),
-        settingsLoadComplete: false, isRunning: false, nodesRef: { current: [] },
+        settingsLoadComplete: false, nodesRef: { current: [] },
         setNodes: vi.fn(), notifySystem: vi.fn(),
       });
     },

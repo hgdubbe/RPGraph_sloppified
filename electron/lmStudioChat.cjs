@@ -106,10 +106,11 @@ function lmStudioResponseText(result) {
   if (!result || typeof result !== 'object' || !Array.isArray(result.output)) {
     return '';
   }
-  return result.output
+  const messageText = result.output
     .filter((item) => item && item.type === 'message' && typeof item.content === 'string')
     .map((item) => item.content)
     .join('');
+  return messageText;
 }
 
 class LmStudioSseParser {

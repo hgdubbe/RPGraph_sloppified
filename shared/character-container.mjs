@@ -1,6 +1,6 @@
-const formatVersions = require('../src/storybook/formatVersions.json');
+import formatVersions from '../src/storybook/formatVersions.json' with { type: 'json' };
 
-const currentCharacterContainerVersion = formatVersions.characterCard;
+export const currentCharacterContainerVersion = formatVersions.characterCard;
 const appNames = ['whatsup', 'fotogram', 'onlyfriends', 'matchme'];
 const datingGenders = ['woman', 'man', 'nonbinary'];
 
@@ -40,8 +40,24 @@ function validateDatingProfile(value, requireImage, allowMissingPhoto = false) {
   }
 }
 
+export function validateCharacterRelationships(value, ownerId) {
+  if (value === undefined) return;
+  if (!Array.isArray(value)) throw new Error('Character relationships must be an array.');
+  const targets = new Set();
+  for (const entry of value) {
+    const relation = record(entry);
+    if (!nonEmptyString(relation.characterId) || relation.characterId === ownerId || targets.has(relation.characterId) ||
+        typeof relation.description !== 'string' || !relation.apps || typeof relation.apps !== 'object' || Array.isArray(relation.apps) ||
+        Object.entries(relation.apps).some(([app, enabled]) => !appNames.includes(app) || typeof enabled !== 'boolean') ||
+        Object.keys(relation).some((key) => !['characterId', 'description', 'apps'].includes(key))) {
+      throw new Error('Relationships require unique other character IDs, a description and boolean app connections.');
+    }
+    targets.add(relation.characterId);
+  }
+}
+
 /** Validate the canonical Character Container V2 payload and all gallery references. */
-function validateCharacterPayload(value) {
+export function validateCharacterPayload(value) {
   const character = record(value);
   if (!nonEmptyString(character.id) || !nonEmptyString(character.name)) {
     throw new Error('Character Container V2 requires a stable id and name.');
@@ -54,6 +70,7 @@ function validateCharacterPayload(value) {
   if (character.hiddenAgency !== undefined && typeof character.hiddenAgency !== 'string') {
     throw new Error('Character hiddenAgency must be a string when present.');
   }
+  validateCharacterRelationships(character.relationships, character.id);
   if (typeof character.playable !== 'boolean') {
     throw new Error('Character Container V2 requires a playable flag.');
   }
@@ -125,7 +142,7 @@ function validateCharacterPayload(value) {
   return character;
 }
 
-function validateCharacterContainer(value) {
+export function validateCharacterContainer(value) {
   const container = record(value);
   if (container.format !== 'rpgraph-character') {
     throw new Error('The file is not an RPGraph character container.');
@@ -137,8 +154,9 @@ function validateCharacterContainer(value) {
   return container;
 }
 
-module.exports = {
+export default {
   currentCharacterContainerVersion,
+  validateCharacterRelationships,
   validateCharacterContainer,
   validateCharacterPayload,
 };

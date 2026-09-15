@@ -44,8 +44,8 @@ function direct(characters = setup().characters, text = 'Here: @whatsup:Third Pe
 
 describe('inline account links', () => {
   it('resolves the bundled Storybook Fotogram messages with standard WhatsUp accounts', () => {
-    const workflow = JSON.parse(readFileSync('resources/default-content/default_normal_v28.json', 'utf8')) as WorkflowFile;
-    const storybook = readFileSync('resources/default-content/Saturday_Night_at_Maple_Street.json', 'utf8');
+    const workflow = JSON.parse(readFileSync('resources/default-content/default_normal_v29.json', 'utf8')) as WorkflowFile;
+    const storybook = readFileSync('resources/default-content/Saturday_Night_at_Maple_Street_V_1.1.json', 'utf8');
     const storybookNode = workflow.nodes.find((node) => node.data.nodeType === 'rp-storybook')!;
     storybookNode.data.storybookJson = storybook;
     const characters = structuredClone(storyCharactersFromNodes(workflow.nodes));
@@ -118,14 +118,15 @@ describe('inline account links', () => {
     expect(parseAccountLinks(message.socialDirectMessage!.text, restored.filter((entry) => entry.sourceId !== 'third'), binding).map((link) => link.characterId)).toEqual(['player']);
   });
 
-  it('automatically grants contacts to simulated recipients, requires clicks for received player links and ignores drafts', () => {
+  it('automatically grants contacts to NPC and player recipients and ignores drafts', () => {
     const { characters } = setup();
     const message = direct(characters);
     const grants = automaticAccountLinkGrants([message], characters);
     expect(grants.map(({ owner, link }) => [owner.sourceId, link.characterId])).toEqual([['nova', 'third'], ['nova', 'player']]);
     expect(automaticAccountLinkGrants([], characters)).toEqual([]);
     const reply: MessageRecord = { ...message, role: 'output', socialDirectMessage: { ...message.socialDirectMessage!, toAccountId: 'player:fotogram' } };
-    expect(automaticAccountLinkGrants([reply], characters)).toEqual([]);
+    expect(automaticAccountLinkGrants([reply], characters).map(({ owner, link }) => [owner.sourceId, link.characterId]))
+      .toEqual([['player', 'third']]);
     expect(automaticAccountLinkGrants([{ ...message, role: 'output' }], characters)).toHaveLength(2);
     const self = direct(characters, '@fotogram:nova.fotogram');
     expect(automaticAccountLinkGrants([self], characters)).toEqual([]);

@@ -104,6 +104,7 @@ const rpWeekdayLanguages = [
 ] as const satisfies readonly RpWeekdayLanguage[];
 const defaultGlassDesignEnabled = true;
 const defaultRetryFormatErrorsEnabled = true;
+const defaultTurnAutosaveEnabled = false;
 const defaultGlassDesignOpacity = 0.6;
 const defaultDialogueVoiceMode: DialogueVoiceMode = 'click';
 const dialogueVoiceModes = ['click', 'preload', 'read-aloud', 'narrator-only'] as const satisfies readonly DialogueVoiceMode[];
@@ -808,6 +809,8 @@ function isAppSettings(value: unknown): value is AppSettings {
         settings.options.uiScale <= maxUiScale)) &&
     (settings.options.retryFormatErrorsEnabled === undefined ||
       typeof settings.options.retryFormatErrorsEnabled === 'boolean') &&
+    (settings.options.turnAutosaveEnabled === undefined ||
+      typeof settings.options.turnAutosaveEnabled === 'boolean') &&
     (settings.options.dialogueVoiceMode === undefined ||
       dialogueVoiceModes.includes(settings.options.dialogueVoiceMode)) &&
     (settings.options.dialogueNarratorProviderId === undefined ||
@@ -895,6 +898,8 @@ type AppSettingsState = {
   setUiScale: Dispatch<SetStateAction<number>>;
   retryFormatErrorsEnabled: boolean;
   setRetryFormatErrorsEnabled: Dispatch<SetStateAction<boolean>>;
+  turnAutosaveEnabled: boolean;
+  setTurnAutosaveEnabled: Dispatch<SetStateAction<boolean>>;
   dialogueVoiceMode: DialogueVoiceMode;
   setDialogueVoiceMode: Dispatch<SetStateAction<DialogueVoiceMode>>;
   dialogueNarratorProviderId: string;
@@ -964,6 +969,9 @@ export function useAppSettings(): AppSettingsState {
   const [uiScale, setUiScale] = useState(defaultUiScale);
   const [retryFormatErrorsEnabled, setRetryFormatErrorsEnabled] = useState(
     defaultRetryFormatErrorsEnabled,
+  );
+  const [turnAutosaveEnabled, setTurnAutosaveEnabled] = useState(
+    defaultTurnAutosaveEnabled,
   );
   const [dialogueVoiceMode, setDialogueVoiceMode] = useState<DialogueVoiceMode>(
     defaultDialogueVoiceMode,
@@ -1064,6 +1072,9 @@ export function useAppSettings(): AppSettingsState {
         setRetryFormatErrorsEnabled(
           result.settings.options.retryFormatErrorsEnabled ?? defaultRetryFormatErrorsEnabled,
         );
+        setTurnAutosaveEnabled(
+          result.settings.options.turnAutosaveEnabled ?? defaultTurnAutosaveEnabled,
+        );
         setDialogueVoiceMode(validDialogueVoiceMode(result.settings.options.dialogueVoiceMode));
         setDialogueNarratorProviderId(result.settings.options.dialogueNarratorProviderId ?? '');
         setDialogueCloneVoiceProviderId(result.settings.options.dialogueCloneVoiceProviderId ?? '');
@@ -1138,6 +1149,7 @@ export function useAppSettings(): AppSettingsState {
         nodeTextSize: validNodeTextSize(nodeTextSize),
         uiScale: validUiScale(uiScale),
         retryFormatErrorsEnabled,
+        turnAutosaveEnabled,
         dialogueVoiceMode,
         dialogueNarratorProviderId,
         dialogueCloneVoiceProviderId,
@@ -1199,6 +1211,7 @@ export function useAppSettings(): AppSettingsState {
     nodeTextSize,
     uiScale,
     retryFormatErrorsEnabled,
+    turnAutosaveEnabled,
     dialogueVoiceMode,
     dialogueNarratorProviderId,
     dialogueCloneVoiceProviderId,
@@ -1282,6 +1295,8 @@ export function useAppSettings(): AppSettingsState {
     setUiScale,
     retryFormatErrorsEnabled,
     setRetryFormatErrorsEnabled,
+    turnAutosaveEnabled,
+    setTurnAutosaveEnabled,
     dialogueVoiceMode,
     setDialogueVoiceMode,
     dialogueNarratorProviderId,

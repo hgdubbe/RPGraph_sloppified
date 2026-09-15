@@ -13,7 +13,7 @@ import type {
 } from '../chat/imageGenerationAssistant';
 import { imageGenerationAssistantInstructions } from '../chat/imageGenerationAssistant';
 import { defaultComfyHeight, defaultComfyWidth, validComfyDimension } from '../settings';
-import { isLocalProviderConnection } from '../llm/providerKind';
+import { isLocalProviderConnection, isVeniceConnection } from '../llm/providerKind';
 import { TextMetricsApi } from '../llm/tokenMetrics';
 
 type GeneratedImageDraft = {
@@ -34,6 +34,7 @@ class ImageSettingsError extends Error {
 }
 
 type ImageGenerationAssistantDialogProps = {
+  embedded?: boolean;
   connections: ConnectionPreset[];
   providerHealthById: Record<string, ProviderConnectionHealth>;
   availableCharacterLoras: string[];
@@ -74,6 +75,7 @@ type ImageGenerationAssistantDialogProps = {
 };
 
 export function ImageGenerationAssistantDialog({
+  embedded = false,
   connections,
   providerHealthById,
   availableCharacterLoras,
@@ -93,11 +95,14 @@ export function ImageGenerationAssistantDialog({
   onSaveImage,
 }: ImageGenerationAssistantDialogProps) {
   const llmConnections = connections.filter((connection) => connection.kind !== 'comfyui');
-  const comfyConnections = connections.filter(isComfyImageConnection);
+  const imageProviderConnections = connections.filter((connection) =>
+    isComfyImageConnection(connection) ||
+    (isVeniceConnection(connection) && providerHealthById[connection.id]?.capabilities?.image === true),
+  );
 
   const [assistantProvider, setAssistantProvider] = useState(() => llmConnections[0]?.id ?? '');
-  const [imageProvider, setImageProvider] = useState(() => comfyConnections[0]?.id ?? '');
-  const initialImageConnection = comfyConnections[0];
+  const [imageProvider, setImageProvider] = useState(() => imageProviderConnections[0]?.id ?? '');
+  const initialImageConnection = imageProviderConnections[0];
   const [prompt, setPrompt] = useState('');
   const [editorMode, setEditorMode] = useState<'prompt' | 'settings'>('prompt');
   const [settingsText, setSettingsText] = useState(() => JSON.stringify({
@@ -363,12 +368,13 @@ export function ImageGenerationAssistantDialog({
     }
   }
 
-  const selectedImageConnection = comfyConnections.find((connection) => connection.id === imageProvider);
+  const selectedImageConnection = imageProviderConnections.find((connection) => connection.id === imageProvider);
   const selectedAssistantConnection = llmConnections.find((connection) => connection.id === assistantProvider);
   const selectedImageHealth = imageProvider ? providerHealthById[imageProvider] : undefined;
   const assistantModelState = assistantProvider ? modelStateById[assistantProvider] ?? 'unknown' : 'unknown';
   const imageModelState = imageProvider ? modelStateById[imageProvider] ?? 'unknown' : 'unknown';
   const assistantIsLocal = !!selectedAssistantConnection && isLocalProviderConnection(selectedAssistantConnection);
+  const selectedImageIsComfy = !!selectedImageConnection && isComfyImageConnection(selectedImageConnection);
   const modelStateLabel = (state: ImageAssistantModelState) => {
     if (state === 'loading') return 'Loading...';
     if (state === 'unloading') return 'Unloading...';
@@ -379,7 +385,7 @@ export function ImageGenerationAssistantDialog({
   const generateDisabledReason = !prompt.trim()
     ? 'Enter an image prompt first.'
     : !selectedImageConnection
-      ? 'No ComfyUI image provider selected.'
+      ? 'No image provider selected.'
       : selectedImageHealth?.status === 'offline'
         ? `Provider is offline${selectedImageHealth.detail ? `: ${selectedImageHealth.detail}` : '.'}`
         : selectedImageHealth?.status === 'warning'
@@ -388,12 +394,12 @@ export function ImageGenerationAssistantDialog({
             ? 'Provider connection is being checked.'
             : '';
 
-  return createPortal(
+  const content = (
     <div className="dialog-backdrop" role="presentation" {...backdropDismiss}>
       <section
         className="image-generation-assistant-dialog"
         role="dialog"
-        aria-modal="true"
+        aria-modal={!embedded}
         aria-label="Image Generation Assistant"
       >
         <header className="dialog-header storybook-creator-header">
@@ -541,13 +547,13 @@ export function ImageGenerationAssistantDialog({
                   </div>
                 </label>
                 <label className="image-generation-provider-label">
-                  <span>ComfyUI Image Provider</span>
+                  <span>Image Provider</span>
                   <div className="image-generation-provider-row">
                     <NodeCustomSelect
                       value={imageProvider}
                       onChange={(providerId) => {
                       setImageProvider(providerId);
-                      const connection = comfyConnections.find((entry) => entry.id === providerId);
+                      const connection = imageProviderConnections.find((entry) => entry.id === providerId);
                       setSettingsText(JSON.stringify({
                         width: connection?.comfyWidth ?? defaultComfyWidth,
                         height: connection?.comfyHeight ?? defaultComfyHeight,
@@ -555,16 +561,18 @@ export function ImageGenerationAssistantDialog({
                       }, null, 2));
                       setSettingsError('');
                       }}
-                      options={comfyConnections.length
-                        ? comfyConnections.map((c) => providerOption(c, providerHealthById[c.id]))
+                      options={imageProviderConnections.length
+                        ? imageProviderConnections.map((c) => providerOption(c, providerHealthById[c.id]))
                         : [{ value: '', label: 'No image providers available' }]
                       }
                     />
                     <button
                       type="button"
                       className={`image-model-state-button ${imageModelState}`}
-                      disabled={!imageProvider || imageModelState !== 'loaded'}
-                      title={imageModelState === 'loaded'
+                      disabled={!imageProvider || !selectedImageIsComfy || imageModelState !== 'loaded'}
+                      title={!selectedImageIsComfy
+                        ? 'API image providers run remotely and need no local model management.'
+                        : imageModelState === 'loaded'
                         ? 'Unload the ComfyUI model'
                         : 'ComfyUI loads image models when Generate Image runs. Its API has no separate load-only action.'}
                       onClick={() => {
@@ -575,7 +583,7 @@ export function ImageGenerationAssistantDialog({
                         }
                       }}
                     >
-                      {modelStateLabel(imageModelState)}
+                      {selectedImageIsComfy ? modelStateLabel(imageModelState) : 'API'}
                     </button>
                   </div>
                 </label>
@@ -752,7 +760,7 @@ export function ImageGenerationAssistantDialog({
           </div>
         )}
       </section>
-    </div>,
-    document.body,
+    </div>
   );
+  return embedded ? content : createPortal(content, document.body);
 }

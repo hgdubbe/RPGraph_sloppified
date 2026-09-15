@@ -1,3 +1,4 @@
+import { hasAuthoredConnection } from '../characters/relationships';
 import { automaticAccountLinkGrants, resolveAccountLink, type AccountLinkTarget } from '../chat/accountLinks';
 import type { AccountLinkOpenRequest } from '../chat/accountLinkContext';
 import { appCharacterImage } from '../characters/appRuntime';
@@ -9,10 +10,12 @@ import {
   useMemo,
   useRef,
   useState,
+  type SetStateAction,
 } from 'react';
 import {
   validSmoothChatAutoScrollMinSpeed,
 } from '../settings';
+import type { PhoneMoodStatusId } from '../phone/moodStatus';
 import type { CommandInputCommand } from '../chat/structuredCommands';
 import {
   phoneRuntimeCharactersFromMessages,
@@ -34,6 +37,7 @@ import { normalizePhoneName } from '../chat/phoneMessages';
 import {
   buildSocialDirectory,
   withSocialDirectoryConnectionAdded,
+  withAuthoredSocialConnections,
   withSocialConnectionAdded,
   socialConnectionIds,
   type DynamicSocialUsers,
@@ -92,8 +96,17 @@ import type {
   WorkflowNode,
   WorkflowNodeData,
 } from '../types';
+import type { PhoneAppOpenRequest } from '../components/PhonePanel';
+import type { RoleplayActivityShortcutId } from './roleplayActivityShortcuts';
 
 export type ChatPanelView = 'chat' | 'phone' | 'events';
+export type RoleplayActivityShortcut = {
+  id: RoleplayActivityShortcutId;
+  label: string;
+  badge?: number;
+  title: string;
+  onOpen: () => void;
+};
 
 const phoneAuthorBadgesStorageKey = 'rpgraph-phone-author-badges-enabled';
 const chatReadsPhoneAppsStorageKey = 'rpgraph-chat-reads-phone-apps-enabled';
@@ -108,7 +121,6 @@ type UseRoleplayPanelRuntimeOptions = {
   turns: TurnRecord[];
   storybooksByNodeId: Map<string, RpStorybook>;
   characterStorybookNodeCount: number;
-  imageUploadVisionEnabled: boolean;
   englishProcessingEnabled: boolean;
   smoothChatAutoScrollEnabled: boolean;
   smoothChatAutoScrollMinSpeed: number;
@@ -126,7 +138,6 @@ export function useRoleplayPanelRuntime({
   turns,
   storybooksByNodeId,
   characterStorybookNodeCount,
-  imageUploadVisionEnabled,
   englishProcessingEnabled,
   smoothChatAutoScrollEnabled,
   smoothChatAutoScrollMinSpeed,
@@ -135,6 +146,7 @@ export function useRoleplayPanelRuntime({
   notifySystem,
 }: UseRoleplayPanelRuntimeOptions) {
   const [chatPanelView, setChatPanelView] = useState<ChatPanelView>('chat');
+  const chatVisible = chatPanelView !== 'events';
   const [selectedCharacterId, setSelectedCharacterId] = useState('');
   const [viewedPhoneCharacterId, setViewedPhoneCharacterId] = useState('');
   const [selectedPhoneCharacterId, setSelectedPhoneCharacterId] = useState('');
@@ -148,12 +160,34 @@ export function useRoleplayPanelRuntime({
   const [savedDynamicSocialUsers, setDynamicSocialUsers] = useState<DynamicSocialUsers>({});
   const [savedSocialConnectionsByCharacter, setSocialConnectionsByCharacter] =
     useState<SocialConnectionsByCharacter>({});
-  // Notes and ChatGPD chats per character id; part of the RP save.
-  const [phoneNotesByCharacter, setPhoneNotesByCharacter] = useState<PhoneNotesByCharacter>({});
-  const [chatGpdChatsByCharacter, setChatGpdChatsByCharacter] = useState<ChatGpdChatsByCharacter>({});
+  // Notes and ChatGPD chats per character id; part of the RP save. Mirrored into refs
+  // (like turnsRef in useTurnRecordState.ts) because a session snapshot taken from
+  // within a useEffect right after a commit otherwise risks reading a stale closure of
+  // this state if that effect's own re-render happens to run before this update lands -
+  // observed as a real, intermittent, silent turn-autosave gap for actions-v1 model-
+  // authored note.write/assistant.chat commits.
+  const [phoneNotesByCharacter, setPhoneNotesByCharacterState] = useState<PhoneNotesByCharacter>({});
+  const phoneNotesByCharacterRef = useRef(phoneNotesByCharacter);
+  const setPhoneNotesByCharacter = (update: SetStateAction<PhoneNotesByCharacter>) => {
+    const next = typeof update === 'function'
+      ? (update as (current: PhoneNotesByCharacter) => PhoneNotesByCharacter)(phoneNotesByCharacterRef.current)
+      : update;
+    phoneNotesByCharacterRef.current = next;
+    setPhoneNotesByCharacterState(next);
+  };
+  const [chatGpdChatsByCharacter, setChatGpdChatsByCharacterState] = useState<ChatGpdChatsByCharacter>({});
+  const chatGpdChatsByCharacterRef = useRef(chatGpdChatsByCharacter);
+  const setChatGpdChatsByCharacter = (update: SetStateAction<ChatGpdChatsByCharacter>) => {
+    const next = typeof update === 'function'
+      ? (update as (current: ChatGpdChatsByCharacter) => ChatGpdChatsByCharacter)(chatGpdChatsByCharacterRef.current)
+      : update;
+    chatGpdChatsByCharacterRef.current = next;
+    setChatGpdChatsByCharacterState(next);
+  };
   const [onlyFriendsPurchasesByCharacter, setOnlyFriendsPurchasesByCharacter] =
     useState<OnlyFriendsPurchasesByCharacter>({});
   const [phoneHomeRequestId, setPhoneHomeRequestId] = useState(0);
+  const [phoneAppOpenRequest, setPhoneAppOpenRequest] = useState<PhoneAppOpenRequest>();
   const accountLinkRequestId = useRef(0);
   const [accountLinkOpenRequest, setAccountLinkOpenRequest] = useState<AccountLinkOpenRequest>();
   const [socialPostOpenRequest, setSocialPostOpenRequest] = useState<{
@@ -163,6 +197,7 @@ export function useRoleplayPanelRuntime({
   }>();
   const [socialDirectMessageOpenRequest, setSocialDirectMessageOpenRequest] =
     useState<SocialDirectMessageOpenRequest>();
+  const [phoneGalleryOpenRequestId, setPhoneGalleryOpenRequestId] = useState(0);
   const [phoneDividerAfterByConversation, setPhoneDividerAfterByConversation] = useState<Record<string, number>>({});
   const [recentlyUsedEmojis, setRecentlyUsedEmojis] = useState<string[]>([]);
   const [recentChatCharacterIds, setRecentChatCharacterIds] = useState<string[]>([]);
@@ -189,6 +224,8 @@ export function useRoleplayPanelRuntime({
   const [seenEventIds, setSeenEventIds] = useState<Set<string>>(() => new Set());
   const [highlightedEventIds, setHighlightedEventIds] = useState<Set<string>>(() => new Set());
   const [phoneDraft, setPhoneDraft] = useState('');
+  const [phoneDraftContextComment, setPhoneDraftContextComment] = useState('');
+  const [phoneMoodStatus, setPhoneMoodStatus] = useState<PhoneMoodStatusId>('online');
   const [phoneDraftCommands, setPhoneDraftCommands] = useState<CommandInputCommand[]>([]);
   const [phoneImages, setPhoneImages] = useState<ChatImageAttachment[]>([]);
   const [showPhoneEmojiPicker, setShowPhoneEmojiPicker] = useState(false);
@@ -231,7 +268,7 @@ export function useRoleplayPanelRuntime({
     }),
     [messages, savedDynamicSocialUsers, appCharacters],
   );
-  const socialConnectionsByCharacter = useMemo(() => {
+  const persistedSocialConnectionsByCharacter = useMemo(() => {
     let connections = savedSocialConnectionsByCharacter;
     for (const { owner, link } of automaticAccountLinkGrants(messages, appCharacters)) {
       if (link.app === 'matchme') continue;
@@ -241,6 +278,9 @@ export function useRoleplayPanelRuntime({
     }
     return connections;
   }, [savedSocialConnectionsByCharacter, messages, appCharacters, socialDirectory]);
+  const socialConnectionsByCharacter = useMemo(() => withAuthoredSocialConnections(
+    persistedSocialConnectionsByCharacter, appCharacters, socialDirectory.users,
+  ), [persistedSocialConnectionsByCharacter, appCharacters, socialDirectory.users]);
   const phoneCharacters = useMemo(
     () => phoneRuntimeCharactersFromMessages(appCharacters, messages,
       new Set(Object.values(socialConnectionsByCharacter).flatMap((apps) => apps.whatsup ?? []))),
@@ -260,7 +300,7 @@ export function useRoleplayPanelRuntime({
     () => Object.fromEntries(storyCharacters.map((viewer) => [
       viewer.id,
       storyCharacters.flatMap((contact) => {
-        if (viewer.id === contact.id) {
+        if (viewer.relationships !== undefined || viewer.id === contact.id) {
           return [];
         }
         if (viewer.storybookNodeId !== contact.storybookNodeId) {
@@ -293,6 +333,10 @@ export function useRoleplayPanelRuntime({
         socialUserId,
       )
     );
+  }
+  if (selectedCharacterId && selectedCharacterId !== narratorCharacterId &&
+      !playerCharacters.some((character) => character.id === selectedCharacterId)) {
+    setSelectedCharacterId(playerCharacters[0]?.id ?? narratorCharacterId);
   }
   const selectedCharacter =
     selectedCharacterId === narratorCharacterId
@@ -459,11 +503,8 @@ export function useRoleplayPanelRuntime({
     const imageOwner = storybook?.characters.find(
       (entry) => entry.id === viewedPhoneCharacter?.sourceId,
     );
-    const images = imageOwner?.images.map(chatAttachmentFromStorybookImage) ?? [];
-    return imageUploadVisionEnabled
-      ? images
-      : images.filter((image) => image.description?.trim());
-  }, [imageUploadVisionEnabled, storybooksByNodeId, viewedPhoneCharacter]);
+    return imageOwner?.images.map(chatAttachmentFromStorybookImage) ?? [];
+  }, [storybooksByNodeId, viewedPhoneCharacter]);
 
   function rememberChatCharacter(characterId: string) {
     setRecentChatCharacterIds((current) => [
@@ -483,6 +524,7 @@ export function useRoleplayPanelRuntime({
     setAccountLinkOpenRequest(undefined);
     setSelectedCharacterId(characterId);
     if (characterId !== narratorCharacterId) {
+      setViewedPhoneCharacterId(characterId);
       rememberChatCharacter(characterId);
     }
   }
@@ -503,13 +545,14 @@ export function useRoleplayPanelRuntime({
     if (phoneConversationInfo.has(phoneConversationKey(viewer.name, contact.name))) {
       return true;
     }
+    if (viewer.relationships !== undefined) return hasAuthoredConnection(viewer, contact, 'whatsup');
     if (viewer.storybookNodeId && viewer.storybookNodeId === contact.storybookNodeId) {
       const storybook = storybooksByNodeId.get(viewer.storybookNodeId);
       if (storybook) {
         return rpStorybookPhoneContactAllowed(storybook, viewer.sourceId, contact.sourceId);
       }
     }
-    return !viewer.temporaryPhone && !contact.temporaryPhone && !viewer.libraryNpc && !contact.libraryNpc;
+    return viewer.relationships === undefined && !viewer.temporaryPhone && !contact.temporaryPhone && !viewer.libraryNpc && !contact.libraryNpc;
   }, [phoneConversationInfo, storybooksByNodeId, socialConnectionsByCharacter, appCharacters]);
 
   const markPhoneConversationsSeen = useCallback((updates: Array<{ key: string; latestId: number }>) => {
@@ -964,6 +1007,23 @@ export function useRoleplayPanelRuntime({
     setChatPanelView('phone');
   }
 
+  function openPhoneGalleryForCharacter(characterId: string) {
+    const character = storyCharacters.find((entry) => entry.id === characterId);
+    if (!character) {
+      notifySystem('warning', 'Could not find the gallery owner.');
+      return;
+    }
+    setSelectedCharacterId(character.id);
+    setViewedPhoneCharacterId(character.id);
+    rememberChatCharacter(character.id);
+    setSelectedPhoneCharacterId('');
+    setHighlightedPhoneMessage(undefined);
+    setSocialPostOpenRequest(undefined);
+    setSocialDirectMessageOpenRequest(undefined);
+    setPhoneGalleryOpenRequestId((current) => current + 1);
+    setChatPanelView('phone');
+  }
+
   const newEventIds = useMemo(
     () => upcomingEvents.flatMap((event) => (seenEventIds.has(event.id) ? [] : [event.id])),
     [seenEventIds, upcomingEvents],
@@ -1064,10 +1124,26 @@ export function useRoleplayPanelRuntime({
     setAccountLinkOpenRequest(undefined);
     if (chatPanelView !== 'phone') {
       setChatPanelView('phone');
-      return;
     }
 
     setPhoneHomeRequestId((current) => current + 1);
+  }
+
+  function openPhoneDesktop() {
+    setHighlightedPhoneMessage(undefined);
+    setSocialPostOpenRequest(undefined);
+    setChatPanelView('phone');
+    setPhoneHomeRequestId((current) => current + 1);
+  }
+
+  function openPhoneApp(app: PhoneAppOpenRequest['app']) {
+    setHighlightedPhoneMessage(undefined);
+    setSocialPostOpenRequest(undefined);
+    setChatPanelView('phone');
+    setPhoneAppOpenRequest((current) => ({
+      app,
+      requestId: (current?.requestId ?? 0) + 1,
+    }));
   }
 
   function cyclePhoneNotificationOwner() {
@@ -1332,7 +1408,7 @@ export function useRoleplayPanelRuntime({
   }, [scrollChatThreadToBottom]);
 
   useEffect(() => {
-    if (chatPanelView !== 'chat') {
+    if (!chatVisible) {
       return undefined;
     }
     const thread = chatThreadRef.current;
@@ -1369,20 +1445,124 @@ export function useRoleplayPanelRuntime({
       thread.removeEventListener('keydown', markUserScrollIntent);
       thread.removeEventListener('scroll', updateAutoFollow);
     };
-  }, [cancelChatAutoFollowAnimation, chatPanelView]);
+  }, [cancelChatAutoFollowAnimation, chatVisible]);
 
   useEffect(() => {
-    if (chatPanelView === 'chat') {
+    if (chatVisible) {
       chatAutoFollowBottomRef.current = true;
       scrollChatThreadToBottom();
     }
-  }, [chatPanelView, scrollChatThreadToBottom]);
+  }, [chatVisible, scrollChatThreadToBottom]);
 
   useEffect(() => {
-    if (chatPanelView === 'chat') {
+    if (chatVisible) {
       scrollChatThreadToBottomIfFollowing();
     }
-  }, [chatPanelView, messages, scrollChatThreadToBottomIfFollowing]);
+  }, [chatVisible, messages, scrollChatThreadToBottomIfFollowing]);
+
+  const roleplayShortcuts = useMemo<RoleplayActivityShortcut[]>(() => {
+    let latestChatMessage: MessageRecord | undefined;
+    let latestPhoneMessage: MessageRecord | undefined;
+    let latestPost: SocialPostRecord | undefined;
+    for (let index = messages.length - 1; index >= 0; index -= 1) {
+      const message = messages[index];
+      if (
+        !latestChatMessage &&
+        message.role === 'output' &&
+        message.channel !== 'phone' &&
+        !message.isOpening &&
+        !openingMessageIds.has(message.id) &&
+        !socialMessageHiddenFromChat(message) &&
+        message.includeInHistory !== false
+      ) {
+        latestChatMessage = message;
+      }
+      if (
+        !latestPhoneMessage &&
+        (message.channel === 'phone' || message.phoneMessage) &&
+        !!message.phoneFrom?.trim() &&
+        !!message.phoneTo?.trim()
+      ) {
+        latestPhoneMessage = message;
+      }
+      if (!latestPost && message.socialPost) {
+        latestPost = message.socialPost;
+      }
+      if (latestChatMessage && latestPhoneMessage && latestPost) {
+        break;
+      }
+    }
+    let latestPicture: { character: StorybookCharacter } | undefined;
+    storyCharacters.forEach((character) => {
+      const storybook = storybooksByNodeId.get(character.storybookNodeId);
+      const owner = storybook?.characters.find((entry) => entry.id === character.sourceId);
+      if (owner?.images.length) {
+        latestPicture = { character };
+      }
+    });
+
+    const shortcuts: RoleplayActivityShortcut[] = [];
+    if (latestChatMessage) {
+      // onOpen only runs from a click handler, never during render.
+      // eslint-disable-next-line react-hooks/refs
+      shortcuts.push({
+            id: 'last-chat' as const,
+            label: 'Last Chat',
+            badge: unreadChatCount || undefined,
+            title: 'Jump to the latest chat output',
+            onOpen: () => {
+              setChatPanelView('chat');
+              setLastSeenMessageRecordId(latestMessageRecordId);
+              scrollChatThreadToBottom('smooth');
+            },
+      });
+    }
+    if (latestPhoneMessage && latestPhoneMessage.phoneFrom && latestPhoneMessage.phoneTo) {
+      shortcuts.push({
+            id: 'last-message' as const,
+            label: 'Last Message',
+            badge: unreadPhoneCount || undefined,
+            title: `Open the latest phone message from ${latestPhoneMessage.phoneFrom}`,
+            onOpen: () => openEmbeddedPhoneMessage({
+              phoneMessageId: latestPhoneMessage.id,
+              from: latestPhoneMessage.phoneFrom ?? '',
+              to: latestPhoneMessage.phoneTo ?? '',
+              message: latestPhoneMessage.originalText ?? '',
+              translatedMessage: latestPhoneMessage.translatedText,
+              previewImageAttachments: latestPhoneMessage.imageAttachments,
+            }),
+      });
+    }
+    if (latestPost) {
+      shortcuts.push({
+            id: 'last-post' as const,
+            label: 'Last Post',
+            badge: unreadPhoneAppCount || undefined,
+            title: `Open the latest ${latestPost.app} post`,
+            onOpen: () => openSocialPost(latestPost),
+      });
+    }
+    if (latestPicture) {
+      const picture = latestPicture;
+      shortcuts.push({
+            id: 'last-picture' as const,
+            label: 'Last Picture',
+            title: `Open ${picture.character.name}'s latest gallery picture`,
+            onOpen: () => openPhoneGalleryForCharacter(picture.character.id),
+      });
+    }
+    return shortcuts;
+  }, [
+    latestMessageRecordId,
+    messages,
+    openingMessageIds,
+    scrollChatThreadToBottom,
+    storyCharacters,
+    storybooksByNodeId,
+    unreadChatCount,
+    unreadPhoneAppCount,
+    unreadPhoneCount,
+  ]);
 
   function selectPhoneReplyFromComposer(message: MessageRecord) {
     selectPhoneReply(message);
@@ -1405,6 +1585,8 @@ export function useRoleplayPanelRuntime({
     chatPanelView,
     selectChatPanelView,
     selectPhonePanelView,
+    openPhoneDesktop,
+    openPhoneApp,
     cyclePhoneNotificationOwner,
     selectedCharacterId,
     setSelectedCharacterId,
@@ -1416,6 +1598,8 @@ export function useRoleplayPanelRuntime({
     characterColors,
     viewedPhoneCharacter,
     phoneGalleryImages,
+    phoneGalleryOpenRequestId,
+    roleplayShortcuts,
     selectChatCharacter,
     rememberChatCharacter,
     phoneConversationInfo,
@@ -1452,12 +1636,18 @@ export function useRoleplayPanelRuntime({
     dynamicSocialUsers: socialDirectory.dynamicUsers,
     setDynamicSocialUsers,
     socialConnectionsByCharacter,
+    persistedSocialConnectionsByCharacter,
+    // Automatic grants are rebuilt from timeline messages. Saving the merged
+    // view would turn them into permanent manual contacts after reload.
+    savedSocialConnectionsByCharacter,
     setSocialConnectionsByCharacter,
     addSocialConnection,
     phoneNotesByCharacter,
     setPhoneNotesByCharacter,
+    phoneNotesByCharacterRef,
     chatGpdChatsByCharacter,
     setChatGpdChatsByCharacter,
+    chatGpdChatsByCharacterRef,
     toggleSocialLike,
     onlyFriendsPurchasesByCharacter,
     setOnlyFriendsPurchasesByCharacter,
@@ -1493,6 +1683,7 @@ export function useRoleplayPanelRuntime({
     accountLinkContext: { characters: appCharacters, owner: chatPanelView === 'phone' ? viewedPhoneCharacter : selectedCharacter,
       disabled: isRunning, open: openAccountLink, request: accountLinkOpenRequest },
     phoneHomeRequestId,
+    phoneAppOpenRequest,
     phoneDividerAfterByConversation,
     setPhoneDividerAfterByConversation,
     openedPhoneConversationKey,
@@ -1502,6 +1693,10 @@ export function useRoleplayPanelRuntime({
     clearPhoneReply,
     phoneDraft,
     setPhoneDraft,
+    phoneDraftContextComment,
+    setPhoneDraftContextComment,
+    phoneMoodStatus,
+    setPhoneMoodStatus,
     phoneDraftCommands,
     setPhoneDraftCommands,
     phoneImages,

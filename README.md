@@ -1,10 +1,11 @@
 # Sloppified Fork of RPGraph Studio
 
-See branches, main is currently a mirror of v0.5 upstream
+`main` now carries the full `codex/vanilla-rebuild` work, merged in on 2026-09-15 — the UI
+overhaul plus the kept backend features listed below (LLM providers, turn autosave, NPC
+auto-unlock). The old action-runtime/staged/decision-workflow direction described in the linked
+history was abandoned and dropped before this merge, not carried forward.
 
-abandoned local work status here: [History](https://claude.ai/artifact/S4LSEJucXErxVe358Kw8rw)
-
-Current state: Port only UI Changes to 0.5 Upstream Version
+Planning history: [History](https://claude.ai/artifact/S4LSEJucXErxVe358Kw8rw)
 
 ## TL;DR: 
 - UI overhaul:
@@ -128,4 +129,4 @@ RPGraph Studio is free software, licensed under the **GNU AGPL v3.0 or later**. 
 
 ## 🧪 Beta Notice
 
-RPGraph Studio (v0.5.0 Beta) is a hobby project built with AI assistance. I am not a professional developer — bugs are expected, feedback is welcome! 💙
+RPGraph Studio (v0.5.1 Beta) is a hobby project built with AI assistance. I am not a professional developer — bugs are expected, feedback is welcome! 💙

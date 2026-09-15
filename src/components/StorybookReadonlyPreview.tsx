@@ -1,3 +1,7 @@
+import type { Character } from '../characters/character';
+import { characterReferenceCandidates } from '../characters/relationships';
+import { CharacterRelationships } from './CharacterRelationships';
+import { HiddenAgencyField } from './HiddenAgencyField';
 import { CharacterAvatar } from './CharacterAvatar';
 import {
   defaultRpStorybookCharacterBanking,
@@ -7,11 +11,13 @@ import {
 
 type StorybookReadonlyPreviewProps = {
   storybook: RpStorybook;
+  referenceCharacters?: Character[];
   showDocumentHeader?: boolean;
 };
 
 export function StorybookReadonlyPreview({
   storybook,
+  referenceCharacters = [],
   showDocumentHeader = true,
 }: StorybookReadonlyPreviewProps) {
   return (
@@ -90,6 +96,8 @@ export function StorybookReadonlyPreview({
                       <p>{character.speechStyle}</p>
                     </div>
                   ) : null}
+                  <CharacterRelationships character={character} characters={characterReferenceCandidates(storybook.characters, referenceCharacters)} />
+                  <HiddenAgencyField value={character.hiddenAgency} />
                   {character.comfyConfig?.appearance ? (
                     <div className="character-field">
                       <span className="field-label">Appearance</span>

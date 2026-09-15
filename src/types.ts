@@ -30,10 +30,13 @@ export type ConnectionReasoningEffort =
 
 export type LlmProviderKind =
   | 'lm-studio'
+  | 'unsloth'
   | 'llama-cpp'
   | 'ollama'
   | 'openrouter'
-  | 'gemini';
+  | 'gemini'
+  | 'composite'
+  | 'venice';
 
 export type ComfyConnectionRole = 'image' | 'voice';
 
@@ -139,6 +142,12 @@ export type OpenRouterModelInfo = {
 
 export type GeminiModelInfo = OpenRouterModelInfo & {
   supportedGenerationMethods: string[];
+};
+
+export type CompositeModelInfo = OpenRouterModelInfo;
+
+export type VeniceModelInfo = OpenRouterModelInfo & {
+  type?: string;
 };
 
 export type ComfyLoraSlot = {
@@ -256,6 +265,8 @@ type RpStorybookFormattedTextSettings = {
   characters: boolean;
   openingHistory: boolean;
   characterImages: boolean;
+  relationships?: boolean;
+  hiddenAgency?: boolean;
 };
 
 export type SettingsValueDefinition = {
@@ -791,6 +802,7 @@ export type MessageRecord = {
   role: 'user' | 'output' | 'error';
   originalText: string;
   translatedText?: string;
+  contextComment?: string;
   imageAttachments?: ChatImageAttachment[];
   includeInHistory?: boolean;
   channel?: 'rp' | 'phone';
@@ -913,6 +925,15 @@ export type TurnRecord = {
   directAction?: boolean;
   input: TurnRecordPart;
   output: TurnRecordPart;
+  variants?: TurnRecordVariant[];
+};
+
+export type TurnRecordVariant = {
+  id: string;
+  label: string;
+  createdAt: string;
+  turn: Omit<TurnRecord, 'variants'>;
+  checkpoint?: import('./data-management/types').TurnCheckpoint;
 };
 
 export type SavedFileSummary = {
@@ -967,6 +988,7 @@ export type AppSettings = {
     nodeTextSize?: 'small' | 'normal' | 'big';
     uiScale?: number;
     retryFormatErrorsEnabled?: boolean;
+    turnAutosaveEnabled?: boolean;
     dialogueVoiceMode?: DialogueVoiceMode;
     dialogueNarratorProviderId?: string;
     dialogueCloneVoiceProviderId?: string;
@@ -984,14 +1006,24 @@ export type AppSettings = {
 };
 
 export type PhoneDesktopIconSize = 'medium' | 'large';
+type PhoneOrientation = 'portrait' | 'landscape';
+export type PhoneDesktopWidgetId = 'gallery' | 'chat' | 'notes' | 'social' | 'banking' | 'narrative';
 
 export type PhoneDesktopLayout = {
+  orientation?: PhoneOrientation;
   clock: {
     column: number;
     row: number;
     width: number;
     height: number;
   };
+  widgets?: Partial<Record<PhoneDesktopWidgetId, {
+    column: number;
+    row: number;
+    width: number;
+    height: number;
+    enabled: boolean;
+  }>>;
   apps: Record<'whatsup' | 'gallery' | 'camera' | 'banking' | 'fotogram' | 'onlyfriends' | 'notes' | 'ai' | 'plottwist', {
     column: number;
     row: number;

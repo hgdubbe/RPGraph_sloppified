@@ -6,11 +6,14 @@ import {
 } from './registry';
 import type { MessageRecord } from '../types';
 
-/** Immutable revision archive, scoped to one RP. Activity remains in its existing stores. */
+/** Pinned RP revisions, updated by explicit authoring and acquired contacts. Activity remains separate. */
 export type NpcParticipantSnapshots = Record<string, {
   character: Character;
   source: string;
   aliases?: CharacterRegistryAliases;
+  npcOrigin?: boolean;
+  /** Original app flags for contacts acquired from messages, scoped to this RP. */
+  messageContacts?: Array<{ characterId: string; app: 'whatsup' | 'fotogram' | 'onlyfriends'; previous?: boolean; createdRelationship: boolean }>;
 }>;
 
 export type NpcParticipantReference =
@@ -28,8 +31,13 @@ export function parseNpcParticipantSnapshots(value: unknown): NpcParticipantSnap
   if (!isRecord(value)) throw new Error('Invalid saved NPC participant archive.');
   for (const [id, snapshot] of Object.entries(value)) {
     if (!isRecord(snapshot) || !isRecord(snapshot.character) || snapshot.character.id !== id ||
-        typeof snapshot.source !== 'string') throw new Error('Invalid saved NPC participant identity.');
+        typeof snapshot.source !== 'string' || (snapshot.npcOrigin !== undefined && typeof snapshot.npcOrigin !== 'boolean')) throw new Error('Invalid saved NPC participant identity.');
     validateCharacterPayload(snapshot.character);
+    if (snapshot.messageContacts !== undefined && (!Array.isArray(snapshot.messageContacts) || snapshot.messageContacts.some((entry) =>
+      !isRecord(entry) || typeof entry.characterId !== 'string' || !['whatsup', 'fotogram', 'onlyfriends'].includes(String(entry.app)) ||
+      typeof entry.createdRelationship !== 'boolean' || (entry.previous !== undefined && typeof entry.previous !== 'boolean')))) {
+      throw new Error('Invalid saved NPC message contact origins.');
+    }
     const aliases = snapshot.aliases;
     if (aliases !== undefined && (!isRecord(aliases) ||
         (aliases.characterIds !== undefined && !isStrings(aliases.characterIds)) ||
