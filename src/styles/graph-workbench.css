@@ -101,8 +101,10 @@
 }
 
 .studio-graph-palette-slot {
+  position: relative;
   min-height: 0;
   min-width: 0;
+  overflow: hidden;
   border-right: 1px solid var(--graph-line);
   background: rgba(18, 22, 37, 0.98);
 }
@@ -194,6 +196,30 @@
   font-weight: 900;
   line-height: 1;
   cursor: pointer;
+}
+
+/* Upstream's .node-palette is a hover-triggered absolute-positioned
+   drawer (position: absolute + transform: translateX on :hover). Our
+   Graph Studio Shell instead docks it as a real grid-cell panel with a
+   click-toggle button (.studio-graph-palette-slot, sized by
+   .studio-graph-workbench's grid-template-columns) — override upstream's
+   positioning here to match how .graph-inspector, the equivalent panel
+   on the other side, already behaves. */
+.studio-graph-palette-slot .node-palette {
+  position: relative;
+  top: auto;
+  bottom: auto;
+  left: auto;
+  width: 100%;
+  height: 100%;
+  padding-right: 0;
+  transform: none;
+  transition: none;
+}
+
+.studio-graph-palette-slot .node-palette:hover,
+.studio-graph-palette-slot .node-palette:focus-within {
+  transform: none;
 }
 
 .node-palette.collapsed .node-palette-tab {

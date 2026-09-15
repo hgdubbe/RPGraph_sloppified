@@ -2,6 +2,15 @@
 
 /* ---- plain rule blocks ---- */
 
+/* .topbar-menu is a sibling of .topbar-menu-button inside upstream's
+   .header-brand-actions, not a descendant of the button itself, so it
+   needs its own positioning context here for `.topbar-menu`'s
+   `position: absolute` to anchor against instead of falling through to
+   a distant ancestor. */
+.header-brand-actions {
+  position: relative;
+}
+
 .topbar-menu-button {
   -webkit-app-region: no-drag;
   position: relative;
