@@ -47,12 +47,19 @@ describe('theme resolution', () => {
     expect(resolved['--theme-complete']).toBe('#68e08e');
   });
 
-  it('keeps new-category leaves distinct from same-named color tokens (no --theme-panel collision)', async () => {
+  it('keeps new-category leaves distinct from same-named color tokens for "classic", which pins its own independent values (no --theme-panel collision)', async () => {
+    const manifests = await loadManifests();
+    const resolved = resolveTheme(manifests, 'classic');
+    expect(resolved['--theme-panel']).toBe('#101421'); // color.panel
+    expect(resolved['--theme-graph-panel']).toBe('#121625'); // graph.panel, pinned in classic/theme.json
+    expect(resolved['--theme-storybook-panel']).toBe('#111625'); // storybook.panel, pinned in classic/theme.json
+  });
+
+  it('"base" (and every theme that doesn\'t pin graph/storybook explicitly) derives graph.panel/storybook.panel from color.panel instead of a fixed literal', async () => {
     const manifests = await loadManifests();
     const resolved = resolveTheme(manifests, 'base');
-    expect(resolved['--theme-panel']).toBe('#101421'); // color.panel
-    expect(resolved['--theme-graph-panel']).toBe('#121625'); // graph.panel
-    expect(resolved['--theme-storybook-panel']).toBe('#111625'); // storybook.panel
+    expect(resolved['--theme-graph-panel']).toBe(resolved['--theme-panel']);
+    expect(resolved['--theme-storybook-panel']).toBe(resolved['--theme-panel']);
   });
 
   it('resolves the new studio-shell/topbar tokens to the exact literals the CSS used before migration', async () => {
@@ -66,14 +73,21 @@ describe('theme resolution', () => {
     expect(resolved['--theme-shell-badge-accent-bg']).toBe('#fb7185');
   });
 
-  it('resolves the upstream global-palette aliases (app.*) to the exact original :root literals', async () => {
+  it('"classic" resolves the upstream global-palette aliases (app.*) to the exact original :root literals', async () => {
     const manifests = await loadManifests();
-    const resolved = resolveTheme(manifests, 'base');
+    const resolved = resolveTheme(manifests, 'classic');
     expect(resolved['--theme-app-accent']).toBe('#8a73c9');
     expect(resolved['--theme-app-surface']).toBe('#182131');
     expect(resolved['--theme-app-muted']).toBe('#9aa6bc');
     expect(resolved['--theme-app-success-soft']).toBe('rgba(95, 174, 104, 0.18)');
     expect(resolved['--theme-app-soft-white']).toBe('#e6e6e6');
+  });
+
+  it('"base" derives app.accent from color.primary instead of the original independent upstream purple', async () => {
+    const manifests = await loadManifests();
+    const resolved = resolveTheme(manifests, 'base');
+    expect(resolved['--theme-app-accent']).toBe(resolved['--theme-primary']);
+    expect(resolved['--theme-app-accent']).not.toBe('#8a73c9');
   });
 
   it('leaves auto-extracted raw.* tokens unresolved by default (CSS var() fallback governs them, not the resolver)', async () => {
@@ -84,6 +98,31 @@ describe('theme resolution', () => {
     // declaration's var(--theme-raw-x, <literal>) is what renders by default.
     expect(resolved['--theme-raw-vedf1ff']).toBeUndefined();
     expect(resolved['--theme-raw-v232d42']).toBeUndefined();
+  });
+
+  it('derives graph/storybook/app tokens from each preset\'s own color.* overrides, so switching themes actually repaints Graph mode, Storybook, and the app-wide palette', async () => {
+    const manifests = await loadManifests();
+    const base = resolveTheme(manifests, 'base');
+    const iphoneNoir = resolveTheme(manifests, 'iphone-noir');
+    // iphone-noir overrides color.background/header/primary, so everything
+    // derived from them should differ from base -- not silently stay frozen
+    // on base's fixed graph/storybook/app defaults.
+    expect(iphoneNoir['--theme-graph-background']).toBe(iphoneNoir['--theme-background']);
+    expect(iphoneNoir['--theme-graph-background']).not.toBe(base['--theme-graph-background']);
+    expect(iphoneNoir['--theme-storybook-background']).toBe(iphoneNoir['--theme-background']);
+    expect(iphoneNoir['--theme-storybook-background']).not.toBe(base['--theme-storybook-background']);
+    expect(iphoneNoir['--theme-app-accent']).toBe(iphoneNoir['--theme-primary']);
+    expect(iphoneNoir['--theme-app-accent']).not.toBe(base['--theme-app-accent']);
+  });
+
+  it('"classic" and "studio-night" both extend base with zero color.* overrides, so their color.* tokens match, but they diverge on graph/storybook/app', async () => {
+    const manifests = await loadManifests();
+    const classic = resolveTheme(manifests, 'classic');
+    const studioNight = resolveTheme(manifests, 'studio-night');
+    expect(classic['--theme-background']).toBe(studioNight['--theme-background']);
+    expect(classic['--theme-primary']).toBe(studioNight['--theme-primary']);
+    expect(classic['--theme-app-accent']).not.toBe(studioNight['--theme-app-accent']);
+    expect(classic['--theme-graph-panel']).not.toBe(studioNight['--theme-graph-panel']);
   });
 
   it('an unknown theme id falls back to the base chain without throwing', async () => {

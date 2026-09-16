@@ -260,13 +260,13 @@ export const GUARANTEED_TOKEN_KEYS = [
   'color.border', 'color.borderSoft',
   'color.userBubble', 'color.userBubbleBorder',
   'color.rail', 'color.complete', 'color.phoneGlass',
-  'graph.background', 'graph.chrome', 'graph.panel', 'graph.panel2',
-  'graph.line', 'graph.lineSoft', 'graph.text', 'graph.muted', 'graph.faint',
-  'graph.accent', 'graph.accentSoft', 'graph.success', 'graph.violet',
-  'storybook.background', 'storybook.panel', 'storybook.passive',
-  'storybook.line', 'storybook.lineSoft', 'storybook.text', 'storybook.muted',
-  'storybook.faint', 'storybook.accent', 'storybook.accentSoft',
-  'storybook.violet', 'storybook.violetSoft', 'storybook.pink', 'storybook.lime',
+  // graph.*/storybook.*/app.* are NOT guaranteed: they're always derived
+  // from the color.* tokens above (see DERIVATION_RULES in
+  // themeResolver.ts), which are guaranteed. Giving them their own value in
+  // base.json's tokens tree would re-trigger gotcha #1 -- base's tokens
+  // merge into every theme's chain before derivation ever runs, so an
+  // explicit base value would permanently pre-empt derivation for every
+  // theme, exactly the bug this split is designed to prevent.
   'shell.chatSurface', 'shell.messageBorder', 'shell.messageText', 'shell.labelStrong',
   'shell.inputBorder', 'shell.segmentedBg', 'shell.iconColor', 'shell.iconButtonBg',
   'shell.autoTurnText', 'shell.railBorder', 'shell.characterStripBg',
@@ -277,9 +277,6 @@ export const GUARANTEED_TOKEN_KEYS = [
   'shell.topbarButtonBorder', 'shell.topbarButtonText', 'shell.topbarButtonBg',
   'shell.topbarHoverBg', 'shell.topbarHoverBorder', 'shell.badgeAccentBg',
   'shell.topbarContextBorder', 'shell.topbarMutedText', 'shell.topbarSelectBg',
-  'app.accent', 'app.accentLight', 'app.surface', 'app.surfaceAlt', 'app.surfaceSoft',
-  'app.line', 'app.muted', 'app.cyan', 'app.wire', 'app.success', 'app.successSoft',
-  'app.warning', 'app.warningSoft', 'app.danger', 'app.dangerSoft', 'app.softWhite',
   'typography.fontWeight',
   'shape.radius',
 ] as const satisfies readonly CoreTokenKey[];

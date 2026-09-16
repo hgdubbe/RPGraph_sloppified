@@ -26,37 +26,6 @@
       "complete": "#68e08e",
       "phoneGlass": "rgba(20, 24, 36, 0.46)"
     },
-    "graph": {
-      "background": "#07090f",
-      "chrome": "#10131f",
-      "panel": "#121625",
-      "panel2": "#171c2e",
-      "line": "#303852",
-      "lineSoft": "rgba(119, 134, 176, 0.24)",
-      "text": "#f2f6ff",
-      "muted": "#9aa8cc",
-      "faint": "#687494",
-      "accent": "#79d7ef",
-      "accentSoft": "rgba(121, 215, 239, 0.13)",
-      "success": "#a4ec68",
-      "violet": "#a277ff"
-    },
-    "storybook": {
-      "background": "#07090f",
-      "panel": "#111625",
-      "passive": "#111625",
-      "line": "#303852",
-      "lineSoft": "rgba(124, 140, 180, 0.24)",
-      "text": "#f2f6ff",
-      "muted": "#9aa8cc",
-      "faint": "#667293",
-      "accent": "#79d7ef",
-      "accentSoft": "rgba(121, 215, 239, 0.13)",
-      "violet": "#a277ff",
-      "violetSoft": "rgba(162, 119, 255, 0.13)",
-      "pink": "#f16ac4",
-      "lime": "#a4ec68"
-    },
     "shell": {
       "chatSurface": "#0a0d18",
       "messageBorder": "rgba(77, 96, 138, 0.58)",
@@ -93,24 +62,6 @@
       "topbarContextBorder": "rgba(77, 96, 138, 0.45)",
       "topbarMutedText": "#a6b2cf",
       "topbarSelectBg": "#111528"
-    },
-    "app": {
-      "accent": "#8a73c9",
-      "accentLight": "#b29ce3",
-      "surface": "#182131",
-      "surfaceAlt": "#202a3d",
-      "surfaceSoft": "#131b28",
-      "line": "#303a4d",
-      "muted": "#9aa6bc",
-      "cyan": "#7eb9c5",
-      "wire": "#9d87d0",
-      "success": "#5fae68",
-      "successSoft": "rgba(95, 174, 104, 0.18)",
-      "warning": "#c7af45",
-      "warningSoft": "rgba(199, 175, 69, 0.16)",
-      "danger": "#c65f5f",
-      "dangerSoft": "rgba(198, 95, 95, 0.16)",
-      "softWhite": "#e6e6e6"
     },
     "typography": {
       "headingFont": "inherit",

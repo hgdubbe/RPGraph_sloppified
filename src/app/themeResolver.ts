@@ -104,6 +104,76 @@ const DERIVATION_RULES: Partial<Record<CoreTokenKey, DerivationRule>> = {
   'typography.headingFont': (basic) => basic.headingFont,
   'typography.bodyFont': (basic) => basic.bodyFont,
   'shape.radius': (basic) => basic.radius,
+
+  // The 10 shipped presets only ever set `color.*` tokens explicitly (no
+  // theme.json overrides graph/storybook/app yet) -- without these rules,
+  // switching themes would visibly repaint Play mode (the only surface that
+  // directly consumes color.*) while Graph mode, the Storybook editor, and
+  // the ~400 var(--accent)/var(--surface)/etc. call sites throughout
+  // src/styles.css stayed frozen on base's fixed defaults regardless of the
+  // selected theme. Deriving these newer namespaces from the same
+  // already-customized color.* values keeps every existing and future
+  // theme coherent across the whole app without hand-authoring the same
+  // handful of colors into every theme.json under four different names.
+  // A theme.json can still set graph.*/storybook.*/app.* explicitly to
+  // fine-tune one of these surfaces independently -- that always wins,
+  // since derivation only fills a token still unset after the extends
+  // merge (see the loop in resolveTheme below).
+  'graph.background': (_basic, resolved) => resolved['color.background'],
+  'graph.chrome': (_basic, resolved) => resolved['color.header'],
+  'graph.panel': (_basic, resolved) => resolved['color.panel'],
+  'graph.panel2': (_basic, resolved) => resolved['color.card'],
+  'graph.line': (_basic, resolved) => resolved['color.border'],
+  'graph.lineSoft': (_basic, resolved) => resolved['color.borderSoft'],
+  'graph.text': (_basic, resolved) => resolved['color.foreground'],
+  'graph.muted': (_basic, resolved) => resolved['color.mutedForeground'],
+  'graph.faint': (_basic, resolved) =>
+    resolved['color.mutedForeground'] !== undefined && resolved['color.background'] !== undefined
+      ? mix(resolved['color.mutedForeground'], resolved['color.background'], 0.35)
+      : undefined,
+  'graph.accent': (_basic, resolved) => resolved['color.primary'],
+  'graph.accentSoft': (_basic, resolved) =>
+    resolved['color.primary'] !== undefined ? withAlpha(resolved['color.primary'], 0.13) : undefined,
+  'graph.success': (_basic, resolved) => resolved['color.complete'],
+  'graph.violet': (_basic, resolved) => resolved['color.secondary'],
+
+  'storybook.background': (_basic, resolved) => resolved['color.background'],
+  'storybook.panel': (_basic, resolved) => resolved['color.panel'],
+  'storybook.passive': (_basic, resolved) => resolved['color.panel'],
+  'storybook.line': (_basic, resolved) => resolved['color.border'],
+  'storybook.lineSoft': (_basic, resolved) => resolved['color.borderSoft'],
+  'storybook.text': (_basic, resolved) => resolved['color.foreground'],
+  'storybook.muted': (_basic, resolved) => resolved['color.mutedForeground'],
+  'storybook.faint': (_basic, resolved) =>
+    resolved['color.mutedForeground'] !== undefined && resolved['color.background'] !== undefined
+      ? mix(resolved['color.mutedForeground'], resolved['color.background'], 0.35)
+      : undefined,
+  'storybook.accent': (_basic, resolved) => resolved['color.primary'],
+  'storybook.accentSoft': (_basic, resolved) =>
+    resolved['color.primary'] !== undefined ? withAlpha(resolved['color.primary'], 0.13) : undefined,
+  'storybook.violet': (_basic, resolved) => resolved['color.secondary'],
+  'storybook.violetSoft': (_basic, resolved) =>
+    resolved['color.secondary'] !== undefined ? withAlpha(resolved['color.secondary'], 0.13) : undefined,
+
+  // Upstream's own global palette, aliased at :root (see studio-theme.css).
+  // warning/danger have no equivalent role among the original 21 color
+  // tokens, so they're deliberately left un-derived -- every theme keeps
+  // base's fixed status-color reds/yellows, which is a common and
+  // reasonable choice for semantic status colors anyway.
+  'app.accent': (_basic, resolved) => resolved['color.primary'],
+  'app.accentLight': (_basic, resolved) =>
+    resolved['color.primary'] !== undefined ? lighten(resolved['color.primary'], 15) : undefined,
+  'app.surface': (_basic, resolved) => resolved['color.panel'],
+  'app.surfaceAlt': (_basic, resolved) => resolved['color.card'],
+  'app.surfaceSoft': (_basic, resolved) => resolved['color.background'],
+  'app.line': (_basic, resolved) => resolved['color.border'],
+  'app.muted': (_basic, resolved) => resolved['color.mutedForeground'],
+  'app.cyan': (_basic, resolved) => resolved['color.primary'],
+  'app.wire': (_basic, resolved) => resolved['color.secondary'],
+  'app.success': (_basic, resolved) => resolved['color.complete'],
+  'app.successSoft': (_basic, resolved) =>
+    resolved['color.complete'] !== undefined ? withAlpha(resolved['color.complete'], 0.18) : undefined,
+  'app.softWhite': (_basic, resolved) => resolved['color.foreground'],
 };
 
 /** Resolves a theme id against the loaded manifest registry into a flat map

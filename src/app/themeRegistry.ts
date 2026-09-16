@@ -4,10 +4,16 @@ import { browserThemeLibrarySnapshot } from './themeLibrary.browser';
 
 export const studioThemeStorageKey = 'rpgraph.studioTheme' as const;
 
-/** Kept as the initial/fallback selection so behavior matches the previous
- * hardcoded default while the registry loads asynchronously. */
-export const defaultThemeId = 'studio-night';
-const defaultThemeLabel = 'Studio Night';
+/** Kept as the initial/fallback selection so behavior matches today's
+ * shipped look while the registry loads asynchronously. "classic" (not
+ * "studio-night") is the default specifically because it's the one theme
+ * that explicitly pins the graph, storybook, and app token categories to
+ * their original, independently-hand-picked values instead of deriving
+ * them from the color category -- every other theme (including
+ * studio-night) gets the derived, unified palette described in
+ * themeResolver.ts's DERIVATION_RULES. */
+export const defaultThemeId = 'classic';
+const defaultThemeLabel = 'Classic';
 
 export type ThemeRegistry = {
   /** All loaded manifests, including the hidden "base" fallback theme. */

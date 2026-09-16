@@ -1,10 +1,14 @@
 import { describe, expect, it } from 'vitest';
 import { browserThemeLibrarySnapshot } from './themeLibrary.browser';
-import { selectableThemes, studioThemeStorageKey } from './themeRegistry';
+import { defaultThemeId, selectableThemes, studioThemeStorageKey } from './themeRegistry';
 
 describe('studioTheme (registry-backed)', () => {
   it('uses a stable localStorage key', () => {
     expect(studioThemeStorageKey).toBe('rpgraph.studioTheme');
+  });
+
+  it('defaults to "classic" -- the one theme that pins today\'s exact original graph/storybook/app colors instead of deriving them', () => {
+    expect(defaultThemeId).toBe('classic');
   });
 
   it('loads the bundled presets, hiding only the internal base fallback', async () => {
@@ -13,6 +17,7 @@ describe('studioTheme (registry-backed)', () => {
     expect(selectable.some((theme) => theme.id === 'base')).toBe(false);
     expect(selectable.map((theme) => theme.id)).toEqual(
       expect.arrayContaining([
+        'classic',
         'studio-night',
         'iphone-noir',
         'neon-social',
