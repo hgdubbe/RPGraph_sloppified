@@ -39,7 +39,7 @@
   min-width: 0;
   overflow: hidden;
   background:
-    radial-gradient(circle at center, var(--theme-raw-vrgba121215239004, rgba(121, 215, 239, 0.04)), transparent 34rem),
+    radial-gradient(circle at center, color-mix(in srgb, var(--graph-cyan) calc(0.04 * 100%), transparent), transparent 34rem),
     linear-gradient(var(--theme-raw-vrgba2552552550018, rgba(255, 255, 255, 0.018)) 1px, transparent 1px),
     linear-gradient(90deg, var(--theme-raw-vrgba2552552550018, rgba(255, 255, 255, 0.018)) 1px, transparent 1px),
     #07090f;
@@ -78,7 +78,7 @@
   max-width: 240px;
   padding: 0 10px;
   overflow: hidden;
-  border: 1px solid var(--theme-raw-vrgba121215239025, rgba(121, 215, 239, 0.25));
+  border: 1px solid color-mix(in srgb, var(--graph-cyan) calc(0.25 * 100%), transparent);
   border-radius: 8px;
   color: var(--graph-muted);
   background: var(--graph-panel, rgba(12, 16, 29, 0.88));
@@ -129,7 +129,7 @@
   height: 7px;
   border-radius: 50%;
   background: var(--graph-lime);
-  box-shadow: 0 0 12px var(--theme-raw-vrgba164236104065, rgba(164, 236, 104, 0.65));
+  box-shadow: 0 0 12px color-mix(in srgb, var(--graph-lime) calc(0.65 * 100%), transparent);
 }
 
 .graph-secondary-action {
@@ -167,7 +167,7 @@
   height: 34px;
   align-items: center;
   justify-content: center;
-  border: 1px solid var(--theme-raw-vrgba125211252035, rgba(125, 211, 252, 0.35));
+  border: 1px solid color-mix(in srgb, var(--graph-cyan) calc(0.35 * 100%), transparent);
   border-radius: 8px;
   color: var(--graph-text, #dff8ff);
   background: var(--graph-panel, rgba(12, 16, 29, 0.96));
@@ -179,7 +179,7 @@
 
 .graph-inspector-tab:hover,
 .graph-inspector-tab:focus-visible {
-  border-color: var(--theme-raw-vrgba125211252072, rgba(125, 211, 252, 0.72));
+  border-color: color-mix(in srgb, var(--graph-cyan) calc(0.72 * 100%), transparent);
   color: var(--graph-cyan, #85d8f0);
   outline: none;
 }
@@ -200,7 +200,7 @@
   flex: none;
   gap: 10px;
   padding: 14px 14px 14px 46px;
-  border-bottom: 1px solid var(--theme-raw-vrgba11913417602, rgba(119, 134, 176, 0.2));
+  border-bottom: 1px solid color-mix(in srgb, var(--graph-muted) calc(0.35 * 100%), transparent);
 }
 
 .graph-inspector-header strong {
@@ -233,7 +233,7 @@
   flex: none;
   gap: 8px;
   padding: 14px;
-  border-bottom: 1px solid var(--theme-raw-vrgba11913417602, rgba(119, 134, 176, 0.2));
+  border-bottom: 1px solid color-mix(in srgb, var(--graph-muted) calc(0.35 * 100%), transparent);
   background: linear-gradient(180deg, color-mix(in srgb, var(--graph-violet) 11%, transparent), transparent);
 }
 
@@ -267,7 +267,7 @@
   padding: 0 8px;
   border: 1px solid var(--graph-line-soft);
   border-radius: 999px;
-  color: var(--theme-raw-vb8c5ed, #b8c5ed);
+  color: var(--graph-muted, #b8c5ed);
   background: var(--theme-raw-vrgba2552552550035, rgba(255, 255, 255, 0.035));
   font-size: 10px;
   font-weight: 800;
@@ -276,27 +276,27 @@
 }
 
 .graph-inspector-tag.active {
-  border-color: var(--theme-raw-vrgba164236104034, rgba(164, 236, 104, 0.34));
+  border-color: color-mix(in srgb, var(--graph-lime) calc(0.34 * 100%), transparent);
   color: var(--graph-lime);
-  background: var(--theme-raw-vrgba164236104008, rgba(164, 236, 104, 0.08));
+  background: color-mix(in srgb, var(--graph-lime) calc(0.08 * 100%), transparent);
 }
 
 .graph-inspector-tag.error {
-  border-color: var(--theme-raw-vrgba248113113048, rgba(248, 113, 113, 0.48));
-  color: var(--theme-raw-vfecaca, #fecaca);
-  background: var(--theme-raw-vrgba1272929024, rgba(127, 29, 29, 0.24));
+  border-color: color-mix(in srgb, var(--danger) calc(0.48 * 100%), transparent);
+  color: var(--danger-soft, #fecaca);
+  background: color-mix(in srgb, var(--danger) calc(0.24 * 100%), transparent);
 }
 
 .graph-inspector-section {
   display: grid;
   gap: 10px;
   padding: 14px;
-  border-bottom: 1px solid var(--theme-raw-vrgba119134176017, rgba(119, 134, 176, 0.17));
+  border-bottom: 1px solid color-mix(in srgb, var(--graph-muted) calc(0.3 * 100%), transparent);
 }
 
 .graph-inspector-section h3 {
   margin: 0;
-  color: var(--theme-raw-vdce8ff, #dce8ff);
+  color: var(--graph-text, #dce8ff);
   font-size: 11px;
   font-weight: 850;
   letter-spacing: 0.12em;
@@ -311,7 +311,7 @@
 
 .graph-inspector-actions button {
   min-height: 34px;
-  border: 1px solid var(--theme-raw-vrgba125211252032, rgba(125, 211, 252, 0.32));
+  border: 1px solid color-mix(in srgb, var(--graph-cyan) calc(0.32 * 100%), transparent);
   border-radius: 8px;
   color: var(--graph-text, #eaf4ff);
   background: var(--graph-panel, rgba(15, 21, 37, 0.92));
@@ -322,7 +322,7 @@
 
 .graph-inspector-actions button:hover:not(:disabled),
 .graph-inspector-actions button:focus-visible {
-  border-color: var(--theme-raw-vrgba125211252068, rgba(125, 211, 252, 0.68));
+  border-color: color-mix(in srgb, var(--graph-cyan) calc(0.68 * 100%), transparent);
   background: var(--graph-panel-2, rgba(22, 32, 54, 0.98));
   outline: none;
 }
@@ -343,7 +343,7 @@
 .graph-inspector-text-row,
 .graph-inspector-route {
   min-width: 0;
-  border: 1px solid var(--theme-raw-vrgba119134176026, rgba(119, 134, 176, 0.26));
+  border: 1px solid color-mix(in srgb, var(--graph-muted) calc(0.45 * 100%), transparent);
   border-radius: 8px;
   background: var(--theme-raw-vrgba2552552550035, rgba(255, 255, 255, 0.035));
 }
@@ -404,10 +404,10 @@
 .graph-inspector-callout {
   margin: 0;
   padding: 10px;
-  border: 1px solid var(--theme-raw-vrgba248113113045, rgba(248, 113, 113, 0.45));
+  border: 1px solid color-mix(in srgb, var(--danger) calc(0.45 * 100%), transparent);
   border-radius: 8px;
-  color: var(--theme-raw-vfecaca, #fecaca);
-  background: var(--theme-raw-vrgba127292902, rgba(127, 29, 29, 0.2));
+  color: var(--danger-soft, #fecaca);
+  background: color-mix(in srgb, var(--danger) calc(0.2 * 100%), transparent);
   font-size: 12px;
   line-height: 1.45;
   white-space: pre-wrap;
@@ -418,9 +418,9 @@
   margin: 0;
   padding: 9px;
   overflow: hidden;
-  border: 1px solid var(--theme-raw-v354061, #354061);
+  border: 1px solid var(--graph-line, #354061);
   border-radius: 8px;
-  color: var(--theme-raw-vcbd7fa, #cbd7fa);
+  color: var(--graph-text, #cbd7fa);
   background: var(--graph-chrome, #0c101d);
   font-size: 12px;
   line-height: 1.45;
@@ -434,7 +434,7 @@
   padding: 0;
   border: 1px solid var(--theme-raw-vrgba255255255008, rgba(255, 255, 255, 0.08));
   border-radius: 6px;
-  color: var(--theme-raw-vd9e6f8, #d9e6f8);
+  color: var(--graph-text, #d9e6f8);
   background: var(--theme-raw-vrgba255255255004, rgba(255, 255, 255, 0.04));
   backdrop-filter: blur(8px);
   cursor: pointer;
@@ -444,10 +444,10 @@
 }
 
 .roleplay-detach-button:hover {
-  border-color: var(--theme-raw-v56d99a, #56d99a);
+  border-color: var(--success, #56d99a);
   color: var(--soft-white);
-  background: var(--theme-raw-vrgba86217154015, rgba(86, 217, 154, 0.15));
-  box-shadow: 0 0 12px var(--theme-raw-vrgba8621715402, rgba(86, 217, 154, 0.2));
+  background: color-mix(in srgb, var(--success) calc(0.15 * 100%), transparent);
+  box-shadow: 0 0 12px color-mix(in srgb, var(--success) calc(0.2 * 100%), transparent);
 }
 
 .turn-variant-select {
@@ -456,7 +456,7 @@
   padding: 0 24px 0 8px;
   border: 1px solid var(--theme-raw-vrgba25525525501, rgba(255, 255, 255, 0.1));
   border-radius: 6px;
-  color: var(--theme-raw-vd9e6f8, #d9e6f8);
+  color: var(--graph-text, #d9e6f8);
   background: var(--theme-raw-vrgba255255255004, rgba(255, 255, 255, 0.04));
   font-size: 11px;
   font-weight: 800;
