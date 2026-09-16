@@ -4,16 +4,47 @@ import { describe, expect, it } from 'vitest';
 /** The simulated phone apps and registration/profile screens are
  * hand-recreated pixel-for-pixel from real prototypes and must never be
  * retheme'd. This guards against a future edit accidentally wiring a
- * `--theme-*` reference into any of their stylesheets. It does not (and
- * cannot) guard `src/styles.css`, since that file legitimately contains
- * both in-scope and out-of-scope rules interleaved — reviewers must still
- * check that any `--theme-*` addition there stays outside `.phone-`/`.pt-`/
- * `.social-profile-` selectors. */
+ * `--theme-*` reference into any of their stylesheets. */
 const EXCLUDED_STYLESHEETS = [
   'src/styles/phone-device.css',
   'src/styles/phone-widgets.css',
   'src/components/phone-dating/phoneDating.css',
 ];
+
+const EXCLUDE_SELECTOR_RE = /\.phone-|\.pt-|\.social-profile-/;
+
+/** Walks a CSS file tracking brace depth and whether the selector that
+ * opened the current block matched an exclusion pattern; returns every
+ * line inside an excluded block that references a --theme-* variable. */
+function findThemeReferencesInExcludedBlocks(contents: string): string[] {
+  const lines = contents.split('\n');
+  const offenders: string[] = [];
+  let pendingSelectorText = '';
+  const excludedStack = [false];
+
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+    const opens = (line.match(/\{/g) || []).length;
+    const closes = (line.match(/\}/g) || []).length;
+
+    if (opens > 0) {
+      pendingSelectorText += ' ' + line;
+      const isExcluded = EXCLUDE_SELECTOR_RE.test(pendingSelectorText) || excludedStack[excludedStack.length - 1];
+      for (let k = 0; k < opens; k++) excludedStack.push(isExcluded);
+      pendingSelectorText = '';
+    } else if (closes === 0) {
+      pendingSelectorText += ' ' + line;
+    }
+
+    if (excludedStack[excludedStack.length - 1] && /--theme-/.test(line)) {
+      offenders.push(`${i + 1}: ${line.trim()}`);
+    }
+
+    for (let k = 0; k < closes; k++) excludedStack.pop();
+    if (excludedStack.length === 0) excludedStack.push(false);
+  }
+  return offenders;
+}
 
 describe('theming exclusion boundary', () => {
   it.each(EXCLUDED_STYLESHEETS)('%s never references a --theme-* variable', (relativePath) => {
@@ -26,5 +57,11 @@ describe('theming exclusion boundary', () => {
     const socialProfileBlockMatch = contents.match(/\.social-profile-[\s\S]*$/);
     expect(socialProfileBlockMatch).not.toBeNull();
     expect(socialProfileBlockMatch?.[0]).not.toMatch(/--theme-/);
+  });
+
+  it('src/styles.css never themes a .phone-/.pt-/.social-profile- rule (it legitimately mixes in-scope and out-of-scope rules)', () => {
+    const contents = readFileSync('src/styles.css', 'utf8');
+    const offenders = findThemeReferencesInExcludedBlocks(contents);
+    expect(offenders).toEqual([]);
   });
 });

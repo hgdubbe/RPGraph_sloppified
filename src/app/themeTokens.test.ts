@@ -76,6 +76,16 @@ describe('theme resolution', () => {
     expect(resolved['--theme-app-soft-white']).toBe('#e6e6e6');
   });
 
+  it('leaves auto-extracted raw.* tokens unresolved by default (CSS var() fallback governs them, not the resolver)', async () => {
+    const manifests = await loadManifests();
+    const resolved = resolveTheme(manifests, 'base');
+    // Optional tier: no theme sets these, so they should be absent from the
+    // resolved output entirely -- the literal baked into each consuming
+    // declaration's var(--theme-raw-x, <literal>) is what renders by default.
+    expect(resolved['--theme-raw-vedf1ff']).toBeUndefined();
+    expect(resolved['--theme-raw-v232d42']).toBeUndefined();
+  });
+
   it('an unknown theme id falls back to the base chain without throwing', async () => {
     const manifests = await loadManifests();
     expect(() => resolveTheme(manifests, 'does-not-exist')).not.toThrow();
