@@ -318,6 +318,13 @@ export const CORE_TOKEN_KEYS = [
   'raw.vrgba81119082',
   'raw.vrgba91120055',
   'raw.vrgba9112009',
+  // context-builder-port's deliberate 5-color rotation (per numbered port);
+  // kept as distinct raw tokens rather than collapsed to a shared muted
+  // color, since the whole point is that each port looks different.
+  'raw.vff707e',
+  'raw.v68dc9a',
+  'raw.vffc666',
+  'raw.vdc94ff',
   // Auto-extracted from phone-device.css and roleplay-dual-pane.css: the
   // physical device bezel/casing (.roleplay-phone-device, -status, -home)
   // is chrome, not handcrafted content, so it's in scope -- but it's
