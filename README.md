@@ -1,12 +1,9 @@
 # Sloppified Fork of RPGraph Studio
 
-`main` now carries the full `codex/vanilla-rebuild` work, merged in on 2026-09-15 — the UI
-overhaul plus the kept backend features listed below (LLM providers, turn autosave, NPC
-auto-unlock). The old action-runtime/staged/decision-workflow direction described in the linked
-history was abandoned and dropped before this merge, not carried forward because the Maintainer
-of the original uploaded a much better solution.
-
-Planning history: [History](https://claude.ai/artifact/S4LSEJucXErxVe358Kw8rw)
+`main` now carries the UI overhaul plus the kept backend features listed below (LLM providers, turn autosave, NPC
+auto-unlock). The old action-runtime/staged/decision-workflow direction was abandoned and dropped before this merge, 
+not carried forward because the Maintainer of the original uploaded a much better solution. 
+They remain in the merge-v0.5.0-decision-router Branch which is stale.
 
 ## TL;DR: 
 - UI overhaul:
