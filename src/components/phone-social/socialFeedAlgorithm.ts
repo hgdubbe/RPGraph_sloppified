@@ -25,7 +25,7 @@ export type BuildAlgorithmicFeedOptions = {
 /**
  * Stable 32-bit FNV-1a hash function.
  */
-export function hashString(str: string): number {
+function hashString(str: string): number {
   let hash = 2_166_136_261;
   for (let index = 0; index < str.length; index += 1) {
     hash ^= str.charCodeAt(index);
