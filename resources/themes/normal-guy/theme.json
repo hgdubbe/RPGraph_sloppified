@@ -1,0 +1,34 @@
+{
+  "id": "normal-guy",
+  "label": "Normal Guy",
+  "extends": "base",
+  "order": 9,
+  "tokens": {
+    "color": {
+      "background": "#0d1117",
+      "backgroundElevated": "#10151c",
+      "header": "#151b24",
+      "surfaceRail": "#111720",
+      "surfaceContent": "#0f141b",
+      "panel": "#18202b",
+      "card": "#1d2632",
+      "cardStrong": "#232d3a",
+      "input": "#0b1017",
+      "foreground": "#eef2f6",
+      "mutedForeground": "#a0abb8",
+      "primary": "#75a7dc",
+      "primaryForeground": "#07111d",
+      "secondary": "#7aa8d8",
+      "border": "rgba(91, 105, 124, 0.55)",
+      "borderSoft": "rgba(91, 105, 124, 0.32)",
+      "userBubble": "#13233a",
+      "userBubbleBorder": "rgba(90, 143, 203, 0.78)",
+      "rail": "#b4bfcc",
+      "complete": "#8fca97",
+      "phoneGlass": "rgba(26, 34, 45, 0.52)"
+    },
+    "shape": {
+      "radius": "8px"
+    }
+  }
+}

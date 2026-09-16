@@ -1,0 +1,37 @@
+{
+  "id": "goth",
+  "label": "Goth",
+  "extends": "base",
+  "order": 7,
+  "tokens": {
+    "color": {
+      "background": "#050305",
+      "backgroundElevated": "#080508",
+      "header": "#120a11",
+      "surfaceRail": "#0d070d",
+      "surfaceContent": "#090609",
+      "panel": "#160d16",
+      "card": "#1d101d",
+      "cardStrong": "#251425",
+      "input": "#050305",
+      "foreground": "#f7eef7",
+      "mutedForeground": "#b8a4ba",
+      "primary": "#d6c7df",
+      "primaryForeground": "#0b050b",
+      "secondary": "#ba1f5d",
+      "border": "rgba(151, 129, 154, 0.42)",
+      "borderSoft": "rgba(151, 129, 154, 0.24)",
+      "userBubble": "#1e0712",
+      "userBubbleBorder": "rgba(178, 48, 95, 0.78)",
+      "rail": "#cbb9d0",
+      "complete": "#9bb99f",
+      "phoneGlass": "rgba(20, 10, 20, 0.58)"
+    },
+    "shape": {
+      "radius": "6px"
+    },
+    "effect": {
+      "backgroundTexture": "linear-gradient(90deg, rgba(128, 24, 62, 0.18), transparent 45%)"
+    }
+  }
+}

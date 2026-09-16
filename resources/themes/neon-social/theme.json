@@ -1,0 +1,34 @@
+{
+  "id": "neon-social",
+  "label": "Neon Social",
+  "extends": "base",
+  "order": 2,
+  "tokens": {
+    "color": {
+      "background": "#09030f",
+      "backgroundElevated": "#0b0313",
+      "header": "#12051d",
+      "surfaceRail": "#0d0418",
+      "surfaceContent": "#0c0416",
+      "panel": "#180b27",
+      "card": "#1d1032",
+      "cardStrong": "#25133d",
+      "input": "#09030f",
+      "foreground": "#fff5ff",
+      "mutedForeground": "#c49bdf",
+      "primary": "#33f1ff",
+      "primaryForeground": "#06020c",
+      "secondary": "#ff49c8",
+      "border": "rgba(195, 94, 255, 0.48)",
+      "borderSoft": "rgba(195, 94, 255, 0.28)",
+      "userBubble": "#25063b",
+      "userBubbleBorder": "rgba(255, 82, 204, 0.88)",
+      "rail": "#dda8ff",
+      "complete": "#7dffbf",
+      "phoneGlass": "rgba(60, 12, 82, 0.46)"
+    },
+    "shape": {
+      "radius": "9px"
+    }
+  }
+}

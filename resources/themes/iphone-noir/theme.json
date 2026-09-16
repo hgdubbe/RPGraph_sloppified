@@ -1,0 +1,32 @@
+{
+  "id": "iphone-noir",
+  "label": "iPhone Noir",
+  "extends": "base",
+  "order": 1,
+  "tokens": {
+    "color": {
+      "background": "#02030a",
+      "backgroundElevated": "#05060d",
+      "header": "#070812",
+      "surfaceRail": "#050713",
+      "surfaceContent": "#050713",
+      "panel": "#0c0f19",
+      "card": "#111522",
+      "cardStrong": "#171c2b",
+      "input": "#02030a",
+      "foreground": "#fbfdff",
+      "mutedForeground": "#a7b1c8",
+      "primary": "#8edfff",
+      "primaryForeground": "#02030a",
+      "border": "rgba(160, 174, 205, 0.34)",
+      "borderSoft": "rgba(160, 174, 205, 0.2)",
+      "userBubble": "#071223",
+      "userBubbleBorder": "rgba(132, 212, 255, 0.82)",
+      "rail": "#bac5dd",
+      "phoneGlass": "rgba(255, 255, 255, 0.13)"
+    },
+    "shape": {
+      "radius": "12px"
+    }
+  }
+}

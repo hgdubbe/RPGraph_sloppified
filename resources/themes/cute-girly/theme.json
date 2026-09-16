@@ -1,0 +1,35 @@
+{
+  "id": "cute-girly",
+  "label": "Cute Girly",
+  "extends": "base",
+  "order": 6,
+  "tokens": {
+    "color": {
+      "background": "#2b1824",
+      "backgroundElevated": "#341d2c",
+      "header": "#4a263d",
+      "surfaceRail": "#3b2133",
+      "surfaceContent": "#2c1926",
+      "panel": "#432638",
+      "card": "#502d43",
+      "cardStrong": "#5e3450",
+      "input": "#21131d",
+      "foreground": "#fff8fb",
+      "mutedForeground": "#efbad0",
+      "primary": "#ff8cc6",
+      "primaryForeground": "#2a1020",
+      "secondary": "#ff62ae",
+      "border": "rgba(255, 179, 216, 0.48)",
+      "borderSoft": "rgba(255, 179, 216, 0.28)",
+      "userBubble": "#5a2851",
+      "userBubbleBorder": "rgba(255, 154, 205, 0.92)",
+      "rail": "#ffd1e3",
+      "complete": "#b8f4c2",
+      "phoneGlass": "rgba(255, 190, 218, 0.2)"
+    },
+    "shape": {
+      "radius": "16px",
+      "radiusCard": "20px"
+    }
+  }
+}

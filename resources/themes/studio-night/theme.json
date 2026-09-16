@@ -1,0 +1,6 @@
+{
+  "id": "studio-night",
+  "label": "Studio Night",
+  "extends": "base",
+  "order": 0
+}

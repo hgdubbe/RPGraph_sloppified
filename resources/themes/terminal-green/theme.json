@@ -1,0 +1,40 @@
+{
+  "id": "terminal-green",
+  "label": "Terminal Green",
+  "extends": "base",
+  "order": 5,
+  "tokens": {
+    "color": {
+      "background": "#010604",
+      "backgroundElevated": "#020a06",
+      "header": "#04110a",
+      "surfaceRail": "#020c07",
+      "surfaceContent": "#020906",
+      "panel": "#06140d",
+      "card": "#081a10",
+      "cardStrong": "#0a2215",
+      "input": "#010604",
+      "foreground": "#e9ffef",
+      "mutedForeground": "#8ac79d",
+      "primary": "#63ff95",
+      "primaryForeground": "#001b0a",
+      "secondary": "#7fffbf",
+      "border": "rgba(87, 201, 128, 0.46)",
+      "borderSoft": "rgba(87, 201, 128, 0.26)",
+      "userBubble": "#071a10",
+      "userBubbleBorder": "rgba(94, 255, 154, 0.74)",
+      "rail": "#9cf0b4",
+      "complete": "#b0ff6a",
+      "phoneGlass": "rgba(10, 42, 21, 0.5)"
+    },
+    "typography": {
+      "bodyFont": "Consolas, 'Courier New', monospace"
+    },
+    "shape": {
+      "radius": "4px"
+    },
+    "effect": {
+      "accentGlow": "0 0 10px color-mix(in srgb, var(--theme-primary) 28%, transparent)"
+    }
+  }
+}

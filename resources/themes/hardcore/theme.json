@@ -1,0 +1,37 @@
+{
+  "id": "hardcore",
+  "label": "Hardcore",
+  "extends": "base",
+  "order": 8,
+  "tokens": {
+    "color": {
+      "background": "#090808",
+      "backgroundElevated": "#0b0909",
+      "header": "#170b0c",
+      "surfaceRail": "#10090a",
+      "surfaceContent": "#0a0808",
+      "panel": "#1a1010",
+      "card": "#221313",
+      "cardStrong": "#2c1717",
+      "input": "#050404",
+      "foreground": "#fff3f3",
+      "mutedForeground": "#c29c9f",
+      "primary": "#ff4055",
+      "primaryForeground": "#120305",
+      "secondary": "#ff4055",
+      "border": "rgba(151, 60, 68, 0.55)",
+      "borderSoft": "rgba(151, 60, 68, 0.32)",
+      "userBubble": "#23090b",
+      "userBubbleBorder": "rgba(255, 61, 80, 0.86)",
+      "rail": "#d6b3b6",
+      "complete": "#d8ff57",
+      "phoneGlass": "rgba(45, 10, 12, 0.55)"
+    },
+    "typography": {
+      "textTransform": "uppercase"
+    },
+    "shape": {
+      "radius": "2px"
+    }
+  }
+}

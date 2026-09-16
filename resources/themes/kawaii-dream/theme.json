@@ -1,0 +1,35 @@
+{
+  "id": "kawaii-dream",
+  "label": "Kawaii Dream",
+  "extends": "base",
+  "order": 4,
+  "tokens": {
+    "color": {
+      "background": "#211326",
+      "backgroundElevated": "#2a1831",
+      "header": "#3a2144",
+      "surfaceRail": "#301b38",
+      "surfaceContent": "#241529",
+      "panel": "#3a2443",
+      "card": "#442b4f",
+      "cardStrong": "#51305d",
+      "input": "#1b1020",
+      "foreground": "#fff7fd",
+      "mutedForeground": "#e7b8dc",
+      "primary": "#ffb7e8",
+      "primaryForeground": "#241026",
+      "secondary": "#ff76cf",
+      "border": "rgba(255, 190, 239, 0.48)",
+      "borderSoft": "rgba(255, 190, 239, 0.28)",
+      "userBubble": "#4f235f",
+      "userBubbleBorder": "rgba(255, 174, 226, 0.9)",
+      "rail": "#ffd2f2",
+      "complete": "#9ef5d4",
+      "phoneGlass": "rgba(255, 210, 242, 0.22)"
+    },
+    "shape": {
+      "radius": "14px",
+      "radiusCard": "20px"
+    }
+  }
+}

@@ -128,12 +128,8 @@ import {
   sanitizeDebugSnapshotValue,
 } from './app/debugSnapshot';
 import { isStudioMode, studioModeStorageKey, type StudioMode } from './app/studioMode';
-import {
-  isStudioTheme,
-  studioThemeStorageKey,
-  studioThemes,
-  type StudioTheme,
-} from './app/studioTheme';
+import { defaultThemeId, studioThemeStorageKey, useThemeRegistry } from './app/themeRegistry';
+import { useAppliedTheme } from './app/useAppliedTheme';
 import { useTurnTraceState } from './app/useTurnTraceState';
 import { createWorkflowAssistantSnapshotJson } from './assistant/workflowSnapshot';
 import {
@@ -662,14 +658,18 @@ function App() {
       // localStorage can be unavailable in hardened environments; the UI still works for this session.
     }
   }, []);
-  const [studioTheme, setStudioThemeState] = useState<StudioTheme>(() => {
+  const [studioTheme, setStudioThemeState] = useState<string>(() => {
     if (typeof window === 'undefined') {
-      return 'studio-night';
+      return defaultThemeId;
     }
-    const storedTheme = window.localStorage.getItem(studioThemeStorageKey);
-    return isStudioTheme(storedTheme) ? storedTheme : 'studio-night';
+    // Optimistic: the theme registry loads asynchronously, so this can't be
+    // validated synchronously against the known id set. `effectiveThemeId`
+    // below snaps back to the default once the registry has loaded, if this
+    // turns out to be unknown (e.g. a stale localStorage value from a theme
+    // that no longer exists).
+    return window.localStorage.getItem(studioThemeStorageKey) || defaultThemeId;
   });
-  const setStudioTheme = useCallback((theme: StudioTheme) => {
+  const setStudioTheme = useCallback((theme: string) => {
     setStudioThemeState(theme);
     try {
       window.localStorage.setItem(studioThemeStorageKey, theme);
@@ -677,6 +677,12 @@ function App() {
       // localStorage can be unavailable in hardened environments; the UI still works for this session.
     }
   }, []);
+  const studioRootRef = useRef<HTMLDivElement>(null);
+  const themeRegistry = useThemeRegistry();
+  const effectiveThemeId = themeRegistry.loaded && !themeRegistry.isKnownThemeId(studioTheme)
+    ? defaultThemeId
+    : studioTheme;
+  useAppliedTheme(studioRootRef, effectiveThemeId, themeRegistry.manifests);
   const nodesRef = useRef(nodes);
   const commitNodes = useCallback((nextNodes: WorkflowNode[]) => {
     nodesRef.current = nextNodes;
@@ -6055,8 +6061,9 @@ function App() {
   return (
     <AccountLinkContext.Provider value={accountLinkContext}>
     <div
+      ref={studioRootRef}
       className={`studio studio-mode-${studioMode} node-text-${nodeTextSize}${glassDesignEnabled ? ' glass-design-active' : ''}`}
-      data-studio-theme={studioTheme}
+      data-studio-theme={effectiveThemeId}
       style={{
         '--glass-opacity': glassDesignOpacity,
         '--glass-blur': glassDesignEnabled ? '1px' : '0px',
@@ -6103,27 +6110,25 @@ function App() {
                   <strong>{studioMode === 'play' ? displayedStorybookName === 'not saved' ? displayedWorkflowName : displayedStorybookName : displayedWorkflowName}</strong>
                   <span>{studioMode === 'play' ? `Play Mode · ${chatPanelView === 'phone' ? 'Phone' : chatPanelView === 'events' ? 'Events' : 'Chat'}` : 'Graph Mode'}</span>
                 </div>
-                {studioMode === 'play' && (
-                  <label className="topbar-menu-select-row">
-                    <span>Theme</span>
-                    <select
-                      aria-label="Theme"
-                      value={studioTheme}
-                      onChange={(event) => {
-                        const nextTheme = event.target.value;
-                        if (isStudioTheme(nextTheme)) {
-                          setStudioTheme(nextTheme);
-                        }
-                      }}
-                    >
-                      {studioThemes.map((theme) => (
-                        <option key={theme.id} value={theme.id}>
-                          {theme.label}
-                        </option>
-                      ))}
-                    </select>
-                  </label>
-                )}
+                <label className="topbar-menu-select-row">
+                  <span>Theme</span>
+                  <select
+                    aria-label="Theme"
+                    value={effectiveThemeId}
+                    onChange={(event) => {
+                      const nextTheme = event.target.value;
+                      if (themeRegistry.isKnownThemeId(nextTheme)) {
+                        setStudioTheme(nextTheme);
+                      }
+                    }}
+                  >
+                    {themeRegistry.selectable.map((theme) => (
+                      <option key={theme.id} value={theme.id}>
+                        {theme.label}
+                      </option>
+                    ))}
+                  </select>
+                </label>
                 <button
                   type="button"
                   role="menuitem"

@@ -33,6 +33,10 @@ extraResources:
     to: npc-characters
     filter:
       - "**/*"
+  - from: resources/themes
+    to: themes
+    filter:
+      - "**/*"
 
 artifactName: RPGraph-Studio-${version}-${arch}.${ext}
 

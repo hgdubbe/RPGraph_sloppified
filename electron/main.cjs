@@ -73,6 +73,7 @@ const {
 const { chat: lmStudioAdapterChat } = require('./providers/lmStudioAdapter.cjs');
 const { reasoningTextFromChatMessage } = require('./reasoningStream.cjs');
 const { createNpcLibraryService, npcLibraryRoots } = require('./npcLibrary.cjs');
+const { createThemeLibraryService, themeLibraryRoots } = require('./themeLibrary.cjs');
 const workspaceProtection = require('./workspaceProtection.cjs').createWorkspaceProtection();
 
 const developmentUrl = 'http://localhost:5173';
@@ -221,6 +222,22 @@ const npcLibraryService = createNpcLibraryService({
     }
   },
 });
+
+const themeLibraryService = createThemeLibraryService({
+  roots: themeLibraryRoots({
+    isPackaged: app.isPackaged,
+    resourcesPath: process.resourcesPath,
+    projectRootPath,
+    userDataPath: app.getPath('userData'),
+  }),
+  openPath: (directory) => shell.openPath(directory),
+  onChanged: () => {
+    for (const window of BrowserWindow.getAllWindows()) {
+      if (!window.isDestroyed()) window.webContents.send('theme-library:changed');
+    }
+  },
+});
+let themeLibraryReadyPromise = themeLibraryService.reload();
 
 function normalizedWorkflowPath(filePath) {
   if (
@@ -5253,6 +5270,18 @@ ipcMain.handle('workspace:protection', async (_event, password) => {
 });
 
 ipcMain.handle('npc-library:open-folder', async () => npcLibraryService.openUserDirectory());
+
+ipcMain.handle('theme-library:get', async () => {
+  await themeLibraryReadyPromise;
+  return themeLibraryService.current();
+});
+
+ipcMain.handle('theme-library:reload', async () => {
+  themeLibraryReadyPromise = themeLibraryService.reload();
+  return themeLibraryReadyPromise;
+});
+
+ipcMain.handle('theme-library:open-folder', async () => themeLibraryService.openUserDirectory());
 
 ipcMain.handle('workflow:save-named', async (_event, request) => {
   workspaceProtection.require(request);

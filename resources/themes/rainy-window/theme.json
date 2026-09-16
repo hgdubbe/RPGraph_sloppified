@@ -1,0 +1,32 @@
+{
+  "id": "rainy-window",
+  "label": "Rainy Window",
+  "extends": "base",
+  "order": 3,
+  "tokens": {
+    "color": {
+      "background": "#0a1017",
+      "backgroundElevated": "#0c121a",
+      "header": "#111a24",
+      "surfaceRail": "#0f1721",
+      "surfaceContent": "#0c121a",
+      "panel": "#151f2a",
+      "card": "#182433",
+      "cardStrong": "#1f2d3d",
+      "input": "#081019",
+      "foreground": "#eef6ff",
+      "mutedForeground": "#9bb0c7",
+      "primary": "#9bd1f5",
+      "primaryForeground": "#081019",
+      "border": "rgba(117, 145, 176, 0.5)",
+      "borderSoft": "rgba(117, 145, 176, 0.3)",
+      "userBubble": "#142136",
+      "userBubbleBorder": "rgba(128, 172, 219, 0.78)",
+      "rail": "#b1c2d8",
+      "phoneGlass": "rgba(30, 43, 58, 0.52)"
+    },
+    "shape": {
+      "radius": "7px"
+    }
+  }
+}

@@ -177,6 +177,14 @@ contextBridge.exposeInMainWorld('rpgraph', {
     return () => ipcRenderer.removeListener('npc-library:changed', listener);
   },
   openNpcLibraryFolder: () => ipcRenderer.invoke('npc-library:open-folder'),
+  getThemeLibrary: () => ipcRenderer.invoke('theme-library:get'),
+  reloadThemeLibrary: () => ipcRenderer.invoke('theme-library:reload'),
+  onThemeLibraryChanged: (callback) => {
+    const listener = () => callback();
+    ipcRenderer.on('theme-library:changed', listener);
+    return () => ipcRenderer.removeListener('theme-library:changed', listener);
+  },
+  openThemeLibraryFolder: () => ipcRenderer.invoke('theme-library:open-folder'),
   saveNamedWorkflow: (name, workflow, protection, password, overwrite = false) =>
     ipcRenderer.invoke('workflow:save-named', { name, workflow, protection, password, overwrite }),
   saveRpgraphFileToPath: (request) =>

@@ -17,6 +17,7 @@ import type { RpStorybook } from './nodes/rp-storybook/model';
 import type { RpCharacterCard } from './storybook/characterCard';
 import type { RpgraphSessionV2 } from './data-management/types';
 import type { NpcLibrarySnapshot } from './characters/npcLibrary';
+import type { ThemeLibrarySnapshot } from './app/themeLibrary.browser';
 
 type SelectedImageFile = {
   name: string;
@@ -118,6 +119,10 @@ declare global {
       setWorkspaceProtection: (password: string) => Promise<NpcLibrarySnapshot>;
       onNpcLibraryChanged: (callback: () => void) => () => void;
       openNpcLibraryFolder: () => Promise<{ path: string }>;
+      getThemeLibrary: () => Promise<ThemeLibrarySnapshot>;
+      reloadThemeLibrary: () => Promise<ThemeLibrarySnapshot>;
+      onThemeLibraryChanged: (callback: () => void) => () => void;
+      openThemeLibraryFolder: () => Promise<{ path: string }>;
       saveNamedWorkflow: (
         name: string,
         workflow: WorkflowFile,

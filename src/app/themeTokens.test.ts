@@ -1,0 +1,62 @@
+import { describe, expect, it } from 'vitest';
+import { browserThemeLibrarySnapshot } from './themeLibrary.browser';
+import { missingCoreTokensInBase, resolveTheme } from './themeResolver';
+import { GUARANTEED_TOKEN_KEYS, type ThemeManifest } from './themeTokens';
+
+async function loadManifests(): Promise<ThemeManifest[]> {
+  const snapshot = await browserThemeLibrarySnapshot();
+  return snapshot.manifests;
+}
+
+describe('theme resolution', () => {
+  it('base theme alone (no extends, no derivation) already satisfies every core token', async () => {
+    const manifests = await loadManifests();
+    expect(missingCoreTokensInBase(manifests)).toEqual([]);
+  });
+
+  it('every shipped theme resolves every guaranteed token to a non-empty value', async () => {
+    const manifests = await loadManifests();
+    for (const manifest of manifests) {
+      const resolved = resolveTheme(manifests, manifest.id);
+      for (const key of GUARANTEED_TOKEN_KEYS) {
+        const segments = key.split('.');
+        const category = segments[0];
+        const withoutCategory = ['color', 'typography', 'shape', 'effect', 'motion'].includes(category)
+          ? segments.slice(1)
+          : segments;
+        const cssVar = `--theme-${withoutCategory.map((s) => s.replace(/([a-z0-9])([A-Z])/g, '$1-$2').toLowerCase()).join('-')}`;
+        expect(resolved[cssVar], `theme "${manifest.id}" is missing ${cssVar} (from ${key})`).toBeTruthy();
+      }
+    }
+  });
+
+  it('studio-night extends base with zero overrides and resolves identically to base', async () => {
+    const manifests = await loadManifests();
+    const studioNight = resolveTheme(manifests, 'studio-night');
+    const base = resolveTheme(manifests, 'base');
+    expect(studioNight).toEqual(base);
+  });
+
+  it('iphone-noir overrides only its declared deltas and falls back to base for the rest', async () => {
+    const manifests = await loadManifests();
+    const resolved = resolveTheme(manifests, 'iphone-noir');
+    expect(resolved['--theme-background']).toBe('#02030a');
+    expect(resolved['--theme-radius']).toBe('12px');
+    // Not redeclared by iphone-noir's theme.json -- must fall through to base.
+    expect(resolved['--theme-secondary']).toBe('#f15bb5');
+    expect(resolved['--theme-complete']).toBe('#68e08e');
+  });
+
+  it('keeps new-category leaves distinct from same-named color tokens (no --theme-panel collision)', async () => {
+    const manifests = await loadManifests();
+    const resolved = resolveTheme(manifests, 'base');
+    expect(resolved['--theme-panel']).toBe('#101421'); // color.panel
+    expect(resolved['--theme-graph-panel']).toBe('#121625'); // graph.panel
+    expect(resolved['--theme-storybook-panel']).toBe('#111625'); // storybook.panel
+  });
+
+  it('an unknown theme id falls back to the base chain without throwing', async () => {
+    const manifests = await loadManifests();
+    expect(() => resolveTheme(manifests, 'does-not-exist')).not.toThrow();
+  });
+});

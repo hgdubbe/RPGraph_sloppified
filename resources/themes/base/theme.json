@@ -1,0 +1,90 @@
+{
+  "id": "base",
+  "label": "Base (internal fallback)",
+  "hidden": true,
+  "tokens": {
+    "color": {
+      "background": "#070912",
+      "backgroundElevated": "#070912",
+      "header": "#0b0e1a",
+      "surfaceRail": "#080b16",
+      "surfaceContent": "#090b15",
+      "panel": "#101421",
+      "card": "#121523",
+      "cardStrong": "#1a1e33",
+      "input": "#060913",
+      "foreground": "#f4f7ff",
+      "mutedForeground": "#8fa1d1",
+      "primary": "#79d8ef",
+      "primaryForeground": "#051018",
+      "secondary": "#f15bb5",
+      "border": "rgba(77, 96, 138, 0.72)",
+      "borderSoft": "rgba(77, 96, 138, 0.42)",
+      "userBubble": "#14052a",
+      "userBubbleBorder": "rgba(164, 82, 255, 0.86)",
+      "rail": "#9fb0df",
+      "complete": "#68e08e",
+      "phoneGlass": "rgba(20, 24, 36, 0.46)"
+    },
+    "graph": {
+      "background": "#07090f",
+      "chrome": "#10131f",
+      "panel": "#121625",
+      "panel2": "#171c2e",
+      "line": "#303852",
+      "lineSoft": "rgba(119, 134, 176, 0.24)",
+      "text": "#f2f6ff",
+      "muted": "#9aa8cc",
+      "faint": "#687494",
+      "accent": "#79d7ef",
+      "accentSoft": "rgba(121, 215, 239, 0.13)",
+      "success": "#a4ec68",
+      "violet": "#a277ff"
+    },
+    "storybook": {
+      "background": "#07090f",
+      "panel": "#111625",
+      "passive": "#111625",
+      "line": "#303852",
+      "lineSoft": "rgba(124, 140, 180, 0.24)",
+      "text": "#f2f6ff",
+      "muted": "#9aa8cc",
+      "faint": "#667293",
+      "accent": "#79d7ef",
+      "accentSoft": "rgba(121, 215, 239, 0.13)",
+      "violet": "#a277ff",
+      "violetSoft": "rgba(162, 119, 255, 0.13)",
+      "pink": "#f16ac4",
+      "lime": "#a4ec68"
+    },
+    "typography": {
+      "headingFont": "inherit",
+      "bodyFont": "inherit",
+      "fontWeight": "850",
+      "fontWeightHeading": "900",
+      "letterSpacing": "normal",
+      "textTransform": "none",
+      "baseSize": "13px",
+      "lineHeight": "1.45"
+    },
+    "shape": {
+      "radius": "8px",
+      "borderWidth": "1px",
+      "borderStyle": "solid",
+      "clipPath": "none"
+    },
+    "effect": {
+      "cardShadow": "none",
+      "buttonShadow": "none",
+      "buttonShadowHover": "none",
+      "accentGlow": "none",
+      "backgroundTexture": "none",
+      "buttonBackground": "var(--theme-primary)"
+    },
+    "motion": {
+      "transitionDuration": "160ms",
+      "transitionEasing": "ease-out",
+      "hoverScale": "1"
+    }
+  }
+}

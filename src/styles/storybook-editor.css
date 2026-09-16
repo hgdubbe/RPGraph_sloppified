@@ -15,20 +15,23 @@
    ============================================================ */
 
 .storybook-creator-dialog {
-  --storybook-bg: #07090f;
-  --storybook-panel: #111625;
-  --storybook-passive: #111625;
-  --storybook-line: #303852;
-  --storybook-line-soft: rgba(124, 140, 180, 0.24);
-  --storybook-text: #f2f6ff;
-  --storybook-muted: #9aa8cc;
-  --storybook-faint: #667293;
-  --storybook-cyan: #79d7ef;
-  --storybook-cyan-soft: rgba(121, 215, 239, 0.13);
-  --storybook-violet: #a277ff;
-  --storybook-violet-soft: rgba(162, 119, 255, 0.13);
-  --storybook-pink: #f16ac4;
-  --storybook-lime: #a4ec68;
+  /* Values come from the active theme's resolved --theme-storybook-* tokens
+     (see src/app/useAppliedTheme.ts), set on the .studio root; the literal
+     here is only a fallback for when no theme has applied yet. */
+  --storybook-bg: var(--theme-storybook-background, #07090f);
+  --storybook-panel: var(--theme-storybook-panel, #111625);
+  --storybook-passive: var(--theme-storybook-passive, #111625);
+  --storybook-line: var(--theme-storybook-line, #303852);
+  --storybook-line-soft: var(--theme-storybook-line-soft, rgba(124, 140, 180, 0.24));
+  --storybook-text: var(--theme-storybook-text, #f2f6ff);
+  --storybook-muted: var(--theme-storybook-muted, #9aa8cc);
+  --storybook-faint: var(--theme-storybook-faint, #667293);
+  --storybook-cyan: var(--theme-storybook-accent, #79d7ef);
+  --storybook-cyan-soft: var(--theme-storybook-accent-soft, rgba(121, 215, 239, 0.13));
+  --storybook-violet: var(--theme-storybook-violet, #a277ff);
+  --storybook-violet-soft: var(--theme-storybook-violet-soft, rgba(162, 119, 255, 0.13));
+  --storybook-pink: var(--theme-storybook-pink, #f16ac4);
+  --storybook-lime: var(--theme-storybook-lime, #a4ec68);
 }
 
 .storybook-workbench-layout {

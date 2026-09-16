@@ -1,18 +1,21 @@
 
 .studio-shell-graph {
-  --graph-bg: #07090f;
-  --graph-chrome: #10131f;
-  --graph-panel: #121625;
-  --graph-panel-2: #171c2e;
-  --graph-line: #303852;
-  --graph-line-soft: rgba(119, 134, 176, 0.24);
-  --graph-text: #f2f6ff;
-  --graph-muted: #9aa8cc;
-  --graph-faint: #687494;
-  --graph-cyan: #79d7ef;
-  --graph-cyan-soft: rgba(121, 215, 239, 0.13);
-  --graph-lime: #a4ec68;
-  --graph-violet: #a277ff;
+  /* Values come from the active theme's resolved --theme-graph-* tokens
+     (see src/app/useAppliedTheme.ts), set on the .studio root; the literal
+     here is only a fallback for when no theme has applied yet. */
+  --graph-bg: var(--theme-graph-background, #07090f);
+  --graph-chrome: var(--theme-graph-chrome, #10131f);
+  --graph-panel: var(--theme-graph-panel, #121625);
+  --graph-panel-2: var(--theme-graph-panel2, #171c2e);
+  --graph-line: var(--theme-graph-line, #303852);
+  --graph-line-soft: var(--theme-graph-line-soft, rgba(119, 134, 176, 0.24));
+  --graph-text: var(--theme-graph-text, #f2f6ff);
+  --graph-muted: var(--theme-graph-muted, #9aa8cc);
+  --graph-faint: var(--theme-graph-faint, #687494);
+  --graph-cyan: var(--theme-graph-accent, #79d7ef);
+  --graph-cyan-soft: var(--theme-graph-accent-soft, rgba(121, 215, 239, 0.13));
+  --graph-lime: var(--theme-graph-success, #a4ec68);
+  --graph-violet: var(--theme-graph-violet, #a277ff);
   display: grid;
   grid-template-rows: minmax(0, 1fr);
   height: 100%;
