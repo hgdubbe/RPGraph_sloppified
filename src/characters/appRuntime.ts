@@ -18,6 +18,7 @@ export function appCharactersFromRegistry(registry: EffectiveCharacterRegistry):
       profile: { name: character.name, description: character.description,
         personality: character.personality, speechStyle: character.speechStyle, role: character.role },
       relationships: character.relationships,
+      agencyTags: character.agencyTags,
       relationshipContext: runtimeRelationshipContext(character, registry.characters.map((entry) => entry.character)),
       apps: character.apps, social: socialFromCharacterApps(character.apps ?? {}), images: character.images,
       ...(character.profileImage ? { profileImage: { ...character.profileImage, ...(portrait ? { dataUrl: portraitDataUrl(portrait, character.profileImage.crop) } : {}) } } : {}),
@@ -40,10 +41,11 @@ export function appCharacterImage(characters: StorybookCharacter[], imageId: str
 export function recipientCharacterContext(character: StorybookCharacter) {
   const publicProfiles = Object.fromEntries((['whatsup', 'fotogram', 'onlyfriends', 'matchme'] as const).map((app) => {
     const account = character.apps?.[app];
-    return [app, account?.enabled ? { accountId: account.accountId, profileName: migratedProfileName(account, character.name), bio: account.bio,
+    const isPrivate = account ? account.privacyMode === true : false;
+    return [app, account?.enabled ? { accountId: account.accountId, profileName: migratedProfileName(account, character.name), privacyMode: isPrivate, bio: account.bio,
       posts: account.initialPosts?.map((post) => ({ text: post.text,
         imageDescription: character.images?.find((image) => image.id === post.imageId)?.description })),
-      photos: (app === 'matchme' ? character.apps?.matchme?.profile?.photoIds ?? [] : [account.avatarImageId])
+      photos: (app === 'matchme' ? character.apps?.matchme?.profile?.photoIds ?? [] : (!isPrivate ? [account.avatarImageId] : []))
         .flatMap((id) => character.images?.find((image) => image.id === id)?.description || []),
     } : null];
   }));
@@ -56,7 +58,9 @@ export function recipientCharacterContext(character: StorybookCharacter) {
     if (!account) { absent.push(name); return []; }
     return [
       '', name,
-      ...(app === 'whatsup' ? [] : field('Profile name', account.profileName ? `@${account.profileName}` : undefined)),
+      ...(app === 'whatsup' || app === 'matchme' ? [] : field('Profile name', account.profileName ? `@${account.profileName}` : undefined)),
+      ...((app === 'fotogram' || app === 'onlyfriends') ? field('Privacy mode', account.privacyMode ? 'Yes; anonymous profile (hide real name and profile photo publicly)' : 'No; show real name and photo publicly') : []),
+      ...(app === 'matchme' ? field('Public name', `${character.name.trim().split(/\s+/)[0]}, ${character.social.plotTwist?.age ?? ''}`) : []),
       ...field('Bio', account.bio),
       ...account.photos.flatMap((photo, index) => field(`Profile photo ${index + 1}`, photo)),
       ...(account.posts ?? []).flatMap((post, index) => [

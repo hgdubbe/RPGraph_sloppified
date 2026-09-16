@@ -4,7 +4,7 @@ import type {
   RpWeekdayLanguage,
   SocialPostRecord,
 } from '../types';
-import { socialAppNames, socialAccountPresentation } from '../chat/socialMedia';
+import { socialAppNames, socialAccountPresentation, isAccountPrivacyMode } from '../chat/socialMedia';
 import { formatRpDateTimeParts } from '../workflow';
 import { CharacterAvatar } from './CharacterAvatar';
 import { formatSocialCount } from './phone-social/socialPostPresentation';
@@ -50,9 +50,9 @@ export function SocialPostCard({
     <span className="chat-social-post-author">
       <CharacterAvatar
         className="chat-social-post-avatar"
-        name={post.author}
-        fallback={post.author.slice(0, 1).toUpperCase()}
-        profileImageDataUrl={authorCharacter?.profileImage?.dataUrl}
+        name={identity.name}
+        fallback={identity.name.slice(0, 1).toUpperCase()}
+        profileImageDataUrl={!isAccountPrivacyMode(post.app, authorCharacter) ? authorCharacter?.profileImage?.dataUrl : undefined}
         style={authorColor ? { borderColor: authorColor, color: authorColor } : undefined}
       />
       <span>
@@ -68,7 +68,7 @@ export function SocialPostCard({
       type="button"
       style={fontSize ? { fontSize } : undefined}
       onClick={onOpen}
-      aria-label={`Open ${appName} post by ${post.author} with comments`}
+      aria-label={`Open ${appName} post by ${identity.name} with comments`}
     >
       <span className="chat-social-post-accent" aria-hidden="true" />
       <span className="chat-social-post-header">

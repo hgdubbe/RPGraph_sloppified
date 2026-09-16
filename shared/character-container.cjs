@@ -1,4 +1,5 @@
 const formatVersions = require('../src/storybook/formatVersions.json');
+const { validateCharacterAgency } = require('./agency-tags.cjs');
 
 const currentCharacterContainerVersion = formatVersions.characterCard;
 const appNames = ['whatsup', 'fotogram', 'onlyfriends', 'matchme'];
@@ -71,6 +72,7 @@ function validateCharacterPayload(value) {
     throw new Error('Character hiddenAgency must be a string when present.');
   }
   validateCharacterRelationships(character.relationships, character.id);
+  validateCharacterAgency(character);
   if (typeof character.playable !== 'boolean') {
     throw new Error('Character Container V2 requires a playable flag.');
   }
@@ -126,6 +128,9 @@ function validateCharacterPayload(value) {
     if (account.profileName !== undefined && (typeof account.profileName !== 'string' ||
         account.profileName.length > 60 || (account.enabled && app !== 'whatsup' && !account.profileName.trim()))) {
       throw new Error('App profile names require 1–60 characters.');
+    }
+    if (account.privacyMode !== undefined && (typeof account.privacyMode !== 'boolean' || !['fotogram', 'onlyfriends'].includes(app))) {
+      throw new Error('privacyMode must be a boolean on Fotogram or OnlyFriends accounts.');
     }
     if (account.legacyHandles !== undefined && (!Array.isArray(account.legacyHandles) ||
         account.legacyHandles.some((alias) => typeof alias !== 'string' || !alias.trim()))) {

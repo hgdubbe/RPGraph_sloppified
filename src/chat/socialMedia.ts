@@ -1,7 +1,7 @@
 import { accountHandle, accountHandleMatches } from '../characters/character';
 import { recipientCharacterContext } from '../characters/appRuntime';
 import { matchMeContext, matchMeState } from './matchMe';
-import { datingAccountId, datingAccountMatches, datingAccounts, resolveDatingAccount } from './datingAccounts';
+import { datingFirstName, datingAccountId, datingAccountMatches, datingAccounts, resolveDatingAccount } from './datingAccounts';
 import type {
   MessageRecord,
   SocialAppKind,
@@ -184,6 +184,15 @@ export function socialCharacterForPost(
   return matches.length === 1 ? matches[0] : undefined;
 }
 
+/** Whether the character's account on Fotogram or OnlyFriends is in privacy mode. */
+export function isAccountPrivacyMode(
+  app: string,
+  character: StorybookCharacter | undefined,
+): boolean {
+  if (app !== 'fotogram' && app !== 'onlyfriends') return false;
+  return character?.apps?.[app]?.privacyMode === true;
+}
+
 /** UI labels only: never use public display names as routing handles. */
 export function socialAccountPresentation(
   app: SocialMessengerAppKind,
@@ -191,9 +200,12 @@ export function socialAccountPresentation(
   fallbackName: string,
   fallbackHandle: string,
 ) {
+  const account = character?.apps?.[app];
+  const handle = (character ? account?.profileName ?? account?.displayName ?? '' : fallbackHandle).trim().replace(/^@/, '');
+  const hideRealName = isAccountPrivacyMode(app, character);
   return {
-    name: character?.name || fallbackName,
-    handle: (character ? character.apps?.[app]?.profileName ?? character.apps?.[app]?.displayName ?? '' : fallbackHandle).trim().replace(/^@/, ''),
+    name: hideRealName ? handle || 'Unknown user' : character?.name || fallbackName,
+    handle,
   };
 }
 
@@ -279,10 +291,13 @@ export function socialDirectMessageParty(
       : !!storedHandle && accountHandleMatches(account, storedHandle));
   });
   const character = matches.length === 1 ? matches[0] : undefined;
-  const name = character?.name.trim() || message[side];
+  const name = socialAccountPresentation(message.app, character, message[side], storedHandle).name;
+  if (message.app === 'matchme') {
+    const age = character?.social.plotTwist?.age;
+    return `${datingFirstName(name)}${age ? `, ${age}` : ''}`;
+  }
   // Social profile editors expose Display name; usernames remain internal account identities.
-  const publicName = character?.apps?.[message.app]?.profileName ?? character?.apps?.[message.app]?.displayName ??
-    (message.app === 'matchme' ? character?.social.plotTwist?.name : undefined);
+  const publicName = character?.apps?.[message.app]?.profileName ?? character?.apps?.[message.app]?.displayName;
   const handle = publicName?.trim().replace(/^@/, '') ?? '';
   return `${name}${showProfileNames && handle ? ` (@${handle})` : ''}`;
 }
@@ -626,7 +641,10 @@ export function parseSocialReactionsOutput(
     const hasDirectMessages = hasIncomingSocialDirectMessagesKey(block);
     if (hasDirectMessages) {
       const blockDirectMessages = parseIncomingSocialDirectMessagesObject(block);
-      if (blockDirectMessages.length === 0) {
+      const onlyEmptyMessageArrays = Object.values(socialDirectMessageJsonKeys)
+        .filter((key) => block[key] !== undefined)
+        .every((key) => Array.isArray(block[key]) && block[key].length === 0);
+      if (blockDirectMessages.length === 0 && !onlyEmptyMessageArrays) {
         warnings.push('A social messenger block has no valid entries (each needs from, to, and message).');
       }
       directMessages.push(...blockDirectMessages);

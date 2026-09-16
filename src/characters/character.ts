@@ -1,4 +1,5 @@
 import { normalizeDatingProfile, type DatingProfile } from '../chat/datingProfile';
+import { validateAccountAgency, validateCharacterAgency, type AgencyTagId, type AgencyAccountRole } from '../../shared/agency-tags.cjs';
 import {
   validateCharacterContainer as validateSharedCharacterContainer,
   validateCharacterPayload as validateSharedCharacterPayload,
@@ -10,10 +11,14 @@ import type {
 } from '../nodes/rp-storybook/model';
 
 export type CharacterAppAccount = {
+  accountRole?: AgencyAccountRole;
+  agencyTags?: AgencyTagId[];
   accountId: string;
   enabled: boolean;
   /** The only authored app name. WhatsUp has no profile name. */
   profileName?: string;
+  /** Fotogram/OnlyFriends privacy mode; true hides real name and profile photo publicly. */
+  privacyMode?: boolean;
   /** Historical handles retained for saved conversations and account links. */
   legacyHandles?: string[];
   /** Read-only legacy import fields; canonical serialization removes both. */
@@ -46,6 +51,8 @@ export type Character = {
   speechStyle: string;
   /** Author-only motivations; stored without activating runtime behavior. */
   hiddenAgency?: string;
+  /** Authored behavior vocabulary; does not activate NPC actions. */
+  agencyTags?: AgencyTagId[];
   relationships?: CharacterRelationship[];
   role: string;
   playable?: boolean;
@@ -93,12 +100,14 @@ export function normalizeCharacterApps(value: unknown, legacy: unknown, id: stri
   const apps: CharacterApps = {};
   for (const app of ['whatsup', 'fotogram', 'onlyfriends', 'matchme'] as const) {
     const account = record(source[app]);
+    validateAccountAgency(app, account);
     const legacyHandle = app === 'fotogram' ? social.fotogramUsername : app === 'onlyfriends' ? social.onlyfriendsUsername : undefined;
     const rawProfile = app === 'matchme' ? record(account.profile ?? social.plotTwist) : {};
-    const profileName = app === 'whatsup' ? undefined : migratedProfileName(account, name, string(rawProfile.name) || string(legacyHandle));
+    const profileName = app === 'whatsup' ? undefined : app === 'matchme' ? name.trim() : migratedProfileName(account, name, string(rawProfile.name) || string(legacyHandle));
     const legacyHandles = [...new Set([
       ...(Array.isArray(account.legacyHandles) ? account.legacyHandles.filter((entry): entry is string => typeof entry === 'string' && !!entry.trim()) : []),
       string(account.username), string(account.displayName), string(legacyHandle),
+      ...(app === 'matchme' ? [string(account.profileName), string(rawProfile.name), string(rawProfile.username)] : []),
       ...(app !== 'whatsup' && profileName ? [profileName] : []),
     ].filter(Boolean))];
     const profile = app === 'matchme' ? normalizeDatingProfile({ ...rawProfile,
@@ -107,9 +116,12 @@ export function normalizeCharacterApps(value: unknown, legacy: unknown, id: stri
     }, account.enabled === false) : undefined;
     if (!Object.keys(account).length && !legacyHandle && !profile) continue;
     apps[app] = {
+      ...(account.accountRole !== undefined ? { accountRole: account.accountRole as AgencyAccountRole } : {}),
+      ...(account.agencyTags !== undefined ? { agencyTags: [...account.agencyTags as AgencyTagId[]] } : {}),
       accountId: string(account.accountId) || `character:${id}:${app}`,
       enabled: typeof account.enabled === 'boolean' ? account.enabled : app === 'matchme' ? !!profile : app === 'whatsup' || !!profileName,
       ...(profileName !== undefined ? { profileName } : {}),
+      ...((app === 'fotogram' || app === 'onlyfriends') && typeof account.privacyMode === 'boolean' ? { privacyMode: account.privacyMode } : {}),
       ...(legacyHandles.length ? { legacyHandles } : {}),
       bio: string(account.bio) || profile?.bio || '',
       ...(typeof account.avatarImageId === 'string' ? { avatarImageId: account.avatarImageId } : {}),
@@ -149,6 +161,7 @@ export function characterPayload(character: Omit<Character, 'profileImage'> & {
 }, portable = false) {
   const { social, profileImage, ...rest } = character;
   const apps = normalizeCharacterApps(character.apps, social, character.id, character.name);
+  validateCharacterAgency({ ...character, apps });
   if (apps.matchme?.profile) {
     // DatingProfile.name is an editor/runtime projection, not a second stored app name.
     delete (apps.matchme.profile as Partial<DatingProfile>).name;
