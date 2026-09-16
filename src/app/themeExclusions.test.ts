@@ -6,9 +6,18 @@ import { describe, expect, it } from 'vitest';
  * retheme'd. This guards against a future edit accidentally wiring a
  * `--theme-*` reference into any of their stylesheets. */
 const EXCLUDED_STYLESHEETS = [
-  'src/styles/phone-device.css',
   'src/styles/phone-widgets.css',
   'src/components/phone-dating/phoneDating.css',
+];
+
+/** Files that legitimately mix in-scope and out-of-scope rules -- checked
+ * with the brace-tracking scan below instead of a blanket "no --theme-*
+ * anywhere" assertion. phone-device.css holds both the .phone-* simulated
+ * app content (excluded) and the .roleplay-phone-* device bezel/casing
+ * (in scope: it's chrome, not handcrafted content). */
+const MIXED_STYLESHEETS = [
+  'src/styles/phone-device.css',
+  'src/styles.css',
 ];
 
 const EXCLUDE_SELECTOR_RE = /\.phone-|\.pt-|\.social-profile-/;
@@ -59,8 +68,8 @@ describe('theming exclusion boundary', () => {
     expect(socialProfileBlockMatch?.[0]).not.toMatch(/--theme-/);
   });
 
-  it('src/styles.css never themes a .phone-/.pt-/.social-profile- rule (it legitimately mixes in-scope and out-of-scope rules)', () => {
-    const contents = readFileSync('src/styles.css', 'utf8');
+  it.each(MIXED_STYLESHEETS)('%s never themes a .phone-/.pt-/.social-profile- rule', (relativePath) => {
+    const contents = readFileSync(relativePath, 'utf8');
     const offenders = findThemeReferencesInExcludedBlocks(contents);
     expect(offenders).toEqual([]);
   });

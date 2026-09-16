@@ -37,9 +37,9 @@
   gap: 7px;
   min-width: 0;
   padding: 8px 12px;
-  border: 1px solid rgba(255, 255, 255, 0.02);
+  border: 1px solid var(--theme-raw-vrgba255255255002, rgba(255, 255, 255, 0.02));
   border-radius: 6px;
-  background: rgba(9, 13, 20, 0.4);
+  background: var(--theme-raw-vrgba9132004, rgba(9, 13, 20, 0.4));
 }
 
 .character-relationship-summary {
@@ -51,7 +51,7 @@
 }
 
 .character-relationship-name {
-  color: #dbe2f4;
+  color: var(--theme-raw-vdbe2f4, #dbe2f4);
   font-size: 12px;
   font-weight: 650;
   line-height: 1.35;
@@ -64,7 +64,7 @@
   flex-wrap: wrap;
   gap: 3px 9px;
   min-width: 0;
-  color: #8995aa;
+  color: var(--theme-raw-v8995aa, #8995aa);
   font-size: 10px;
   font-weight: 400;
   line-height: 1.35;
@@ -75,12 +75,12 @@
 }
 
 .character-relationship-connections [aria-hidden="true"] {
-  color: #91b79a;
+  color: var(--theme-raw-v91b79a, #91b79a);
 }
 
 .character-relationship-card > p {
   margin: 0;
-  color: #dbe2f4;
+  color: var(--theme-raw-vdbe2f4, #dbe2f4);
   font-size: 12px;
   line-height: 1.45;
   overflow-wrap: anywhere;
@@ -98,14 +98,14 @@
   border: 0;
   background: transparent;
   box-shadow: none;
-  color: #aeb9ce;
+  color: var(--theme-raw-vaeb9ce, #aeb9ce);
   font: inherit;
   font-size: 10px;
   cursor: pointer;
 }
 
 .character-relationship-remove:hover:not(:disabled) {
-  color: #f1a4ad;
+  color: var(--theme-raw-vf1a4ad, #f1a4ad);
   text-decoration: underline;
   text-underline-offset: 3px;
 }
@@ -144,10 +144,10 @@
   align-items: center;
   min-height: 22px;
   padding: 1px 7px;
-  border: 1px solid rgba(197, 112, 124, 0.28);
+  border: 1px solid var(--theme-raw-vrgba197112124028, rgba(197, 112, 124, 0.28));
   border-radius: 999px;
-  background: rgba(126, 55, 67, 0.1);
-  color: #c88c96;
+  background: var(--theme-raw-vrgba126556701, rgba(126, 55, 67, 0.1));
+  color: var(--theme-raw-vc88c96, #c88c96);
   font-size: 10px;
   line-height: 1.35;
   cursor: pointer;
@@ -155,9 +155,9 @@
 }
 
 .character-relationship-apps label.is-connected {
-  border-color: rgba(117, 181, 132, 0.38);
-  background: rgba(74, 126, 86, 0.14);
-  color: #91c29c;
+  border-color: var(--theme-raw-vrgba117181132038, rgba(117, 181, 132, 0.38));
+  background: var(--theme-raw-vrgba7412686014, rgba(74, 126, 86, 0.14));
+  color: var(--theme-raw-v91c29c, #91c29c);
 }
 
 .character-relationship-apps label:focus-within {
@@ -186,10 +186,10 @@
 .character-relationship-picker > input {
   width: 100%;
   box-sizing: border-box;
-  border: 1px solid #33415a;
+  border: 1px solid var(--storybook-line, #33415a);
   border-radius: 6px;
-  background: #101722;
-  color: #e4eaf5;
+  background: var(--storybook-bg, #101722);
+  color: var(--storybook-text, #e4eaf5);
   font: inherit;
   font-size: 11px;
 }
@@ -235,10 +235,10 @@
   z-index: 20;
   margin-top: 4px;
   padding: 6px;
-  border: 1px solid #ffffff30;
+  border: 1px solid var(--theme-raw-vffffff30, #ffffff30);
   border-radius: 8px;
-  background: #20212b;
-  box-shadow: 0 4px 20px #0006;
+  background: var(--storybook-panel, #20212b);
+  box-shadow: 0 4px 20px var(--theme-raw-v0006, #0006);
 }
 
 .character-mention-input > .character-mention-results {
@@ -247,10 +247,10 @@
   inset-inline: 0;
   z-index: 20;
   padding: 6px;
-  border: 1px solid #ffffff30;
+  border: 1px solid var(--theme-raw-vffffff30, #ffffff30);
   border-radius: 8px;
-  background: #20212b;
-  box-shadow: 0 4px 20px #0006;
+  background: var(--storybook-panel, #20212b);
+  box-shadow: 0 4px 20px var(--theme-raw-v0006, #0006);
 }
 
 .character-mention-results button {
@@ -268,7 +268,7 @@
 
 .character-mention-results button[aria-selected="true"],
 .character-mention-results button:hover {
-  background: #a78bfa25;
+  background: color-mix(in srgb, var(--theme-primary) 15%, transparent);
 }
 
 .character-mention-results small {
@@ -285,9 +285,9 @@
 
 .character-reference-chips button {
   padding: 4px 10px;
-  border: 1px solid #a78bfa55;
+  border: 1px solid var(--theme-primary, #a78bfa55);
   border-radius: 16px;
-  background: #a78bfa18;
+  background: color-mix(in srgb, var(--theme-primary) 10%, transparent);
   color: inherit;
   cursor: pointer;
 }

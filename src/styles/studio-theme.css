@@ -64,7 +64,7 @@
 .studio[data-studio-theme] .studio-play-header {
   border-bottom-color: var(--theme-border);
   background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.035), transparent),
+    linear-gradient(180deg, var(--theme-raw-vrgba2552552550035, rgba(255, 255, 255, 0.035)), transparent),
     var(--theme-background-texture, none),
     var(--theme-header);
 }
@@ -131,8 +131,8 @@
 }
 
 .studio[data-studio-theme] .studio-theme-picker option {
-  color: #edf1ff;
-  background: #101421;
+  color: var(--theme-raw-vedf1ff, #edf1ff);
+  background: var(--theme-raw-v101421, #101421);
 }
 
 .studio[data-studio-theme] .studio-play-command-group .connection-button,

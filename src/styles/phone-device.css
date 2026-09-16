@@ -264,7 +264,7 @@
   position: relative;
   padding: 43px 0 24px;
   border-radius: 49px;
-  background: #020203;
+  background: var(--theme-raw-v020203, #020203);
   box-sizing: border-box;
 }
 
@@ -451,20 +451,20 @@
   flex-direction: column;
   overflow: hidden;
   padding: 5px;
-  border: 2px solid #1d1e22;
+  border: 2px solid var(--theme-raw-v1d1e22, #1d1e22);
   border-radius: 56px;
   background:
-    linear-gradient(90deg, #030304, #2b2d32 2%, #0b0b0d 5%, #0b0b0e 95%, #3c3d42 98%, #030304),
-    linear-gradient(180deg, #1e1f24, #050506 18% 82%, #202126),
-    #070708;
-  color: #fff;
+    linear-gradient(90deg, var(--theme-raw-v030304, #030304), var(--theme-raw-v2b2d32, #2b2d32) 2%, var(--theme-raw-v0b0b0d, #0b0b0d) 5%, var(--theme-raw-v0b0b0e, #0b0b0e) 95%, var(--theme-raw-v3c3d42, #3c3d42) 98%, var(--theme-raw-v030304, #030304)),
+    linear-gradient(180deg, var(--theme-raw-v1e1f24, #1e1f24), var(--theme-raw-v050506, #050506) 18% 82%, var(--theme-raw-v202126, #202126)),
+    var(--theme-raw-v070708, #070708);
+  color: var(--theme-raw-vfff, #fff);
   box-shadow:
-    inset 0 0 0 1px rgba(255, 255, 255, 0.18),
-    inset 2px 0 2px rgba(255, 255, 255, 0.16),
-    inset -2px 0 3px rgba(0, 0, 0, 0.82),
-    0 0 0 1px rgba(130, 132, 140, 0.7),
-    0 2px 0 rgba(255, 255, 255, 0.18),
-    0 18px 34px rgba(0, 0, 0, 0.48);
+    inset 0 0 0 1px var(--theme-raw-vrgba255255255018, rgba(255, 255, 255, 0.18)),
+    inset 2px 0 2px var(--theme-raw-vrgba255255255016, rgba(255, 255, 255, 0.16)),
+    inset -2px 0 3px var(--theme-raw-vrgba000082, rgba(0, 0, 0, 0.82)),
+    0 0 0 1px var(--theme-raw-vrgba13013214007, rgba(130, 132, 140, 0.7)),
+    0 2px 0 var(--theme-raw-vrgba255255255018, rgba(255, 255, 255, 0.18)),
+    0 18px 34px var(--theme-raw-vrgba000048, rgba(0, 0, 0, 0.48));
   isolation: isolate;
 }
 
@@ -479,17 +479,17 @@
 }
 
 .roleplay-phone-device::before {
-  border: 1px solid rgba(255, 255, 255, 0.12);
+  border: 1px solid var(--theme-raw-vrgba255255255012, rgba(255, 255, 255, 0.12));
   box-shadow:
-    inset 0 0 0 1px rgba(0, 0, 0, 0.72),
-    inset 10px 0 18px rgba(255, 255, 255, 0.035),
-    inset -12px 0 16px rgba(0, 0, 0, 0.52);
+    inset 0 0 0 1px var(--theme-raw-vrgba000072, rgba(0, 0, 0, 0.72)),
+    inset 10px 0 18px var(--theme-raw-vrgba2552552550035, rgba(255, 255, 255, 0.035)),
+    inset -12px 0 16px var(--theme-raw-vrgba000052, rgba(0, 0, 0, 0.52));
 }
 
 .roleplay-phone-device::after {
   background:
-    linear-gradient(104deg, transparent 0 6%, rgba(255, 255, 255, 0.08) 8%, transparent 15%),
-    linear-gradient(284deg, transparent 0 7%, rgba(255, 255, 255, 0.075) 10%, transparent 18%);
+    linear-gradient(104deg, transparent 0 6%, var(--theme-raw-vrgba255255255008, rgba(255, 255, 255, 0.08)) 8%, transparent 15%),
+    linear-gradient(284deg, transparent 0 7%, var(--theme-raw-vrgba2552552550075, rgba(255, 255, 255, 0.075)) 10%, transparent 18%);
   mix-blend-mode: screen;
   opacity: 0.82;
 }
@@ -573,4 +573,3 @@
   padding: 9px 10px;
   border-radius: 14px;
 }
-

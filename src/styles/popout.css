@@ -5,7 +5,7 @@
   width: 100vw;
   height: 100vh;
   overflow: hidden;
-  background: #131b28;
+  background: var(--theme-raw-v131b28, #131b28);
 }
 
 #roleplay-popout-root {

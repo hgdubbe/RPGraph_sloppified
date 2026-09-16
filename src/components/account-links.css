@@ -3,7 +3,7 @@
   padding: 0;
   border: 0;
   background: none;
-  color: #72b9ff;
+  color: var(--theme-primary, #72b9ff);
   font: inherit;
   text-align: inherit;
   text-decoration: underline;
@@ -12,7 +12,7 @@
   overflow-wrap: anywhere;
 }
 .account-link:disabled {
-  color: #94bde4;
+  color: var(--theme-muted-foreground, #94bde4);
   opacity: 1;
   cursor: default;
 }
