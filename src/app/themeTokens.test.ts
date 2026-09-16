@@ -115,6 +115,17 @@ describe('theme resolution', () => {
     expect(iphoneNoir['--theme-app-accent']).not.toBe(base['--theme-app-accent']);
   });
 
+  it('derives the shared app.dialog* tokens (border/background/text) that 28+ modal dialogs in src/styles.css consume, so switching themes repaints Options, Providers, Files, System Log, and every other standard dialog at once', async () => {
+    const manifests = await loadManifests();
+    const base = resolveTheme(manifests, 'base');
+    const iphoneNoir = resolveTheme(manifests, 'iphone-noir');
+    expect(iphoneNoir['--theme-app-dialog-bg']).toBe(iphoneNoir['--theme-panel']);
+    expect(iphoneNoir['--theme-app-dialog-border']).toBe(iphoneNoir['--theme-border']);
+    expect(iphoneNoir['--theme-app-dialog-text']).toBe(iphoneNoir['--theme-foreground']);
+    expect(iphoneNoir['--theme-app-text']).toBe(iphoneNoir['--theme-foreground']);
+    expect(iphoneNoir['--theme-app-dialog-bg']).not.toBe(base['--theme-app-dialog-bg']);
+  });
+
   it('"classic" and "studio-night" both extend base with zero color.* overrides, so their color.* tokens match, but they diverge on graph/storybook/app', async () => {
     const manifests = await loadManifests();
     const classic = resolveTheme(manifests, 'classic');

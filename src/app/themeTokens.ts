@@ -112,6 +112,15 @@ export const CORE_TOKEN_KEYS = [
   'app.danger',
   'app.dangerSoft',
   'app.softWhite',
+  // The single most-repeated pattern in src/styles.css: 28+ modal dialogs
+  // (Options, Providers/connection, Files, System Log, password prompt,
+  // LLM run report, voice playback, ...) all share this exact
+  // border/background/text triple. One derived slot here fixes every one
+  // of them at once instead of hand-remapping each dialog separately.
+  'app.dialogBg',
+  'app.dialogBorder',
+  'app.dialogText',
+  'app.text',
   // Auto-extracted from src/styles.css: every color literal reused 5+ times
   // that didn't already correspond to a semantic token above. Named from
   // the literal's own characters (not hand-picked semantic names) since

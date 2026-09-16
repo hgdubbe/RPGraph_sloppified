@@ -174,6 +174,10 @@ const DERIVATION_RULES: Partial<Record<CoreTokenKey, DerivationRule>> = {
   'app.successSoft': (_basic, resolved) =>
     resolved['color.complete'] !== undefined ? withAlpha(resolved['color.complete'], 0.18) : undefined,
   'app.softWhite': (_basic, resolved) => resolved['color.foreground'],
+  'app.dialogBg': (_basic, resolved) => resolved['color.panel'],
+  'app.dialogBorder': (_basic, resolved) => resolved['color.border'],
+  'app.dialogText': (_basic, resolved) => resolved['color.foreground'],
+  'app.text': (_basic, resolved) => resolved['color.foreground'],
 };
 
 /** Resolves a theme id against the loaded manifest registry into a flat map
