@@ -373,7 +373,7 @@ export function PhoneDatingScreen({ profileOnly = false, unread, onMarkSeen, ope
               <div className="pt-placeholder">{candidate.photos?.length ? <img className="pt-discovery-photo" src={candidate.photos[photo % candidate.photos.length].dataUrl} alt={candidate.photos[photo % candidate.photos.length].description || `${datingFirstName(candidate.name)}, photo ${photo + 1}`} /> : <><span aria-hidden="true">✧</span><small>Photo unavailable</small></>}</div>
               {candidatePhotoCount > 1 && <div className="pt-image-nav"><button type="button" aria-label="Previous image" onClick={() => setPhoto((photo + candidatePhotoCount - 1) % candidatePhotoCount)}><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m14 6-6 6 6 6" /></svg></button><button type="button" aria-label="Next image" onClick={() => setPhoto((photo + 1) % candidatePhotoCount)}><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m10 6 6 6-6 6" /></svg></button></div>}
               {Math.abs(drag) >= 8 && <span className={`pt-swipe-label ${drag > 0 ? 'like' : 'pass'}`} style={{ opacity: Math.min(1, Math.abs(drag) / 35) }}>{drag > 0 ? 'LIKE' : 'PASS'}</span>}
-              <div className="pt-card-info"><small>{candidate.characterId && !candidate.libraryNpc ? 'STORYBOOK CHARACTER' : 'FICTIONAL NPC'}</small><h3>{datingFirstName(candidate.name)}<span>, {candidate.age}</span></h3><p>{candidate.bio}</p><div className="pt-tags">{candidate.interests.map((interest) => <span key={interest}>{interest}</span>)}</div></div>
+              <div className="pt-card-info"><h3>{datingFirstName(candidate.name)}<span>, {candidate.age}</span></h3><p>{candidate.bio}</p><div className="pt-tags">{candidate.interests.map((interest) => <span key={interest}>{interest}</span>)}</div></div>
             </article>
             <div ref={decisionsRef} className="pt-decisions">
               <button className="pt-pass" type="button" disabled={busy || isRunning} aria-label={`Pass on ${datingFirstName(candidate.name)}`} title="Pass" onClick={() => decide('pass')}>
@@ -444,7 +444,6 @@ export function PhoneDatingScreen({ profileOnly = false, unread, onMarkSeen, ope
                   </div>
                 )}
                 <div className="pt-card-info">
-                  <small>{previewCandidate.characterId && !previewCandidate.libraryNpc ? 'STORYBOOK CHARACTER' : 'FICTIONAL NPC'}</small>
                   <h3>{datingFirstName(previewCandidate.name)}<span>, {previewCandidate.age}</span></h3>
                   <p>{previewCandidate.bio}</p>
                   <div className="pt-tags">

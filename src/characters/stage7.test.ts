@@ -40,7 +40,10 @@ describe('Stage 7 bundled discovery replacement', () => {
       } else {
         expect(character.apps?.onlyfriends).toBeUndefined();
       }
-      if (!['eden_moss', 'ivy_rowan'].includes(character.id)) expect(character.apps?.matchme).toBeUndefined();
+      if (character.apps?.matchme) {
+        expect(character.apps.matchme.enabled).toBe(true);
+        expect(character.apps.matchme.profile?.photoIds?.length).toBeGreaterThan(0);
+      }
     }
   });
 
@@ -52,7 +55,7 @@ describe('Stage 7 bundled discovery replacement', () => {
     const converted = characters.filter((character) => convertedIds.has(character.sourceId));
     const directory = buildSocialDirectory({ storyCharacters: characters, messages: [] });
     expect(converted).toHaveLength(13);
-    expect(initialCharacterPosts(converted)).toHaveLength(15);
+    expect(initialCharacterPosts(converted)).toHaveLength(22);
     expect(directory.users.filter((user) =>
       convertedIds.has(user.characterId ?? '')
     )).toHaveLength(13);

@@ -74,6 +74,7 @@ import {
   type SocialComment,
   type SocialPost,
 } from './socialPostPresentation';
+import { buildAlgorithmicFeed } from './socialFeedAlgorithm';
 
 type SocialAccount = {
   key: string;
@@ -644,7 +645,17 @@ export function PhoneSocialFeedScreen({
     ...optimisticPosts.filter((post) => !persistedPostIds.has(post.id)),
     ...persistedPosts,
   ].filter((post) => !delayedPostIds.has(post.id));
-  const feedPosts = availablePosts;
+  const optimisticPostIdSet = new Set(optimisticPosts.map((post) => post.id));
+  const feedPosts = app.id === 'fotogram'
+    ? buildAlgorithmicFeed(availablePosts, {
+        viewer: owner,
+        viewerHandle: account,
+        followedAccounts,
+        storyCharacters,
+        openPostId: openPostRequest?.postId,
+        optimisticPostIds: optimisticPostIdSet,
+      })
+    : availablePosts;
   // The heart state belongs to the owner; the visible count adds one like
   // per player character that liked the post (persisted in the RP save).
   const likedPostIds = new Set(
