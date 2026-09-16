@@ -113,4 +113,4 @@ function createThemeLibraryService({ roots, openPath, onChanged = () => {} }) {
   return service;
 }
 
-module.exports = { themeLibraryRoots, scanThemeLibrary, createThemeLibraryService };
+module.exports = { themeLibraryRoots, createThemeLibraryService };
