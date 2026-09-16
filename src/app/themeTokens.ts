@@ -92,6 +92,26 @@ export const CORE_TOKEN_KEYS = [
   'shell.topbarContextBorder',
   'shell.topbarMutedText',
   'shell.topbarSelectBg',
+  // upstream's own global palette (:root in src/styles.css, predates the
+  // theme system) -- aliased on .studio so the ~400 existing var(--accent)/
+  // var(--surface)/etc. references throughout styles.css pick up the
+  // active theme without editing each of those rules individually
+  'app.accent',
+  'app.accentLight',
+  'app.surface',
+  'app.surfaceAlt',
+  'app.surfaceSoft',
+  'app.line',
+  'app.muted',
+  'app.cyan',
+  'app.wire',
+  'app.success',
+  'app.successSoft',
+  'app.warning',
+  'app.warningSoft',
+  'app.danger',
+  'app.dangerSoft',
+  'app.softWhite',
   // typography
   'typography.headingFont',
   'typography.bodyFont',
@@ -160,6 +180,9 @@ export const GUARANTEED_TOKEN_KEYS = [
   'shell.topbarButtonBorder', 'shell.topbarButtonText', 'shell.topbarButtonBg',
   'shell.topbarHoverBg', 'shell.topbarHoverBorder', 'shell.badgeAccentBg',
   'shell.topbarContextBorder', 'shell.topbarMutedText', 'shell.topbarSelectBg',
+  'app.accent', 'app.accentLight', 'app.surface', 'app.surfaceAlt', 'app.surfaceSoft',
+  'app.line', 'app.muted', 'app.cyan', 'app.wire', 'app.success', 'app.successSoft',
+  'app.warning', 'app.warningSoft', 'app.danger', 'app.dangerSoft', 'app.softWhite',
   'typography.fontWeight',
   'shape.radius',
 ] as const satisfies readonly CoreTokenKey[];

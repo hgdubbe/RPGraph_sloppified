@@ -18,6 +18,39 @@
    and are excluded from theming.
    ============================================================ */
 
+/* Aliases upstream's own global palette (:root in src/styles.css, which
+   predates this theme system) onto the resolved theme, so the ~400 existing
+   var(--accent)/var(--surface)/var(--muted)/etc. references scattered across
+   styles.css pick up the active theme without editing each of those rules
+   individually. Falls back to upstream's original literals so anything not
+   yet covered by a theme override renders exactly as before.
+
+   Deliberately scoped to :root, not .studio: useAppliedTheme.ts also writes
+   the resolved --theme-* vars onto document.documentElement (not just the
+   .studio ref) specifically so elements that portal outside .studio (e.g.
+   NodeCustomSelect's dropdown, via createPortal(..., document.body)) still
+   inherit them -- and this alias has to live at the same scope those vars
+   are actually set at, or the portaled content would see --theme-app-accent
+   but never the --accent it's actually consumed through. */
+:root {
+  --accent: var(--theme-app-accent, #8a73c9);
+  --accent-light: var(--theme-app-accent-light, #b29ce3);
+  --surface: var(--theme-app-surface, #182131);
+  --surface-alt: var(--theme-app-surface-alt, #202a3d);
+  --surface-soft: var(--theme-app-surface-soft, #131b28);
+  --line: var(--theme-app-line, #303a4d);
+  --muted: var(--theme-app-muted, #9aa6bc);
+  --cyan: var(--theme-app-cyan, #7eb9c5);
+  --wire: var(--theme-app-wire, #9d87d0);
+  --success: var(--theme-app-success, #5fae68);
+  --success-soft: var(--theme-app-success-soft, rgba(95, 174, 104, 0.18));
+  --warning: var(--theme-app-warning, #c7af45);
+  --warning-soft: var(--theme-app-warning-soft, rgba(199, 175, 69, 0.16));
+  --danger: var(--theme-app-danger, #c65f5f);
+  --danger-soft: var(--theme-app-danger-soft, rgba(198, 95, 95, 0.16));
+  --soft-white: var(--theme-app-soft-white, #e6e6e6);
+}
+
 .studio-mode-play[data-studio-theme] .workspace,
 .studio[data-studio-theme] .studio-shell-play,
 .studio[data-studio-theme] .studio-play-main {

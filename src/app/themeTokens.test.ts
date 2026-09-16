@@ -66,6 +66,16 @@ describe('theme resolution', () => {
     expect(resolved['--theme-shell-badge-accent-bg']).toBe('#fb7185');
   });
 
+  it('resolves the upstream global-palette aliases (app.*) to the exact original :root literals', async () => {
+    const manifests = await loadManifests();
+    const resolved = resolveTheme(manifests, 'base');
+    expect(resolved['--theme-app-accent']).toBe('#8a73c9');
+    expect(resolved['--theme-app-surface']).toBe('#182131');
+    expect(resolved['--theme-app-muted']).toBe('#9aa6bc');
+    expect(resolved['--theme-app-success-soft']).toBe('rgba(95, 174, 104, 0.18)');
+    expect(resolved['--theme-app-soft-white']).toBe('#e6e6e6');
+  });
+
   it('an unknown theme id falls back to the base chain without throwing', async () => {
     const manifests = await loadManifests();
     expect(() => resolveTheme(manifests, 'does-not-exist')).not.toThrow();

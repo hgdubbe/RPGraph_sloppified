@@ -94,6 +94,24 @@
       "topbarMutedText": "#a6b2cf",
       "topbarSelectBg": "#111528"
     },
+    "app": {
+      "accent": "#8a73c9",
+      "accentLight": "#b29ce3",
+      "surface": "#182131",
+      "surfaceAlt": "#202a3d",
+      "surfaceSoft": "#131b28",
+      "line": "#303a4d",
+      "muted": "#9aa6bc",
+      "cyan": "#7eb9c5",
+      "wire": "#9d87d0",
+      "success": "#5fae68",
+      "successSoft": "rgba(95, 174, 104, 0.18)",
+      "warning": "#c7af45",
+      "warningSoft": "rgba(199, 175, 69, 0.16)",
+      "danger": "#c65f5f",
+      "dangerSoft": "rgba(198, 95, 95, 0.16)",
+      "softWhite": "#e6e6e6"
+    },
     "typography": {
       "headingFont": "inherit",
       "bodyFont": "inherit",
