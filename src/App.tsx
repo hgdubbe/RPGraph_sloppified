@@ -6103,16 +6103,6 @@ function App() {
                   <strong>{studioMode === 'play' ? displayedStorybookName === 'not saved' ? displayedWorkflowName : displayedStorybookName : displayedWorkflowName}</strong>
                   <span>{studioMode === 'play' ? `Play Mode · ${chatPanelView === 'phone' ? 'Phone' : chatPanelView === 'events' ? 'Events' : 'Chat'}` : 'Graph Mode'}</span>
                 </div>
-                <button
-                  type="button"
-                  role="menuitem"
-                  onClick={() => {
-                    setTopbarMenuOpen(false);
-                    setStudioMode(studioMode === 'play' ? 'graph' : 'play');
-                  }}
-                >
-                  {studioMode === 'play' ? 'Graph Mode' : 'Play Mode'}
-                </button>
                 {studioMode === 'play' && (
                   <label className="topbar-menu-select-row">
                     <span>Theme</span>
@@ -6222,159 +6212,168 @@ function App() {
             <span className="app-version">v{packageMetadata.version} Beta</span>
           </h1>
         </div>
-        <div className="header-actions">
-          <div className="topbar-file-status" aria-label="Active RP files">
-            <div className="status-badge">
-              <span className="session-label">RP save:</span>
-              <span className="session-file">
-                {displayedSessionFileName}
-                {isSessionEncrypted && headerLockIcon}
-              </span>
-              {displayedSessionSavedTurn && (
-                <span className="session-turn">{displayedSessionSavedTurn}</span>
-              )}
-            </div>
-            <div className="status-badge">
-              <span className="session-label">workflow:</span>
-              <span className="session-file">
-                {displayedWorkflowName}
-                {isWorkflowEncrypted && headerLockIcon}
-              </span>
-            </div>
-            <div className="status-badge">
-              <span className="session-label">storybook:</span>
-              <span className="session-file">
-                {displayedStorybookName}
-                {isStorybookEncrypted && headerLockIcon}
-              </span>
-            </div>
+        <div className="topbar-file-status" aria-label="Active RP files">
+          <div className="status-badge">
+            <span className="session-label">RP save:</span>
+            <span className="session-file">
+              {displayedSessionFileName}
+              {isSessionEncrypted && headerLockIcon}
+            </span>
+            {displayedSessionSavedTurn && (
+              <span className="session-turn">{displayedSessionSavedTurn}</span>
+            )}
           </div>
-          {(settingsStatus || studioMode === 'graph') && (
-            <div className="topbar-technical-info">
-              {settingsStatus && <span className="workflow-status">{settingsStatus}</span>}
-              {studioMode === 'graph' && (
-                <>
-                  <span className="graph-node-count">{nodes.length} nodes</span>
-                  <span className="graph-ready-chip">
-                    <span aria-hidden="true" />
-                    Ready
-                  </span>
-                  <button
-                    className="runtime-summary-button"
-                    type="button"
-                    onClick={() => setShowRunLlmReport(true)}
-                    disabled={!runLlmReport}
-                    title="Show LLM calls for the current or last run"
-                  >
-                    Runtime <LiveRunClock isRunning={isRunning} startTimeMs={runStartTimeMs} finalMs={runDurationMs} /> s
-                  </button>
-                  <WorkflowCapabilityStrip indicators={workflowCapabilityIndicators} />
-                  {visibleLogEntry && (
-                    <div
-                      key={visibleLogEntry.id}
-                      className={`graph-system-toast ${visibleLogEntry.level}`}
-                      role="status"
-                      aria-live="polite"
-                    >
-                      <div className="graph-system-toast-content">
-                        <strong>{visibleLogEntry.level}</strong>
-                        <span>{visibleLogEntry.text}</span>
-                      </div>
-                    </div>
-                  )}
-                </>
-              )}
-            </div>
-          )}
-          {studioMode === 'graph' && (
-            <div className="topbar-action-buttons">
-              <button
-                className="graph-reset topbar-icon-button"
-                type="button"
-                onClick={() => void saveCurrentWorkflow()}
-                title="Save Workflow"
-                aria-label="Save Workflow"
-              >
-                {saveWorkflowIcon}
-              </button>
-              <button
-                className="graph-reset graph-secondary-action topbar-icon-button"
-                type="button"
-                onClick={() => void saveCurrentSession()}
-                title="Save RP"
-                aria-label="Save RP"
-              >
-                {saveRpIcon}
-              </button>
-              <button
-                className="graph-reset graph-secondary-action topbar-icon-button"
-                type="button"
-                onClick={() => void resetWorkflow()}
-                disabled={!!activeSessionFileName}
-                title={activeSessionFileName
-                  ? 'Workflow reset is unavailable while an RP save is active.'
-                  : 'Reset Workflow'}
-                aria-label="Reset Workflow"
-              >
-                {resetIcon}
-              </button>
-              <PromptPresetOverview
-                nodes={nodeViewNodes}
-                connections={connections}
-                providerHealthById={providerHealthById}
-                onCheckProviderConnection={(connectionId) => {
-                  void checkProviderConnectionById(connectionId);
-                }}
-                promptActionCustomPresets={promptActionCustomPresets}
-                setPromptActionCustomPresets={setPromptActionCustomPresets}
-                promptActionSettings={promptActionSettings}
-                setPromptActionSettings={setPromptActionSettings}
-                promptTextCustomPresets={promptTextCustomPresets}
-                setPromptTextCustomPresets={setPromptTextCustomPresets}
-                updateNodeData={updateRuntimeNode}
-              />
-            </div>
-          )}
-          <div className="window-controls" aria-label="Window controls">
+          <div className="status-badge">
+            <span className="session-label">workflow:</span>
+            <span className="session-file">
+              {displayedWorkflowName}
+              {isWorkflowEncrypted && headerLockIcon}
+            </span>
+          </div>
+          <div className="status-badge">
+            <span className="session-label">storybook:</span>
+            <span className="session-file">
+              {displayedStorybookName}
+              {isStorybookEncrypted && headerLockIcon}
+            </span>
+          </div>
+        </div>
+        <div className="window-controls" aria-label="Window controls">
+          <button
+            className="window-control"
+            type="button"
+            onClick={() => void window.rpgraph.minimizeWindow()}
+            aria-label="Minimize window"
+            title="Minimize"
+          >
+            <span className="window-control-icon minimize" aria-hidden="true" />
+          </button>
+          <button
+            className="window-control"
+            type="button"
+            onClick={() => void window.rpgraph.toggleFullScreenWindow()}
+            aria-label="Toggle full screen"
+            title="Full screen (F11)"
+          >
+            <span className="window-control-icon full-screen" aria-hidden="true" />
+          </button>
+          <button
+            className="window-control"
+            type="button"
+            onClick={() => void window.rpgraph.toggleMaximizeWindow()}
+            aria-label="Maximize or restore window"
+            title="Maximize / Restore"
+          >
+            <span className="window-control-icon maximize" aria-hidden="true" />
+          </button>
+          <button
+            className="window-control close"
+            type="button"
+            onClick={() => void window.rpgraph.closeWindow()}
+            aria-label="Close window"
+            title="Close"
+          >
+            <span className="window-control-icon close" aria-hidden="true" />
+          </button>
+        </div>
+      </header>
+
+      <nav className="studio-mode-tabs" aria-label="Studio mode">
+        <div className="studio-mode-tab-group">
+          {(['play', 'graph'] as const).map((mode) => (
             <button
-              className="window-control"
+              key={mode}
+              className={`studio-mode-tab${studioMode === mode ? ' active' : ''}`}
               type="button"
-              onClick={() => void window.rpgraph.minimizeWindow()}
-              aria-label="Minimize window"
-              title="Minimize"
+              aria-current={studioMode === mode ? 'page' : undefined}
+              onClick={() => setStudioMode(mode)}
             >
-              <span className="window-control-icon minimize" aria-hidden="true" />
+              {mode === 'play' ? 'Play' : 'Graph'}
+            </button>
+          ))}
+          <PromptPresetOverview
+            nodes={nodeViewNodes}
+            connections={connections}
+            providerHealthById={providerHealthById}
+            onCheckProviderConnection={(connectionId) => {
+              void checkProviderConnectionById(connectionId);
+            }}
+            promptActionCustomPresets={promptActionCustomPresets}
+            setPromptActionCustomPresets={setPromptActionCustomPresets}
+            promptActionSettings={promptActionSettings}
+            setPromptActionSettings={setPromptActionSettings}
+            promptTextCustomPresets={promptTextCustomPresets}
+            setPromptTextCustomPresets={setPromptTextCustomPresets}
+            updateNodeData={updateRuntimeNode}
+          />
+        </div>
+        <div className="studio-mode-tabs-status">
+          <div className="topbar-technical-info">
+            {settingsStatus && <span className="workflow-status">{settingsStatus}</span>}
+            <span className="graph-ready-chip">
+              <span aria-hidden="true" />
+              Ready
+            </span>
+            <button
+              className="runtime-summary-button"
+              type="button"
+              onClick={() => setShowRunLlmReport(true)}
+              disabled={!runLlmReport}
+              title="Show LLM calls for the current or last run"
+            >
+              Runtime <LiveRunClock isRunning={isRunning} startTimeMs={runStartTimeMs} finalMs={runDurationMs} /> s
+            </button>
+            <WorkflowCapabilityStrip indicators={workflowCapabilityIndicators} />
+            {visibleLogEntry && (
+              <div
+                key={visibleLogEntry.id}
+                className={`graph-system-toast ${visibleLogEntry.level}`}
+                role="status"
+                aria-live="polite"
+              >
+                <div className="graph-system-toast-content">
+                  <strong>{visibleLogEntry.level}</strong>
+                  <span>{visibleLogEntry.text}</span>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+        <div className="studio-mode-tabs-actions">
+          <div className="topbar-action-buttons">
+            <button
+              className="graph-reset topbar-icon-button"
+              type="button"
+              onClick={() => void saveCurrentWorkflow()}
+              title="Save Workflow"
+              aria-label="Save Workflow"
+            >
+              {saveWorkflowIcon}
             </button>
             <button
-              className="window-control"
+              className="graph-reset graph-secondary-action topbar-icon-button"
               type="button"
-              onClick={() => void window.rpgraph.toggleFullScreenWindow()}
-              aria-label="Toggle full screen"
-              title="Full screen (F11)"
+              onClick={() => void saveCurrentSession()}
+              title="Save RP"
+              aria-label="Save RP"
             >
-              <span className="window-control-icon full-screen" aria-hidden="true" />
+              {saveRpIcon}
             </button>
             <button
-              className="window-control"
+              className="graph-reset graph-secondary-action topbar-icon-button"
               type="button"
-              onClick={() => void window.rpgraph.toggleMaximizeWindow()}
-              aria-label="Maximize or restore window"
-              title="Maximize / Restore"
+              onClick={() => void resetWorkflow()}
+              disabled={!!activeSessionFileName}
+              title={activeSessionFileName
+                ? 'Workflow reset is unavailable while an RP save is active.'
+                : 'Reset Workflow'}
+              aria-label="Reset Workflow"
             >
-              <span className="window-control-icon maximize" aria-hidden="true" />
-            </button>
-            <button
-              className="window-control close"
-              type="button"
-              onClick={() => void window.rpgraph.closeWindow()}
-              aria-label="Close window"
-              title="Close"
-            >
-              <span className="window-control-icon close" aria-hidden="true" />
+              {resetIcon}
             </button>
           </div>
         </div>
-      </header>
+      </nav>
 
       <main
         className={`workspace ${isResizing ? 'resizing' : ''}`}

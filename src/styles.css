@@ -219,9 +219,9 @@ input[type="radio"]:focus-visible {
   flex: none;
   border-bottom: 1px solid #1e293b;
   padding: 0 16px;
-  display: flex;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, auto) minmax(0, 1fr);
   gap: 16px;
-  justify-content: space-between;
   align-items: center;
   background: linear-gradient(180deg, #172030, #111824);
   box-shadow: 0 4px 18px rgba(0, 0, 0, 0.28);
@@ -235,12 +235,83 @@ input[type="radio"]:focus-visible {
   -webkit-app-region: no-drag;
 }
 
+.studio-mode-tabs {
+  --graph-line: #303852;
+  --graph-text: #f2f6ff;
+  --graph-muted: #9aa8cc;
+  --graph-faint: #687494;
+  --graph-cyan: #79d7ef;
+  --graph-lime: #a4ec68;
+  flex: none;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, auto) minmax(0, 1fr);
+  align-items: center;
+  gap: 16px;
+  padding: 8px 16px 0;
+  background: linear-gradient(180deg, #131b28, #101620);
+  border-bottom: 1px solid #1e293b;
+}
+
+.studio-mode-tab-group {
+  display: flex;
+  align-items: flex-end;
+  gap: 4px;
+  min-width: 0;
+  justify-self: start;
+}
+
+.studio-mode-tabs-status {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 0;
+  justify-self: center;
+  padding-bottom: 7px;
+}
+
+.studio-mode-tabs-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 10px;
+  min-width: 0;
+  justify-self: end;
+  padding-bottom: 7px;
+}
+
+.studio-mode-tab {
+  padding: 7px 18px;
+  border: 1px solid transparent;
+  border-bottom: none;
+  border-radius: 8px 8px 0 0;
+  background: transparent;
+  color: #8794b1;
+  font-size: 12.5px;
+  font-weight: 650;
+  cursor: pointer;
+  transition: color 0.15s ease, background 0.15s ease;
+}
+
+.studio-mode-tab:hover {
+  color: #c4d1f0;
+  background: rgba(148, 163, 184, 0.08);
+}
+
+.studio-mode-tab.active {
+  background: #101620;
+  border-color: #1e293b;
+  color: var(--soft-white);
+  position: relative;
+  top: 1px;
+}
+
 .brand {
   display: flex;
   align-items: center;
   min-width: 0;
   flex: 1;
   gap: 16px;
+  justify-self: start;
 }
 
 .header-brand-actions {
@@ -307,16 +378,6 @@ input[type="radio"]:focus-visible {
   font-weight: 700;
 }
 
-.header-actions {
-  display: flex;
-  min-width: 0;
-  align-items: center;
-  justify-content: flex-end;
-  flex: 1 1 auto;
-  gap: 6px;
-  overflow: hidden;
-}
-
 .workflow-status {
   max-width: 170px;
   overflow: hidden;
@@ -334,6 +395,7 @@ input[type="radio"]:focus-visible {
   height: 32px;
   margin-left: 6px;
   overflow: hidden;
+  justify-self: end;
   border: 1px solid #1e293b;
   border-radius: 8px;
   background: rgba(15, 23, 42, 0.45);
@@ -5393,10 +5455,11 @@ input[type="number"]::-webkit-outer-spin-button {
 
 .topbar-file-status {
   min-width: 0;
-  max-width: min(1040px, calc(100vw - 740px));
+  max-width: min(900px, 50vw);
   min-height: 22px;
   display: flex;
   align-items: center;
+  justify-self: center;
   gap: 8px;
   overflow: hidden;
   white-space: nowrap;
@@ -5458,14 +5521,6 @@ input[type="number"]::-webkit-outer-spin-button {
 
 .topbar-technical-info::-webkit-scrollbar {
   display: none;
-}
-
-.graph-node-count {
-  flex: none;
-  color: #8794b1;
-  font-size: 12px;
-  font-weight: 700;
-  white-space: nowrap;
 }
 
 .topbar-action-buttons {
