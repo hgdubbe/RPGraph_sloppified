@@ -4759,7 +4759,7 @@ input[type="number"]::-webkit-outer-spin-button {
 .prompt-preview-tab {
   min-height: 28px;
   padding: 5px 10px;
-  border: 1px solid #40506c;
+  border: 1px solid var(--line, #40506c);
   border-radius: 8px;
   color: var(--theme-app-text, #dfe7ff);
   cursor: pointer;
@@ -5391,11 +5391,11 @@ input[type="number"]::-webkit-outer-spin-button {
   display: block;
   margin-left: auto;
   padding: 7px 10px;
-  border: 1px solid #40506c;
+  border: 1px solid var(--line, #40506c);
   border-radius: 8px;
   color: var(--theme-app-text, #f2f5ff);
   cursor: pointer;
-  background: linear-gradient(180deg, var(--line, #243149), #182231);
+  background: linear-gradient(180deg, var(--line, #243149), var(--surface, #182231));
   font-size: 12px;
   font-weight: 700;
   box-shadow:
@@ -5405,16 +5405,16 @@ input[type="number"]::-webkit-outer-spin-button {
 
 .inspect-button:hover {
   border-color: var(--accent);
-  background: linear-gradient(180deg, color-mix(in srgb, var(--accent) calc(0.28 * 100%), transparent), #1f2a3d);
+  background: linear-gradient(180deg, color-mix(in srgb, var(--accent) calc(0.28 * 100%), transparent), var(--surface-alt, #1f2a3d));
   box-shadow:
     inset 0 1px 0 var(--theme-raw-vrgba25525525501, rgba(255, 255, 255, 0.1)),
     0 4px 9px var(--theme-raw-vrgba000025, rgba(0, 0, 0, 0.25));
 }
 
 .inspect-button.active {
-  border-color: rgba(143, 219, 188, 0.62);
-  background: linear-gradient(180deg, rgba(31, 104, 79, 0.45), #14283a);
-  color: #eafff5;
+  border-color: color-mix(in srgb, var(--success) calc(0.62 * 100%), transparent);
+  background: linear-gradient(180deg, color-mix(in srgb, var(--success) calc(0.45 * 100%), transparent), var(--surface-soft, #14283a));
+  color: var(--success, #eafff5);
 }
 
 .inspect-button:disabled {
@@ -12687,7 +12687,7 @@ button.message-timeline-row.phone:focus-visible {
 .phone-display-popover button.active {
   outline: none;
   color: var(--soft-white);
-  background: #1a2536;
+  background: var(--surface-alt, #1a2536);
 }
 
 .phone-display-popover button:disabled {
@@ -12934,7 +12934,7 @@ button.message-timeline-row.phone:focus-visible {
 .composer .autoplay-menu-option.active {
   outline: none;
   color: var(--soft-white);
-  background: #1a2536;
+  background: var(--surface-alt, #1a2536);
 }
 
 .autoplay-menu-check {
@@ -14441,9 +14441,9 @@ button.message-timeline-row.phone:focus-visible {
   display: grid;
   gap: 10px;
   padding: 12px;
-  border: 1px solid #2f405b;
+  border: 1px solid var(--theme-app-dialog-border, #2f405b);
   border-radius: 10px;
-  background: #101927;
+  background: var(--theme-app-dialog-bg, #101927);
   box-shadow: 0 18px 44px var(--theme-raw-vrgba000042, rgba(0, 0, 0, 0.42));
 }
 
@@ -14460,11 +14460,11 @@ button.message-timeline-row.phone:focus-visible {
 }
 
 .storybook-more-popover button:hover {
-  background: #1a2536;
+  background: var(--surface-alt, #1a2536);
 }
 
 .storybook-more-popover button.danger {
-  color: #f7b3b3;
+  color: var(--danger, #f7b3b3);
 }
 
 .storybook-confirm-backdrop {
@@ -15715,7 +15715,7 @@ button.message-timeline-row.phone:focus-visible {
   border-radius: 999px;
   padding: 4px 8px;
   background: rgba(8, 42, 34, 0.84);
-  color: #eafff5;
+  color: var(--success, #eafff5);
   font-size: 10px;
   font-weight: 500;
   line-height: 1.1;
@@ -15749,7 +15749,7 @@ button.message-timeline-row.phone:focus-visible {
   border-radius: 999px;
   padding: 4px 8px;
   background: rgba(8, 42, 34, 0.82);
-  color: #eafff5;
+  color: var(--success, #eafff5);
   font-size: 10px;
   font-weight: 500;
   line-height: 1.1;
@@ -16584,8 +16584,8 @@ button.message-timeline-row.phone:focus-visible {
   font-weight: 600;
   padding: 4px 10px;
   border-radius: 6px;
-  border: 1px solid #3a4861;
-  color: var(--theme-raw-ve2e8f0, #e2e8f0);
+  border: 1px solid var(--line, #3a4861);
+  color: var(--theme-app-text, #e2e8f0);
   background: var(--line, #1e293b);
   cursor: pointer;
   transition: all 0.2s;
@@ -16596,19 +16596,19 @@ button.message-timeline-row.phone:focus-visible {
 
 .contextual-action-button:hover {
   border-color: var(--accent);
-  background: #2d3748;
+  background: var(--surface-alt, #2d3748);
   color: var(--soft-white);
 }
 
 .contextual-action-button.danger {
-  border-color: #8f3e45;
-  background: #3f1d24;
-  color: #fca5a5;
+  border-color: color-mix(in srgb, var(--danger) 55%, black);
+  background: color-mix(in srgb, var(--danger) 25%, black);
+  color: var(--danger, #fca5a5);
 }
 
 .contextual-action-button.danger:hover {
   border-color: var(--danger, #c65f5f);
-  background: #4d252a;
+  background: color-mix(in srgb, var(--danger) 35%, black);
   color: var(--soft-white);
 }
 
