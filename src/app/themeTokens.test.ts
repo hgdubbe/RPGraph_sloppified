@@ -55,6 +55,17 @@ describe('theme resolution', () => {
     expect(resolved['--theme-storybook-panel']).toBe('#111625'); // storybook.panel
   });
 
+  it('resolves the new studio-shell/topbar tokens to the exact literals the CSS used before migration', async () => {
+    const manifests = await loadManifests();
+    const resolved = resolveTheme(manifests, 'base');
+    expect(resolved['--theme-shell-chat-surface']).toBe('#0a0d18');
+    expect(resolved['--theme-shell-message-border']).toBe('rgba(77, 96, 138, 0.58)');
+    expect(resolved['--theme-shell-rail-active-bg']).toBe('rgba(126, 225, 247, 0.1)');
+    expect(resolved['--theme-shell-badge-bg']).toBe('#76e581');
+    expect(resolved['--theme-shell-topbar-button-bg']).toBe('#10131f');
+    expect(resolved['--theme-shell-badge-accent-bg']).toBe('#fb7185');
+  });
+
   it('an unknown theme id falls back to the base chain without throwing', async () => {
     const manifests = await loadManifests();
     expect(() => resolveTheme(manifests, 'does-not-exist')).not.toThrow();

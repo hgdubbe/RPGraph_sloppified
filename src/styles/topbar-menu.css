@@ -20,18 +20,18 @@
   flex: 0 0 36px;
   place-items: center;
   padding: 0;
-  border: 1px solid #2f3d55;
+  border: 1px solid var(--theme-shell-topbar-button-border, #2f3d55);
   border-radius: 8px;
-  color: #d8e0f2;
-  background: #10131f;
+  color: var(--theme-shell-topbar-button-text, #d8e0f2);
+  background: var(--theme-shell-topbar-button-bg, #10131f);
   cursor: pointer;
 }
 
 .topbar-menu-button:hover,
 .topbar-menu-button.active {
-  border-color: #79d8ef;
-  color: #79d8ef;
-  background: rgba(121, 216, 239, 0.12);
+  border-color: var(--theme-primary, #79d8ef);
+  color: var(--theme-primary, #79d8ef);
+  background: var(--theme-shell-topbar-hover-bg, rgba(121, 216, 239, 0.12));
 }
 
 .topbar-menu-icon {
@@ -55,8 +55,8 @@
   place-items: center;
   padding: 0 5px;
   border-radius: 999px;
-  color: #051018;
-  background: #fb7185;
+  color: var(--theme-primary-foreground, #051018);
+  background: var(--theme-shell-badge-accent-bg, #fb7185);
   font-size: 10px;
   font-weight: 950;
   line-height: 1;
@@ -77,9 +77,9 @@
   width: 240px;
   gap: 4px;
   padding: 6px;
-  border: 1px solid rgba(77, 96, 138, 0.72);
+  border: 1px solid var(--theme-border, rgba(77, 96, 138, 0.72));
   border-radius: 8px;
-  background: #090b15;
+  background: var(--theme-surface-content, #090b15);
 }
 
 .topbar-menu::before {
@@ -90,9 +90,9 @@
   width: 8px;
   height: 8px;
   transform: rotate(45deg);
-  border-top: 1px solid rgba(77, 96, 138, 0.72);
-  border-left: 1px solid rgba(77, 96, 138, 0.72);
-  background: #090b15;
+  border-top: 1px solid var(--theme-border, rgba(77, 96, 138, 0.72));
+  border-left: 1px solid var(--theme-border, rgba(77, 96, 138, 0.72));
+  background: var(--theme-surface-content, #090b15);
 }
 
 .topbar-menu button {
@@ -104,7 +104,7 @@
   padding: 0 10px;
   border: 1px solid transparent;
   border-radius: 7px;
-  color: #f4f7ff;
+  color: var(--theme-foreground, #f4f7ff);
   background: transparent;
   cursor: pointer;
   font-size: 12px;
@@ -114,9 +114,9 @@
 
 .topbar-menu button:hover,
 .topbar-menu button:focus-visible {
-  border-color: rgba(121, 216, 239, 0.74);
-  color: #79d8ef;
-  background: rgba(121, 216, 239, 0.12);
+  border-color: var(--theme-shell-topbar-hover-border, rgba(121, 216, 239, 0.74));
+  color: var(--theme-primary, #79d8ef);
+  background: var(--theme-shell-topbar-hover-bg, rgba(121, 216, 239, 0.12));
   outline: none;
 }
 
@@ -124,7 +124,7 @@
   display: grid;
   gap: 4px;
   padding: 8px 10px;
-  border-bottom: 1px solid rgba(77, 96, 138, 0.45);
+  border-bottom: 1px solid var(--theme-shell-topbar-context-border, rgba(77, 96, 138, 0.45));
 }
 
 .topbar-menu-context strong,
@@ -136,13 +136,13 @@
 }
 
 .topbar-menu-context strong {
-  color: #f4f7ff;
+  color: var(--theme-foreground, #f4f7ff);
   font-size: 12px;
   font-weight: 850;
 }
 
 .topbar-menu-context span {
-  color: #7f92c4;
+  color: var(--theme-shell-tab-subtext, #7f92c4);
   font-size: 11px;
   font-weight: 750;
 }
@@ -157,23 +157,23 @@
   padding: 0 10px;
   border: 1px solid transparent;
   border-radius: 7px;
-  color: #f4f7ff;
+  color: var(--theme-foreground, #f4f7ff);
   font-size: 12px;
   font-weight: 850;
 }
 
 .topbar-menu-select-row span {
-  color: #a6b2cf;
+  color: var(--theme-shell-topbar-muted-text, #a6b2cf);
 }
 
 .topbar-menu-select-row select {
   min-width: 116px;
   height: 28px;
   padding: 0 26px 0 8px;
-  border: 1px solid rgba(77, 96, 138, 0.72);
+  border: 1px solid var(--theme-border, rgba(77, 96, 138, 0.72));
   border-radius: 6px;
-  color: #f4f7ff;
-  background: #111528;
+  color: var(--theme-foreground, #f4f7ff);
+  background: var(--theme-shell-topbar-select-bg, #111528);
   font-size: 11px;
   font-weight: 850;
 }
