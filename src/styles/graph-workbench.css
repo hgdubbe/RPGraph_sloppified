@@ -21,8 +21,8 @@
   height: 100%;
   min-height: 0;
   background:
-    linear-gradient(rgba(255, 255, 255, 0.018) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(255, 255, 255, 0.018) 1px, transparent 1px),
+    linear-gradient(var(--theme-raw-vrgba2552552550018, rgba(255, 255, 255, 0.018)) 1px, transparent 1px),
+    linear-gradient(90deg, var(--theme-raw-vrgba2552552550018, rgba(255, 255, 255, 0.018)) 1px, transparent 1px),
     var(--graph-bg);
   background-size: 18px 18px;
   overflow: hidden;
@@ -39,9 +39,9 @@
   min-width: 0;
   overflow: hidden;
   background:
-    radial-gradient(circle at center, rgba(121, 215, 239, 0.04), transparent 34rem),
-    linear-gradient(rgba(255, 255, 255, 0.018) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(255, 255, 255, 0.018) 1px, transparent 1px),
+    radial-gradient(circle at center, var(--theme-raw-vrgba121215239004, rgba(121, 215, 239, 0.04)), transparent 34rem),
+    linear-gradient(var(--theme-raw-vrgba2552552550018, rgba(255, 255, 255, 0.018)) 1px, transparent 1px),
+    linear-gradient(90deg, var(--theme-raw-vrgba2552552550018, rgba(255, 255, 255, 0.018)) 1px, transparent 1px),
     #07090f;
   background-size: auto, 18px 18px, 18px 18px;
 }
@@ -78,10 +78,10 @@
   max-width: 240px;
   padding: 0 10px;
   overflow: hidden;
-  border: 1px solid rgba(121, 215, 239, 0.25);
+  border: 1px solid var(--theme-raw-vrgba121215239025, rgba(121, 215, 239, 0.25));
   border-radius: 8px;
   color: var(--graph-muted);
-  background: rgba(12, 16, 29, 0.88);
+  background: var(--graph-panel, rgba(12, 16, 29, 0.88));
   font-size: 11px;
   font-weight: 760;
   text-overflow: ellipsis;
@@ -98,7 +98,7 @@
   min-width: 0;
   overflow: hidden;
   border-right: 1px solid var(--graph-line);
-  background: rgba(18, 22, 37, 0.98);
+  background: var(--graph-panel-2, rgba(18, 22, 37, 0.98));
 }
 
 .studio-graph-inspector-slot {
@@ -106,7 +106,7 @@
   min-height: 0;
   min-width: 0;
   border-left: 1px solid var(--graph-line);
-  background: rgba(18, 22, 37, 0.98);
+  background: var(--graph-panel-2, rgba(18, 22, 37, 0.98));
 }
 
 .graph-ready-chip {
@@ -118,7 +118,7 @@
   border: 1px solid var(--graph-line);
   border-radius: 7px;
   color: var(--graph-muted);
-  background: #13182a;
+  background: var(--graph-panel, #13182a);
   font-size: 12px;
   font-weight: 760;
   white-space: nowrap;
@@ -129,12 +129,12 @@
   height: 7px;
   border-radius: 50%;
   background: var(--graph-lime);
-  box-shadow: 0 0 12px rgba(164, 236, 104, 0.65);
+  box-shadow: 0 0 12px var(--theme-raw-vrgba164236104065, rgba(164, 236, 104, 0.65));
 }
 
 .graph-secondary-action {
   color: var(--graph-muted);
-  background: rgba(19, 24, 42, 0.62);
+  background: var(--graph-panel, rgba(19, 24, 42, 0.62));
 }
 
 .graph-inspector {
@@ -149,7 +149,7 @@
 .graph-inspector.collapsed {
   align-items: center;
   justify-content: center;
-  background: rgba(9, 11, 20, 0.72);
+  background: var(--graph-chrome, rgba(9, 11, 20, 0.72));
 }
 
 .graph-inspector.collapsed .graph-inspector-tab {
@@ -167,10 +167,10 @@
   height: 34px;
   align-items: center;
   justify-content: center;
-  border: 1px solid rgba(125, 211, 252, 0.35);
+  border: 1px solid var(--theme-raw-vrgba125211252035, rgba(125, 211, 252, 0.35));
   border-radius: 8px;
-  color: #dff8ff;
-  background: rgba(12, 16, 29, 0.96);
+  color: var(--graph-text, #dff8ff);
+  background: var(--graph-panel, rgba(12, 16, 29, 0.96));
   font-size: 16px;
   font-weight: 900;
   line-height: 1;
@@ -179,8 +179,8 @@
 
 .graph-inspector-tab:hover,
 .graph-inspector-tab:focus-visible {
-  border-color: rgba(125, 211, 252, 0.72);
-  color: #85d8f0;
+  border-color: var(--theme-raw-vrgba125211252072, rgba(125, 211, 252, 0.72));
+  color: var(--graph-cyan, #85d8f0);
   outline: none;
 }
 
@@ -200,7 +200,7 @@
   flex: none;
   gap: 10px;
   padding: 14px 14px 14px 46px;
-  border-bottom: 1px solid rgba(119, 134, 176, 0.2);
+  border-bottom: 1px solid var(--theme-raw-vrgba11913417602, rgba(119, 134, 176, 0.2));
 }
 
 .graph-inspector-header strong {
@@ -233,8 +233,8 @@
   flex: none;
   gap: 8px;
   padding: 14px;
-  border-bottom: 1px solid rgba(119, 134, 176, 0.2);
-  background: linear-gradient(180deg, rgba(162, 119, 255, 0.11), rgba(18, 22, 37, 0));
+  border-bottom: 1px solid var(--theme-raw-vrgba11913417602, rgba(119, 134, 176, 0.2));
+  background: linear-gradient(180deg, color-mix(in srgb, var(--graph-violet) 11%, transparent), transparent);
 }
 
 .graph-inspector-summary h2 {
@@ -267,8 +267,8 @@
   padding: 0 8px;
   border: 1px solid var(--graph-line-soft);
   border-radius: 999px;
-  color: #b8c5ed;
-  background: rgba(255, 255, 255, 0.035);
+  color: var(--theme-raw-vb8c5ed, #b8c5ed);
+  background: var(--theme-raw-vrgba2552552550035, rgba(255, 255, 255, 0.035));
   font-size: 10px;
   font-weight: 800;
   line-height: 1;
@@ -276,27 +276,27 @@
 }
 
 .graph-inspector-tag.active {
-  border-color: rgba(164, 236, 104, 0.34);
+  border-color: var(--theme-raw-vrgba164236104034, rgba(164, 236, 104, 0.34));
   color: var(--graph-lime);
-  background: rgba(164, 236, 104, 0.08);
+  background: var(--theme-raw-vrgba164236104008, rgba(164, 236, 104, 0.08));
 }
 
 .graph-inspector-tag.error {
-  border-color: rgba(248, 113, 113, 0.48);
-  color: #fecaca;
-  background: rgba(127, 29, 29, 0.24);
+  border-color: var(--theme-raw-vrgba248113113048, rgba(248, 113, 113, 0.48));
+  color: var(--theme-raw-vfecaca, #fecaca);
+  background: var(--theme-raw-vrgba1272929024, rgba(127, 29, 29, 0.24));
 }
 
 .graph-inspector-section {
   display: grid;
   gap: 10px;
   padding: 14px;
-  border-bottom: 1px solid rgba(119, 134, 176, 0.17);
+  border-bottom: 1px solid var(--theme-raw-vrgba119134176017, rgba(119, 134, 176, 0.17));
 }
 
 .graph-inspector-section h3 {
   margin: 0;
-  color: #dce8ff;
+  color: var(--theme-raw-vdce8ff, #dce8ff);
   font-size: 11px;
   font-weight: 850;
   letter-spacing: 0.12em;
@@ -311,10 +311,10 @@
 
 .graph-inspector-actions button {
   min-height: 34px;
-  border: 1px solid rgba(125, 211, 252, 0.32);
+  border: 1px solid var(--theme-raw-vrgba125211252032, rgba(125, 211, 252, 0.32));
   border-radius: 8px;
-  color: #eaf4ff;
-  background: rgba(15, 21, 37, 0.92);
+  color: var(--graph-text, #eaf4ff);
+  background: var(--graph-panel, rgba(15, 21, 37, 0.92));
   font-size: 12px;
   font-weight: 850;
   cursor: pointer;
@@ -322,8 +322,8 @@
 
 .graph-inspector-actions button:hover:not(:disabled),
 .graph-inspector-actions button:focus-visible {
-  border-color: rgba(125, 211, 252, 0.68);
-  background: rgba(22, 32, 54, 0.98);
+  border-color: var(--theme-raw-vrgba125211252068, rgba(125, 211, 252, 0.68));
+  background: var(--graph-panel-2, rgba(22, 32, 54, 0.98));
   outline: none;
 }
 
@@ -343,9 +343,9 @@
 .graph-inspector-text-row,
 .graph-inspector-route {
   min-width: 0;
-  border: 1px solid rgba(119, 134, 176, 0.26);
+  border: 1px solid var(--theme-raw-vrgba119134176026, rgba(119, 134, 176, 0.26));
   border-radius: 8px;
-  background: rgba(255, 255, 255, 0.035);
+  background: var(--theme-raw-vrgba2552552550035, rgba(255, 255, 255, 0.035));
 }
 
 .graph-inspector-stat span,
@@ -369,7 +369,7 @@
 .graph-inspector-route strong {
   min-width: 0;
   overflow: hidden;
-  color: #f4f8ff;
+  color: var(--graph-text, #f4f8ff);
   font-size: 12px;
   font-weight: 850;
   text-overflow: ellipsis;
@@ -392,7 +392,7 @@
 }
 
 .graph-inspector-route span {
-  color: #85d8f0;
+  color: var(--graph-cyan, #85d8f0);
 }
 
 .graph-inspector-stat {
@@ -404,10 +404,10 @@
 .graph-inspector-callout {
   margin: 0;
   padding: 10px;
-  border: 1px solid rgba(248, 113, 113, 0.45);
+  border: 1px solid var(--theme-raw-vrgba248113113045, rgba(248, 113, 113, 0.45));
   border-radius: 8px;
-  color: #fecaca;
-  background: rgba(127, 29, 29, 0.2);
+  color: var(--theme-raw-vfecaca, #fecaca);
+  background: var(--theme-raw-vrgba127292902, rgba(127, 29, 29, 0.2));
   font-size: 12px;
   line-height: 1.45;
   white-space: pre-wrap;
@@ -418,10 +418,10 @@
   margin: 0;
   padding: 9px;
   overflow: hidden;
-  border: 1px solid #354061;
+  border: 1px solid var(--theme-raw-v354061, #354061);
   border-radius: 8px;
-  color: #cbd7fa;
-  background: #0c101d;
+  color: var(--theme-raw-vcbd7fa, #cbd7fa);
+  background: var(--graph-chrome, #0c101d);
   font-size: 12px;
   line-height: 1.45;
   white-space: pre-wrap;
@@ -432,10 +432,10 @@
   height: 28px;
   width: 28px;
   padding: 0;
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  border: 1px solid var(--theme-raw-vrgba255255255008, rgba(255, 255, 255, 0.08));
   border-radius: 6px;
-  color: #d9e6f8;
-  background: rgba(255, 255, 255, 0.04);
+  color: var(--theme-raw-vd9e6f8, #d9e6f8);
+  background: var(--theme-raw-vrgba255255255004, rgba(255, 255, 255, 0.04));
   backdrop-filter: blur(8px);
   cursor: pointer;
   font-size: 13px;
@@ -444,20 +444,20 @@
 }
 
 .roleplay-detach-button:hover {
-  border-color: #56d99a;
+  border-color: var(--theme-raw-v56d99a, #56d99a);
   color: var(--soft-white);
-  background: rgba(86, 217, 154, 0.15);
-  box-shadow: 0 0 12px rgba(86, 217, 154, 0.2);
+  background: var(--theme-raw-vrgba86217154015, rgba(86, 217, 154, 0.15));
+  box-shadow: 0 0 12px var(--theme-raw-vrgba8621715402, rgba(86, 217, 154, 0.2));
 }
 
 .turn-variant-select {
   max-width: 138px;
   height: 28px;
   padding: 0 24px 0 8px;
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  border: 1px solid var(--theme-raw-vrgba25525525501, rgba(255, 255, 255, 0.1));
   border-radius: 6px;
-  color: #d9e6f8;
-  background: rgba(255, 255, 255, 0.04);
+  color: var(--theme-raw-vd9e6f8, #d9e6f8);
+  background: var(--theme-raw-vrgba255255255004, rgba(255, 255, 255, 0.04));
   font-size: 11px;
   font-weight: 800;
 }
