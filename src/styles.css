@@ -3283,18 +3283,18 @@ input[type="number"]::-webkit-outer-spin-button {
   display: block;
   width: 100%;
   padding: 10px 12px;
-  border: 1px solid rgba(114, 201, 138, 0.55);
+  border: 1px solid color-mix(in srgb, var(--success) calc(0.55 * 100%), transparent);
   border-radius: 8px;
-  color: #d7f4df;
+  color: var(--success, #d7f4df);
   cursor: pointer;
-  background: rgba(70, 140, 88, 0.2);
+  background: color-mix(in srgb, var(--success) calc(0.2 * 100%), transparent);
   font-size: var(--node-body-text-size);
   font-weight: 600;
 }
 
 .load-text-button:hover {
-  border-color: #72c98a;
-  background: rgba(70, 140, 88, 0.32);
+  border-color: var(--success, #72c98a);
+  background: color-mix(in srgb, var(--success) calc(0.32 * 100%), transparent);
 }
 
 .resolver-cast-list {
