@@ -40,6 +40,7 @@ into it.
   since that content is upstream-owned, not fork-authored.
 - chore: some UI elements slipped past the the theme-engine conversion and are still hardcoded
   or falling back to default style. Needs to be searched for and fixed.
+- ComfyUi Provider: add cfg slider, make steps a slider, make scheduler and sampler dropdowns
 
 ## Done
 
