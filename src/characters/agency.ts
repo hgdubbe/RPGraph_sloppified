@@ -1,4 +1,4 @@
-import { agencyTagCatalog, validateCharacterAgency, type AgencyAccountRole, type AgencyTagId } from '../../shared/agency-tags.cjs';
+import { agencyTagCatalog, validateCharacterAgency, type AgencyAccountRole, type AgencyTagId } from '../../shared/agency-tags.mjs';
 import type { Character, CharacterApps } from './character';
 
 export type CharacterAgencyDraft = {

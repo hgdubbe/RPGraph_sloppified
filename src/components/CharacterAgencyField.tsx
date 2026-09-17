@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { agencyTagCatalog, agencyTagSupports, type AgencyAccountRole, type AgencyTagId } from '../../shared/agency-tags.cjs';
+import { agencyTagCatalog, agencyTagSupports, type AgencyAccountRole, type AgencyTagId } from '../../shared/agency-tags.mjs';
 import { characterAgencyDraft, withCharacterAgency, type CharacterAgencyDraft } from '../characters/agency';
 import type { Character, CharacterApps } from '../characters/character';
 import './characterAgencyField.css';

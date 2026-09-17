@@ -1,5 +1,5 @@
 import { normalizeDatingProfile, type DatingProfile } from '../chat/datingProfile';
-import { validateAccountAgency, validateCharacterAgency, type AgencyTagId, type AgencyAccountRole } from '../../shared/agency-tags.cjs';
+import { validateAccountAgency, validateCharacterAgency, type AgencyTagId, type AgencyAccountRole } from '../../shared/agency-tags.mjs';
 import {
   validateCharacterContainer as validateSharedCharacterContainer,
   validateCharacterPayload as validateSharedCharacterPayload,

@@ -4,7 +4,7 @@ import { promisify } from 'node:util';
 import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { agencyTagCatalog, agencyTagSupports, validateCharacterAgency, type AgencyTagId } from '../../shared/agency-tags.cjs';
+import { agencyTagCatalog, agencyTagSupports, validateCharacterAgency, type AgencyTagId } from '../../shared/agency-tags.mjs';
 import { characterAgencyDraft, withCharacterAgency } from './agency';
 import { createAuthoredCharacter } from './creator';
 import { normalizeCharacterApps, validateCharacterContainer, type Character } from './character';

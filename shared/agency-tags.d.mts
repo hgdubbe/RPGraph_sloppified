@@ -57,7 +57,7 @@ export type AgencyTagDefinition = {
   readonly meaning: string;
   readonly apps: Readonly<Partial<Record<AgencyApp, Readonly<Partial<Record<AgencyAccountRole, readonly AgencyAction[]>>>>>>;
 };
-export const agencyTagCatalog: readonly AgencyTagDefinition[];
-export function agencyTagSupports(id: string, app: AgencyApp, role?: AgencyAccountRole, action?: AgencyAction): boolean;
-export function validateAccountAgency(app: string, account: { accountRole?: unknown; agencyTags?: unknown }): void;
-export function validateCharacterAgency(character: { agencyTags?: unknown; apps?: unknown }): void;
+export declare const agencyTagCatalog: readonly AgencyTagDefinition[];
+export declare function agencyTagSupports(id: string, app: AgencyApp, role?: AgencyAccountRole, action?: AgencyAction): boolean;
+export declare function validateAccountAgency(app: string, account: { accountRole?: unknown; agencyTags?: unknown }): void;
+export declare function validateCharacterAgency(character: { agencyTags?: unknown; apps?: unknown }): void;

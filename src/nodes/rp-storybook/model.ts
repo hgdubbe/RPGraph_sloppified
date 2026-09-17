@@ -1,6 +1,6 @@
 import { agencyAuthoringInstructions } from '../../characters/agency';
 import { validateCharacterRelationships } from '../../../shared/character-container.mjs';
-import { validateCharacterAgency } from '../../../shared/agency-tags.cjs';
+import { validateCharacterAgency } from '../../../shared/agency-tags.mjs';
 import { relationshipText, relationshipAuthoringInstructions } from '../../characters/relationships';
 import { portraitDataUrl } from '../../characters/portrait';
 import { parseNpcParticipantSnapshots, type NpcParticipantSnapshots } from '../../characters/npcParticipants';

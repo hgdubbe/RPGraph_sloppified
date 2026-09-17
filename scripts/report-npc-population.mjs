@@ -3,7 +3,7 @@ import { resolve, relative, dirname } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { parseArgs } from 'node:util';
 import { editableCharacterSpecification, writeBytesAtomic } from './character-creator.mjs';
-import agency from '../shared/agency-tags.cjs';
+import { agencyTagCatalog } from '../shared/agency-tags.mjs';
 
 // Authoring targets from docs/architecture/npc-agency-tags.md; role counts are examples.
 export const populationTargets = {
@@ -42,7 +42,7 @@ export function renderPopulationReport(entries, source = 'resources/npc-characte
       if (enabled(c, app) && account.profileName) unique(`profile:${app}:${account.profileName.trim().toLowerCase()}`, `${appNames[app]} profile ${account.profileName} (${c.name})`);
     }
   }
-  const tags = agency.agencyTagCatalog.map(tag => ({
+  const tags = agencyTagCatalog.map(tag => ({
     ...tag,
     owners: characters.filter(c => c.agencyTags?.includes(tag.id)),
     assigned: characters.filter(c => apps.some(app => enabled(c, app) && c.apps[app].agencyTags?.includes(tag.id))),

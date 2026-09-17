@@ -1,4 +1,4 @@
-import { agencyTagSupports } from '../../shared/agency-tags.cjs';
+import { agencyTagSupports } from '../../shared/agency-tags.mjs';
 import { accountHandle } from './character';
 import type { StorybookCharacter } from '../storybook/runtime';
 import type { SocialAppKind } from '../types';

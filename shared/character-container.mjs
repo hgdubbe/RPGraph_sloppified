@@ -1,5 +1,5 @@
 import formatVersions from '../src/storybook/formatVersions.json' with { type: 'json' };
-import { validateCharacterAgency } from './agency-tags.cjs';
+import { validateCharacterAgency } from './agency-tags.mjs';
 
 export const currentCharacterContainerVersion = formatVersions.characterCard;
 const appNames = ['whatsup', 'fotogram', 'onlyfriends', 'matchme'];

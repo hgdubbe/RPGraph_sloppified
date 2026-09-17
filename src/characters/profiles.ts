@@ -1,5 +1,5 @@
 import { accountHandle, migratedProfileName } from './character';
-import { agencyTagSupports, validateCharacterAgency } from '../../shared/agency-tags.cjs';
+import { agencyTagSupports, validateCharacterAgency } from '../../shared/agency-tags.mjs';
 import type { DatingProfile } from '../chat/datingProfile';
 import { normalizeCharacterApps, socialFromCharacterApps, type Character, type CharacterAppAccount, type CharacterApps } from './character';
 import type { CharacterRegistryDiagnostic, EffectiveCharacterRegistry } from './registry';

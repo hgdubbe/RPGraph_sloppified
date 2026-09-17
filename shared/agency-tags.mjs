@@ -1,5 +1,5 @@
 /** Authored behavior vocabulary. Applicability is metadata, never permission to perform an action. */
-const agencyTagCatalog = [
+export const agencyTagCatalog = [
   {"id": "casual_chatter", "meaning": "Enjoys relaxed everyday conversation without strongly pursuing romance, money, attention, or deeper commitment.", "apps": {"whatsup": {"user": ["dm_reply", "dm_initiate"]}, "fotogram": {"user": ["react", "dm_reply", "dm_initiate"], "creator": ["react", "dm_reply", "dm_initiate", "publish"]}, "matchme": {"user": ["dm_reply", "dm_initiate"]}, "onlyfriends": {"user": ["dm_reply", "dm_initiate"], "creator": ["dm_reply", "dm_initiate"]}}},
   {"id": "shy_user", "meaning": "Is interested in others but communicates cautiously, hesitates to initiate, and opens up gradually.", "apps": {"whatsup": {"user": ["dm_reply"]}, "fotogram": {"user": ["dm_reply"]}, "matchme": {"user": ["dm_reply"]}, "onlyfriends": {"user": ["dm_reply"]}}},
   {"id": "slow_to_trust", "meaning": "Keeps personal details private until repeated positive interactions make the other person feel trustworthy.", "apps": {"whatsup": {"user": ["dm_reply"]}, "fotogram": {"user": ["dm_reply"], "creator": ["dm_reply"]}, "matchme": {"user": ["dm_reply"]}, "onlyfriends": {"user": ["dm_reply"], "creator": ["dm_reply"]}}},
@@ -62,7 +62,7 @@ for (const tag of agencyTagCatalog) {
 Object.freeze(agencyTagCatalog);
 const byId = new Map(agencyTagCatalog.map((tag) => [tag.id, tag]));
 
-function agencyTagSupports(id, app, role = 'user', action) {
+export function agencyTagSupports(id, app, role = 'user', action) {
   const actions = byId.get(id)?.apps[app]?.[role];
   return !!actions?.length && (action === undefined || actions.includes(action));
 }
@@ -76,7 +76,7 @@ function validateTags(value, label) {
 }
 
 /** Validate fields before normalizers can drop malformed authored data. */
-function validateAccountAgency(app, account) {
+export function validateAccountAgency(app, account) {
   if (account.accountRole !== undefined &&
       (!['fotogram', 'onlyfriends'].includes(app) || !['user', 'creator'].includes(account.accountRole))) {
     throw new Error(`${app} accountRole must be user or creator on a social account.`);
@@ -89,7 +89,7 @@ function validateAccountAgency(app, account) {
   }
 }
 
-function validateCharacterAgency(character) {
+export function validateCharacterAgency(character) {
   validateTags(character.agencyTags, 'Character');
   const tags = character.agencyTags ?? [];
   for (const [app, account] of Object.entries(character.apps ?? {})) {
@@ -103,5 +103,3 @@ function validateCharacterAgency(character) {
     }
   }
 }
-
-module.exports = { agencyTagCatalog, agencyTagSupports, validateAccountAgency, validateCharacterAgency };
