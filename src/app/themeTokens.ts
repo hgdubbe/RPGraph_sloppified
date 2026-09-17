@@ -55,6 +55,101 @@ export const CORE_TOKEN_KEYS = [
   'storybook.violetSoft',
   'storybook.pink',
   'storybook.lime',
+  // Simulated phone-app screens (Notes/ChatGPD/Banking/Gallery/Social).
+  // Unlike graph.*/storybook.*/app.*, these are deliberately NOT derived
+  // from color.* and have no base.json entry -- each app's own palette is
+  // meant to stay independent of the studio's main theme by default (its
+  // own brand identity, like a real phone app would have), themable only
+  // when a theme.json explicitly opts in by setting one. This is also why
+  // wiring --theme-* into these .phone-*-prefixed files does not violate
+  // the .phone-/.pt-/.social-profile- exclusion boundary in
+  // themeExclusions.test.ts -- that boundary protects hand-crafted,
+  // pixel-matched content (registration/profile forms, the phone's own
+  // simulated OS chrome); these are the fork's own functional in-roleplay
+  // phone apps, always meant to be reskinnable, just independently of the
+  // rest of the UI rather than through the shared app.* palette.
+  'phoneBanking.background',
+  'phoneBanking.panel',
+  'phoneBanking.line',
+  'phoneBanking.text',
+  'phoneBanking.textStrong',
+  'phoneBanking.muted',
+  'phoneBanking.accent',
+  'phoneBanking.accentStrong',
+  'phoneBanking.accentDeep',
+  'phoneBanking.success',
+  'phoneBanking.danger',
+  'phoneGallery.background',
+  'phoneGallery.panel',
+  'phoneGallery.stage',
+  'phoneGallery.line',
+  'phoneGallery.text',
+  'phoneGallery.textStrong',
+  'phoneGallery.muted',
+  'phoneGallery.badge',
+  'phoneGallery.success',
+  'phoneGallery.danger',
+  'phoneNotes.background',
+  'phoneNotes.text',
+  'phoneNotes.textStrong',
+  'phoneNotes.accent',
+  'phoneNotes.accentLight',
+  'phoneNotes.accentStrong',
+  'phoneNotes.accentDeep',
+  'phoneNotes.danger',
+  // The 8 sticky-note colors are deliberately distinct tokens (like
+  // context-builder-port's rotation), each holding a bare "R, G, B"
+  // triplet consumed via rgba(var(--note-tint), alpha) -- not a full
+  // color, so a var() fallback list is used instead of a single hex.
+  'phoneNotes.tintNeutral',
+  'phoneNotes.tintSand',
+  'phoneNotes.tintCoral',
+  'phoneNotes.tintPeach',
+  'phoneNotes.tintMint',
+  'phoneNotes.tintSky',
+  'phoneNotes.tintLavender',
+  'phoneNotes.tintRose',
+  'phoneChatgpd.background',
+  'phoneChatgpd.panelStrong',
+  'phoneChatgpd.glass',
+  'phoneChatgpd.text',
+  'phoneChatgpd.textStrong',
+  'phoneChatgpd.textOnAccent',
+  'phoneChatgpd.accent',
+  'phoneChatgpd.accentLight',
+  'phoneChatgpd.accentDeep',
+  'phoneChatgpd.accentBright',
+  'phoneChatgpd.danger',
+  // The Social app renders both Fotogram and OnlyFriends through the same
+  // component, switching brand via a runtime class (.phone-social-theme-
+  // onlyfriends). Structural chrome shared by both brands uses plain
+  // phoneSocial.* tokens; each brand's own accent colors get their own
+  // fotogram-/onlyfriends-prefixed tokens so they can be tuned
+  // independently of each other, not just independently of the main app.
+  'phoneSocial.background',
+  'phoneSocial.panel',
+  'phoneSocial.panelAlt',
+  'phoneSocial.panelDeep',
+  'phoneSocial.bubbleIncoming',
+  'phoneSocial.glass',
+  'phoneSocial.line',
+  'phoneSocial.text',
+  'phoneSocial.textStrong',
+  'phoneSocial.muted',
+  'phoneSocial.tip',
+  'phoneSocial.tipText',
+  'phoneSocial.success',
+  'phoneSocial.danger',
+  'phoneSocial.dangerBg',
+  'phoneSocial.fotogramAccent',
+  'phoneSocial.fotogramAccentStrong',
+  'phoneSocial.fotogramCard',
+  'phoneSocial.onlyfriendsAccent',
+  'phoneSocial.onlyfriendsAccentStrong',
+  'phoneSocial.onlyfriendsGlow',
+  'phoneSocial.onlyfriendsBackground',
+  'phoneSocial.onlyfriendsCard',
+  'phoneSocial.onlyfriendsBubbleIncoming',
   // studio shell chrome (play-mode composer/rail/tabs that don't fit an
   // existing semantic color slot -- see studio-shell.css)
   'shell.chatSurface',

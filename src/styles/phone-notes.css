@@ -1,6 +1,6 @@
 .phone-notes-icon {
-  background: linear-gradient(135deg, rgba(245, 158, 11, 0.42), rgba(180, 83, 9, 0.22));
-  border-color: rgba(251, 191, 36, 0.55);
+  background: linear-gradient(135deg, color-mix(in srgb, var(--theme-phone-notes-accent, #f59e0b) calc(0.42 * 100%), transparent), color-mix(in srgb, var(--theme-phone-notes-accent-deep, #b45309) calc(0.22 * 100%), transparent));
+  border-color: color-mix(in srgb, var(--theme-phone-notes-accent-light, #fbbf24) calc(0.55 * 100%), transparent);
 }
 
 .phone-notes-screen {
@@ -10,7 +10,7 @@
   flex: 1;
   flex-direction: column;
   overflow: hidden;
-  background: #151515;
+  background: var(--theme-phone-notes-background, #151515);
 }
 
 .phone-notes-screen .phone-gallery-header {
@@ -37,49 +37,49 @@
 .phone-notes-card.color-neutral,
 .phone-notes-editor.color-neutral,
 .phone-notes-color-option.color-neutral {
-  --note-tint: 196, 196, 196;
+  --note-tint: var(--theme-phone-notes-tint-neutral, 196, 196, 196);
 }
 
 .phone-notes-card.color-sand,
 .phone-notes-editor.color-sand,
 .phone-notes-color-option.color-sand {
-  --note-tint: 224, 193, 139;
+  --note-tint: var(--theme-phone-notes-tint-sand, 224, 193, 139);
 }
 
 .phone-notes-card.color-coral,
 .phone-notes-editor.color-coral,
 .phone-notes-color-option.color-coral {
-  --note-tint: 224, 145, 137;
+  --note-tint: var(--theme-phone-notes-tint-coral, 224, 145, 137);
 }
 
 .phone-notes-card.color-peach,
 .phone-notes-editor.color-peach,
 .phone-notes-color-option.color-peach {
-  --note-tint: 229, 172, 126;
+  --note-tint: var(--theme-phone-notes-tint-peach, 229, 172, 126);
 }
 
 .phone-notes-card.color-mint,
 .phone-notes-editor.color-mint,
 .phone-notes-color-option.color-mint {
-  --note-tint: 135, 201, 171;
+  --note-tint: var(--theme-phone-notes-tint-mint, 135, 201, 171);
 }
 
 .phone-notes-card.color-sky,
 .phone-notes-editor.color-sky,
 .phone-notes-color-option.color-sky {
-  --note-tint: 137, 183, 218;
+  --note-tint: var(--theme-phone-notes-tint-sky, 137, 183, 218);
 }
 
 .phone-notes-card.color-lavender,
 .phone-notes-editor.color-lavender,
 .phone-notes-color-option.color-lavender {
-  --note-tint: 178, 158, 216;
+  --note-tint: var(--theme-phone-notes-tint-lavender, 178, 158, 216);
 }
 
 .phone-notes-card.color-rose,
 .phone-notes-editor.color-rose,
 .phone-notes-color-option.color-rose {
-  --note-tint: 218, 154, 180;
+  --note-tint: var(--theme-phone-notes-tint-rose, 218, 154, 180);
 }
 
 .phone-notes-card {
@@ -97,7 +97,7 @@
     rgba(var(--note-tint), 0.13),
     rgba(var(--note-tint), 0.045)
   );
-  color: #f2eee6;
+  color: var(--theme-phone-notes-text, #f2eee6);
   text-align: left;
   cursor: pointer;
   box-shadow: 0 3px 10px rgba(0, 0, 0, 0.25);
@@ -126,14 +126,14 @@
 }
 
 .phone-notes-card span.empty {
-  color: rgba(242, 238, 230, 0.45);
+  color: color-mix(in srgb, var(--theme-phone-notes-text, #f2eee6) calc(0.45 * 100%), transparent);
   font-style: italic;
 }
 
 .phone-notes-card small {
   margin-top: 2px;
   font-size: 10px;
-  color: rgba(242, 238, 230, 0.5);
+  color: color-mix(in srgb, var(--theme-phone-notes-text, #f2eee6) calc(0.5 * 100%), transparent);
 }
 
 .phone-notes-empty {
@@ -142,7 +142,7 @@
   align-items: center;
   gap: 10px;
   padding: 42px 8px;
-  color: rgba(242, 238, 230, 0.45);
+  color: color-mix(in srgb, var(--theme-phone-notes-text, #f2eee6) calc(0.45 * 100%), transparent);
   font-size: 13px;
   text-align: center;
 }
@@ -155,10 +155,10 @@
   width: 44px;
   height: 44px;
   place-items: center;
-  border: 1px solid rgba(251, 191, 36, 0.5);
+  border: 1px solid color-mix(in srgb, var(--theme-phone-notes-accent-light, #fbbf24) calc(0.5 * 100%), transparent);
   border-radius: 50%;
-  background: linear-gradient(135deg, #d97706, #b45309);
-  color: #fff7e6;
+  background: linear-gradient(135deg, var(--theme-phone-notes-accent-strong, #d97706), var(--theme-phone-notes-accent-deep, #b45309));
+  color: var(--theme-phone-notes-text-strong, #fff7e6);
   cursor: pointer;
   box-shadow: 0 6px 16px rgba(0, 0, 0, 0.4);
   transition: transform 0.15s ease, box-shadow 0.15s ease;
@@ -167,7 +167,7 @@
 .phone-notes-add-button:hover,
 .phone-notes-add-button:focus-visible {
   transform: translateY(-2px) scale(1.05);
-  box-shadow: 0 8px 20px rgba(245, 158, 11, 0.4);
+  box-shadow: 0 8px 20px color-mix(in srgb, var(--theme-phone-notes-accent, #f59e0b) calc(0.4 * 100%), transparent);
 }
 
 .phone-notes-add-button:disabled {
@@ -212,7 +212,7 @@
   padding: 10px;
   border: none;
   background: transparent;
-  color: #f2eee6;
+  color: var(--theme-phone-notes-text, #f2eee6);
   font-size: 13px;
   line-height: 1.55;
   resize: none;
@@ -220,7 +220,7 @@
 
 .phone-notes-editor-title::placeholder,
 .phone-notes-editor-text::placeholder {
-  color: rgba(242, 238, 230, 0.4);
+  color: color-mix(in srgb, var(--theme-phone-notes-text, #f2eee6) calc(0.4 * 100%), transparent);
 }
 
 .phone-notes-editor-title:focus,
@@ -270,15 +270,15 @@
   height: 28px;
   flex: none;
   place-items: center;
-  border: 1px solid rgba(248, 113, 113, 0.35);
+  border: 1px solid color-mix(in srgb, var(--theme-phone-notes-danger, #f87171) calc(0.35 * 100%), transparent);
   border-radius: 8px;
-  background: rgba(239, 68, 68, 0.12);
-  color: #fca5a5;
+  background: color-mix(in srgb, var(--theme-phone-notes-danger, #ef4444) calc(0.12 * 100%), transparent);
+  color: var(--theme-phone-notes-danger, #fca5a5);
   cursor: pointer;
 }
 
 .phone-notes-delete-button:hover,
 .phone-notes-delete-button:focus-visible {
-  border-color: rgba(248, 113, 113, 0.6);
-  background: rgba(239, 68, 68, 0.22);
+  border-color: color-mix(in srgb, var(--theme-phone-notes-danger, #f87171) calc(0.6 * 100%), transparent);
+  background: color-mix(in srgb, var(--theme-phone-notes-danger, #ef4444) calc(0.22 * 100%), transparent);
 }
