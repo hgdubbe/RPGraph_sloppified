@@ -23,12 +23,15 @@ bite you if you're not careful."
 | User-authored theme data (packaged mode only) | `<userData>/themes/<id>/theme.json` |
 | One-shot literal-extraction CLI for migrating a CSS file onto the engine | `scripts/extract-raw-theme-tokens.mjs` |
 | Consuming CSS | effectively every stylesheet under `src/` except the excluded ones (see below) |
+| Independently-themable phone-app screens (their own token namespace, see below) | `src/styles/phone-{notes,chatgpd,banking,gallery,social}.css` |
 
 Regression tests: `src/app/themeTokens.test.ts` (resolver correctness — derivation,
 `base` fallback, category-collision, exercised against the real shipped `theme.json`
 files), `src/app/studioTheme.test.ts` (registry-level: default id, bundled preset ids,
-picker ordering), `src/app/themeExclusions.test.ts` (the phone-app/registration
-exclusion boundary never gets a `--theme-*` reference — see below).
+picker ordering), `src/app/themeExclusions.test.ts` (the hand-crafted registration/
+signup-form content never gets a *shared-palette* `--theme-*` reference — see below;
+this does not cover the independently-themed phone-app screens, which are a separate,
+deliberate exception).
 
 ## The model, in one paragraph
 
@@ -193,6 +196,48 @@ an existing category.
 polygon, a full `box-shadow`, a `var(...)` reference. There is no `{value, unit}`
 tagging; every leaf is a plain string, matched 1:1 to what you'd write in a stylesheet.
 
+## Independent per-app tokens (`phoneNotes.*`, `phoneChatgpd.*`, `phoneBanking.*`, `phoneGallery.*`, `phoneSocial.*`)
+
+A third kind of token category, distinct from both the guaranteed/derived tier
+(`color.*`, `graph.*`, `storybook.*`, `app.*`, `shell.*`) and `raw.*`. These back the
+five simulated phone-app screens, each split into its own file under `src/styles/`
+(`phone-notes.css`, `phone-chatgpd.css`, `phone-banking.css`, `phone-gallery.css`,
+`phone-social.css`). Like `raw.*`, they have **no `base.json` entry and no
+`DERIVATION_RULES` entry** — a theme that doesn't explicitly set one gets that app's
+own fixed default look, not something derived from `color.*`. Unlike `raw.*`, their
+names are hand-picked and meaningful (`phoneBanking.accent`, not `raw.v3b82f6`),
+because the point is for a theme author to be able to deliberately retint one specific
+phone app — each app is meant to be themable **independently of the rest of the UI and
+of the other phone apps**, the same way a real phone's individual apps each have their
+own brand identity rather than inheriting the OS chrome's accent color.
+
+`phone-social.css` is the one wrinkle: it renders both the Fotogram and OnlyFriends
+apps through a single component, switching brand via a runtime class
+(`.phone-social-theme-onlyfriends`) that overrides a handful of *local* CSS custom
+properties (`--social-accent`, `--social-screen-bg`, etc.) the rest of the file
+consumes. Structural chrome shared by both brands (panels, borders, muted text) uses
+plain `phoneSocial.*` tokens; each brand's own accent/background/card colors get their
+own `phoneSocial.fotogram*`/`phoneSocial.onlyfriends*`-prefixed tokens, so the two
+brands can be retinted independently of each other, not just independently of the main
+app. `phone-notes.css` has a similar wrinkle: its 8 sticky-note colors
+(`phoneNotes.tintNeutral`, `tintSand`, `tintCoral`, ...) are each their own token
+holding a bare `R, G, B` triplet (not a full color), consumed via
+`rgba(var(--note-tint), alpha)` — collapsing them into one shared accent would defeat
+the point of having 8 distinct note colors to choose from.
+
+**This does not violate the exclusion boundary below.** `.phone-notes-*`,
+`.phone-chatgpd-*`, `.phone-banking-*`, `.phone-gallery-*`, and
+`.phone-social-*`/`.phone-fotogram-*`/`.phone-onlyfriends-*` all match the `.phone-`
+exclusion prefix, but that boundary protects *hand-crafted, pixel-matched* content
+(registration/signup forms, the phone's simulated OS chrome) — these five files are the
+fork's own functional in-roleplay phone apps, which are supposed to be reskinnable,
+just through their own namespace instead of the shared `app.*` palette. None of these
+five files are in `themeExclusions.test.ts`'s `EXCLUDED_STYLESHEETS`/`MIXED_STYLESHEETS`
+lists, which is what actually keeps that test from flagging their `--theme-*`
+references — if you add a sixth independently-themed phone app, follow the same
+pattern (own file, own token prefix, not in either exclusion list) rather than adding
+it to `phone-widgets.css` or another already-excluded file.
+
 ## The `raw.*` category
 
 `raw.*` holds auto-extracted, one-off color literals that were wrapped in
@@ -257,14 +302,27 @@ dictionary's shape.
 
 ## The exclusion boundary
 
-Simulated phone apps and their registration/profile screens are hand-recreated
-pixel-for-pixel from real prototypes and must never be retheme'd — their visual
-identity is the point. The boundary is enforced by selector prefix, not by file:
-any CSS rule whose selector matches `.phone-`, `.pt-`, or `.social-profile-` is out of
-scope, in *any* stylesheet, including ones that otherwise mix in-scope and out-of-scope
-rules (e.g. `phone-device.css` holds both the excluded `.phone-*` simulated content and
-the in-scope `.roleplay-phone-*` device bezel/casing — the bezel is chrome, not
-handcrafted content, so it *is* themed).
+Hand-crafted, pixel-matched content — registration/signup forms and the phone's
+simulated OS chrome — must never be retheme'd via the shared palette; their visual
+identity is the point. The boundary is enforced by selector prefix, not by file: any
+CSS rule whose selector matches `.phone-`, `.pt-`, or `.social-profile-` is out of
+scope for the shared `color.*`/`app.*`/etc. palette, in *any* stylesheet, including
+ones that otherwise mix in-scope and out-of-scope rules (e.g. `phone-device.css` holds
+both the excluded `.phone-*` simulated content and the in-scope `.roleplay-phone-*`
+device bezel/casing — the bezel is chrome, not handcrafted content, so it *is* themed).
+
+The five phone-app screens (`phone-notes.css`, `phone-chatgpd.css`,
+`phone-banking.css`, `phone-gallery.css`, `phone-social.css`) are a deliberate,
+narrow exception: their selectors also match the `.phone-` prefix, but they're wired
+to their *own* independent token namespace instead of the shared palette (see above) —
+that's a different, additive mechanism, not a breach of this boundary. The test below
+doesn't actually distinguish "own namespace" from "shared palette" by content — it's a
+plain `--theme-` substring check — so what keeps it from flagging these five files is
+simply that **they are not listed** in `EXCLUDED_STYLESHEETS`/`MIXED_STYLESHEETS`
+below; the test never inspects them at all. If one of these five files were ever added
+to either list by mistake, the test would immediately fail on its own legitimate
+`--theme-phone-{app}-*` references — that failure means "remove it from the exclusion
+list," not "strip the theming back out."
 
 `src/app/themeExclusions.test.ts` enforces this two ways: a flat "never contains
 `--theme-`" check for stylesheets that are excluded in their entirety
@@ -291,11 +349,19 @@ definition (gotcha #4).
   background transparent; it's been tried and doesn't work.
 - **`src/styles.css`** (the ~25k-line upstream-shared file) is edited in place by this
   system's ongoing migration and is in fact its single largest consumer of `--theme-*`
-  tokens today. It is deliberately **never split into smaller per-feature files** by
-  this work — that refactor is real but explicitly deferred to a final phase, so that
-  the fork stays diffable against upstream while the token migration is in progress.
-  Editing values in place, not moving/extracting rules elsewhere, is the standing rule
-  for this file until that phase begins.
+  tokens today. It is **not** split into smaller per-feature files wholesale, and won't
+  be — upstream keeps editing this file as one, so restructuring it would make every
+  future upstream merge a manual re-mapping exercise for no fork-specific-content gain.
+  The one exception: rules that are **100% fork-authored with zero upstream
+  counterpart** (verified by diffing against `upstream/main`'s own `styles.css` before
+  moving anything) can be extracted, since upstream has nothing there to conflict with
+  — this is how the five phone-app screens above ended up in their own files. When
+  extracting, use a brace-depth-aware script and verify byte-for-byte parity (matching
+  `{`/`}` counts between the original and the combined output) before deleting anything
+  from the original, the same way that extraction was verified. Anything that exists
+  upstream too, even if this fork has since added `var(--theme-*, ...)` wrapping to it,
+  stays at its current path in `styles.css` — the token wrapping doesn't make it
+  fork-owned for file-organization purposes.
 - **A visual, in-app theme editor** (pick colors with a UI instead of hand-editing JSON)
   is planned but does not exist yet. `ThemeManifest.basic` and the derivation layer
   exist specifically to support one eventually — a future editor would only need to

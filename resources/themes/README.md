@@ -126,6 +126,21 @@ deriving them, if you want to see the full set of keys they accept.
   by Options, Providers, System Log, NPC Library, and 25+ other dialogs; plus generic
   success/warning/danger status colors).
 
+### Advanced: theming one phone app on its own
+
+The five simulated phone apps you actually use during roleplay — Notes, the AI chat
+app, Banking, Gallery, and the social feed (Fotogram/OnlyFriends) — each have their
+**own** separate set of tokens (`phoneNotes.*`, `phoneChatgpd.*`, `phoneBanking.*`,
+`phoneGallery.*`, `phoneSocial.*`) instead of following `color`/`app` at all. Setting
+`color.primary` will not change Banking's blue or Notes' amber — that's deliberate,
+the same way a real phone's individual apps each keep their own brand identity instead
+of matching the OS theme. Leave these alone unless you specifically want to retint one
+app; every shipped theme leaves them at their defaults. If you do want to, open the
+relevant file under `src/styles/phone-*.css` to see the exact token names available —
+each app's color roles (background, panel, accent, text, a status color or two) are
+named for what they do, e.g. `"phoneBanking": { "accent": "#22c55e" }` to turn
+Banking's blue accent green.
+
 ### `typography`
 
 - `headingFont` / `bodyFont` — a font stack, e.g. `"Consolas, 'Courier New', monospace"`.
@@ -215,11 +230,12 @@ those surfaces to look different from the rest.
   that particular element uses a narrow, decorative one-off color that's intentionally
   fixed rather than tied to any of the categories above (a status dot, a glassy
   highlight, a drop shadow) — not every pixel in the app is meant to be themeable.
-- The phone's app registration/profile screens (dating app, social-media-style profile
-  editors) and the simulated phone apps' own content are deliberately left out of
-  theming — those were recreated to match real app designs down to the pixel, and stay
-  that way on purpose rather than getting reskinned. The physical phone bezel/casing
-  around them is themeable chrome, though.
+- The phone's app registration/signup screens (the dating app profile setup,
+  social-media-style profile editors) are deliberately left out of theming entirely —
+  those were recreated to match real app designs down to the pixel, and stay that way
+  on purpose rather than getting reskinned. The physical phone bezel/casing around them
+  is themeable chrome, though, and so are the phone apps' own screens themselves — see
+  "Advanced: theming one phone app on its own" above.
 - Graph mode's canvas background itself (behind the nodes) is also intentionally left
   as-is regardless of theme — a limitation of the canvas library it's built on, not a
   missing token. Everything around it (sidebars, panels, node cards, connection lines)
