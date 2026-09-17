@@ -443,7 +443,7 @@ export function validComfyDimension(value: unknown, fallback: number) {
   return Math.min(4096, Math.max(64, Math.round(value)));
 }
 
-export function validComfySteps(value: unknown, fallback: number) {
+function validComfySteps(value: unknown, fallback: number) {
   if (typeof value !== 'number' || !Number.isFinite(value) || value <= 0) {
     return fallback;
   }
