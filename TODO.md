@@ -35,6 +35,8 @@ into it.
   with upstream's own rendering — only the 5 phone apps got split out with independent
   theming so far (see Done); the chat/message-log split is a bigger, deliberate call
   since that content is upstream-owned, not fork-authored.
+- chore: some UI elements slipped past the the theme-engine conversion and are still hardcoded
+  or falling back to default style. Needs to be searched for and fixed.
 
 ## Done
 

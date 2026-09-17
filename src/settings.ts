@@ -293,8 +293,8 @@ const discoveredVoiceWorkflowPaths = Object.keys(
 
 function sortComfyWorkflowPaths(paths: string[]) {
   return [...paths].sort((left, right) => {
-    const leftDefault = left.includes('/higgs_audio_v3-tts.json') || left.includes('/Krea2.json');
-    const rightDefault = right.includes('/higgs_audio_v3-tts.json') || right.includes('/Krea2.json');
+    const leftDefault = left.includes('/higgs_audio_v3-tts.json') || left.includes('/Flux2-Klein-9B.json');
+    const rightDefault = right.includes('/higgs_audio_v3-tts.json') || right.includes('/Flux2-Klein-9B.json');
     if (leftDefault !== rightDefault) {
       return leftDefault ? -1 : 1;
     }
@@ -333,7 +333,7 @@ export const bundledComfyWorkflows: BundledComfyWorkflow[] = [
   ...sortComfyWorkflowPaths(discoveredVoiceWorkflowPaths).map((path) => comfyWorkflowFromPath(path, 'voice')),
 ];
 export const defaultComfyWorkflowPath = bundledComfyWorkflows.find((workflow) => workflow.role === 'image')?.apiWorkflowPath ??
-  'comfy-workflows/api-workflows-with-variables/image/Krea2.json';
+  'comfy-workflows/api-workflows-with-variables/image/Flux2-Klein-9B.json';
 export const defaultComfyVoiceWorkflowPath = bundledComfyWorkflows.find((workflow) => workflow.role === 'voice')?.apiWorkflowPath ??
   'comfy-workflows/api-workflows-with-variables/voice/higgs_audio_v3-tts.json';
 
@@ -356,6 +356,9 @@ export const defaultComfyCheckpointName = '';
 export const defaultComfyDiffusionModelName = '';
 export const defaultComfyVaeName = '';
 export const defaultComfyTextEncoderName = '';
+export const defaultComfySteps = 0;
+export const defaultComfySampler = '';
+export const defaultComfyScheduler = '';
 export const comfyCharacterLoraName = 'Character LoRA';
 export const defaultComfyLoraSlots: ComfyLoraSlot[] = [
   { name: comfyCharacterLoraName, strength: 1 },
@@ -438,6 +441,13 @@ export function validComfyDimension(value: unknown, fallback: number) {
     return fallback;
   }
   return Math.min(4096, Math.max(64, Math.round(value)));
+}
+
+export function validComfySteps(value: unknown, fallback: number) {
+  if (typeof value !== 'number' || !Number.isFinite(value) || value <= 0) {
+    return fallback;
+  }
+  return Math.min(150, Math.max(1, Math.round(value)));
 }
 
 function validComfyStrength(value: unknown, fallback = 1) {
@@ -572,6 +582,15 @@ function normalizedConnectionPreset(connection: ConnectionPreset): ConnectionPre
       : undefined,
     comfyTextEncoderName: isComfyImage
       ? validComfyModelName(connection.comfyTextEncoderName, defaultComfyTextEncoderName)
+      : undefined,
+    comfySteps: isComfyImage
+      ? validComfySteps(connection.comfySteps, defaultComfySteps)
+      : undefined,
+    comfySampler: isComfyImage
+      ? validComfyModelName(connection.comfySampler, defaultComfySampler)
+      : undefined,
+    comfyScheduler: isComfyImage
+      ? validComfyModelName(connection.comfyScheduler, defaultComfyScheduler)
       : undefined,
     comfyLoraSlots: isComfyImage
       ? validComfyLoraSlots(connection.comfyLoraSlots)

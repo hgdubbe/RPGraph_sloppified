@@ -53,6 +53,9 @@ import {
   defaultComfyHeight,
   defaultComfyLoraSlots,
   defaultComfyPrompt,
+  defaultComfySampler,
+  defaultComfyScheduler,
+  defaultComfySteps,
   defaultComfyTextEncoderName,
   defaultComfyVaeName,
   defaultComfyWidth,
@@ -263,7 +266,7 @@ type StudioDialogsProps = {
   onSelectConnection: (connection: ConnectionPreset) => void;
   onNewConnection: () => void;
   onApplyProviderPreset: (
-    preset: Pick<ConnectionPreset, 'kind' | 'providerKind' | 'label' | 'baseUrl' | 'apiKey' | 'model' | 'ttsStreamAudio' | 'comfyWorkflowPath' | 'comfyWidth' | 'comfyHeight' | 'comfyPrompt' | 'comfyCheckpointName' | 'comfyDiffusionModelName' | 'comfyVaeName' | 'comfyTextEncoderName' | 'comfyLoraSlots' | 'reasoningEffort'>,
+    preset: Pick<ConnectionPreset, 'kind' | 'providerKind' | 'label' | 'baseUrl' | 'apiKey' | 'model' | 'ttsStreamAudio' | 'comfyWorkflowPath' | 'comfyWidth' | 'comfyHeight' | 'comfyPrompt' | 'comfyCheckpointName' | 'comfyDiffusionModelName' | 'comfyVaeName' | 'comfyTextEncoderName' | 'comfySteps' | 'comfySampler' | 'comfyScheduler' | 'comfyLoraSlots' | 'reasoningEffort'>,
   ) => void;
   onApplyComfyConnectionRole: (role: 'image' | 'voice') => void;
   onEditConnection: (field: keyof ConnectionPreset, value: ConnectionPreset[keyof ConnectionPreset]) => void;
@@ -602,13 +605,16 @@ const providerPresets = [
     comfyDiffusionModelName: defaultComfyDiffusionModelName,
     comfyVaeName: defaultComfyVaeName,
     comfyTextEncoderName: defaultComfyTextEncoderName,
+    comfySteps: defaultComfySteps,
+    comfySampler: defaultComfySampler,
+    comfyScheduler: defaultComfyScheduler,
     comfyLoraSlots: defaultComfyLoraSlots,
     reasoningEffort: 'none',
     models: [''],
     description: 'Image and voice generation server',
   },
 ] satisfies Array<
-  Pick<ConnectionPreset, 'kind' | 'providerKind' | 'label' | 'baseUrl' | 'apiKey' | 'model' | 'ttsStreamAudio' | 'comfyWorkflowPath' | 'comfyWidth' | 'comfyHeight' | 'comfyPrompt' | 'comfyCheckpointName' | 'comfyDiffusionModelName' | 'comfyVaeName' | 'comfyTextEncoderName' | 'comfyLoraSlots' | 'reasoningEffort'> & {
+  Pick<ConnectionPreset, 'kind' | 'providerKind' | 'label' | 'baseUrl' | 'apiKey' | 'model' | 'ttsStreamAudio' | 'comfyWorkflowPath' | 'comfyWidth' | 'comfyHeight' | 'comfyPrompt' | 'comfyCheckpointName' | 'comfyDiffusionModelName' | 'comfyVaeName' | 'comfyTextEncoderName' | 'comfySteps' | 'comfySampler' | 'comfyScheduler' | 'comfyLoraSlots' | 'reasoningEffort'> & {
     models: string[];
     description: string;
   }
@@ -3664,6 +3670,39 @@ export function StudioDialogs({
                               )}
                               onOpenOptions={() => undefined}
                               placeholder="Type or select a text encoder"
+                            />
+                          </div>
+                          <div className="connection-field">
+                            <label htmlFor="comfy-steps">STEPS</label>
+                            <input
+                              id="comfy-steps"
+                              type="number"
+                              min={1}
+                              max={150}
+                              step={1}
+                              placeholder="Workflow default"
+                              value={editingConnection.comfySteps || ''}
+                              onChange={(event) => onEditConnection('comfySteps', Number(event.target.value))}
+                            />
+                          </div>
+                          <div className="connection-field">
+                            <label htmlFor="comfy-sampler">SAMPLER</label>
+                            <input
+                              id="comfy-sampler"
+                              type="text"
+                              placeholder="Workflow default (e.g. euler)"
+                              value={editingConnection.comfySampler ?? defaultComfySampler}
+                              onChange={(event) => onEditConnection('comfySampler', event.target.value)}
+                            />
+                          </div>
+                          <div className="connection-field">
+                            <label htmlFor="comfy-scheduler">SCHEDULER</label>
+                            <input
+                              id="comfy-scheduler"
+                              type="text"
+                              placeholder="Workflow default (e.g. simple)"
+                              value={editingConnection.comfyScheduler ?? defaultComfyScheduler}
+                              onChange={(event) => onEditConnection('comfyScheduler', event.target.value)}
                             />
                           </div>
                           <div className="comfy-lora-grid">

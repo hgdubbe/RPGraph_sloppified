@@ -374,6 +374,9 @@ declare global {
         diffusionModelName?: string;
         vaeName?: string;
         textEncoderName?: string;
+        steps?: number;
+        sampler?: string;
+        scheduler?: string;
         loraSlots?: Array<{
           name: string;
           strength: number;

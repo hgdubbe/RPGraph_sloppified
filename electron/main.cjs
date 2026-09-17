@@ -3100,6 +3100,11 @@ function comfyWorkflowVariables(request) {
     diffusion_model: typeof request?.diffusionModelName === 'string' ? request.diffusionModelName.trim() : '',
     vae: typeof request?.vaeName === 'string' ? request.vaeName.trim() : '',
     text_encoder: typeof request?.textEncoderName === 'string' ? request.textEncoderName.trim() : '',
+    steps: typeof request?.steps === 'number' && Number.isFinite(request.steps) && request.steps > 0
+      ? Math.min(150, Math.max(1, Math.round(request.steps)))
+      : 4,
+    sampler: typeof request?.sampler === 'string' && request.sampler.trim() ? request.sampler.trim() : 'euler',
+    scheduler: typeof request?.scheduler === 'string' && request.scheduler.trim() ? request.scheduler.trim() : 'simple',
     ...loraVariables,
   };
 }
