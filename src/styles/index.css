@@ -18,6 +18,11 @@
 @import "./graph-workbench.css";
 @import "./phone-device.css";
 @import "./phone-widgets.css";
+@import "./phone-notes.css";
+@import "./phone-chatgpd.css";
+@import "./phone-banking.css";
+@import "./phone-gallery.css";
+@import "./phone-social.css";
 @import "./roleplay-dual-pane.css";
 @import "./storybook-editor.css";
 @import "./responsive.css";

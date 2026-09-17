@@ -1,0 +1,325 @@
+.phone-gallery-icon {
+  background: linear-gradient(135deg, rgba(148, 163, 184, 0.35), rgba(71, 85, 105, 0.18));
+  border-color: rgba(148, 163, 184, 0.45);
+}
+
+.phone-gallery-screen {
+  display: flex;
+  min-height: 0;
+  flex: 1;
+  flex-direction: column;
+  overflow: hidden;
+  background: #0d121c;
+}
+
+.phone-gallery-screen .phone-gallery-header {
+  justify-content: flex-start;
+}
+
+.phone-gallery-header {
+  display: flex;
+  flex: none;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  min-height: 68px;
+  padding: 12px 20px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+  background: rgba(17, 24, 39, 0.95);
+}
+
+.phone-gallery-header > div {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.phone-gallery-header span {
+  color: #7f90aa;
+  font-size: 9px;
+  font-weight: 850;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.phone-gallery-header strong {
+  overflow: hidden;
+  color: var(--soft-white);
+  font-size: 16px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.phone-gallery-header > button {
+  display: grid;
+  width: 32px;
+  height: 32px;
+  flex: none;
+  place-items: center;
+  padding: 0;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 50%;
+  color: #94a3b8;
+  background: rgba(30, 41, 59, 0.4);
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.phone-gallery-header > button:hover,
+.phone-gallery-header > button:focus-visible {
+  outline: none;
+  border-color: rgba(255, 255, 255, 0.15);
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--soft-white);
+}
+
+.phone-gallery-scroll {
+  min-height: 0;
+  flex: 1;
+  overflow-y: auto;
+  overflow-x: hidden;
+}
+
+.phone-gallery-grid {
+  display: block;
+  column-width: 210px;
+  column-gap: 14px;
+  padding: 16px;
+}
+
+.phone-gallery-pagination {
+  padding: 12px 16px 0;
+}
+
+.phone-gallery-tile {
+  position: relative;
+  display: block;
+  width: 100%;
+  break-inside: avoid;
+  margin: 0 0 14px;
+  overflow: hidden;
+  padding: 0;
+  border: 1px solid #2a374e;
+  border-radius: 8px;
+  background: #151d2d;
+  cursor: zoom-in;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.25);
+  transition: all 0.2s ease-in-out;
+}
+
+.phone-gallery-tile:hover,
+.phone-gallery-tile:focus-visible {
+  outline: none;
+  border-color: #6aa573;
+  transform: translateY(-2px);
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.35);
+}
+
+.phone-gallery-tile.active {
+  border-color: #86efac;
+  box-shadow: 0 0 0 2px rgba(134, 239, 172, 0.24), 0 12px 32px rgba(0, 0, 0, 0.35);
+}
+
+.phone-gallery-image-preview {
+  position: relative;
+  width: 100%;
+  overflow: hidden;
+}
+
+.phone-gallery-image-preview img {
+  display: block;
+  width: 100%;
+  height: auto;
+  object-fit: contain;
+}
+
+.phone-gallery-received-badge {
+  position: absolute;
+  top: 6px;
+  left: 6px;
+  z-index: 2;
+  padding: 3px 6px;
+  border-radius: 4px;
+  background: rgba(13, 18, 28, 0.85);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  color: #c7d2fe;
+  font-size: 8px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  pointer-events: none;
+}
+
+.phone-gallery-image-caption {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  z-index: 2;
+  padding: 8px;
+  background: linear-gradient(to top, rgba(0, 0, 0, 0.9) 0%, rgba(0, 0, 0, 0) 100%);
+  color: #e2e8f0;
+  font-size: 10px;
+  line-height: 1.25;
+  text-align: left;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.phone-gallery-tile.has-description::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  background: linear-gradient(to top, rgba(0, 0, 0, 0.4) 0%, rgba(0, 0, 0, 0) 40%);
+  pointer-events: none;
+}
+
+.phone-gallery-detail {
+  display: flex;
+  flex: 1;
+  min-height: 0;
+  padding: 16px;
+  justify-content: center;
+}
+
+.phone-gallery-detail-stage {
+  position: relative;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+  overflow: hidden;
+  border-radius: 15px;
+  background: #05080e;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.phone-gallery-detail-stage img {
+  display: block;
+  max-width: 100%;
+  max-height: calc(100vh - 158px);
+  object-fit: contain;
+}
+
+.phone-gallery-detail-caption {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  padding: 14px 120px 14px 16px;
+  color: #eef4ff;
+  background: rgba(0, 0, 0, 0.65);
+  font-size: 13px;
+  line-height: 1.4;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.8);
+  text-align: left;
+}
+
+.phone-gallery-detail-overlay-actions {
+  position: absolute;
+  right: 16px;
+  bottom: 12px;
+  z-index: 10;
+  display: flex;
+  gap: 12px;
+}
+
+.phone-gallery-action-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 42px;
+  height: 42px;
+  border-radius: 50%;
+  border: 0;
+  cursor: pointer;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+  transition: all 0.2s ease;
+}
+
+.phone-gallery-action-btn.cancel {
+  background: rgba(239, 68, 68, 0.22);
+  color: #fca5a5;
+  border: 1.5px solid rgba(239, 68, 68, 0.4);
+}
+
+.phone-gallery-action-btn.cancel:hover {
+  background: rgba(239, 68, 68, 0.45);
+  color: var(--soft-white);
+  border-color: rgba(239, 68, 68, 0.65);
+}
+
+.phone-gallery-action-btn.select {
+  background: rgba(34, 197, 94, 0.22);
+  color: #86efac;
+  border: 1.5px solid rgba(34, 197, 94, 0.4);
+}
+
+.phone-gallery-action-btn.select:hover {
+  background: rgba(34, 197, 94, 0.45);
+  color: var(--soft-white);
+  border-color: rgba(34, 197, 94, 0.65);
+}
+
+.phone-gallery-action-btn.wallpaper {
+  width: auto;
+  gap: 6px;
+  padding: 0 13px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 750;
+}
+
+.phone-gallery-empty {
+  display: flex;
+  min-height: 320px;
+  flex: 1;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  padding: 32px;
+  color: #dce6f5;
+  text-align: center;
+}
+
+.phone-gallery-empty > span {
+  display: grid;
+  width: 54px;
+  height: 54px;
+  margin-bottom: 4px;
+  place-items: center;
+  border-radius: 17px;
+  color: #9eb1cc;
+  background: #1d2a3e;
+  font-size: 28px;
+}
+
+.phone-gallery-empty small {
+  color: #7f90aa;
+}
+
+@media (max-width: 620px) {
+  .phone-gallery-grid {
+    column-width: 210px;
+    column-gap: 14px;
+    padding: 10px;
+  }
+
+  .phone-gallery-tile {
+    margin-bottom: 14px;
+  }
+
+  .phone-gallery-detail {
+    padding: 8px;
+  }
+
+  .phone-gallery-detail-stage img {
+    max-height: calc(100vh - 120px);
+  }
+}

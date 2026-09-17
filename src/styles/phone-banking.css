@@ -1,0 +1,290 @@
+.phone-banking-icon {
+  background: linear-gradient(135deg, rgba(59, 130, 246, 0.35), rgba(29, 78, 216, 0.18));
+  border-color: rgba(59, 130, 246, 0.5);
+}
+
+.phone-banking-screen {
+  display: flex;
+  min-height: 0;
+  flex: 1;
+  flex-direction: column;
+  overflow: hidden;
+  background: #0d121c;
+}
+
+.phone-banking-screen .phone-gallery-header {
+  justify-content: flex-start;
+}
+
+.phone-banking-scroll {
+  display: flex;
+  min-height: 0;
+  flex: 1;
+  flex-direction: column;
+  gap: 14px;
+  padding: 16px;
+  overflow-y: auto;
+  overflow-x: hidden;
+}
+
+.phone-banking-balance-card {
+  display: flex;
+  flex: none;
+  flex-direction: row;
+  align-items: baseline;
+  justify-content: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  padding: 12px 16px;
+  border: 1px solid rgba(59, 130, 246, 0.25);
+  border-radius: 12px;
+  background: linear-gradient(135deg, rgba(29, 78, 216, 0.15), rgba(30, 58, 138, 0.05));
+  backdrop-filter: blur(12px);
+  box-shadow: 
+    0 4px 16px rgba(0, 0, 0, 0.2),
+    inset 0 1px 0 rgba(255, 255, 255, 0.1);
+}
+
+.phone-banking-balance-label {
+  color: rgba(255, 255, 255, 0.6);
+  font-size: 13px;
+  font-weight: 300;
+  text-transform: none;
+  letter-spacing: normal;
+}
+
+.phone-banking-balance-amount {
+  color: var(--soft-white);
+  font-size: 24px;
+  font-weight: 800;
+}
+
+.phone-banking-balance-owner {
+  color: rgba(255, 255, 255, 0.65);
+  font-size: 14px;
+  font-weight: 300;
+}
+
+.phone-banking-section {
+  display: flex;
+  flex: none;
+  flex-direction: column;
+  gap: 10px;
+  padding: 14px 16px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 14px;
+  background: rgba(23, 32, 51, 0.45);
+  backdrop-filter: blur(8px);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15);
+}
+
+.phone-banking-section h4 {
+  margin: 0;
+  color: #dbe7ff;
+  font-size: 13px;
+}
+
+.phone-banking-section-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.phone-banking-add-recipient-button {
+  padding: 4px 8px;
+  border: 1px solid #334155;
+  border-radius: 6px;
+  color: #bfdbfe;
+  background: #172033;
+  cursor: pointer;
+  font-size: 10px;
+  font-weight: 700;
+}
+
+.phone-banking-add-recipient-button:hover,
+.phone-banking-add-recipient-button:focus-visible {
+  outline: none;
+  border-color: #3b82f6;
+  background: #1e293b;
+}
+
+.phone-banking-add-recipient-button:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+
+.phone-banking-add-recipient {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: end;
+  gap: 8px;
+}
+
+.phone-banking-contact-save-button {
+  min-height: 34px;
+  padding: 7px 11px;
+  border: 1px solid #1d4ed8;
+  border-radius: 8px;
+  color: var(--soft-white);
+  background: #2563eb;
+  cursor: pointer;
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.phone-banking-contact-save-button:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+
+.phone-banking-recipients {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.phone-banking-recipient {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 12px 6px 6px;
+  border: 1px solid #2a374e;
+  border-radius: 999px;
+  color: #dbe7ff;
+  background: #151d2d;
+  cursor: pointer;
+  font-size: 12px;
+  transition: border-color 0.15s ease, background 0.15s ease;
+}
+
+.phone-banking-recipient:hover,
+.phone-banking-recipient:focus-visible {
+  outline: none;
+  border-color: var(--accent);
+  background: #1d2940;
+}
+
+.phone-banking-recipient.active {
+  border-color: #3b82f6;
+  background: #1e3a8a;
+}
+
+.phone-banking-field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.phone-banking-field span {
+  color: #7f90aa;
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.phone-banking-field input {
+  padding: 8px 10px;
+  border: 1px solid #2a374e;
+  border-radius: 8px;
+  color: #dbe7ff;
+  background: #0f1626;
+  font-size: 13px;
+}
+
+.phone-banking-field input:focus-visible {
+  outline: none;
+  border-color: var(--accent);
+}
+
+.phone-banking-send-button {
+  padding: 9px 12px;
+  border: 1px solid #1d4ed8;
+  border-radius: 8px;
+  color: var(--soft-white);
+  background: #2563eb;
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.phone-banking-send-button:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+
+.phone-banking-hint,
+.phone-banking-empty {
+  color: var(--muted);
+  font-size: 11px;
+}
+
+.phone-banking-transactions {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.phone-banking-transaction {
+  display: flex;
+  flex-direction: row;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 12px;
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  border-radius: 10px;
+  background: rgba(15, 22, 38, 0.55);
+}
+
+.phone-banking-transaction-info {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  flex: 1;
+  min-width: 0;
+}
+
+.phone-banking-transaction-title {
+  color: #dbe7ff;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.phone-banking-transaction-note {
+  color: rgba(255, 255, 255, 0.45);
+  font-size: 11px;
+  font-weight: 300;
+}
+
+.phone-banking-transaction-values {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 2px;
+  flex-shrink: 0;
+}
+
+.phone-banking-transaction-amount {
+  font-weight: 800;
+  font-size: 12px;
+  color: #34d399;
+}
+
+.phone-banking-transaction-amount.sent {
+  color: #f87171;
+}
+
+.phone-banking-transaction-amount.received {
+  color: #4ade80;
+}
+
+.phone-banking-transaction-time {
+  color: #7f90aa;
+  font-size: 10px;
+  font-weight: 300;
+}
