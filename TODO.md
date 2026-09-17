@@ -31,6 +31,9 @@ into it.
 - NPCs should be able to use the phone's mood indicator
 - Themes per character
 - Some themes suck (esp. the girly ones look "dirty/dark", more pastel, brighter colors)
+- Showcase changes, maybe visually — a quick theme gallery / before-and-after pass so
+  the app-wide theming and phone-app reskins are actually visible to visitors instead of
+  just being hidden in the code and config files.
 - Chat Panel and Display of Actions like Messaging in Chat panel still share styles.css
   with upstream's own rendering — only the 5 phone apps got split out with independent
   theming so far (see Done); the chat/message-log split is a bigger, deliberate call
