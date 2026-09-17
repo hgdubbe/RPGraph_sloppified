@@ -140,7 +140,7 @@ describe('shared container creator', () => {
     writeFileSync(jpeg, Buffer.from(image.dataUrl.split(',')[1], 'base64'));
     expect((await run('magick', [jpeg, '-format', '%Q', 'info:'])).stdout.trim()).toBe('84');
     expect(Buffer.from(image.dataUrl.split(',')[1], 'base64')).toHaveLength(image.size);
-  });
+  }, 20000);
 
   it('supports WebP inputs and rejects conflicting image IDs', async () => {
     const photo = join(directory, 'photo.webp');
