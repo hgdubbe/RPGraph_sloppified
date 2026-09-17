@@ -1,39 +1,46 @@
 # Sloppified Fork of RPGraph Studio
 
-`main` now carries the full `codex/vanilla-rebuild` work, merged in on 2026-09-15 — the UI
-overhaul plus the kept backend features listed below (LLM providers, turn autosave, NPC
-auto-unlock). The old action-runtime/staged/decision-workflow direction described in the linked
-history was abandoned and dropped before this merge, not carried forward because the Maintainer
-of the original uploaded a much better solution.
+`main` carries the full `codex/vanilla-rebuild` work, merged in on 2026-09-15: a UI overhaul
+on top of the kept backend features listed below (LLM providers, turn autosave, NPC
+auto-unlock).
 
 Planning history: [History](https://claude.ai/artifact/S4LSEJucXErxVe358Kw8rw)
 
-## TL;DR: 
-- UI overhaul:
+## What's New (2026-09-17)
+
+- **App-wide theming engine.** Theming now covers the whole app, not just Play mode: Graph
+  mode's canvas chrome, the Storybook editor, and every dialog/menu (Options, Providers,
+  System Log, NPC Library, Turn Trace, and more) all repaint with the active theme. 11
+  bundled presets ship, and you can drop your own `theme.json` into a per-user folder —
+  see `resources/themes/README.md`.
+- **Independently-themable phone apps.** Notes, the AI chat app, Banking, Gallery, and the
+  social feed (Fotogram/OnlyFriends) each got split into their own CSS file with their own
+  token set, so they can be reskinned on their own instead of following the app's main
+  palette — like a real phone, where each app keeps its own brand identity.
+- **Merged upstream's social-identity unification and character agency tags.** Real
+  character names now display consistently alongside in-app handles across MatchMe,
+  Fotogram, and OnlyFriends; NPCs can carry consent-style "agency tags" that gate whether
+  they autonomously react to a post and how.
+
+## TL;DR
+
+- **UI overhaul**
   - RP Chat overhaul
-  - theming
+  - App-wide theming, with user-authored themes and per-phone-app independent tokens
   - Storybook Editor UI overhaul
-  - Menu Buttons moved to Burger menu
-  - Seperation between Graph edit view / Roleplay view
+  - Menu buttons moved to the burger menu
+  - Separation between Graph edit view and Roleplay view
+- **Phone simulation overhaul**
+  - Looks like an actual phone (best effort!)
+  - Basic widget support
+  - Vertical/landscape mode
+- **Minor features**
+  - Character mood selector in the phone simulation
+  - Comments on messages (e.g. "obviously sarcastic," so the LLM understands intent better)
+  - New providers
+  - Rotating autosaves, with a prompt to load one on startup
 
-- Phone Simulation overhaul:
-  - looks like a phone (well, i tried my best)
-  - basic Widget support
-  - Vertical/Landscape mode
-  
-
-
-- ~~new mode:~~
-  - ~~Similar to planned mode, but anchored into backend to make it easier for dumb llms~~
-  - ~~Checkpointing~~
-  
-- minor features:
-  - Character mood selector in phone simulation
-  - comments on messages (think: "obviously sarcastic" for the llm to understand intentions better)
-  - new Providers
-  - rotating autosaves, prompt tp load autosave on startup
-
-not everything working right now, but planned/started
+Not everything works perfectly yet, but it's all in active use.
 
 # 🎭 RPgraph Studio
 

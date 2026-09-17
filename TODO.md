@@ -31,12 +31,24 @@ into it.
 - NPCs should be able to use the phone's mood indicator
 - Themes per character
 - Some themes suck (esp. the girly ones look "dirty/dark", more pastel, brighter colors)
-- Phone Apps, Chat Panel and Display of Actions like Messaging in Chat panel should have
-  own, seperate css files and be independently integrated into theming system, making
-  display of rp content independent from ui styling.
+- Chat Panel and Display of Actions like Messaging in Chat panel still share styles.css
+  with upstream's own rendering — only the 5 phone apps got split out with independent
+  theming so far (see Done); the chat/message-log split is a bigger, deliberate call
+  since that content is upstream-owned, not fork-authored.
 
 ## Done
 
+- App-wide theming engine: covers Graph mode, the Storybook editor, and every dialog/
+  menu (Options, Providers, System Log, NPC Library, Turn Trace, 25+ others), not just
+  Play mode. 11 bundled presets, user-authored themes via a per-user folder. See
+  `resources/themes/README.md` / `THEMING-INTERNALS.md`.
+- Phone Apps (Notes, ChatGPD, Banking, Gallery, Social/Fotogram/OnlyFriends) split into
+  their own CSS files under `src/styles/`, each with its own independent theme token
+  namespace (`phoneNotes.*`, `phoneBanking.*`, etc.) instead of the shared app palette —
+  first slice of the "own, separate CSS files, independently themed" item above.
+- Merged upstream's social-identity unification (real names shown consistently
+  alongside handles across MatchMe/Fotogram/OnlyFriends) and the new character agency-
+  tags consent system (gates whether/how an NPC autonomously reacts to a post).
 - Applying a provider to all nodes now also updates the phone apps Notes node's
   connection (`applyConnectionToAllNodes` covers `phoneAppsNotesConnectionId`).
 - WhatsUp/narrative message comments (`contextComment`) and the phone mood selector

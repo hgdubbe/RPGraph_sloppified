@@ -230,15 +230,11 @@ those surfaces to look different from the rest.
   that particular element uses a narrow, decorative one-off color that's intentionally
   fixed rather than tied to any of the categories above (a status dot, a glassy
   highlight, a drop shadow) — not every pixel in the app is meant to be themeable.
-- The phone's app registration/signup screens (the dating app profile setup,
-  social-media-style profile editors) are deliberately left out of theming entirely —
-  those were recreated to match real app designs down to the pixel, and stay that way
-  on purpose rather than getting reskinned. The physical phone bezel/casing around them
-  is themeable chrome, though, and so are the phone apps' own screens themselves — see
-  "Advanced: theming one phone app on its own" above.
-- Graph mode's canvas background itself (behind the nodes) is also intentionally left
-  as-is regardless of theme — a limitation of the canvas library it's built on, not a
-  missing token. Everything around it (sidebars, panels, node cards, connection lines)
+- The physical phone bezel/casing is themeable chrome, and so are the phone apps' own 
+  screens themselves — see "Advanced: theming one phone app on its own" above.
+- Graph mode's canvas background itself (behind the nodes) as well as the Node Background is 
+  also intentionally left as-is regardless of theme — a limitation of the canvas library it's 
+  built on, not a missing token. Everything around it (sidebars, panels, node cards, connection lines)
   does follow your theme.
 - This is a hand-edit-the-file system today. A visual "pick your colors here" theme
   editor is planned but doesn't exist yet — for now, editing `theme.json` directly (or
