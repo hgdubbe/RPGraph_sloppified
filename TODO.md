@@ -25,17 +25,13 @@ upstream's new pattern and adapt our wiring to it," default to the latter.
 - Phone widgets waste too much space
 - Somehow get more actual space on the phone screen, it's too narrow and feels
   cramped, especially in apps
-- The phone camera dialog for sending image-generation prompts to Comfy has no way
-  to directly use a resulting image in the current chat — you have to close the
-  generator, reopen the phone image picker, then pick the image from the gallery.
-  (Saving to the character's gallery already works.) Needs a new callback threaded
-  from `ImageGenerationAssistantDialog` through `PhonePanel` into the message
-  composer's attachment state.
 - phone reflection broken
 - NPCs should be able to use the phone's mood indicator
 - Themes per character
 - Some themes suck (esp. the girly ones look "dirty/dark", more pastel, brighter colors)
-- Instead of switching between roleplay and graph mode, make them tabs of the main window
+- Phone Apps, Chat Panel and Display of Actions like Messaging in Chat panel should have
+  own, seperate css files and be independently integrated into theming system, making
+  display of rp content independent from ui styling.
 
 ## Done
 
@@ -55,3 +51,10 @@ upstream's new pattern and adapt our wiring to it," default to the latter.
   Character moved next to Import; Name/Role now match the standard field layout; the
   count-only Images field is removed; a new phone contact-visibility matrix was wired
   onto the Phone rail page.
+- Instead of switching between roleplay and graph mode, make them tabs of the main window
+- The phone camera dialog for sending image-generation prompts to Comfy has no way
+  to directly use a resulting image in the current chat — you have to close the
+  generator, reopen the phone image picker, then pick the image from the gallery.
+  (Saving to the character's gallery already works.) Needs a new callback threaded
+  from `ImageGenerationAssistantDialog` through `PhonePanel` into the message
+  composer's attachment state. Fixed by remerging with upstream and theming.
