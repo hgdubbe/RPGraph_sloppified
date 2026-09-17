@@ -1,3 +1,4 @@
+import { accountHandle } from './character';
 import { npcSeedPostKey } from './npcParticipants';
 import type { Character } from './character';
 import type { MessageRecord, SocialPostRecord } from '../types';
@@ -9,7 +10,7 @@ export function initialCharacterPosts(characters: StorybookCharacter[]): SocialP
     const account = character.apps?.[app];
     if (!account?.enabled) return [];
     return (account.initialPosts ?? []).map((post) => ({ app, postId: (character.npcOrigin ?? character.libraryNpc) ? npcSeedPostKey(account.accountId, post.id) : post.id, author: character.name,
-      authorHandle: account.username, authorCharacterId: character.sourceId, authorAccountId: account.accountId,
+      authorHandle: accountHandle(account), authorCharacterId: character.sourceId, authorAccountId: account.accountId,
       caption: post.text, imageDescription: character.images?.find((image) => image.id === post.imageId)?.description, textOnly: !post.imageId, ...(post.imageId ? { imageId: post.imageId } : {}) }));
   }));
 }
@@ -24,7 +25,7 @@ export function withPublicationSnapshot(character: Character, posts: SocialPostR
     for (const post of posts) {
       if (post.app !== app || (post.authorAccountId ? post.authorAccountId !== account.accountId :
         post.authorCharacterId ? post.authorCharacterId !== character.id :
-        post.authorHandle.toLowerCase() !== account.username.toLowerCase() || post.author !== character.name)) continue;
+        post.authorHandle.toLowerCase() !== accountHandle(account).toLowerCase() || post.author !== character.name)) continue;
       if (post.imageId && !copy.images.some((image) => image.id === post.imageId)) {
         const image = gallery.find((entry) => entry.id === post.imageId);
         if (!image) throw new Error(`Cannot export post ${post.postId}: missing gallery image ${post.imageId}.`);

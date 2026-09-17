@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { socialFromCharacterApps, type Character } from '../characters/character';
+import { normalizeCharacterApps, socialFromCharacterApps, type Character } from '../characters/character';
 import { validateCharacterAccountDirectory, withCharacterAppProfile } from '../characters/profiles';
 import { defaultRpStorybookCharacterBanking, defaultRpStorybookCharacterPhoneSettings } from '../nodes/rp-storybook/model';
 import { SocialProfileEditor } from './phone-social/SocialProfileEditor';
@@ -13,7 +13,7 @@ export function CharacterAppProfiles({ character, characters, locked, onChange }
   type SocialApp = (typeof socialApps)[number];
   const [selectedApp, setSelectedApp] = useState<SocialApp | null>(null);
   const [error, setError] = useState('');
-  const apps = character.apps ?? {};
+  const apps = normalizeCharacterApps(character.apps, character.social, character.id, character.name);
 
   function appName(app: SocialApp) {
     return app === 'fotogram' ? 'Photogram' : app === 'onlyfriends' ? 'OnlyFriends' : 'MatchMe';
@@ -75,12 +75,9 @@ export function CharacterAppProfiles({ character, characters, locked, onChange }
       images={character.images} onImportImage={async () => undefined} onBack={() => setSelectedApp(null)}
       onSave={(_, profile) => {
         const current = apps.matchme;
-        const username = profile.username ?? current?.username ?? '';
-        if (locked && current?.username && username !== current.username) { setError('The MatchMe username is locked.'); return false; }
-        if (username && !/^[a-zA-Z0-9._-]+$/.test(username)) { setError('Choose a valid MatchMe username.'); return false; }
         const saved = save(withCharacterAppProfile(character, 'matchme', {
           accountId: current?.accountId ?? `character:${character.id}:matchme`,
-          ...current, enabled: true, username, displayName: profile.name, bio: profile.bio, profile,
+          ...current, enabled: true, profileName: profile.name, bio: profile.bio, profile,
         }));
         if (saved) setSelectedApp(null);
         return saved;

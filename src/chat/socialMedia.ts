@@ -1,6 +1,7 @@
+import { accountHandle, accountHandleMatches } from '../characters/character';
 import { recipientCharacterContext } from '../characters/appRuntime';
 import { matchMeContext, matchMeState } from './matchMe';
-import { datingAccountId, datingAccountMatches, datingAccounts, resolveDatingAccount } from './datingAccounts';
+import { datingFirstName, datingAccountId, datingAccountMatches, datingAccounts, resolveDatingAccount } from './datingAccounts';
 import type {
   MessageRecord,
   SocialAppKind,
@@ -160,7 +161,7 @@ export function recommendedSocialPostIdentities(
   return characters.flatMap((character) => {
     const account = character.apps?.fotogram;
     return character.npcOrigin && account?.enabled
-      ? [character.name, account.username]
+      ? [character.name, accountHandle(account)]
       : [];
   });
 }
@@ -169,11 +170,43 @@ export function socialCharacterForPost(
   post: SocialPostRecord,
   storyCharacters: StorybookCharacter[],
 ) {
-  return storyCharacters.find((character) =>
-    socialIdentityMatches(socialHandleForCharacter(character, post.app), post.authorHandle),
-  ) ?? storyCharacters.find((character) =>
-    socialIdentityMatches(character.name, post.author),
-  );
+  const matches = storyCharacters.filter((character) => {
+    const account = character.apps?.[post.app];
+    if (post.authorAccountId) return account?.accountId === post.authorAccountId ||
+      character.identityAliases?.accountIds?.[post.app]?.includes(post.authorAccountId);
+    if (post.authorCharacterId) return character.id === post.authorCharacterId ||
+      character.sourceId === post.authorCharacterId ||
+      character.identityAliases?.characterIds?.includes(post.authorCharacterId);
+    if (account) return accountHandleMatches(account, post.authorHandle);
+    const legacyHandle = post.app === 'fotogram' ? character.social.fotogramUsername : character.social.onlyfriendsUsername;
+    return !!legacyHandle && socialIdentityMatches(legacyHandle, post.authorHandle);
+  });
+  return matches.length === 1 ? matches[0] : undefined;
+}
+
+/** Whether the character's account on Fotogram or OnlyFriends is in privacy mode. */
+export function isAccountPrivacyMode(
+  app: string,
+  character: StorybookCharacter | undefined,
+): boolean {
+  if (app !== 'fotogram' && app !== 'onlyfriends') return false;
+  return character?.apps?.[app]?.privacyMode === true;
+}
+
+/** UI labels only: never use public display names as routing handles. */
+export function socialAccountPresentation(
+  app: SocialMessengerAppKind,
+  character: StorybookCharacter | undefined,
+  fallbackName: string,
+  fallbackHandle: string,
+) {
+  const account = character?.apps?.[app];
+  const handle = (character ? account?.profileName ?? account?.displayName ?? '' : fallbackHandle).trim().replace(/^@/, '');
+  const hideRealName = isAccountPrivacyMode(app, character);
+  return {
+    name: hideRealName ? handle || 'Unknown user' : character?.name || fallbackName,
+    handle,
+  };
 }
 
 /** Key for the per-character, per-app liked-post store in the RP save. */
@@ -204,12 +237,12 @@ export function socialDirectMessageInputText(
 ) {
   const recipients = characters.filter((character) => message.toAccountId
     ? character.apps?.[message.app]?.accountId === message.toAccountId
-    : character.apps?.[message.app]?.enabled && socialIdentityMatches(character.apps[message.app]!.username, message.toHandle));
+    : character.apps?.[message.app]?.enabled && socialIdentityMatches(accountHandle(character.apps[message.app]), message.toHandle));
   return [
     socialDirectMessageInputHeaders[message.app],
     `App: ${socialAppNames[message.app]}`,
-    `Sender: ${message.from}${message.app === 'matchme' ? '' : ` (@${message.fromHandle})`}`,
-    `Recipient: ${message.to}${message.app === 'matchme' ? '' : ` (@${message.toHandle})`}`,
+    `Sender: ${socialDirectMessageParty(message, 'from', characters)}`,
+    `Recipient: ${socialDirectMessageParty(message, 'to', characters)}`,
     `Reply as: ${message.to} to ${message.from}`,
     '',
     ...(message.app === 'matchme'
@@ -239,8 +272,59 @@ export function socialDirectMessageInputText(
   ].join('\n');
 }
 
-export function socialDirectMessageHistoryText(message: SocialDirectMessageRecord) {
-  return `[${socialAppNames[message.app]} DM] ${message.from} (@${message.fromHandle}) to ${message.to} (@${message.toHandle}): "${message.text}"`;
+/** Prefer stable IDs and explicit ID aliases; legacy social DMs can use a unique configured username. */
+export function socialDirectMessageParty(
+  message: SocialDirectMessageRecord,
+  side: 'from' | 'to',
+  characters: StorybookCharacter[],
+  showProfileNames = true,
+) {
+  const storedHandle = message[side === 'from' ? 'fromHandle' : 'toHandle'];
+  const id = message[side === 'from' ? 'fromAccountId' : 'toAccountId'];
+  const matches = characters.filter((character) => {
+    if (message.app === 'matchme') {
+      return character.social.plotTwist && datingAccountMatches(character, id);
+    }
+    const account = character.apps?.[message.app];
+    return account && (id
+      ? account.accountId === id || character.identityAliases?.accountIds?.[message.app]?.includes(id)
+      : !!storedHandle && accountHandleMatches(account, storedHandle));
+  });
+  const character = matches.length === 1 ? matches[0] : undefined;
+  const name = socialAccountPresentation(message.app, character, message[side], storedHandle).name;
+  if (message.app === 'matchme') {
+    const age = character?.social.plotTwist?.age;
+    return `${datingFirstName(name)}${age ? `, ${age}` : ''}`;
+  }
+  // Social profile editors expose Display name; usernames remain internal account identities.
+  const publicName = character?.apps?.[message.app]?.profileName ?? character?.apps?.[message.app]?.displayName;
+  const handle = publicName?.trim().replace(/^@/, '') ?? '';
+  return `${name}${showProfileNames && handle ? ` (@${handle})` : ''}`;
+}
+
+export function socialDirectMessageHistoryText(
+  message: SocialDirectMessageRecord,
+  characters: StorybookCharacter[] = [],
+) {
+  return `[${socialAppNames[message.app]} DM] ${socialDirectMessageParty(message, 'from', characters)} to ${socialDirectMessageParty(message, 'to', characters)}: "${message.text}"`;
+}
+
+/** Reformat only a structured DM's authored header; preserve its original or translated body verbatim. */
+export function socialDirectMessageDisplayText(
+  message: MessageRecord,
+  translated: boolean,
+  characters: StorybookCharacter[] = [],
+) {
+  const text = translated ? message.translatedText ?? message.originalText : message.originalText;
+  const direct = message.socialDirectMessage;
+  if (!direct) return text;
+  const header = text.match(new RegExp(`^\\[${socialAppNames[direct.app]} DM(?: Demo)?\\] [^\\n]*? to [^\\n]*?: "`));
+  if (!header) return text;
+  const formatted = socialDirectMessageHistoryText({ ...direct, text: '' }, characters);
+  const prefix = text.startsWith('[MatchMe DM Demo]')
+    ? formatted.replace('[MatchMe DM]', '[MatchMe DM Demo]')
+    : formatted;
+  return prefix.slice(0, -1) + text.slice(header[0].length);
 }
 
 /** LLM-facing input text for a "user posted something" turn (Message Format 2). */
@@ -557,7 +641,10 @@ export function parseSocialReactionsOutput(
     const hasDirectMessages = hasIncomingSocialDirectMessagesKey(block);
     if (hasDirectMessages) {
       const blockDirectMessages = parseIncomingSocialDirectMessagesObject(block);
-      if (blockDirectMessages.length === 0) {
+      const onlyEmptyMessageArrays = Object.values(socialDirectMessageJsonKeys)
+        .filter((key) => block[key] !== undefined)
+        .every((key) => Array.isArray(block[key]) && block[key].length === 0);
+      if (blockDirectMessages.length === 0 && !onlyEmptyMessageArrays) {
         warnings.push('A social messenger block has no valid entries (each needs from, to, and message).');
       }
       directMessages.push(...blockDirectMessages);

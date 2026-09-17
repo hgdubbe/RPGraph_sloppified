@@ -60,7 +60,7 @@ export async function assignCharacterImages(source, specification, directory) {
     let account = character.apps[app];
     if (!account && selected.length) {
       account = character.apps[app] = { accountId: `character:${character.id}:${app}`, enabled: true,
-        username: character.id.replaceAll('_', '.'), displayName: character.name,
+        profileName: character.id.replaceAll('_', '.'),
         bio: character.apps.fotogram?.bio || character.description };
     }
     if (!account) continue;
@@ -68,7 +68,7 @@ export async function assignCharacterImages(source, specification, directory) {
     if (app === 'matchme') {
       if (selected.length > 3) throw new Error(`MatchMe allows at most three images for ${character.name}.`);
       if (!selected.length) delete account.profile;
-      else account.profile = { username: account.username, name: character.name, age: character.age,
+      else account.profile = { age: character.age,
         bio: account.bio, interests: '', ...(character.gender ? { gender: character.gender } : {}),
         ...account.profile, photoIds: selected.map(image => image.id) };
     } else {
@@ -80,7 +80,7 @@ export async function assignCharacterImages(source, specification, directory) {
     }
   }
   character.apps.whatsup ??= { accountId: `character:${character.id}:whatsup`, enabled: true,
-    username: character.name, displayName: character.name, bio: '' };
+    bio: '' };
   // P is the shared avatar; it does not implicitly create a post or MatchMe photo.
   for (const account of Object.values(character.apps)) {
     delete account.avatarImageId;

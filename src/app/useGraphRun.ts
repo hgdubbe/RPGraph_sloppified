@@ -1,3 +1,4 @@
+import { socialReactionAccountContext } from '../characters/socialReactionAccounts';
 import { resolveWhatsUpMessageParticipants } from '../characters/messageIdentity';
 import { matchMeState, matchMeMessageAllowed, incomingMatchMeMessage } from '../chat/matchMe';
 // runGraph orchestration hook, extracted verbatim from App.tsx (Etappe 2, APP_ZERLEGUNG.md).
@@ -99,9 +100,6 @@ import {
   socialThreadHistoryText,
   type SocialThreadRunContext,
 } from '../chat/socialMedia';
-import {
-  withBundledSocialIdentityContext,
-} from '../chat/socialCatalogs';
 import { parseValidatedSocialReactionsOutput } from '../chat/socialMessageValidation';
 import { recentInputHistoryContext } from '../chat/inputTransforms';
 import {
@@ -805,12 +803,16 @@ export function useGraphRun(options: UseGraphRunOptions) {
       false,
       rpDateTimeFormat,
       rpWeekdayLanguage,
+      undefined,
+      appCharacters(),
     );
     const translatedHistory = formatChatHistory(
       historyMessages,
       true,
       rpDateTimeFormat,
       rpWeekdayLanguage,
+      undefined,
+      appCharacters(),
     );
     const turnModeOverrideValue = turnModeOverride;
     const shouldAppendInputMessage =
@@ -1299,27 +1301,15 @@ export function useGraphRun(options: UseGraphRunOptions) {
     const withDraftContextComment = (text: string) =>
       inputContextComment ? `${text}\nContext note: ${inputContextComment}` : text;
     const socialCatalogApp = socialPost?.app ?? socialThreadAction?.app;
-    const availableSocialAccounts = socialCatalogApp
-      ? appCharacters().flatMap((character) => {
-          const account = character.apps?.[socialCatalogApp];
-          return account?.enabled && account.username.trim()
-            ? [`- ${character.name} (@${account.username.replace(/^@/, '')})`]
-            : [];
-        })
-      : [];
-    const withKnownSocialAccountsContext = (text: string) =>
-      availableSocialAccounts.length
-        ? [text,
-            '[AVAILABLE SOCIAL ACCOUNTS]',
-            'Use these exact existing name and handle pairs for social participants:',
-            ...availableSocialAccounts,
-            'Keep these existing identities exact. Additional fictional social users may participate without a character container; never assign a missing app account to a known character.',
-            '[/AVAILABLE SOCIAL ACCOUNTS]'].join('\n')
-        : text;
+    const socialAccountContext = socialCatalogApp
+      ? socialReactionAccountContext(appCharacters(), socialCatalogApp, !!socialPost, socialPost ? {
+          characterId: socialPost.authorCharacterId,
+          accountId: socialPost.authorAccountId,
+          handle: socialPost.authorHandle,
+        } : undefined)
+      : undefined;
     const executionOriginalInput = withDraftContextComment(
-      withKnownSocialAccountsContext(
-        socialCatalogApp ? withBundledSocialIdentityContext(originalInput, socialCatalogApp) : originalInput,
-      ),
+      socialAccountContext ? [originalInput, socialAccountContext.text].join('\n') : originalInput,
     );
     const storedInputGraphText = socialDirectMessage?.app === 'matchme' ? originalInput : directActionOnly
       ? originalInput
@@ -1514,7 +1504,7 @@ export function useGraphRun(options: UseGraphRunOptions) {
         translatedHistory,
       };
       updateRuntimeNode(inputNode.id, {
-        preview: availableSocialAccounts.length
+        preview: socialAccountContext
           ? executionOriginalInput
           : (isAutoTurn || isNarratorTurn)
             ? `${narratorSpeakerName}: ${narratorDisplayInput}`
@@ -1617,12 +1607,16 @@ export function useGraphRun(options: UseGraphRunOptions) {
           false,
           rpDateTimeFormat,
           rpWeekdayLanguage,
+          undefined,
+          appCharacters(),
         );
         const completedTranslatedHistory = formatChatHistory(
           completedHistoryMessages,
           true,
           rpDateTimeFormat,
           rpWeekdayLanguage,
+          undefined,
+          appCharacters(),
         );
         if (!directActionOnly) {
           tracePhase = 'prepare-next-turn';
@@ -1644,6 +1638,7 @@ export function useGraphRun(options: UseGraphRunOptions) {
               originalHistory: completedOriginalHistory,
               translatedHistory: completedTranslatedHistory,
               historyMessages: completedHistoryMessages,
+              appCharacters: appCharacters(),
               recentTurns,
               currentTurnId: collectedTurn?.turnId,
               updateHistoryMessageTimes,

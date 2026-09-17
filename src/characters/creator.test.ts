@@ -62,11 +62,10 @@ describe('shared container creator', () => {
     const card = createAuthoredCharacter({ name: 'Fictional Author', apps: { onlyfriends: { username: 'writer' } } }, () => 'new-id');
     expect(card.character.apps.whatsup).toMatchObject({
       accountId: 'character:new-id:whatsup', enabled: true,
-      username: 'Fictional Author', displayName: 'Fictional Author',
     });
     expect(card.character.apps.fotogram).toMatchObject({
       accountId: 'character:new-id:fotogram', enabled: true,
-      displayName: 'Fictional Author',
+      profileName: expect.any(String),
     });
     const revision = createAuthoredCharacter({ ...card.character, name: 'Renamed Author' }, () => { throw new Error('Must retain ID'); });
     expect(revision.character.id).toBe('new-id');

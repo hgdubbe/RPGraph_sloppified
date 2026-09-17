@@ -1,6 +1,8 @@
 import { npcSeedPostAccountId } from '../../characters/npcParticipants';
 
 export type SocialPost = {
+  authorAccountId?: string;
+  authorCharacterId?: string;
   id: string;
   authorName: string;
   authorHandle: string;

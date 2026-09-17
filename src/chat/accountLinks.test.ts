@@ -44,8 +44,8 @@ function direct(characters = setup().characters, text = 'Here: @whatsup:Third Pe
 
 describe('inline account links', () => {
   it('resolves the bundled Storybook Fotogram messages with standard WhatsUp accounts', () => {
-    const workflow = JSON.parse(readFileSync('resources/default-content/default_normal_v29.json', 'utf8')) as WorkflowFile;
-    const storybook = readFileSync('resources/default-content/Saturday_Night_at_Maple_Street_V_1.1.json', 'utf8');
+    const workflow = JSON.parse(readFileSync('resources/default-content/default_normal_v30.json', 'utf8')) as WorkflowFile;
+    const storybook = readFileSync('resources/default-content/Saturday_Night_at_Maple_Street_v1.2.json', 'utf8');
     const storybookNode = workflow.nodes.find((node) => node.data.nodeType === 'rp-storybook')!;
     storybookNode.data.storybookJson = storybook;
     const characters = structuredClone(storyCharactersFromNodes(workflow.nodes));
@@ -57,8 +57,6 @@ describe('inline account links', () => {
       expect(character.apps?.whatsup).toMatchObject({
         accountId: `character:${character.sourceId}:whatsup`,
         enabled: true,
-        username: name,
-        displayName: name,
       });
       // Existing messages from the broken implementation persisted empty bindings.
       const links = parseAccountLinks(text, characters, []);
@@ -98,7 +96,7 @@ describe('inline account links', () => {
     }
     const duplicate = structuredClone(characters[2]); duplicate.name = 'Nova Vale';
     expect(parseAccountLinks('@fotogram:Nova Vale', [...characters, duplicate])).toEqual([]);
-    characters[2].apps!.fotogram!.displayName = 'nova.fotogram';
+    characters[2].apps!.fotogram!.profileName = 'nova.fotogram';
     expect(parseAccountLinks('@fotogram:nova.fotogram', characters)).toEqual([]);
     expect(parseAccountLinks('@fotogram:nova:fotogram', characters)).toHaveLength(1);
     characters[1].apps!.fotogram!.enabled = false;
@@ -167,7 +165,7 @@ describe('inline account links', () => {
     const { characters } = setup();
     expect(resolveWhatsUpRecipient(characters, [], 'Nova Vale Phone').accountId).toBe('nova:whatsup');
     expect(resolveSocialMessageIdentity({ characters, messages: [], app: 'fotogram', identity: 'Nova Vale Profile' }).accountId).toBe('nova:fotogram');
-    const match = matchMeLikePolicy('player:matchme', 'nova:matchme', matchMeState(characters, []), now)!;
+    const match = matchMeLikePolicy('player:matchme', 'nova:matchme', matchMeState(characters, []), now, 'superlike')!;
     const history: MessageRecord[] = [{ id: 2, role: 'user', originalText: '', matchMeMatch: match }];
     const outgoing = incomingMatchMeMessage('player:matchme', 'nova:matchme', 'Your account?', matchMeState(characters, history), 'q', now)!;
     const text = JSON.stringify({ matchMeApp: [{ from: 'Nova Vale Profile', to: 'player.matchme', message: '@fotogram:nova.fotogram' }] });

@@ -24,27 +24,31 @@
   ],
   "apps": {
     "fotogram": {
-      "username": "rowan.mercer.books",
-      "displayName": "Rowan Mercer",
       "bio": "Books, bikes and quiet mornings.",
       "avatarImageId": "rowan-lake",
       "initialPosts": [
-        { "key": "lake-morning", "text": "A quiet morning by the lake before opening the library.", "imageId": "rowan-lake" }
-      ]
+        {
+          "key": "lake-morning",
+          "text": "A quiet morning by the lake before opening the library.",
+          "imageId": "rowan-lake"
+        }
+      ],
+      "profileName": "rowan.mercer.books"
     },
     "matchme": {
-      "username": "rowan.mercer",
-      "displayName": "Rowan Mercer",
       "bio": "Looking for good conversation and a cycling companion.",
       "profile": {
-        "name": "Rowan Mercer",
         "age": 29,
         "gender": "nonbinary",
         "bio": "Looking for good conversation and a cycling companion.",
         "interests": "Books, Cycling, Walking",
-        "photoIds": ["rowan-lake", "rowan-cycling"],
+        "photoIds": [
+          "rowan-lake",
+          "rowan-cycling"
+        ],
         "decisions": {}
-      }
+      },
+      "profileName": "rowan.mercer"
     }
   }
 }

@@ -1,12 +1,13 @@
 import { hasAuthoredConnection, relationshipTarget } from '../characters/relationships';
 import type { StorybookCharacter } from '../storybook/runtime';
 import type { MessageRecord, SocialAppKind } from '../types';
-import { socialHandleForName, socialIdentityMatches } from './socialMedia';
+import { socialIdentityMatches } from './socialMedia';
 
 export type SocialDirectoryUser = {
   id: string;
   name: string;
   handles: Partial<Record<SocialAppKind, string>>;
+  profileNames?: Partial<Record<SocialAppKind, string>>;
   source: 'bundled' | 'storybook' | 'dynamic';
   characterId?: string;
   aliases?: string[];
@@ -24,7 +25,8 @@ export function socialHandleAvailable(
   const normalizedHandle = handle.trim().replace(/^@/, '');
   return !!normalizedHandle && !users.some((user) =>
     user.characterId !== characterId &&
-    socialIdentityMatches(user.handles[app] ?? '', normalizedHandle)
+    (socialIdentityMatches(user.handles[app] ?? '', normalizedHandle) ||
+      socialIdentityMatches(user.profileNames?.[app] ?? '', normalizedHandle))
   );
 }
 
@@ -215,6 +217,7 @@ function storybookSocialUsers(characters: StorybookCharacter[]): SocialDirectory
         character.apps?.onlyfriends?.accountId ?? '',
       ].flatMap((id) => id ? [id, `storybook:${id}`] : []))],
       name: character.name,
+      profileNames: { fotogram: character.apps?.fotogram?.profileName, onlyfriends: character.apps?.onlyfriends?.profileName },
       handles: {
         ...(fotogram ? { fotogram } : {}),
         ...(onlyfriends ? { onlyfriends } : {}),
@@ -264,25 +267,6 @@ function nextDynamicUserId(users: Map<string, SocialDirectoryUser>, name: string
     suffix += 1;
   }
   return id;
-}
-
-function uniqueHandle(
-  users: Iterable<SocialDirectoryUser>,
-  app: SocialAppKind,
-  name: string,
-  ownId: string,
-) {
-  const base = socialHandleForName(name);
-  let handle = base;
-  let suffix = 2;
-  const used = () => Array.from(users).some((user) =>
-    user.id !== ownId && socialIdentityMatches(user.handles[app] ?? '', handle)
-  );
-  while (used()) {
-    handle = `${base}.${suffix}`;
-    suffix += 1;
-  }
-  return handle;
 }
 
 export function buildSocialDirectory(options: {
@@ -360,19 +344,6 @@ export function buildSocialDirectory(options: {
     });
   });
 
-  for (const user of users.values()) {
-    if (user.source !== 'dynamic') {
-      continue;
-    }
-    users.set(user.id, {
-      ...user,
-      handles: {
-        fotogram: user.handles.fotogram ?? uniqueHandle(users.values(), 'fotogram', user.name, user.id),
-        onlyfriends: user.handles.onlyfriends ?? uniqueHandle(users.values(), 'onlyfriends', user.name, user.id),
-      },
-    });
-  }
-
   const allUsers = Array.from(users.values());
   const dynamicUsers = Object.fromEntries(
     allUsers.filter((user) => user.source === 'dynamic').map((user) => [user.id, user]),
@@ -397,7 +368,8 @@ export function searchSocialDirectory(
       !!user.handles[app] &&
       (
         normalizedIdentity(user.name).includes(search) ||
-        normalizedIdentity(user.handles[app] ?? '').includes(search)
+        normalizedIdentity(user.handles[app] ?? '').includes(search) ||
+        normalizedIdentity(user.profileNames?.[app] ?? '').includes(search)
       )
     )
     .sort((left, right) => {

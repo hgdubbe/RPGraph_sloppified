@@ -174,6 +174,7 @@ function historySegmentsForInputValue(context: ExecuteContext, inputValue: strin
       false,
       context.rpDateTimeFormat,
       context.rpWeekdayLanguage,
+      context.historyMessages, context.appCharacters,
     );
     const matchingAllOriginal = matchingHistorySegments(allOriginal, inputValue);
     if (matchingAllOriginal) {
@@ -185,6 +186,7 @@ function historySegmentsForInputValue(context: ExecuteContext, inputValue: strin
       true,
       context.rpDateTimeFormat,
       context.rpWeekdayLanguage,
+      context.historyMessages, context.appCharacters,
     );
     const matchingAllTranslated = matchingHistorySegments(allTranslated, inputValue);
     if (matchingAllTranslated) {
@@ -200,7 +202,7 @@ function historySegmentsForInputValue(context: ExecuteContext, inputValue: strin
       false,
       context.rpDateTimeFormat,
       context.rpWeekdayLanguage,
-      context.historyMessages,
+      context.historyMessages, context.appCharacters,
     );
     const matchingRecentOriginal = matchingHistorySegments(recentOriginal, inputValue);
     if (matchingRecentOriginal) {
@@ -212,7 +214,7 @@ function historySegmentsForInputValue(context: ExecuteContext, inputValue: strin
       true,
       context.rpDateTimeFormat,
       context.rpWeekdayLanguage,
-      context.historyMessages,
+      context.historyMessages, context.appCharacters,
     );
     const matchingRecentTranslated = matchingHistorySegments(recentTranslated, inputValue);
     if (matchingRecentTranslated) {

@@ -171,11 +171,11 @@ it('validates a full replacement before clearing the current session', () => {
 });
 
 function reviewBook(id = 'player') {
-  const character = structuredClone(fixture.character);
+  const character = normalizeRpStorybook({ ...emptyRpStorybook, characters: [fixture.character] }).characters[0];
   character.id = id;
-  for (const [app, account] of Object.entries(character.apps)) {
+  for (const [app, account] of Object.entries(character.apps ?? {})) {
     account.accountId = `${id}-${app}`;
-    account.username = `${id}.${app}`;
+    account.profileName = `${id}.${app}`;
   }
   return normalizeRpStorybook({ ...emptyRpStorybook, characters: [character] });
 }
@@ -271,8 +271,8 @@ it('checks real library identities during editor commits', () => {
   npc.name = 'Library NPC';
   state.library.push({ character: npc, source: 'npc.json', tier: 'user' });
   const book = reviewBook();
-  book.characters[0].apps!.fotogram!.username = npc.apps!.fotogram!.username;
-  expect(state.render().commitStorybookToNode('book', book, {})).toContain('username');
+  book.characters[0].apps!.fotogram!.profileName = npc.apps!.fotogram!.profileName;
+  expect(state.render().commitStorybookToNode('book', book, {})).toContain('profile name');
   expect(parseRpStorybookJson(state.nodesRef.current[0].data.storybookJson!).characters).toEqual([]);
 });
 
@@ -280,7 +280,7 @@ it('drops old snapshots and timeline collisions when replacing the entire sessio
   const state = harness();
   const book = reviewBook();
   const oldNpc = reviewBook('old-npc').characters[0];
-  oldNpc.apps!.fotogram!.username = book.characters[0].apps!.fotogram!.username;
+  oldNpc.apps!.fotogram!.profileName = book.characters[0].apps!.fotogram!.profileName;
   state.snapshots[oldNpc.id] = { character: oldNpc, source: 'old.json' };
   state.messages.push({ id: 1, role: 'user', originalText: '', socialPost: {
     app: 'fotogram', postId: 'first-post', author: 'Old Author', authorHandle: 'old.author', caption: 'Old activity',
@@ -330,9 +330,9 @@ it('checks incoming Opening History snapshots before replacing the session', () 
   const book = reviewBook();
   const npc = reviewBook('incoming-npc').characters[0];
   npc.name = 'Incoming NPC';
-  npc.apps!.fotogram!.username = book.characters[0].apps!.fotogram!.username;
+  npc.apps!.fotogram!.profileName = book.characters[0].apps!.fotogram!.profileName;
   book.openingHistory.npcParticipants = { [npc.id]: { character: npc, source: 'incoming.json' } };
-  expect(state.render().commitStorybookToNode('book', book, {}, { replaceExisting: true })).toContain('username');
+  expect(state.render().commitStorybookToNode('book', book, {}, { replaceExisting: true })).toContain('profile name');
   expect(state.clearCurrentSession).not.toHaveBeenCalled();
 });
 

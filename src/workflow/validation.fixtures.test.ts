@@ -168,10 +168,8 @@ import {
   withSocialConnectionAdded,
 } from '../chat/socialDirectory';
 import {
-  bundledSocialIdentityContext,
   isBundledSocialHandle,
   socialHandleFromCatalogIdentity,
-  withBundledSocialIdentityContext,
 } from '../chat/socialCatalogs';
 import {
   resolveSocialMessageIdentity,
@@ -634,20 +632,14 @@ export function verifyWorkflowValidationFixtures() {
     imageId: 'espen_harper_image_07',
   };
   const storedSocialPostInput = socialPostInputText(socialPhotoPost);
-  const executionSocialPostInput = withBundledSocialIdentityContext(
-    storedSocialPostInput,
-    socialPhotoPost.app,
-  );
   assertFixture(
     storedSocialPostInput.includes('Post ID: onlyfriends-post-02') &&
       storedSocialPostInput.includes('Image ID: espen_harper_image_07') &&
       !storedSocialPostInput.includes('[AVAILABLE VIRTUAL SOCIAL USERS]') &&
-      executionSocialPostInput.includes('[AVAILABLE VIRTUAL SOCIAL USERS]') &&
-      executionSocialPostInput.includes('- Violet Lane (@violetlane)') &&
       socialPostHistoryText(socialPhotoPost).includes(
         '(Post ID: onlyfriends-post-02, Image ID: espen_harper_image_07)',
       ),
-    'social photo posts must expose ids while bundled reaction users stay in execution context only',
+    'social photo posts must expose ids without adding catalog identities',
   );
   const privateFotogramCharacters: StorybookCharacter[] = [
     {
@@ -738,12 +730,12 @@ export function verifyWorkflowValidationFixtures() {
       !bundledHandle.available &&
       !unknownHandle.available &&
       !unknownAtHandle.available &&
-      inventedHandleConversation.issues.length === 0 &&
-      inventedHandleConversation.sanitizedText.includes('fotogram-post-private-01') &&
+      inventedHandleConversation.issues.length === 2 &&
+      inventedHandleConversation.sanitizedText === '' &&
       invalidSocialOutput.issues.length === 1 &&
       invalidSocialOutput.sanitizedText === 'The scene continues.' &&
       invalidSocialOutput.issues[0]?.resolved.reason?.includes('Leo Parker has no OnlyFriends account.') === true,
-    'structured social messages may introduce fictional users but must reject missing Storybook app accounts',
+    'structured social messages must require existing accounts for every participant',
   );
   assertFixture(
     findSocialAccountByExactIdentity(
@@ -908,12 +900,6 @@ export function verifyWorkflowValidationFixtures() {
     user.characterId === 'storybook:character:ryan-private'
   );
   assertFixture(
-    bundledSocialIdentityContext('fotogram').some((line) =>
-        line === '- Luna Sky (@luna.sky)'
-      ) &&
-      bundledSocialIdentityContext('onlyfriends').some((line) =>
-        line === '- Violet Lane (@violetlane)'
-      ) &&
       socialHandleFromCatalogIdentity('onlyfriends', '  Violet   Lane  ') === 'violetlane' &&
       socialHandleFromCatalogIdentity(
         'fotogram',
@@ -966,8 +952,8 @@ export function verifyWorkflowValidationFixtures() {
         user.characterId === 'storybook:character:leo-no-account'
       ) &&
       zephiraSocialUser?.source === 'dynamic' &&
-      !!zephiraSocialUser.handles.fotogram &&
-      !!zephiraSocialUser.handles.onlyfriends &&
+      !zephiraSocialUser.handles.fotogram &&
+      !zephiraSocialUser.handles.onlyfriends &&
       sameNameDirectory.users.filter((user) =>
         user.source === 'dynamic' && user.name === 'Shared Name'
       ).length === 2,
@@ -1902,6 +1888,21 @@ export function verifyWorkflowValidationFixtures() {
     ),
     'both bundled default workflows must declare the current format version',
   );
+  for (const { workflow } of allBundledDefaultWorkflows) {
+    const promptSwitch = workflow.nodes.find((node) => node.data.nodeType === 'llm-prompt-switch');
+    const socialIndex = promptSwitch?.data.llmPromptSwitchOutputTitles?.indexOf('Social Media') ?? -1;
+    const prompts = promptSwitch?.data.llmPromptSwitchPromptAftersByOutput?.[socialIndex] ?? [];
+    assertFixture(
+      prompts.length >= 4 && prompts.slice(0, 4).every((prompt) => {
+        return prompt.includes('[AVAILABLE SOCIAL ACCOUNTS]') &&
+          prompt.includes('Never invent an account') &&
+          prompt.includes('If no eligible participant exists') &&
+          prompt.includes('Following is optional and is not required') &&
+          !prompt.includes('[AVAILABLE VIRTUAL SOCIAL USERS]');
+      }),
+      'bundled post and comment prompts must require existing accounts and permit an empty audience',
+    );
+  }
   const currentPromptSwitch = currentWorkflow.nodes.find(
     (node) => node.data.nodeType === 'llm-prompt-switch',
   );
@@ -1921,12 +1922,12 @@ export function verifyWorkflowValidationFixtures() {
   assertFixture(
     bundledSocialPrompts.slice(0, 4).length === 4 &&
       bundledSocialPrompts.slice(0, 4).every((prompt) =>
-        prompt.includes('[AVAILABLE VIRTUAL SOCIAL USERS]') &&
-        prompt.includes('Never invent an additional background social identity.')
+        prompt.includes('[AVAILABLE SOCIAL ACCOUNTS]') &&
+        prompt.includes('Never invent an account')
       ) &&
-      bundledSocialPrompts[0]?.includes('explicit directed Fotogram follow') &&
+      bundledSocialPrompts[0]?.includes('Following is optional and is not required') &&
       !bundledSocialPrompts[0]?.includes('every story character has an account and sees this post'),
-    'default social prompts must apply directed Fotogram follows and select background identities from the supplied app directory',
+    'default social prompts must select existing accounts without requiring a follow',
   );
   const clampedPromptActions = promptActionConfigs([
     { ...defaultPromptActionConfig('Low limit', 'getImageId'), maxReturnedImages: 0 },
@@ -3406,7 +3407,7 @@ export function verifyWorkflowValidationFixtures() {
       phoneTo: 'Sara Steiner',
     }], false) === [
       'Robert pulls over.',
-      'Robert Miller texts Sara Steiner: Which flowers does Lara like?',
+      '[WhatsUp] Robert Miller texts Sara Steiner: Which flowers does Lara like?',
       'He puts his phone away.',
     ].join('\n\n'),
     'chat history must inline embedded phone messages at their RP text position',
@@ -3427,7 +3428,7 @@ export function verifyWorkflowValidationFixtures() {
       inputPromptSlot: 0,
       rpDateTime: '2026-06-22T15:40',
     }], false, 'eu', 'en-US') === [
-      "[22.06.26 MON 15:40] Emily Miller sends an image to Sarah Miller: [emily_miller_image_01: Emily Miller and Sarah Miller sitting on a red tiled patio, both wearing sunglasses; Emily looks forward while Sarah looks down.] Hey that's us together at the party from last weekend jack sent the picture",
+      "[22.06.26 MON 15:40] [WhatsUp] Emily Miller sends an image to Sarah Miller: [emily_miller_image_01: Emily Miller and Sarah Miller sitting on a red tiled patio, both wearing sunglasses; Emily looks forward while Sarah looks down.] Hey that's us together at the party from last weekend jack sent the picture",
     ].join('\n\n'),
     'chat history must label phone user-image inputs with their Storybook image id',
   );
@@ -3454,8 +3455,8 @@ export function verifyWorkflowValidationFixtures() {
       phoneTo: 'Emily Miller',
       replyToMessageId: 1,
     }], false) === [
-      'Emily Miller sends an image to Sarah Miller: [emily_miller_image_01: Emily and Sarah sitting together on a red tiled patio.] Hey, that is us at the party.',
-      'Sarah Miller replies to Emily Miller:\n[Replied to Emily Miller: [emily_miller_image_01: Emily and Sarah sitting together on a red tiled patio.] Hey, that is us at the party.]\nSarah Miller\'s message: I love this one.',
+      '[WhatsUp] Emily Miller sends an image to Sarah Miller: [emily_miller_image_01: Emily and Sarah sitting together on a red tiled patio.] Hey, that is us at the party.',
+      '[WhatsUp] Sarah Miller replies to Emily Miller:\n[Replied to Emily Miller: [emily_miller_image_01: Emily and Sarah sitting together on a red tiled patio.] Hey, that is us at the party.]\nSarah Miller\'s message: I love this one.',
     ].join('\n\n'),
     'chat history must include the replied phone message and its image id',
   );

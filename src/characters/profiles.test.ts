@@ -46,10 +46,10 @@ describe('canonical character profiles', () => {
   it('uses canonical fields over stale compatibility projections and round-trips edits', () => {
     const character = story().characters[0];
     character.social!.fotogramUsername = 'stale';
-    expect(characterPayload(character).apps.fotogram?.username).toBe('nova.art');
-    const updated = withCharacterAppProfile(character, 'fotogram', { ...character.apps!.fotogram!, bio: 'New bio', displayName: 'Artist' });
+    expect(characterPayload(character).apps.fotogram?.legacyHandles?.[0]).toBe('nova.art');
+    const updated = withCharacterAppProfile(character, 'fotogram', { ...character.apps!.fotogram!, bio: 'New bio', profileName: 'Artist' });
     const saved = parseRpStorybookJson(rpStorybookJsonText({ ...story(), characters: [updated] }));
-    expect(saved.characters[0].apps?.fotogram).toMatchObject({ accountId: 'nova-fg', bio: 'New bio', displayName: 'Artist', avatarImageId: 'portrait' });
+    expect(saved.characters[0].apps?.fotogram).toMatchObject({ accountId: 'nova-fg', bio: 'New bio', profileName: 'Artist', avatarImageId: 'portrait' });
     expect(saved.characters[0].social?.fotogramUsername).toBe('nova.art');
   });
   it('gives new characters persistent Fotogram and WhatsUp accounts', () => {
@@ -58,25 +58,23 @@ describe('canonical character profiles', () => {
     expect(character.apps?.whatsup).toMatchObject({
       accountId: 'character:new:whatsup',
       enabled: true,
-      username: 'New Person',
-      displayName: 'New Person',
     });
     expect(character.apps?.onlyfriends).toBeUndefined();
     expect(character.apps?.matchme).toBeUndefined();
     expect(characterPayload(character).apps.fotogram?.accountId).toBe(character.apps?.fotogram?.accountId);
   });
-  it('locks account IDs and established usernames but permits first-time optional accounts', () => {
+  it('locks account IDs while allowing profile name edits but permits first-time optional accounts', () => {
     const current = story();
     const next = structuredClone(current);
-    next.characters[0].apps!.fotogram!.username = 'changed';
-    expect(rpStorybookIdentityLockViolations(current, next).length).toBeGreaterThan(0);
+    next.characters[0].apps!.fotogram!.profileName = 'changed';
+    expect(rpStorybookIdentityLockViolations(current, next)).toEqual([]);
     next.characters[0].apps = structuredClone(current.characters[0].apps);
     delete next.characters[0].apps!.matchme;
     expect(rpStorybookIdentityLockViolations(current, next).length).toBeGreaterThan(0);
     next.characters[0].apps = { ...current.characters[0].apps, onlyfriends: { accountId: 'new-of', enabled: true, username: 'nova.private', displayName: 'Nova', bio: '' } };
     expect(rpStorybookIdentityLockViolations(current, next)).toEqual([]);
     const account = current.characters[0].apps!.fotogram!;
-    expect(profileIdentityError(account, { ...account, username: '' }, true)).toContain('locked');
+    expect(profileIdentityError(account, { ...account, accountId: 'changed' }, true)).toContain('locked');
     expect(profileIdentityError(undefined, { ...account, accountId: 'new' }, true)).toBeUndefined();
   });
 });

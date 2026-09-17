@@ -1,3 +1,4 @@
+import { migratedProfileName } from '../../characters/character';
 import { useState } from 'react';
 import { appAvatarDataUrl } from '../../characters/portrait';
 import type { RpStorybookCharacterProfileImage } from '../../nodes/rp-storybook/model';
@@ -17,14 +18,15 @@ export function SocialProfileEditor({ account, accountId, name, images, profileI
 }) {
   const [draft, setDraft] = useState<CharacterAppAccount>(() => ({
     ...account, accountId: account?.accountId ?? accountId, enabled: true,
-    username: account?.username || `${name.toLowerCase().replace(/[^a-z0-9]+/g, '.').replace(/^\.|\.$/g, '') || 'character'}.${accountId.replace(/[^a-zA-Z0-9]/g, '')}`,
-    displayName: account?.displayName || name, bio: account?.bio ?? '',
+    profileName: account ? migratedProfileName(account, name) : name, bio: account?.bio ?? '',
   }));
   const avatar = appAvatarDataUrl({ profileImage }, images.find((image) => image.id === draft.avatarImageId));
   const portrait = appAvatarDataUrl({ profileImage });
   const [error, setError] = useState('');
   const creating = !account?.enabled;
   const appName = app === 'fotogram' ? 'Photogram' : 'OnlyFriends';
+  const isPrivate = draft.privacyMode === true;
+  const [showPrivacyInfo, setShowPrivacyInfo] = useState(false);
   return <form
     className={`social-profile-editor social-profile-editor--${app}`}
     style={app === 'onlyfriends' ? {
@@ -32,8 +34,8 @@ export function SocialProfileEditor({ account, accountId, name, images, profileI
     } : undefined}
     onSubmit={(event) => {
       event.preventDefault();
-      const next = { ...draft, displayName: draft.displayName.trim() };
-      if (!next.displayName) { setError('Add a display name for your profile.'); return; }
+      const next = { ...draft, profileName: (draft.profileName ?? '').trim() };
+      if (!next.profileName) { setError('Add a profile name for your profile.'); return; }
       const reason = profileIdentityError(account, next, locked);
       if (reason) { setError(reason); return; }
       if (!onSave(next)) setError('Could not save the profile. Please check the account identity and try again.');
@@ -60,27 +62,43 @@ export function SocialProfileEditor({ account, accountId, name, images, profileI
     <section className="social-profile-preview" aria-label="Live profile preview">
       {app === 'fotogram' && <span className="social-profile-live-badge">Live preview</span>}
       <div className="social-profile-avatar">
-        <span>{avatar ? <img src={avatar} alt="Profile preview" /> : name.slice(0, 1).toUpperCase()}</span>
+        <span>{!isPrivate && avatar ? <img src={avatar} alt="Profile preview" /> : ((isPrivate ? draft.profileName : name) || '?').slice(0, 1).toUpperCase()}</span>
         {app === 'fotogram' && <span className="social-profile-plus-badge" aria-hidden="true">+</span>}
       </div>
-      <div><span className="social-profile-eyebrow">Profile preview</span><h3>{draft.displayName.trim() || name}</h3>
-        {app === 'fotogram' && <div className="social-profile-handle">@{draft.username || 'your.username'}</div>}
+      <div><span className="social-profile-eyebrow">Profile preview</span><h3>{isPrivate ? draft.profileName : (draft.profileName?.trim() || name)}</h3>
+        {app === 'fotogram' && <div className="social-profile-handle">@{(draft.profileName ?? '').trim().replace(/^@/, '') || 'your.username'}</div>}
         <p>{draft.bio || 'Your story starts here.'}</p></div>
     </section>
     <section className="social-profile-section">
       {app === 'fotogram' ? <div className="social-profile-section-heading"><h3>The introduction</h3><span>Make it yours</span></div>
         : <h3><span aria-hidden="true">01</span> The essentials</h3>}
-      <label>Display name<input required maxLength={60} value={draft.displayName} onChange={(event) => setDraft({ ...draft, displayName: event.target.value })} placeholder="How you appear on your profile" /></label>
-      {app === 'fotogram' && (
-        <label>Username
-          <div className="social-profile-username-wrap">
-            <span className="social-profile-at" aria-hidden="true">@</span>
-            <input required maxLength={30} pattern="[A-Za-z0-9._-]{1,30}" autoCapitalize="none" spellCheck={false}
-              value={draft.username} onChange={(event) => setDraft({ ...draft, username: event.target.value })} />
+      <div className="social-profile-identity-row">
+        <label>Profile name<input required maxLength={60} value={draft.profileName} onChange={(event) => setDraft({ ...draft, profileName: event.target.value })} placeholder="How you appear on your profile" /></label>
+        <div className="social-profile-visibility-wrap">
+          <label className="social-profile-visibility">
+            <input type="checkbox" checked={isPrivate} onChange={(event) => setDraft({ ...draft, privacyMode: event.target.checked })} />
+            <span>Privacy mode</span>
+          </label>
+          <div
+            className={`social-profile-info-trigger${showPrivacyInfo ? ' active' : ''}`}
+            tabIndex={0}
+            role="button"
+            aria-label="Privacy mode details"
+            title="Privacy mode details"
+            onClick={() => setShowPrivacyInfo((v) => !v)}
+            onKeyDown={(event) => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); setShowPrivacyInfo((v) => !v); } }}
+          >
+            <svg viewBox="0 0 16 16" width="13" height="13" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+              <circle cx="8" cy="8" r="6.5" />
+              <line x1="8" y1="7.2" x2="8" y2="11.5" />
+              <circle cx="8" cy="4.5" r="0.6" fill="currentColor" stroke="none" />
+            </svg>
+            <div className="social-profile-info-bubble" role="tooltip">
+              When enabled, your character name and profile photo are hidden across this app, using only your profile name.
+            </div>
           </div>
-          <div className="social-profile-field-foot"><span>Letters, numbers, dots &amp; underscores.</span></div>
-        </label>
-      )}
+        </div>
+      </div>
       <label>Bio{app === 'fotogram' && <span className="social-profile-optional"> · optional</span>}
         <textarea rows={4} maxLength={500} value={draft.bio} onChange={(event) => setDraft({ ...draft, bio: event.target.value })} placeholder="A few words, a little personality…" />
         {app === 'fotogram'

@@ -7,13 +7,15 @@ export async function executeLastUserInputNode(node: WorkflowNode, context: Exec
     .reverse()
     .find((message) => message.role === 'user' && message.includeInHistory !== false);
   const text =
-    (node.data.includeRpDateTime && latestUserMessage && latestUserMessage.originalText === context.visibleInput)
+    (latestUserMessage && latestUserMessage.originalText === context.visibleInput &&
+      (node.data.includeRpDateTime || latestUserMessage.socialDirectMessage))
       ? formatLastMessageForContext(
           latestUserMessage,
           false,
           context.rpDateTimeFormat,
           context.rpWeekdayLanguage,
-          true,
+          node.data.includeRpDateTime ?? false,
+          context.appCharacters,
         )
       : context.visibleInput;
   context.updateRuntimeData(node.id, {

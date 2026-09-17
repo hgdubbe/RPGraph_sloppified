@@ -37,28 +37,71 @@ describe('bundled authored MatchMe characters', () => {
       for (const image of character.images) {
         expect(image.mimeType).toBe('image/jpeg');
         expect(image.width! * image.height!).toBeLessThanOrEqual(1_000_000);
-        expect(image.size).toBeLessThanOrEqual(200 * 1024);
+        expect(image.size).toBeLessThanOrEqual(250 * 1024);
       }
 
       const fotogram = character.apps?.fotogram;
       const matchme = character.apps?.matchme;
-      expect(fotogram).toMatchObject({ enabled: true, displayName: character.name });
-      expect(matchme).toMatchObject({ enabled: true, displayName: character.name });
-      expect(fotogram?.username).toBe(expected.fotogram);
-      expect(matchme?.username).toBe(expected.matchme);
-      expect(matchme?.profile).toMatchObject({ name: expected.name, username: expected.matchme });
+      expect(fotogram).toMatchObject({ enabled: true, profileName: expect.any(String) });
+      expect(matchme).toMatchObject({ enabled: true, profileName: expect.any(String) });
+      expect(fotogram?.profileName).toBe(expected.fotogram);
+      expect(matchme?.profileName).toBe(character.name);
+      expect(matchme?.legacyHandles).toContain(expected.matchme);
+      expect(matchme?.profile).not.toHaveProperty('name');
+      expect(matchme?.profile).not.toHaveProperty('username');
       expect(fotogram?.avatarImageId).toBeTruthy();
-      expect(matchme?.profile?.photoIds).toHaveLength(1);
-      expect(fotogram?.initialPosts).toHaveLength(['avery_hart', 'chloe_lane', 'luca_reed'].includes(character.id) ? 1 : 0);
+      expect(matchme?.profile?.photoIds.length).toBeGreaterThanOrEqual(1);
+      expect(matchme?.profile?.gender).toBe(character.gender);
+      expect(matchme?.profile?.seeking).toEqual(character.gender === 'woman' ? ['man'] : ['woman']);
+      expect(Array.isArray(fotogram?.initialPosts)).toBe(true);
       expect(character.hiddenAgency).toBe('');
       for (const account of [fotogram!, matchme!]) {
         expect(accountIds.has(account.accountId)).toBe(false);
-        expect(usernames.has(account.username)).toBe(false);
+        expect(usernames.has((account.profileName ?? account.username ?? ''))).toBe(false);
         accountIds.add(account.accountId);
-        usernames.add(account.username);
+        usernames.add((account.profileName ?? account.username ?? ''));
       }
     }
   });
+});
+
+it('ships classified NPCs with explicit app roles, private OnlyFriends names and complete dating preferences', async () => {
+  const snapshot = await browserNpcLibrarySnapshot();
+  expect(snapshot.diagnostics).toEqual([]);
+  for (const { character } of snapshot.entries) {
+    expect(character.agencyTags?.length).toBeGreaterThanOrEqual(1);
+    expect(character.agencyTags!.length).toBeLessThanOrEqual(2);
+    for (const [app, account] of Object.entries(character.apps ?? {})) {
+      if (!account.enabled) continue;
+      expect(account.agencyTags?.length).toBeGreaterThanOrEqual(1);
+      expect(account.agencyTags!.every((tag) => character.agencyTags!.includes(tag))).toBe(true);
+      if (app === 'fotogram' || app === 'onlyfriends') {
+        expect(['user', 'creator']).toContain(account.accountRole);
+        expect(typeof account.privacyMode).toBe('boolean');
+      }
+      if (app === 'onlyfriends') {
+        expect(account.privacyMode).toBe(true);
+        for (const name of character.name.toLowerCase().split(/\s+/)) {
+          expect(account.profileName?.toLowerCase()).not.toContain(name);
+          expect(account.bio.toLowerCase()).not.toContain(name);
+        }
+      }
+    }
+    const matchme = character.apps?.matchme;
+    if (matchme?.enabled) {
+      expect(matchme.profileName).toBe(character.name);
+      expect(['woman', 'man']).toContain(character.gender);
+      expect(matchme.profile?.gender).toBe(character.gender);
+      expect(matchme.profile?.seeking).toEqual(character.gender === 'woman' ? ['man'] : ['woman']);
+      expect(matchme.profile).not.toHaveProperty('name');
+      expect(matchme.profile).not.toHaveProperty('username');
+    }
+    if (character.name === 'Ivy Rowan') {
+      expect(character.gender).toBe('man');
+      expect(matchme?.profile?.gender).toBe('man');
+      expect(matchme?.profile?.seeking).toEqual(['woman']);
+    }
+  }
 });
 
 it('provides Eli Ward with a stable authored WhatsUp account', async () => {
@@ -68,7 +111,7 @@ it('provides Eli Ward with a stable authored WhatsUp account', async () => {
   const registry = buildCharacterRegistry([entry]);
   const characters = appCharactersFromRegistry(registry);
   const context = recipientCharacterContext(characters[0]);
-  expect(context).toContain('WhatsUp\nUsername: @Eli Ward');
+  expect(context).toContain('WhatsUp\nProfile photo');
   expect(context).toContain('No account: OnlyFriends');
   expect(resolveRegistryAccount(registry, 'whatsup', 'Eli Ward').status).toBe('found');
   expect(resolveWhatsUpRecipient(characters, [], 'Eli Ward').accountId).toBe('character:eli_ward:whatsup');

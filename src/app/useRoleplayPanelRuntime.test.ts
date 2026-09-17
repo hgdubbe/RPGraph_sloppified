@@ -79,7 +79,7 @@ it('opens an NPC conversation from the playable side and preserves narrator insp
 it('opens an NPC publication for narrator inspection without selecting the NPC as player', () => {
   const { render, npc } = harness();
   render().openSocialPost({ app: 'onlyfriends', postId: 'npc-post', author: npc.name,
-    authorHandle: 'npc', caption: 'NPC publication' });
+    authorCharacterId: npc.sourceId, authorHandle: 'npc', caption: 'NPC publication' });
   expect(render().narratorSelected).toBe(true);
   expect(render().selectedCharacter).toBeUndefined();
   expect(render().viewedPhoneCharacter?.id).toBe(npc.id);

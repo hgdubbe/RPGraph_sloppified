@@ -15,6 +15,19 @@ function fixture(): Character {
 const response = (patch: unknown[]) => JSON.stringify({ reply: 'Updated.', patch });
 
 describe('Character Assistant edits', () => {
+  it('preserves historical routing aliases when replacing an account to rename it', () => {
+    const original = fixture();
+    original.apps!.fotogram = { accountId: 'alex-fg', enabled: true, bio: '',
+      username: 'alex.artist', displayName: 'Alex' };
+    const result = parseCharacterAssistantResult(response([{ op: 'replace', path: '/character/apps/fotogram',
+      value: { accountId: 'alex-fg', enabled: true, bio: '', profileName: 'New Artist' } }]), original);
+    expect(result.character.apps!.fotogram).toMatchObject({ accountId: 'alex-fg', profileName: 'New Artist',
+      legacyHandles: ['alex.artist', 'Alex'] });
+    expect(() => parseCharacterAssistantResult(response([{ op: 'remove',
+      path: '/character/apps/fotogram/legacyHandles' }]), result.character)).toThrow('cannot edit');
+    expect(original.apps!.fotogram.username).toBe('alex.artist');
+  });
+
   it('keeps playable internal and defaults authored containers to NPC', () => {
     const character = newAssistantCharacter();
     expect(character.playable).toBe(false);

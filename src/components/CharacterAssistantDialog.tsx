@@ -1,3 +1,4 @@
+import { CharacterAgencyField } from './CharacterAgencyField';
 import { CharacterRelationships } from './CharacterRelationships';
 import { CharacterMentionInput } from './CharacterMentionInput';
 import { characterReferenceCandidates, relationshipReferenceContext, validateRelationshipTargets } from '../characters/relationships';
@@ -328,10 +329,12 @@ export function CharacterAssistantDialog({ requiredPassword = '', referenceChara
             </StorybookInlineEditor>
             <CharacterRelationships character={character} characters={relationshipCharacters} disabled={ioBusy}
               onChange={(relationships) => change({ ...character, relationships })} />
+            <CharacterAgencyField key={`tags:${character.id}`} character={character} disabled={ioBusy}
+              onSave={(next) => { change(next); return true; }} />
             <HiddenAgencyField key={`agency:${character.id}`} value={character.hiddenAgency} disabled={ioBusy}
               onSave={(hiddenAgency) => { change({ ...character, hiddenAgency }); return true; }} />
             <div className="section-header"><h4>Accounts & Settings</h4><button className="storybook-inline-action nodrag" type="button" onClick={() => setEditSettings(!editSettings)}>{editSettings ? 'Done' : 'Edit'}</button></div>
-            {!editSettings && <div className="character-fields"><div className="character-field"><span className="field-label">Accounts</span><p>{Object.entries(character.apps ?? {}).filter(([, account]) => account.enabled).map(([app, account]) => `${{ whatsup: 'WhatsUp', fotogram: 'Fotogram', onlyfriends: 'OnlyFriends', matchme: 'MatchMe' }[app] || app}: ${account.displayName || account.username}`).join(' · ') || 'No active accounts'}</p></div><div className="character-field"><span className="field-label">Starting Posts</span><p>{Object.values(character.apps ?? {}).reduce((total, account) => total + (account.initialPosts?.length ?? 0), 0)} posts</p></div></div>}
+            {!editSettings && <div className="character-fields"><div className="character-field"><span className="field-label">Accounts</span><p>{Object.entries(character.apps ?? {}).filter(([, account]) => account.enabled).map(([app, account]) => `${{ whatsup: 'WhatsUp', fotogram: 'Fotogram', onlyfriends: 'OnlyFriends', matchme: 'MatchMe' }[app] || app}: ${app === 'whatsup' ? character.name : account.profileName || account.displayName || account.username}`).join(' · ') || 'No active accounts'}</p></div><div className="character-field"><span className="field-label">Starting Posts</span><p>{Object.values(character.apps ?? {}).reduce((total, account) => total + (account.initialPosts?.length ?? 0), 0)} posts</p></div></div>}
             {editSettings && <fieldset disabled={ioBusy} className="character-assistant-fields">
               <div className="character-assistant-inline">
                 <label><span>Age</span><input type="number" value={character.age ?? ''} onChange={(event) => change({ ...character, age: event.target.value === '' ? undefined : Number(event.target.value) })} /></label>

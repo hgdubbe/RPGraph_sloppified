@@ -18,7 +18,7 @@ export function buildSocialCommentCommit({ incoming, characters, messages }: Soc
 }): BuildResult<SocialCommentCommit> {
   const post = messages.find((message) => message.socialPost?.app === incoming.app && message.socialPost.postId === incoming.postId)?.socialPost;
   if (!post) return { warnings: [`${socialAppNames[incoming.app]} post comment was ignored because post "${incoming.postId}" does not exist.`] };
-  const commenter = resolveSocialMessageIdentity({ characters, messages, app: incoming.app, identity: incoming.from, allowNewNpc: true });
+  const commenter = resolveSocialMessageIdentity({ characters, messages, app: incoming.app, identity: incoming.from });
   if (!commenter.available) return { warnings: [`${socialAppNames[incoming.app]} post comment was ignored. ${commenter.reason}`] };
   const from = commenter.name;
   const handle = commenter.handle ?? (commenter.character ? socialHandleForCharacter(commenter.character, incoming.app)
@@ -45,13 +45,13 @@ export function buildSocialDirectMessageCommit({ incoming, characters, messages,
   const warnings: string[] = [];
   const recipientName = incoming.to ?? defaultRecipient?.name;
   if (!recipientName) return { warnings: [`A ${socialAppNames[incoming.app]} direct message from "${incoming.from}" was ignored because it has no recipient.`] };
-  const recipient = resolveSocialMessageIdentity({ characters, messages, app: incoming.app, identity: recipientName, allowNewNpc: true });
+  const recipient = resolveSocialMessageIdentity({ characters, messages, app: incoming.app, identity: recipientName });
   if (!recipient.available) return { warnings: [`A ${socialAppNames[incoming.app]} direct message was ignored. ${recipient.reason}`] };
   const to = recipient.name;
   const toHandle = !incoming.to && defaultRecipient ? defaultRecipient.handle
     : recipient.handle ?? (recipient.character ? socialHandleForCharacter(recipient.character, incoming.app)
       : establishedSocialHandle(messages, incoming.app, to) ?? socialHandleForName(to));
-  const sender = resolveSocialMessageIdentity({ characters, messages, app: incoming.app, identity: incoming.from, allowNewNpc: true });
+  const sender = resolveSocialMessageIdentity({ characters, messages, app: incoming.app, identity: incoming.from });
   if (!sender.available) return { warnings: [`A ${socialAppNames[incoming.app]} direct message was ignored. ${sender.reason}`] };
   const from = sender.name;
   const explicitOrCatalogHandle = socialHandleFromCatalogIdentity(incoming.app, incoming.from, incoming.handle);

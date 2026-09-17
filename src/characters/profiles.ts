@@ -1,3 +1,5 @@
+import { accountHandle, migratedProfileName } from './character';
+import { agencyTagSupports, validateCharacterAgency } from '../../shared/agency-tags.cjs';
 import type { DatingProfile } from '../chat/datingProfile';
 import { normalizeCharacterApps, socialFromCharacterApps, type Character, type CharacterAppAccount, type CharacterApps } from './character';
 import type { CharacterRegistryDiagnostic, EffectiveCharacterRegistry } from './registry';
@@ -24,7 +26,21 @@ export function validateCandidateCharacterRegistry(
 
 /** Update the canonical account and immediately refresh the legacy runtime projection. */
 export function withCharacterAppProfile(character: Character, app: keyof CharacterApps, account: CharacterAppAccount & { profile?: DatingProfile }): Character {
-  const apps = { ...normalizeCharacterApps(character.apps, character.social, character.id, character.name), [app]: account };
+  const current = normalizeCharacterApps(character.apps, character.social, character.id, character.name);
+  const previous = current[app];
+  const accountRole = account.accountRole ?? previous?.accountRole;
+  const agencyTags = account.agencyTags ?? previous?.agencyTags ?? (character.agencyTags?.length
+    ? character.agencyTags.filter((tag) => agencyTagSupports(tag, app, accountRole ?? 'user')) : undefined);
+  const privacyMode = account.privacyMode ?? previous?.privacyMode;
+  const updated = { ...account,
+    ...(privacyMode !== undefined ? { privacyMode } : {}),
+    ...(accountRole !== undefined ? { accountRole } : {}),
+    ...(agencyTags !== undefined ? { agencyTags: [...agencyTags] } : {}),
+    legacyHandles: [...new Set([
+    ...(previous?.legacyHandles ?? []), accountHandle(previous), ...(account.legacyHandles ?? []),
+  ].filter(Boolean))] };
+  const apps = normalizeCharacterApps({ ...current, [app]: updated }, undefined, character.id, character.name);
+  validateCharacterAgency({ ...character, apps });
   if (account.avatarImageId && !character.images.some((image) => image.id === account.avatarImageId)) {
     throw new Error('Choose an avatar from this character’s gallery.');
   }
@@ -33,10 +49,10 @@ export function withCharacterAppProfile(character: Character, app: keyof Charact
 
 export function profileIdentityError(current: CharacterAppAccount | undefined, next: CharacterAppAccount, locked: boolean) {
   if (locked && current && (next.accountId !== current.accountId ||
-    (current.enabled && !next.enabled) || (current.username && next.username !== current.username))) {
+    (current.enabled && !next.enabled))) {
     return 'This account identity is locked while the story has chat or Opening History.';
   }
-  if (!next.username.trim() || !/^[a-zA-Z0-9._-]+$/.test(next.username)) return 'Use a username containing letters, numbers, dots, underscores or hyphens.';
+  if (!migratedProfileName(next).trim() || migratedProfileName(next).length > 60) return 'Use a profile name containing 1–60 characters.';
   return undefined;
 }
 
@@ -55,9 +71,9 @@ export function validateCharacterAccountDirectory(characters: Character[]) {
     for (const [app, account] of Object.entries(character.apps ?? {})) {
       if (ids.has(account.accountId)) throw new Error(`Duplicate account ID: ${account.accountId}`);
       ids.add(account.accountId);
-      const handle = `${app}/${account.username.trim().toLowerCase()}`;
-      if (account.enabled && account.username) {
-        if (app !== 'whatsup' && handles.has(handle)) throw new Error(`Ambiguous ${app} username: @${account.username}`);
+      const handle = `${app}/${(account.profileName ?? accountHandle(account)).trim().toLowerCase()}`;
+      if (account.enabled && accountHandle(account)) {
+        if (app !== 'whatsup' && handles.has(handle)) throw new Error(`Ambiguous ${app} username: @${accountHandle(account)}`);
         handles.add(handle);
       }
       for (const post of account.initialPosts ?? []) {

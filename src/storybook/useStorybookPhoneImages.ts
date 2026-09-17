@@ -175,22 +175,13 @@ export function useStorybookPhoneImages({
     const storybook = parseRpStorybookJson(node.data.storybookJson);
     if (!storybook.characters.some((entry) => entry.id === character.sourceId)) return false;
     const current = storybook.characters.find((entry) => entry.id === character.sourceId)!;
-    const currentAccount = current.apps?.matchme;
-    const username = normalized.username ?? currentAccount?.username ?? '';
-    if (currentAccount?.username && username !== currentAccount.username &&
-      (messagesRef.current.length > 0 || storybook.openingHistory.turns.length > 0 || storybook.openingHistory.events.length > 0)) {
-      notifySystem('warning', 'The MatchMe username is locked while the story has chat or Opening History.'); return false;
-    }
-    if (username && (!/^[a-zA-Z0-9._-]+$/.test(username) || storybook.characters.some((entry) => entry.id !== current.id && entry.apps?.matchme?.username.toLowerCase() === username.toLowerCase()))) {
-      notifySystem('warning', 'Choose a valid, available MatchMe username.'); return false;
-    }
     if (normalized.photoIds.some((id) => !current.images.some((image) => image.id === id))) {
       notifySystem('warning', 'MatchMe photos must belong to the character gallery.'); return false;
     }
     let next: RpStorybook;
     try {
       next = { ...storybook, characters: storybook.characters.map((entry) => entry.id === character.sourceId
-        ? withCharacterAppProfile(entry, 'matchme', { accountId: entry.apps?.matchme?.accountId ?? `character:${entry.id}:matchme`, ...entry.apps?.matchme, enabled: true, username, displayName: normalized.name, bio: normalized.bio, profile: normalized })
+        ? withCharacterAppProfile(entry, 'matchme', { accountId: entry.apps?.matchme?.accountId ?? `character:${entry.id}:matchme`, ...entry.apps?.matchme, enabled: true, profileName: normalized.name, bio: normalized.bio, profile: normalized })
         : entry) };
       validateProfileCandidate(node.id, next);
     } catch (error) {
@@ -229,7 +220,8 @@ export function useStorybookPhoneImages({
     const storybook = parseRpStorybookJson(storybookNode.data.storybookJson);
     const source = storybook.characters.find((entry) => entry.id === character.sourceId)!;
     const account = { accountId: source.apps?.[app]?.accountId ?? `character:${source.id}:${app}`,
-      enabled: true, displayName: source.name, bio: '', ...source.apps?.[app], ...profile, username };
+      enabled: true, bio: '', ...source.apps?.[app], ...profile,
+      profileName: profile?.profileName ?? username };
     const reason = profileIdentityError(source.apps?.[app], account, messagesRef.current.length > 0 ||
       storybook.openingHistory.turns.length > 0 || storybook.openingHistory.events.length > 0);
     if (reason) { notifySystem('warning', reason); return false; }

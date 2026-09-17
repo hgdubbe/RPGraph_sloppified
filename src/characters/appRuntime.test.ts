@@ -36,7 +36,7 @@ function setup(extra: CharacterRegistryEntry[] = []) {
   const entries = [entry(player, 'storybook'), entry(), ...extra];
   const characters = appCharactersFromRegistry(buildCharacterRegistry(entries));
   const state = matchMeState(characters, []);
-  const match = matchMeLikePolicy('player-matchme', 'stage4-nova-mm', state, now)!;
+  const match = matchMeLikePolicy('player-matchme', 'stage4-nova-mm', state, now, 'superlike')!;
   const messages: MessageRecord[] = [{ id: 1, role: 'user', originalText: '', matchMeMatch: match }];
   const active = matchMeState(characters, messages);
   const outgoing = incomingMatchMeMessage('player-matchme', 'stage4-nova-mm', 'What is your Fotogram username?', active, 'question', now)!;
@@ -51,7 +51,7 @@ describe('shared NPC app discovery', () => {
 
     expect(recommendedSocialPostIdentities('fotogram', characters)).toEqual([
       libraryNpc.name,
-      libraryNpc.apps!.fotogram!.username,
+      libraryNpc.apps!.fotogram!.legacyHandles![0],
     ]);
     expect(recommendedSocialPostIdentities('fotogram', characters)).not.toContain(storybookCharacter.name);
     expect(recommendedSocialPostIdentities('onlyfriends', characters)).toEqual([]);
@@ -64,11 +64,11 @@ describe('shared NPC app discovery', () => {
       from: 'Player', fromHandle: 'player.fotogram', fromAccountId: 'player-fotogram',
       to: 'Nova Vale', toHandle: 'nova.vale.art', toAccountId: 'stage4-nova-fg' };
     const context = socialDirectMessageInputText(message, [], characters);
-    expect(context).toContain('Sender: Player (@player.fotogram)\nRecipient: Nova Vale (@nova.vale.art)\nReply as: Nova Vale to Player');
+    expect(context).toContain('Sender: Player (@Nova Vale)\nRecipient: Nova Vale (@nova.vale.art)\nReply as: Nova Vale to Player');
     expect(context).toContain('Private characterization\nName: Nova Vale');
     expect(context).toContain(fixture.character.personality);
     expect(context).toContain('Public social profiles\n\n');
-    expect(context).toContain('Fotogram\nUsername: @nova.vale.art');
+    expect(context).toContain('Fotogram\nProfile name: @nova.vale.art');
     expect(context).toContain('No account: OnlyFriends');
     expect(context).not.toContain('Existing conversation');
     expect(context).toContain(`New message:\nPlayer: ${message.text}`);
@@ -83,10 +83,10 @@ describe('shared NPC app discovery', () => {
     onlyFriends.apps!.onlyfriends = { ...onlyFriends.apps!.fotogram!, accountId: 'nova-of', username: 'nova.private' };
     const onlyFriendsInput = socialDirectMessageInputText({ ...message, app: 'onlyfriends', toAccountId: 'nova-of' }, [], [onlyFriends]);
     expect(onlyFriendsInput).toContain('Private characterization');
-    expect(onlyFriendsInput).toContain('Username: @nova.vale.art');
+    expect(onlyFriendsInput).toContain('Profile name: @nova.vale.art');
     const phoneInput = whatsUpMessageInputText('Player', recipient.name, 'What is your Fotogram account?', recipient);
     expect(phoneInput).toContain('Reply as: Nova Vale to Player');
-    expect(phoneInput).toContain('Username: @nova.vale.art');
+    expect(phoneInput).toContain('Profile name: @nova.vale.art');
     expect(phoneInput).toContain(fixture.character.personality);
     expect(phoneInput).toContain('New message:\nPlayer: What is your Fotogram account?');
     expect(phoneInput).not.toContain('Existing conversation');
@@ -135,7 +135,7 @@ describe('shared NPC app discovery', () => {
       if (app === 'matchme') expect(matchMeState(characters, []).accounts.some((account) => account.characterId === value.id)).toBe(false);
       else expect(searchSocialDirectory(buildSocialDirectory({ storyCharacters: characters, messages: [] }).users, app, 'nova.vale.art')).toEqual([]);
       if (app === 'matchme') expect(recipientCharacterContext(characters[0])).toMatch(/No account: .*MatchMe/);
-      else expect(characters[0].apps?.fotogram).toMatchObject({ enabled: true, displayName: value.name });
+      else expect(characters[0].apps?.fotogram).toMatchObject({ enabled: true, profileName: expect.any(String) });
     }
     const value = npc(); value.apps!.fotogram!.enabled = false; value.apps!.matchme!.enabled = false;
     const characters = appCharactersFromRegistry(buildCharacterRegistry([entry(value)]));
@@ -222,7 +222,7 @@ describe('shared NPC app discovery', () => {
     const { entries, messages, outgoing } = setup();
     const archive = captureNpcParticipants({}, entries, npcReferencesFromMessages(messages));
     const restored = parseNpcParticipantSnapshots(JSON.parse(JSON.stringify(archive)));
-    const changed = npc(); changed.apps!.fotogram!.username = 'changed'; changed.personality = 'CHANGED SECRET';
+    const changed = npc(); changed.apps!.fotogram!.profileName = 'changed'; changed.personality = 'CHANGED SECRET';
     for (const library of [[], [entry(changed)]]) {
       const characters = appCharactersFromRegistry(buildCharacterRegistry([entries[0], ...library, ...npcSnapshotEntries(restored)]));
       expect(matchMeMessageAllowed(outgoing, matchMeState(characters, messages))).toBe(true);
