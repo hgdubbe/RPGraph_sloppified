@@ -1,0 +1,115 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Kawaii Dream overhaul concept</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      font-family: "Segoe UI", system-ui, sans-serif;
+      background: #f4eaf6;
+      color: #3a273f;
+    }
+    * { box-sizing: border-box; }
+    body { margin: 0; min-width: 980px; background: #f4eaf6; }
+    button, input { font: inherit; }
+    .notice {
+      padding: 10px 18px;
+      border-bottom: 1px solid rgba(111, 72, 120, .20);
+      color: #2b1322;
+      background: #f2cde5;
+      font-size: 13px;
+      font-weight: 800;
+      text-align: center;
+    }
+    .board { display: grid; grid-template-columns: minmax(0, 1fr) 310px; min-height: calc(100vh - 40px); }
+    .app { display: grid; grid-template-rows: 74px 48px minmax(0, 1fr); min-width: 0; background: #fff8fd; }
+    .header {
+      display: flex; align-items: center; justify-content: space-between; padding: 14px 20px;
+      border-bottom: 1px solid rgba(111, 72, 120, .38);
+      background:
+        linear-gradient(180deg, rgba(255,255,255,.035), transparent),
+        radial-gradient(circle at 18% 10%, rgba(255, 255, 255, .72), transparent 34%),
+        radial-gradient(circle at 82% 0%, rgba(200, 169, 255, .32), transparent 32%),
+        #ead7f0;
+    }
+    .brand { display: flex; align-items: center; gap: 12px; }
+    .brand-mark { width: 38px; height: 38px; border-radius: 13px; background: linear-gradient(135deg, #e96eae, #a88adf); box-shadow: 0 5px 14px rgba(181,64,130,.18); }
+    .brand strong { display: block; font: 800 17px ui-rounded, "Segoe UI", sans-serif; }
+    .brand span { color: #765f7b; font-size: 12px; }
+    .header-actions { display: flex; gap: 8px; }
+    .soft-button { padding: 9px 12px; border: 1px solid rgba(111,72,120,.28); border-radius: 12px; color: #5f4766; background: #f3e4f4; }
+    .mode-button { padding: 9px 14px; border: 0; border-radius: 12px; color: #2b1322; background: linear-gradient(135deg, #e96eae, #a88adf); box-shadow: 0 5px 14px rgba(181,64,130,.18); font-weight: 800; }
+    .rail { display: flex; align-items: center; gap: 7px; padding: 7px 14px; border-bottom: 1px solid rgba(111,72,120,.18); background: #f0e2f3; }
+    .rail button { padding: 7px 11px; border: 1px solid transparent; border-radius: 12px; color: #674e6d; background: transparent; font-size: 12px; }
+    .rail button.active { border-color: rgba(208,78,145,.64); color: #a33b75; background: rgba(233,110,174,.15); }
+    .badge { margin-left: auto; padding: 4px 8px; border: 1px solid rgba(43,19,34,.30); border-radius: 999px; color: #173d2d; background: #aee8cb; font-size: 11px; font-weight: 800; box-shadow: 0 0 14px rgba(101,181,140,.18); }
+    .play { display: grid; grid-template-rows: auto minmax(0, 1fr) auto; gap: 10px; min-height: 0; padding: 14px; background: #fbf4fb; }
+    .tabs { display: flex; align-items: end; gap: 6px; border-bottom: 1px solid rgba(111,72,120,.17); }
+    .tab { padding: 8px 12px; border: 1px solid rgba(111,72,120,.30); border-bottom: 0; border-radius: 12px 12px 0 0; color: #765f7b; background: #f0e1f2; }
+    .tab.active { border-color: rgba(126,94,186,.72); color: #3a273f; background: #dfd0f4; }
+    .messages { min-height: 0; padding: 18px; overflow: hidden; border: 1px solid rgba(111,72,120,.38); border-radius: 14px; background: #f8eef8; box-shadow: 0 14px 32px rgba(91,54,95,.14); }
+    .message { max-width: 820px; margin-bottom: 13px; padding: 15px 17px; border: 1px solid rgba(111,72,120,.24); border-radius: 12px; color: #3a273f; background: #e2cde7; line-height: 1.55; }
+    .message small { display: block; margin-bottom: 6px; color: #5b365f; font-weight: 800; }
+    .message.user { width: 56%; margin-left: auto; border-color: rgba(208,78,145,.68); border-radius: 18px; background: #f2cde5; }
+    .composer { display: grid; grid-template-columns: 42px minmax(0, 1fr) 150px; gap: 9px; padding: 10px; border: 1px solid rgba(111,72,120,.38); border-radius: 14px; background: #f3e6f4; box-shadow: 0 14px 32px rgba(91,54,95,.14); }
+    .composer button, .composer input { height: 39px; border-radius: 12px; }
+    .composer .icon { border: 1px solid rgba(111,72,120,.28); color: #5f4766; background: #eadbed; }
+    .composer input { min-width: 0; padding: 0 13px; border: 1px solid rgba(208,78,145,.48); color: #3a273f; background: #fffafe; outline: none; }
+    .composer .send { border: 0; color: #2b1322; background: linear-gradient(135deg, #e96eae, #a88adf); box-shadow: 0 5px 14px rgba(181,64,130,.18); font-weight: 800; }
+    .side { padding: 18px; border-left: 1px solid rgba(111,72,120,.20); background: #f4eaf6; }
+    .side h2 { margin: 0 0 4px; font: 800 18px ui-rounded, "Segoe UI", sans-serif; }
+    .side > p { margin: 0 0 16px; color: #765f7b; font-size: 12px; line-height: 1.45; }
+    .swatches { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+    .swatch { padding: 9px; border: 1px solid rgba(111,72,120,.20); border-radius: 12px; background: #fff8fd; }
+    .color { height: 35px; margin-bottom: 7px; border-radius: 8px; }
+    .swatch code { display: block; color: #3a273f; font-size: 10px; }
+    .swatch span { color: #765f7b; font-size: 10px; }
+    .graph { position: relative; height: 210px; margin-top: 18px; overflow: hidden; border: 1px solid rgba(111,72,120,.20); border-radius: 14px; background: #ded7e2; }
+    .graph::before { content: "Fixed canvas approximation"; position: absolute; top: 8px; left: 10px; color: #765f7b; font-size: 10px; }
+    .edge { position: absolute; top: 104px; left: 84px; width: 125px; height: 2px; background: #a88adf; transform: rotate(-10deg); transform-origin: left; opacity: .8; }
+    .node { position: absolute; width: 112px; padding: 10px; border: 1px solid rgba(111,72,120,.30); border-radius: 12px; color: #3a273f; background: #ead8ed; font-size: 11px; }
+    .node.one { top: 66px; left: 20px; }
+    .node.two { top: 105px; right: 18px; border-color: #7e5eba; box-shadow: 0 0 0 2px rgba(168,138,223,.20); }
+    .port { position: absolute; top: 50%; width: 9px; height: 9px; border-radius: 50%; background: #e96eae; transform: translateY(-50%); }
+    .one .port { right: -5px; } .two .port { left: -5px; background: #65b58c; }
+    .legend { margin-top: 12px; color: #765f7b; font-size: 10px; line-height: 1.45; }
+  </style>
+</head>
+<body>
+  <div class="notice">Concept mockup only — this is a visual direction preview, not a generated or validated RPGraph theme.</div>
+  <main class="board">
+    <section class="app" aria-label="Play view concept">
+      <header class="header">
+        <div class="brand"><div class="brand-mark"></div><div><strong>Kawaii Dream</strong><span>Play view · Dream chamber</span></div></div>
+        <div class="header-actions"><button class="soft-button">Theme</button><button class="mode-button">Play mode</button></div>
+      </header>
+      <nav class="rail"><button class="active">Story</button><button>Characters</button><button>Memory</button><button>Scenes</button><span class="badge">Complete</span></nav>
+      <section class="play">
+        <div class="tabs"><div class="tab active">Luna · rooftop</div><div class="tab">Mira · archive</div></div>
+        <div class="messages">
+          <article class="message"><small>Story output</small>The rain softened against the glass, turning the city lights into tiny watercolor stars. Luna lowered her voice as though the room itself might remember.</article>
+          <article class="message user"><small>Input</small>Ask what she found in the archive, but keep the moment gentle.</article>
+          <article class="message"><small>Story output</small>She unfolded the letter carefully. A pale violet seal caught the light—familiar, but impossible.</article>
+        </div>
+        <div class="composer"><button class="icon" aria-label="Attach">＋</button><input value="Continue the scene…" aria-label="Composer"><button class="send">Run turn</button></div>
+      </section>
+    </section>
+    <aside class="side">
+      <h2>Palette & graph check</h2>
+      <p>Exact proposed colors mapped to native theme roles. Graph chrome derives from these values; the canvas itself stays fixed.</p>
+      <div class="swatches">
+        <div class="swatch"><div class="color" style="background:#f4eaf6"></div><code>color.background</code><span>#f4eaf6</span></div>
+        <div class="swatch"><div class="color" style="background:#f3e6f4"></div><code>color.panel</code><span>#f3e6f4</span></div>
+        <div class="swatch"><div class="color" style="background:#e96eae"></div><code>color.primary</code><span>#e96eae</span></div>
+        <div class="swatch"><div class="color" style="background:#a88adf"></div><code>color.secondary</code><span>#a88adf</span></div>
+        <div class="swatch"><div class="color" style="background:#65b58c"></div><code>color.complete</code><span>#65b58c</span></div>
+        <div class="swatch"><div class="color" style="background:#3a273f"></div><code>color.foreground</code><span>#3a273f</span></div>
+      </div>
+      <div class="graph" aria-label="Graph readability sample"><div class="edge"></div><div class="node one">Scene trigger<div class="port"></div></div><div class="node two">Selected outcome<div class="port"></div></div></div>
+      <div class="legend">Signature details: restrained dual-radial header texture and soft supported elevation. No message-text glow; no phone-app recoloring.</div>
+    </aside>
+  </main>
+</body>
+</html>

@@ -1,19 +1,56 @@
-# RPGraph Studio themes
+# Themes
 
-Themes change the visual language of the entire RPGraph Studio interface. A theme can
-control the Play view, chat, phone frame, simulated phone apps, Graph mode, Storybook,
-dialogs, typography, geometry, shadows, textures, and motion. It is data-driven: a
-theme is a folder containing one `theme.json` file; no code change or rebuild is needed.
+This folder holds the built-in themes for RPGraph Studio's whole UI shell — Play mode
+(chat/phone), Graph mode's workflow canvas, the Storybook editor, and every dialog/menu
+in between (Options, Providers, System Log, NPC Library, Turn Trace, and so on).
 
-The complete commented reference is next to this document:
-[`example.json`](example.json). It is intentionally broad rather than pretty. Copy it,
-remove the comments, and make it your own. The runtime currently parses strict JSON;
-comments are for the reference file only.
+A theme is one file: `theme.json`. No code changes, no rebuild step. Bundled themes
+(this folder) ship with the app; you can also drop your own `theme.json` into a
+per-user folder and it appears in the Theme picker right alongside them — see
+**Where to put your own theme** below.
 
-## Install a theme
+(If you're an AI agent about to extend the theming *engine* itself, or migrate another
+CSS file onto it, read `THEMING-INTERNALS.md` in this same folder instead — it covers
+the internals, gotchas, and how the resolver actually works. This file is "how do I
+write a theme.json," not "how does the machinery work.")
 
-Bundled themes live in `resources/themes/<id>/theme.json`. User themes belong in the
-per-user themes folder so app updates do not overwrite them:
+## Quickest way to make one
+
+Copy an existing theme's folder, rename it, change the `id` and `label`, then tweak
+whichever colors you want different. You almost never need to touch anything else.
+
+```json
+{
+  "id": "my-theme",
+  "label": "My Theme",
+  "extends": "base",
+  "order": 10,
+  "tokens": {
+    "color": {
+      "background": "#0d0d12",
+      "primary": "#ffb703"
+    }
+  }
+}
+```
+
+That's a complete, valid theme. Every color/font/shape you don't mention is inherited
+from `base` (the built-in default look), so a short override like this is fine — you
+don't need to restate every value.
+
+- `id` — the folder name, used internally. Keep it short, lowercase, hyphenated.
+- `label` — what shows up in the Theme dropdown.
+- `extends` — almost always `"base"`. You can also extend another theme (say you want
+  "Kawaii Dream, but pinker" — extend `"kawaii-dream"` and override just the accent).
+- `order` — where it sits in the dropdown list, lower numbers first. Optional — leave it
+  out and it sorts alphabetically after the ones that do have a number.
+- `tokens` — the actual values. See below for what's available.
+
+## Where to put your own theme
+
+Bundled themes live in this folder (`resources/themes/<id>/theme.json`), inside the
+app itself. A theme you author yourself doesn't belong here — it goes in a separate,
+per-user folder that survives app updates:
 
 | OS | Folder |
 |---|---|
@@ -21,174 +58,185 @@ per-user themes folder so app updates do not overwrite them:
 | macOS | `~/Library/Application Support/RPgraph Studio/themes/` |
 | Linux | `~/.config/RPgraph Studio/themes/` |
 
-Create a folder named after the theme id and put `theme.json` inside it. Restart the
-app, then select the theme from the topbar menu under **Theme**. Themes are discovered
-at startup. A user theme with the same `id` as a bundled theme overrides the bundled
-copy, which is the easiest way to maintain a personal fork.
+Create a subfolder there with your theme's id (matching the one-folder-per-theme layout
+you see in this directory) containing your `theme.json`, then **restart the app** — the
+theme picker doesn't currently re-scan this folder while the app is running, only at
+startup. It'll then show up in Menu (☰) → Theme, mixed in with the bundled ones.
 
-## Smallest useful theme
+If you use the same `id` as a bundled theme, your version wins — this is the intended
+way to fork and tweak a built-in theme without touching the installed app's files.
 
-Most themes only need metadata and a few `color` values:
+## What you can set
+
+Everything lives under `tokens`, grouped into a few categories. You only need to
+include the ones you're actually changing.
+
+### `color` — the one category you'll actually use
+
+This is the main palette almost every theme only needs to touch. Setting these alone
+is enough to reskin the entire app — Graph mode, the Storybook editor, and the app's
+menus/dialogs all automatically pick up matching colors derived from this palette (see
+"Do I need to theme Graph mode and the Storybook editor separately?" below).
+
+| Key | What it colors |
+|---|---|
+| `background` | The outermost app background |
+| `backgroundElevated` | The play-mode shell, one shade up from background |
+| `header` | The top header bar |
+| `surfaceRail` | The bottom activity rail (Chat / Phone / Events tabs) |
+| `surfaceContent` | The main chat content area |
+| `panel` | Buttons, dialogs, the theme picker, the composer box |
+| `card` | The active character tab |
+| `cardStrong` | Assistant message bubbles |
+| `input` | Text inputs, textareas, dropdowns |
+| `foreground` | Main text color |
+| `mutedForeground` | Secondary/label text |
+| `primary` | Your main accent color — buttons, active states, links |
+| `primaryForeground` | Text drawn on top of a `primary`-colored button |
+| `secondary` | A second accent color, used more sparingly |
+| `border` / `borderSoft` | Line/divider colors, solid and faint |
+| `userBubble` / `userBubbleBorder` | Your own chat message bubble |
+| `rail` | Icon/label color in the activity rail |
+| `complete` | A success/complete indicator color |
+| `phoneGlass` | The tint on the in-app phone's glass frame |
+
+Any standard CSS color works: `"#ff8cc6"`, `"rgba(255, 140, 198, 0.9)"`, even
+`"color-mix(in srgb, #fff 20%, #000)"` if you want to get fancy.
+
+### Do I need to theme Graph mode and the Storybook editor separately?
+
+No, not by default. Four more categories exist — `graph`, `storybook`, `shell`, and
+`app` — but they're **automatically derived from your `color` values** (e.g. Graph
+mode's panel background follows `color.panel`, its accent follows `color.primary`, and
+so on). Setting `color` alone repaints the whole app consistently.
+
+You only need to touch these if you want one surface to deliberately diverge from your
+main palette — say, a Graph mode that's moodier than your chat UI. In that case, add
+whichever of these you want to override; the "Classic" theme (`classic/theme.json` in
+this folder) is a real, complete example of pinning all three independently instead of
+deriving them, if you want to see the full set of keys they accept.
+
+- `graph.*` — Graph mode's workflow canvas: panel/sidebar backgrounds, node chrome,
+  connection lines, the accent/success/violet colors used for ports and status pills.
+- `storybook.*` — the Storybook editor's own panel/text/accent palette, plus a violet
+  and pink/lime pair used for character badges and highlights.
+- `shell.*` — miscellaneous Play-mode chrome that doesn't map to one semantic `color`
+  slot: the composer, the tab strip, badges, topbar buttons.
+- `app.*` — the app's oldest, most-reused palette (dialog backgrounds/borders/text used
+  by Options, Providers, System Log, NPC Library, and 25+ other dialogs; plus generic
+  success/warning/danger status colors).
+
+### Advanced: theming one phone app on its own
+
+The five simulated phone apps you actually use during roleplay — Notes, the AI chat
+app, Banking, Gallery, and the social feed (Fotogram/OnlyFriends) — each have their
+**own** separate set of tokens (`phoneNotes.*`, `phoneChatgpd.*`, `phoneBanking.*`,
+`phoneGallery.*`, `phoneSocial.*`) instead of following `color`/`app` at all. Setting
+`color.primary` will not change Banking's blue or Notes' amber — that's deliberate,
+the same way a real phone's individual apps each keep their own brand identity instead
+of matching the OS theme. Leave these alone unless you specifically want to retint one
+app; every shipped theme leaves them at their defaults. If you do want to, open the
+relevant file under `src/styles/phone-*.css` to see the exact token names available —
+each app's color roles (background, panel, accent, text, a status color or two) are
+named for what they do, e.g. `"phoneBanking": { "accent": "#22c55e" }` to turn
+Banking's blue accent green.
+
+### `typography`
+
+- `headingFont` / `bodyFont` — a font stack, e.g. `"Consolas, 'Courier New', monospace"`.
+  Leave unset for the app's normal font.
+- `fontWeight` / `fontWeightHeading` — numeric weight strings, e.g. `"700"`.
+- `letterSpacing` — e.g. `"0.02em"`, or `"normal"`.
+- `textTransform` — `"none"` or `"uppercase"`.
+- `baseSize` — the base UI font size, e.g. `"13px"`.
+- `lineHeight` — e.g. `"1.45"`.
+
+### `shape`
+
+- `radius` — the base corner rounding, e.g. `"8px"`, `"16px"` for something rounder,
+  `"2px"` for something sharper.
+- `radiusCard` / `radiusButton` / `radiusInput` — extra radii for specific element
+  types, if you want them different from the base `radius` (each falls back to
+  `radius` if you don't set it).
+- `borderWidth` / `borderStyle` — e.g. `"1px"` / `"solid"`.
+- `clipPath` — a CSS `clip-path` polygon, for a non-rectangular look. `"none"` normally.
+
+### `effect`
+
+- `cardShadow` / `buttonShadow` / `buttonShadowHover` — full `box-shadow` values.
+  `"none"` to turn them off.
+- `accentGlow` — a `text-shadow` value for a glow effect on message text, e.g.
+  `"0 0 10px rgba(100, 255, 150, 0.4)"`. `"none"` to turn it off.
+- `backgroundTexture` — a background layer (gradient, pattern) shown behind the header,
+  e.g. `"linear-gradient(90deg, rgba(128, 24, 62, 0.18), transparent 45%)"`.
+- `buttonBackground` — normally left alone; it defaults to your `primary` color.
+
+### `motion`
+
+- `transitionDuration` — e.g. `"160ms"`.
+- `transitionEasing` — e.g. `"ease-out"`.
+- `hoverScale` — a scale factor for hover states, e.g. `"1.03"`. `"1"` disables it.
+
+## A worked example
+
+Here's a theme that leans into a warm, retro-terminal look — changes a font, adds a
+glow, and shifts the palette, without touching anything else:
 
 ```json
 {
-  "id": "my-theme",
-  "label": "My Theme",
+  "id": "amber-terminal",
+  "label": "Amber Terminal",
   "extends": "base",
-  "order": 20,
+  "order": 11,
   "tokens": {
     "color": {
-      "background": "#111218",
-      "foreground": "#f7f3e8",
-      "primary": "#f0a35b",
-      "secondary": "#7fc7b5"
+      "background": "#0a0600",
+      "backgroundElevated": "#120b00",
+      "header": "#1a1000",
+      "panel": "#150d00",
+      "card": "#1c1200",
+      "cardStrong": "#241700",
+      "foreground": "#ffcc66",
+      "mutedForeground": "#b3894d",
+      "primary": "#ffb000",
+      "primaryForeground": "#100a00",
+      "border": "rgba(255, 176, 0, 0.4)",
+      "userBubble": "#1f1300",
+      "userBubbleBorder": "rgba(255, 176, 0, 0.7)"
+    },
+    "typography": {
+      "bodyFont": "'Courier New', monospace"
+    },
+    "shape": {
+      "radius": "3px"
+    },
+    "effect": {
+      "accentGlow": "0 0 8px rgba(255, 176, 0, 0.35)"
     }
   }
 }
 ```
 
-Values are CSS value strings. Hex, `rgb()`/`rgba()`, gradients, `var(...)`, shadows,
-and other CSS expressions are valid. Unspecified values are inherited from `base` or
-derived from the colors you did set.
+Setting `color.primary` alone is enough for Graph mode's accents, the Storybook
+editor's highlights, and every dialog's success/accent color to shift toward amber too
+— you don't need to repeat it under `graph`/`storybook`/`app` unless you want one of
+those surfaces to look different from the rest.
 
-### Metadata
+## A couple of things to know
 
-- `id`: stable, unique folder name; use lowercase kebab-case.
-- `label`: name shown in the theme picker.
-- `extends`: another theme id. It defaults to `base`; the child overrides the parent.
-- `order`: optional picker order; lower numbers appear first.
-- `hidden`: optional. Set it to `true` for a private base/helper theme.
-- `basic`: optional simple knobs used as inputs for derived values.
-- `tokens`: optional advanced values, grouped in nested objects.
-
-The `source` field is added by the app and must not be authored in a theme file.
-
-## How values are resolved
-
-The resolver merges the `extends` chain from the oldest parent to the selected theme.
-Explicit token values always win. Missing advanced values can be derived from the
-basic palette, and guaranteed core values finally fall back to `base`.
-
-```text
-basic palette -> color.* -> graph/storybook/app derived palette
-                              explicit advanced tokens override derivation
-```
-
-Changing `color.primary` normally updates Graph, Storybook, dialogs, links, and other
-Studio accents as well. Add an explicit `graph`, `storybook`, `app`, or `shell` value
-when one surface should intentionally diverge.
-
-## Themeable areas
-
-### `basic`
-
-The seven simple inputs are `primary`, `secondary`, `background`, `foreground`,
-`headingFont`, `bodyFont`, and `radius`. They are useful for a compact theme and for
-future theme-editor controls. Advanced `tokens` values take precedence over anything
-derived from `basic`.
-
-### `tokens.color`
-
-The main Studio palette is `background`, `backgroundElevated`, `header`, `surfaceRail`,
-`surfaceContent`, `panel`, `card`, `cardStrong`, `input`, `foreground`,
-`mutedForeground`, `primary`, `primaryForeground`, `secondary`, `border`, `borderSoft`,
-`userBubble`, `userBubbleBorder`, `rail`, `complete`, and `phoneGlass`.
-
-These control the application shell, chat, composer, activity rail, tabs, active
-states, message bubbles, borders, success indicators, and the phone glass tint.
-
-### `tokens.shell`
-
-Fine-grained Play-mode chrome: `chatSurface`, `messageBorder`, `messageText`,
-`labelStrong`, `inputBorder`, `segmentedBg`, `iconColor`, `iconButtonBg`,
-`autoTurnText`, `railBorder`, `characterStripBg`, `railActiveColor`,
-`railActiveBorder`, `railActiveBg`, `badgeBorder`, `badgeText`, `badgeBg`,
-`badgeGlow`, `tabBorder`, `tabBorderBottom`, `tabText`, `tabBg`, `tabActiveBorder`,
-`tabActiveBg`, `tabActiveText`, `tabSubtext`, `topbarButtonBorder`,
-`topbarButtonText`, `topbarButtonBg`, `topbarHoverBg`, `topbarHoverBorder`,
-`badgeAccentBg`, `topbarContextBorder`, `topbarMutedText`, and `topbarSelectBg`.
-
-### `tokens.graph`
-
-Graph mode's canvas surroundings, panels, nodes, lines, labels, ports, and status
-accents: `background`, `chrome`, `panel`, `panel2`, `line`, `lineSoft`, `text`,
-`muted`, `faint`, `accent`, `accentSoft`, `success`, and `violet`.
-
-The canvas library's own canvas and node-background rendering retains its built-in
-appearance; the Graph shell around it is themeable.
-
-### `tokens.storybook`
-
-Storybook editor surfaces and highlights: `background`, `panel`, `passive`, `line`,
-`lineSoft`, `text`, `muted`, `faint`, `accent`, `accentSoft`, `violet`, `violetSoft`,
-`pink`, and `lime`.
-
-### `tokens.app`
-
-The shared palette used by dialogs and older Studio components: `accent`,
-`accentLight`, `surface`, `surfaceAlt`, `surfaceSoft`, `line`, `muted`, `cyan`,
-`wire`, `success`, `successSoft`, `warning`, `warningSoft`, `danger`, `dangerSoft`,
-`softWhite`, `dialogBg`, `dialogBorder`, `dialogText`, and `text`.
-
-### `tokens.typography`, `shape`, `effect`, and `motion`
-
-- `typography`: `headingFont`, `bodyFont`, `fontWeight`, `fontWeightHeading`,
-  `letterSpacing`, `textTransform`, `baseSize`, and `lineHeight`.
-- `shape`: `radius`, `radiusCard`, `radiusButton`, `radiusInput`, `borderWidth`,
-  `borderStyle`, and `clipPath`.
-- `effect`: `cardShadow`, `buttonShadow`, `buttonShadowHover`, `accentGlow`,
-  `backgroundTexture`, and `buttonBackground`.
-- `motion`: `transitionDuration`, `transitionEasing`, and `hoverScale`.
-
-`clipPath` accepts a complete CSS `polygon(...)`; `backgroundTexture` accepts a
-complete gradient or pattern expression.
-
-### Independent simulated phone apps
-
-Phone apps keep their own visual identities by default. They do not automatically
-inherit `color.primary`, so changing the Studio accent does not unexpectedly repaint
-an in-world banking or social app. You can opt in to each app independently:
-
-- `phoneNotes`: `background`, `text`, `textStrong`, `accent`, `accentLight`,
-  `accentStrong`, `accentDeep`, `danger`, and the eight RGB-triplet note tints
-  `tintNeutral`, `tintSand`, `tintCoral`, `tintPeach`, `tintMint`, `tintSky`,
-  `tintLavender`, and `tintRose`.
-- `phoneChatgpd`: `background`, `panelStrong`, `glass`, `text`, `textStrong`,
-  `textOnAccent`, `accent`, `accentLight`, `accentDeep`, `accentBright`, and `danger`.
-- `phoneBanking`: `background`, `panel`, `line`, `text`, `textStrong`, `muted`,
-  `accent`, `accentStrong`, `accentDeep`, `success`, and `danger`.
-- `phoneGallery`: `background`, `panel`, `stage`, `line`, `text`, `textStrong`,
-  `muted`, `badge`, `success`, and `danger`.
-- `phoneSocial`: shared `background`, `panel`, `panelAlt`, `panelDeep`,
-  `bubbleIncoming`, `glass`, `line`, `text`, `textStrong`, `muted`, `tip`, `tipText`,
-  `success`, `danger`, and `dangerBg`; plus separate brand values for `fotogramAccent`,
-  `fotogramAccentStrong`, `fotogramCard`, `onlyfriendsAccent`,
-  `onlyfriendsAccentStrong`, `onlyfriendsGlow`, `onlyfriendsBackground`,
-  `onlyfriendsCard`, and `onlyfriendsBubbleIncoming`.
-
-The note tint values are deliberately bare RGB triplets such as `"224, 193, 139"`,
-not complete colors. This is the one place where the value format is unusual.
-
-### `tokens.raw`
-
-The `raw` namespace exposes repeated, low-level CSS literals that do not have a
-semantic role, such as a rare overlay or a physical phone-bezel highlight. Their names
-look like `vrgba255255255005` or `v131b28`, because they are generated from the original
-literal. They are optional and preserve the original CSS fallback when omitted. Use
-them only when you deliberately want to retint one of those fixed details; prefer the
-semantic namespaces above for normal theme design.
-
-Any additional nested string token is also flattened into a CSS custom property. This
-keeps the format forward-compatible, but an arbitrary token only has a visible effect
-when the application CSS consumes that variable.
-
-## Practical notes
-
-- A theme switch applies to both Play mode and Graph mode immediately.
-- Restart after adding or replacing a user theme so the library is rescanned.
-- Use `base` as the parent unless you are intentionally building a family of themes.
-- Keep text/background contrast readable; `primaryForeground` controls text on primary
-  buttons when you override the main accent.
-- Fixed, hand-crafted content such as simulated phone OS chrome and registration
-  artwork is outside the shared theme palette. The functional phone apps are the
-  deliberate exception and have their own namespaces above.
+- The theme picker lives in the topbar's menu (☰ icon) → **Theme**, and applies to both
+  Play mode and Graph mode.
+- If a color you set doesn't seem to show up somewhere you expected, it's most likely
+  that particular element uses a narrow, decorative one-off color that's intentionally
+  fixed rather than tied to any of the categories above (a status dot, a glassy
+  highlight, a drop shadow) — not every pixel in the app is meant to be themeable.
+- The physical phone bezel/casing is themeable chrome, and so are the phone apps' own
+  screens themselves — see "Advanced: theming one phone app on its own" above.
+- Graph mode's canvas background itself (behind the nodes) as well as the Node Background is
+  also intentionally left as-is regardless of theme — a limitation of the canvas library it's
+  built on, not a missing token. Everything around it (sidebars, panels, node cards, connection lines)
+  does follow your theme.
+- This is a hand-edit-the-file system today. A visual "pick your colors here" theme
+  editor is planned but doesn't exist yet — for now, editing `theme.json` directly (or
+  asking an AI assistant to do it for you, describing the look you want) is the way to
+  make one.

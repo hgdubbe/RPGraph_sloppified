@@ -1,6 +1,6 @@
 ---
-name: rpgraph-theme-designer-skill
-description: "Use when designing, reviewing, generating, or validating an RPGraph Studio theme.json; guides visual intent, capability checks, concept mockups, explicit implementation approval, and honest theme validation."
+name: rpgraph-theme-designer
+description: Design, review, and—only after explicit approval—implement a complete RPGraph Studio theme using the repository's real theme schema, a small concept mockup, and honest validation.
 ---
 
 # RPGraph Theme Designer

@@ -22,7 +22,35 @@ export function useNpcParticipants(nodesRef: { current: WorkflowNode[] }, librar
   setNodes: Dispatch<SetStateAction<WorkflowNode[]>>) {
   const [, setRevision] = useState(0);
   const snapshotsRef = useRef<NpcParticipantSnapshots>({});
+  const projectionCacheRef = useRef<{
+    nodes: WorkflowNode[];
+    library: NpcLibrarySnapshot | null;
+    snapshots: NpcParticipantSnapshots;
+    registry: ReturnType<typeof buildCharacterRegistry>;
+    characters: ReturnType<typeof appCharactersFromRegistry>;
+  } | null>(null);
   const entries = () => [...(library?.entries ?? []), ...storybookRegistryEntries(nodesRef.current)];
+  const projection = () => {
+    const cached = projectionCacheRef.current;
+    if (
+      cached &&
+      cached.nodes === nodesRef.current &&
+      cached.library === library &&
+      cached.snapshots === snapshotsRef.current
+    ) {
+      return cached;
+    }
+    const registry = buildCharacterRegistry([...entries(), ...npcSnapshotEntries(snapshotsRef.current)]);
+    const next = {
+      nodes: nodesRef.current,
+      library,
+      snapshots: snapshotsRef.current,
+      registry,
+      characters: appCharactersFromRegistry(registry),
+    };
+    projectionCacheRef.current = next;
+    return next;
+  };
   const registryForStorybook = (nodeId: string, characters: Character[], options?: StorybookRegistryCandidateOptions) =>
     candidateStorybookRegistry(entries(), snapshotsRef.current, nodeId, characters, options);
   const capture = (references: NpcParticipantReference[]) => {
@@ -42,9 +70,9 @@ export function useNpcParticipants(nodesRef: { current: WorkflowNode[] }, librar
   };
   return {
     current: () => snapshotsRef.current,
-    registry: () => buildCharacterRegistry([...entries(), ...npcSnapshotEntries(snapshotsRef.current)]),
+    registry: () => projection().registry,
     registryForStorybook,
-    characters: () => appCharactersFromRegistry(buildCharacterRegistry([...entries(), ...npcSnapshotEntries(snapshotsRef.current)])),
+    characters: () => projection().characters,
     capture,
     reconcileMessages: (messages: MessageRecord[]) => {
       commitContacts({ nodes: nodesRef.current, participants: reconcileNpcMessageContacts(snapshotsRef.current, entries(), messages) });

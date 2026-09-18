@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { appAvatarDataUrl, portraitDataUrl, withCharacterPortrait } from './portrait';
 import { characterPayload, validateCharacterPayload } from './character';
@@ -46,6 +46,25 @@ describe('portable character portrait crops', () => {
     expect(decodedSvg(portraitDataUrl(landscape, { x: 90, y: 90, size: 90 }))).toContain('viewBox="400 0 400 400"');
     const portrait = { ...image, width: 400, height: 800 };
     expect(decodedSvg(portraitDataUrl(portrait, { x: 90, y: 90, size: 50 }))).toContain('viewBox="200 600 200 200"');
+  });
+
+  it('reuses an already derived portrait until its source dimensions or crop change', () => {
+    const image = {
+      dataUrl: 'data:image/jpeg;base64,QUJDRA==',
+      width: 800,
+      height: 600,
+    };
+    const encode = vi.spyOn(globalThis, 'btoa');
+
+    const first = portraitDataUrl(image, { x: 10, y: 20, size: 40 });
+    const repeated = portraitDataUrl({ ...image }, { x: 10, y: 20, size: 40 });
+
+    expect(repeated).toBe(first);
+    expect(encode).toHaveBeenCalledTimes(1);
+
+    portraitDataUrl(image, { x: 11, y: 20, size: 40 });
+    expect(encode).toHaveBeenCalledTimes(2);
+    encode.mockRestore();
   });
 
   it('keeps explicit uncropped pictures and missing portraits distinct, including round trips', () => {
