@@ -97,7 +97,7 @@
   min-width: 0;
   min-height: 0;
   overflow: hidden;
-  border: 1px solid var(--border-color, #363640);
+  border: 1px solid var(--theme-border, var(--border-color, #363640));
   border-radius: 8px;
 }
 

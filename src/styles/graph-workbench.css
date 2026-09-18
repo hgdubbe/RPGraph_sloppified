@@ -42,7 +42,7 @@
     radial-gradient(circle at center, color-mix(in srgb, var(--graph-cyan) calc(0.04 * 100%), transparent), transparent 34rem),
     linear-gradient(var(--theme-raw-vrgba2552552550018, rgba(255, 255, 255, 0.018)) 1px, transparent 1px),
     linear-gradient(90deg, var(--theme-raw-vrgba2552552550018, rgba(255, 255, 255, 0.018)) 1px, transparent 1px),
-    #07090f;
+    var(--graph-bg);
   background-size: auto, 18px 18px, 18px 18px;
 }
 
