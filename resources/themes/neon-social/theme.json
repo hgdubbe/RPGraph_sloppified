@@ -7,13 +7,13 @@
     "color": {
       "background": "#09030f",
       "backgroundElevated": "#0b0313",
-      "header": "#12051d",
+      "header": "#1a0827",
       "surfaceRail": "#0d0418",
-      "surfaceContent": "#0c0416",
-      "panel": "#180b27",
-      "card": "#1d1032",
-      "cardStrong": "#25133d",
-      "input": "#09030f",
+      "surfaceContent": "#10051d",
+      "panel": "#1b0d2a",
+      "card": "#24133b",
+      "cardStrong": "#30194a",
+      "input": "#07020d",
       "foreground": "#fff5ff",
       "mutedForeground": "#c49bdf",
       "primary": "#33f1ff",
@@ -21,14 +21,61 @@
       "secondary": "#ff49c8",
       "border": "rgba(195, 94, 255, 0.48)",
       "borderSoft": "rgba(195, 94, 255, 0.28)",
-      "userBubble": "#25063b",
+      "userBubble": "#29083f",
       "userBubbleBorder": "rgba(255, 82, 204, 0.88)",
       "rail": "#dda8ff",
       "complete": "#7dffbf",
       "phoneGlass": "rgba(60, 12, 82, 0.46)"
     },
     "shape": {
-      "radius": "9px"
+      "radius": "9px",
+      "borderWidth": "1px",
+      "borderStyle": "solid",
+      "clipPath": "none"
+    },
+    "graph": {
+      "background": "#090711",
+      "chrome": "#160b22",
+      "panel": "#1b102a",
+      "panel2": "#29163c",
+      "line": "#684b79",
+      "lineSoft": "rgba(51, 241, 255, 0.24)",
+      "text": "#fff5ff",
+      "muted": "#c49bdf",
+      "faint": "#89669e",
+      "accent": "#33f1ff",
+      "accentSoft": "rgba(51, 241, 255, 0.14)",
+      "success": "#7dffbf",
+      "violet": "#ff49c8"
+    },
+    "storybook": {
+      "background": "#0e0618",
+      "panel": "#1b1028",
+      "passive": "#150b20",
+      "line": "#654877",
+      "lineSoft": "rgba(195, 94, 255, 0.22)",
+      "text": "#fff7ff",
+      "muted": "#caa8d8",
+      "faint": "#936fa4",
+      "accent": "#33f1ff",
+      "accentSoft": "rgba(51, 241, 255, 0.10)",
+      "violet": "#ba8bdf",
+      "violetSoft": "rgba(186, 139, 223, 0.12)",
+      "pink": "#ff6bd6",
+      "lime": "#7dffbf"
+    },
+    "effect": {
+      "cardShadow": "0 12px 30px rgba(0, 0, 0, 0.34)",
+      "buttonShadow": "0 4px 14px rgba(255, 73, 200, 0.18)",
+      "buttonShadowHover": "0 7px 20px rgba(51, 241, 255, 0.22)",
+      "accentGlow": "0 0 10px rgba(51, 241, 255, 0.28)",
+      "backgroundTexture": "linear-gradient(90deg, rgba(255, 73, 200, 0.10), transparent 48%)",
+      "buttonBackground": "linear-gradient(135deg, #33f1ff, #ff49c8)"
+    },
+    "motion": {
+      "transitionDuration": "160ms",
+      "transitionEasing": "ease-out",
+      "hoverScale": "1.015"
     }
   }
 }

@@ -23,10 +23,68 @@
       "userBubble": "#071223",
       "userBubbleBorder": "rgba(132, 212, 255, 0.82)",
       "rail": "#bac5dd",
+      "complete": "#82d8a0",
       "phoneGlass": "rgba(255, 255, 255, 0.13)"
     },
     "shape": {
-      "radius": "12px"
+      "radius": "4px",
+      "borderWidth": "1px",
+      "borderStyle": "solid",
+      "clipPath": "none"
+    },
+    "graph": {
+      "background": "#050910",
+      "chrome": "#0b121c",
+      "panel": "#101a26",
+      "panel2": "#172331",
+      "line": "#394b5c",
+      "lineSoft": "rgba(142, 223, 255, 0.22)",
+      "text": "#edf5f8",
+      "muted": "#9baebb",
+      "faint": "#6d8191",
+      "accent": "#8edfff",
+      "accentSoft": "rgba(142, 223, 255, 0.12)",
+      "success": "#82d8a0",
+      "violet": "#b8c4d2"
+    },
+    "storybook": {
+      "background": "#080d14",
+      "panel": "#111a25",
+      "passive": "#0d141e",
+      "line": "#344653",
+      "lineSoft": "rgba(160, 174, 205, 0.18)",
+      "text": "#f0f6f8",
+      "muted": "#a4b3bd",
+      "faint": "#718590",
+      "accent": "#8edfff",
+      "accentSoft": "rgba(142, 223, 255, 0.10)",
+      "violet": "#b8c4d2",
+      "violetSoft": "rgba(184, 196, 210, 0.10)",
+      "pink": "#d7a1bd",
+      "lime": "#9fd39a"
+    },
+    "typography": {
+      "headingFont": "ui-sans-serif, system-ui, sans-serif",
+      "bodyFont": "system-ui, sans-serif",
+      "fontWeight": "500",
+      "fontWeightHeading": "700",
+      "letterSpacing": "normal",
+      "textTransform": "none",
+      "baseSize": "13px",
+      "lineHeight": "1.5"
+    },
+    "effect": {
+      "cardShadow": "0 12px 28px rgba(0, 0, 0, 0.38)",
+      "buttonShadow": "0 3px 10px rgba(0, 0, 0, 0.28)",
+      "buttonShadowHover": "0 5px 15px rgba(0, 0, 0, 0.38)",
+      "accentGlow": "none",
+      "backgroundTexture": "linear-gradient(110deg, rgba(255, 255, 255, 0.04), transparent 36%)",
+      "buttonBackground": "var(--theme-primary)"
+    },
+    "motion": {
+      "transitionDuration": "160ms",
+      "transitionEasing": "ease-out",
+      "hoverScale": "1.01"
     }
   }
 }

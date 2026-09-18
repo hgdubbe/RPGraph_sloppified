@@ -5,33 +5,83 @@
   "order": 8,
   "tokens": {
     "color": {
-      "background": "#090808",
-      "backgroundElevated": "#0b0909",
-      "header": "#170b0c",
-      "surfaceRail": "#10090a",
-      "surfaceContent": "#0a0808",
-      "panel": "#1a1010",
-      "card": "#221313",
-      "cardStrong": "#2c1717",
+      "background": "#080808",
+      "backgroundElevated": "#151618",
+      "header": "#202326",
+      "surfaceRail": "#111214",
+      "surfaceContent": "#0d0e0f",
+      "panel": "#17191b",
+      "card": "#242628",
+      "cardStrong": "#35383b",
       "input": "#050404",
       "foreground": "#fff3f3",
       "mutedForeground": "#c29c9f",
-      "primary": "#ff4055",
+      "primary": "#ff7626",
       "primaryForeground": "#120305",
-      "secondary": "#ff4055",
-      "border": "rgba(151, 60, 68, 0.55)",
-      "borderSoft": "rgba(151, 60, 68, 0.32)",
-      "userBubble": "#23090b",
-      "userBubbleBorder": "rgba(255, 61, 80, 0.86)",
-      "rail": "#d6b3b6",
-      "complete": "#d8ff57",
-      "phoneGlass": "rgba(45, 10, 12, 0.55)"
+      "secondary": "#ed263c",
+      "border": "rgba(124, 130, 134, 0.58)",
+      "borderSoft": "rgba(124, 130, 134, 0.32)",
+      "userBubble": "#351014",
+      "userBubbleBorder": "rgba(237, 38, 60, 0.86)",
+      "rail": "#d4d6d2",
+      "complete": "#e7ff28",
+      "phoneGlass": "rgba(38, 40, 42, 0.58)"
     },
     "typography": {
       "textTransform": "uppercase"
     },
     "shape": {
-      "radius": "2px"
+      "radius": "2px",
+      "radiusCard": "2px",
+      "radiusButton": "2px",
+      "radiusInput": "2px",
+      "borderWidth": "1px",
+      "borderStyle": "solid",
+      "clipPath": "none"
+    },
+    "graph": {
+      "background": "#0b0c0d",
+      "chrome": "#202326",
+      "panel": "#17191b",
+      "panel2": "#35383b",
+      "line": "#656a6d",
+      "lineSoft": "rgba(255, 118, 38, 0.28)",
+      "text": "#f4f4f0",
+      "muted": "#a7a9a6",
+      "faint": "#777b7d",
+      "accent": "#ff7626",
+      "accentSoft": "rgba(255, 118, 38, 0.15)",
+      "success": "#e7ff28",
+      "violet": "#ed263c"
+    },
+    "storybook": {
+      "background": "#0d0e0f",
+      "panel": "#17191b",
+      "passive": "#111214",
+      "line": "#54595c",
+      "lineSoft": "rgba(124, 130, 134, 0.24)",
+      "text": "#f4f4f0",
+      "muted": "#a7a9a6",
+      "faint": "#777b7d",
+      "accent": "#ff7626",
+      "accentSoft": "rgba(255, 118, 38, 0.12)",
+      "violet": "#ed263c",
+      "violetSoft": "rgba(237, 38, 60, 0.12)",
+      "pink": "#ff9b75",
+      "lime": "#e7ff28"
+    },
+    "effect": {
+      "cardShadow": "0 10px 22px rgba(0, 0, 0, 0.50)",
+      "buttonShadow": "0 3px 10px rgba(0, 0, 0, 0.36)",
+      "buttonShadowHover": "0 5px 15px rgba(255, 118, 38, 0.28)",
+      "accentGlow": "0 0 10px rgba(255, 118, 38, 0.30)",
+      "backgroundTexture": "linear-gradient(90deg, rgba(255, 118, 38, 0.10), transparent 46%)",
+      "buttonBackground": "var(--theme-primary)"
+    },
+    "motion": {
+      "transitionDuration": "120ms",
+      "transitionEasing": "steps(2, end)",
+      "hoverScale": "1.01"
     }
   }
 }

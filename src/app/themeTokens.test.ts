@@ -30,21 +30,26 @@ describe('theme resolution', () => {
     }
   });
 
-  it('studio-night extends base with zero overrides and resolves identically to base', async () => {
+  it('studio-night resolves its own approved palette and derived app surfaces', async () => {
     const manifests = await loadManifests();
     const studioNight = resolveTheme(manifests, 'studio-night');
     const base = resolveTheme(manifests, 'base');
-    expect(studioNight).toEqual(base);
+    expect(studioNight['--theme-background']).toBe('#080c13');
+    expect(studioNight['--theme-primary']).toBe('#7bd8ee');
+    expect(studioNight['--theme-graph-background']).toBe('#080d14');
+    expect(studioNight['--theme-storybook-panel']).toBe('#141e29');
+    expect(studioNight['--theme-app-accent']).toBe(studioNight['--theme-primary']);
+    expect(studioNight['--theme-background']).not.toBe(base['--theme-background']);
   });
 
   it('iphone-noir overrides only its declared deltas and falls back to base for the rest', async () => {
     const manifests = await loadManifests();
     const resolved = resolveTheme(manifests, 'iphone-noir');
     expect(resolved['--theme-background']).toBe('#02030a');
-    expect(resolved['--theme-radius']).toBe('12px');
-    // Not redeclared by iphone-noir's theme.json -- must fall through to base.
+    expect(resolved['--theme-radius']).toBe('4px');
+    // Secondary remains inherited because iphone-noir does not redeclare it.
     expect(resolved['--theme-secondary']).toBe('#f15bb5');
-    expect(resolved['--theme-complete']).toBe('#68e08e');
+    expect(resolved['--theme-complete']).toBe('#82d8a0');
   });
 
   it('keeps new-category leaves distinct from same-named color tokens for "classic", which pins its own independent values (no --theme-panel collision)', async () => {
@@ -100,16 +105,16 @@ describe('theme resolution', () => {
     expect(resolved['--theme-raw-v232d42']).toBeUndefined();
   });
 
-  it('derives graph/storybook/app tokens from each preset\'s own color.* overrides, so switching themes actually repaints Graph mode, Storybook, and the app-wide palette', async () => {
+  it('derives or honors graph/storybook/app tokens for each preset, so switching themes repaints every surface', async () => {
     const manifests = await loadManifests();
     const base = resolveTheme(manifests, 'base');
     const iphoneNoir = resolveTheme(manifests, 'iphone-noir');
     // iphone-noir overrides color.background/header/primary, so everything
     // derived from them should differ from base -- not silently stay frozen
     // on base's fixed graph/storybook/app defaults.
-    expect(iphoneNoir['--theme-graph-background']).toBe(iphoneNoir['--theme-background']);
+    expect(iphoneNoir['--theme-graph-background']).toBe('#050910');
     expect(iphoneNoir['--theme-graph-background']).not.toBe(base['--theme-graph-background']);
-    expect(iphoneNoir['--theme-storybook-background']).toBe(iphoneNoir['--theme-background']);
+    expect(iphoneNoir['--theme-storybook-background']).toBe('#080d14');
     expect(iphoneNoir['--theme-storybook-background']).not.toBe(base['--theme-storybook-background']);
     expect(iphoneNoir['--theme-app-accent']).toBe(iphoneNoir['--theme-primary']);
     expect(iphoneNoir['--theme-app-accent']).not.toBe(base['--theme-app-accent']);
@@ -126,12 +131,12 @@ describe('theme resolution', () => {
     expect(iphoneNoir['--theme-app-dialog-bg']).not.toBe(base['--theme-app-dialog-bg']);
   });
 
-  it('"classic" and "studio-night" both extend base with zero color.* overrides, so their color.* tokens match, but they diverge on graph/storybook/app', async () => {
+  it('"classic" and "studio-night" keep distinct authored visual identities', async () => {
     const manifests = await loadManifests();
     const classic = resolveTheme(manifests, 'classic');
     const studioNight = resolveTheme(manifests, 'studio-night');
-    expect(classic['--theme-background']).toBe(studioNight['--theme-background']);
-    expect(classic['--theme-primary']).toBe(studioNight['--theme-primary']);
+    expect(classic['--theme-background']).not.toBe(studioNight['--theme-background']);
+    expect(classic['--theme-primary']).not.toBe(studioNight['--theme-primary']);
     expect(classic['--theme-app-accent']).not.toBe(studioNight['--theme-app-accent']);
     expect(classic['--theme-graph-panel']).not.toBe(studioNight['--theme-graph-panel']);
   });
