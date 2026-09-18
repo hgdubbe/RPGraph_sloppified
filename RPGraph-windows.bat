@@ -3,11 +3,14 @@ setlocal EnableExtensions
 
 cd /d "%~dp0"
 
+call :ensure_node24
+if errorlevel 1 exit /b %errorlevel%
+
 where npm >nul 2>&1
 if errorlevel 1 (
   echo.
-  echo Node.js with npm was not found.
-  echo Install Node.js LTS for Windows, then start this file again.
+  echo npm was not found after installing Node.js.
+  echo Restart Windows, then start this file again.
   echo.
   pause
   exit /b 1
@@ -139,3 +142,63 @@ goto pause_and_menu
 echo.
 pause
 goto menu
+
+:ensure_node24
+set "NODE_MAJOR=0"
+where node >nul 2>&1
+if not errorlevel 1 for /f %%V in ('node -p "process.versions.node.split('.')[0]"') do set "NODE_MAJOR=%%V"
+if %NODE_MAJOR% GEQ 24 exit /b 0
+
+echo.
+if %NODE_MAJOR% EQU 0 (
+  echo Node.js was not found. RPgraph Studio requires Node.js 24 or newer.
+) else (
+  echo RPgraph Studio requires Node.js 24 or newer.
+  echo Current version:
+  node --version
+)
+echo.
+choice /C YN /N /M "Download and install Node.js 24 LTS now? [Y/N] "
+if errorlevel 2 (
+  echo.
+  echo Start canceled: Node.js 24 or newer is required.
+  exit /b 1
+)
+
+where winget >nul 2>&1
+if errorlevel 1 (
+  echo.
+  echo Windows Package Manager ^(winget^) was not found.
+  echo Install Node.js 24 manually from https://nodejs.org/ and try again.
+  echo.
+  pause
+  exit /b 1
+)
+
+echo.
+echo Downloading and installing Node.js 24 LTS ...
+winget install --id OpenJS.NodeJS.LTS --exact --source winget --force --accept-package-agreements --accept-source-agreements
+if errorlevel 1 (
+  echo.
+  echo Node.js installation failed. Review the winget message above and try again.
+  echo.
+  pause
+  exit /b 1
+)
+
+set "PATH=%ProgramFiles%\nodejs;%PATH%"
+set "NODE_MAJOR=0"
+where node >nul 2>&1
+if not errorlevel 1 for /f %%V in ('node -p "process.versions.node.split('.')[0]"') do set "NODE_MAJOR=%%V"
+if %NODE_MAJOR% LSS 24 (
+  echo.
+  echo Node.js was installed, but this window cannot find Node.js 24 yet.
+  echo Restart Windows, then start this file again.
+  echo.
+  pause
+  exit /b 1
+)
+
+echo.
+node --version installed successfully.
+exit /b 0
