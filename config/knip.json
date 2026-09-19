@@ -1,0 +1,31 @@
+{
+  "$schema": "https://unpkg.com/knip@6/schema.json",
+  "entry": [
+    "index.html",
+    "electron/preload.cjs",
+    "src/**/*.test.ts",
+    "electron/**/*.test.ts",
+    "test/e2e/**/*.spec.ts",
+    "test/e2e/**/*.ts",
+    "scripts/*.mjs"
+  ],
+  "project": [
+    "src/**/*.{ts,tsx}",
+    "electron/**/*.cjs",
+    "electron/**/*.test.ts",
+    "test/e2e/**/*.ts",
+    "scripts/**/*.mjs"
+  ],
+  "ignore": [
+    "src/electron.d.ts"
+  ],
+  "vite": {
+    "config": "config/vite.config.ts"
+  },
+  "vitest": {
+    "config": "config/vitest.config.ts"
+  },
+  "playwright": {
+    "config": "config/playwright.config.ts"
+  }
+}

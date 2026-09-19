@@ -33,7 +33,7 @@ export default tseslint.config(
     },
   },
   {
-    files: ['scripts/**/*.mjs', 'vite.config.ts', 'vitest.config.ts'],
+    files: ['scripts/**/*.mjs', 'config/vite.config.ts', 'config/vitest.config.ts'],
     extends: [js.configs.recommended],
     languageOptions: {
       ecmaVersion: 2022,

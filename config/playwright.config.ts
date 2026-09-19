@@ -8,11 +8,11 @@ import { defineConfig } from '@playwright/test';
 // Kept disjoint from Vitest by path + extension: Vitest owns the colocated
 // `src/**/*.test.ts` and `electron/**/*.test.ts`; Playwright owns `test/e2e/**/*.spec.ts`.
 export default defineConfig({
-  testDir: './test/e2e',
+  testDir: '../test/e2e',
   testMatch: '**/*.spec.ts',
   // Traces/screenshots of failed runs; gitignored. Kept under test/ so the repo root
   // stays free of generated test output.
-  outputDir: './test/results',
+  outputDir: '../test/results',
   // Each spec launches its own Electron instance in a throwaway profile; keep serial
   // to avoid profile/instance contention.
   fullyParallel: false,
