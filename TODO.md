@@ -11,8 +11,8 @@ changes should leave as much of upstream's code untouched as possible, adding on
 the integration work necessary to fit our additions on top of upstream's current
 shape — not preserving our own prior implementation choices at the cost of upstream
 compatibility. When a merge conflict pits "keep our existing pattern" against "adopt
-upstream's new pattern and adapt our wiring to it," default to the latter. Any CSS 
-newly added by Upstream and without adaption to the forks theming system should be adopted 
+upstream's new pattern and adapt our wiring to it," default to the latter. Any CSS
+newly added by upstream without adaptation to the fork's theming system should be brought
 into it.
 
 ## Open
@@ -40,9 +40,21 @@ into it.
   since that content is upstream-owned, not fork-authored.
 - chore: some UI elements slipped past the the theme-engine conversion and are still hardcoded
   or falling back to default style. Needs to be searched for and fixed.
-- ComfyUi Provider: add cfg slider, make steps a slider, make scheduler and sampler dropdowns
+- ComfyUI Provider: add a CFG control, change steps from a number field to a slider, and
+  replace the free-text sampler/scheduler fields with dropdowns populated from supported values.
+- Add the established encryption/decryption mechanism to rotating autosaves, with an
+  explicit user option to enable it.
 
 ## Done
+
+- Integrated upstream RPGraph Studio v0.5.3: redesigned Banking and account-link flows,
+  13 additional bundled NPCs, v31 default workflows, batched renderer streaming, stable
+  node actions, cached NPC runtime projections, and related regression coverage. The new
+  Banking CSS was mapped onto the fork's semantic theme tokens, while the fork's newer
+  Storybook workbench layout was retained instead of restoring upstream's older setup modal.
+- Fixed the major text-input lag path by caching derived portrait data URLs and reusing
+  NPC/character projections while their inputs are unchanged. Focused runtime measurements
+  returned ordinary controls from hundreds of milliseconds per input to roughly one frame.
 
 - App-wide theming engine: covers Graph mode, the Storybook editor, and every dialog/
   menu (Options, Providers, System Log, NPC Library, Turn Trace, 25+ others), not just

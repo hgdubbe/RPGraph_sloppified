@@ -1,46 +1,119 @@
 # Sloppified Fork of RPGraph Studio
 
-`main` carries the full `codex/vanilla-rebuild` work, merged in on 2026-09-15: a UI overhaul
-on top of the kept backend features listed below (LLM providers, turn autosave, NPC
-auto-unlock).
+## What This Fork Changes
 
-Planning history: [History](https://claude.ai/artifact/S4LSEJucXErxVe358Kw8rw)
+This fork is based on RPGraph Studio **v0.5.3**. The list below describes the additions
+and design changes maintained by this fork on top of that upstream release.
 
-## What's New (2026-09-17)
+*Authors note: Written by a confused AI Agent, might be redundant or straight up a lie.
 
-- **App-wide theming engine.** Theming now covers the whole app, not just Play mode: Graph
-  mode's canvas chrome, the Storybook editor, and every dialog/menu (Options, Providers,
-  System Log, NPC Library, Turn Trace, and more) all repaint with the active theme. 11
-  bundled presets ship, and you can drop your own `theme.json` into a per-user folder —
-  see `resources/themes/README.md`.
-- **Independently-themable phone apps.** Notes, the AI chat app, Banking, Gallery, and the
-  social feed (Fotogram/OnlyFriends) each got split into their own CSS file with their own
-  token set, so they can be reskinned on their own instead of following the app's main
-  palette — like a real phone, where each app keeps its own brand identity.
-- **Merged upstream's social-identity unification and character agency tags.** Real
-  character names now display consistently alongside in-app handles across MatchMe,
-  Fotogram, and OnlyFriends; NPCs can carry consent-style "agency tags" that gate whether
-  they autonomously react to a post and how.
+### Studio Workspace and Navigation
 
-## TL;DR
+- Splits graph editing and roleplaying into dedicated **Graph** and **Play** workspace tabs.
+- Replaces the graph's hover drawers with a docked node palette and inspector, each with
+  its own collapse control and scrollable content.
+- Moves the graph toolbar into the title bar, groups related commands, and uses compact
+  icons for workflow save, RP save, and reset actions.
+- Adds a dedicated Play shell with a resizable panel, character strip, activity rail, and
+  direct shortcuts to chat, events, phone surfaces, Gallery, social apps, Banking, and Notes.
+- Adds detachable/pop-out workspace support and a larger dedicated text editor for editing
+  long node content.
+- Moves secondary application commands into the burger menu to leave more space for the
+  active graph, roleplay, or Storybook content.
 
-- **UI overhaul**
-  - RP Chat overhaul
-  - App-wide theming, with user-authored themes and per-phone-app independent tokens
-  - Storybook Editor UI overhaul
-  - Menu buttons moved to the burger menu
-  - Separation between Graph edit view and Roleplay view
-- **Phone simulation overhaul**
-  - Looks like an actual phone (best effort!)
-  - Basic widget support
-  - Vertical/landscape mode
-- **Minor features**
-  - Character mood selector in the phone simulation
-  - Comments on messages (e.g. "obviously sarcastic," so the LLM understands intent better)
-  - New providers
-  - Rotating autosaves, with a prompt to load one on startup
+### Storybook and Character Editing
 
-Not everything works perfectly yet, but it's all in active use.
+- Rebuilds Storybook editing as a persistent V2-style workbench with **Story**,
+  **Characters**, and **Surfaces** navigation instead of stacked modal navigation.
+- Adds a dedicated Cast Overview and focused character-detail pages.
+- Moves phone accounts, Banking, image generation, and voice setup into the relevant
+  character's workbench sections; changes save immediately instead of being buffered in a
+  separate Character Setup modal.
+- Adds an in-editor contact-visibility matrix and clearer relationship editing.
+- Moves character export next to import and simplifies the character identity/image fields.
+- Keeps character agency-tag controls visually integrated with the active Studio theme.
+
+### Roleplay, Turns, and Recovery
+
+- Adds **turn variants**: regenerated or reflavored replies remain available as alternate
+  versions instead of the newest rewrite replacing the previous one.
+- Adds optional rotating turn autosaves and a startup recovery dialog for choosing between
+  recent autosaves.
+- Adds message context comments so directions such as "obviously sarcastic" can accompany
+  the user's visible message without becoming part of that visible dialogue.
+- Adds direct activity shortcuts and separates phone/social output commits from the main
+  graph-run wiring.
+- Makes generated phone images usable from the embedded picker flow and marks newly
+  received Gallery images.
+
+### Phone Simulation and Social Apps
+
+- Rebuilds the in-world phone with iPhone-style device chrome, notch/status treatment,
+  home screen, portrait and landscape layouts, glass/reflection assets, and selectable
+  wallpapers.
+- Adds phone widgets and a character mood-status control.
+- Gives Notes, ChatGPD, Banking, Gallery, Fotogram/OnlyFriends, and related social surfaces
+  dedicated layouts rather than treating them as generic desktop panels.
+- Recreates the **OnlyFriends**, **MatchMe**, and **Fotogram** account-registration screens
+  with app-specific branding, assets, validation, and controls.
+- Improves social-account matching: handle comparison tolerates common LLM punctuation
+  slips and avoids false ambiguity when NPCs share names with bundled characters.
+- Preserves real character identity alongside app handles across MatchMe, Fotogram, and
+  OnlyFriends.
+
+### Theme System
+
+- Adds a manifest-based, app-wide theme engine covering the title bar, Graph workspace,
+  Play workspace, Storybook, dialogs, menus, inputs, popovers, inspectors, logs, provider
+  screens, Turn Trace, NPC Library, and other Studio chrome.
+- Ships **12 selectable themes**: Calm, Classic, Cute Girly, Goth, Hardcore, iPhone Noir,
+  Kawaii Dream, Neon Social, Normal Guy, Rainy Window, Studio Night, and Terminal Green.
+- Loads user-authored `theme.json` manifests from a per-user theme folder, with reload and
+  folder-opening controls in the desktop app.
+- Derives shared shell, graph, Storybook, and application colors from semantic tokens so a
+  theme changes the whole workspace rather than only replacing a few literal colors.
+- Gives Notes, ChatGPD, Banking, Gallery, and Social independent phone-app token namespaces
+  and separate CSS modules, allowing each app to keep its own visual identity.
+- Adapts upstream Banking additions to semantic theme tokens instead of leaving a fixed
+  dark-blue palette in the themed workspace.
+- Includes user documentation, theme internals, token extraction tooling, validation tests,
+  and a reusable guided theme-designer skill under
+  [`resources/themes/`](resources/themes/README.md).
+
+### AI Providers and Media Generation
+
+- Adds explicit **Unsloth**, **Venice AI**, and **Composite** provider integrations, model
+  discovery, capability handling, health checks, and desktop IPC adapters.
+- Extends LM Studio integration with CLI-based model listing, loading, probing, and unloading.
+- Adds Venice speech and image generation support to the existing generation tools.
+- Adds bundled **Flux.2 Klein 9B** ComfyUI workflows in normal and API-variable formats.
+- Adds configurable ComfyUI generation steps, sampler, scheduler, dimensions, model parts,
+  and LoRA slots to connection settings and graph execution.
+- Supports embedded image-generation UI inside phone flows as well as the standalone dialog.
+
+### Performance and Runtime Reliability
+
+- Caches derived portrait data URLs so embedded JPEGs are not repeatedly copied and
+  base64-encoded during ordinary React updates.
+- Caches effective NPC/character registry projections while their source data is unchanged.
+- Stabilizes node-action callbacks to reduce context-wide rerenders across visible graph nodes.
+- Batches streamed text updates to reduce renderer work during generation.
+- Improves provider cleanup and model lifecycle handling when closing the application.
+- Fixes the Windows live-reload blank window by making shared agency-tag validation a real
+  browser-compatible ES module.
+- Improves the Windows launcher and dependency bootstrap, including the expected Node.js
+  version and desktop-development paths.
+
+### Maintenance and Compatibility
+
+- Retains the upstream v0.5.3 Banking, bundled-NPC, workflow, social-identity, agency-tag,
+  character-contact, and runtime improvements while adapting their changed surfaces to the
+  fork's workspace and theme systems.
+- Keeps workflow, Storybook, character-card, save, and encrypted-file compatibility with
+  the upstream data model.
+- Adds focused regression coverage for themes, provider adapters, turn variants, phone and
+  social commits, mood state, autosave-related behavior, portrait caching, and renderer
+  performance boundaries.
 
 # 🎭 RPgraph Studio
 
