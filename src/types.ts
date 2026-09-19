@@ -587,6 +587,8 @@ export type EmbeddedPhoneMessageLink = {
 };
 
 export type EmbeddedSocialMessageLink = {
+  /** Transient streaming metadata; no message has been delivered yet. */
+  previewMessage?: SocialDirectMessageRecord;
   socialMessageId: number;
   app: SocialMessengerAppKind;
   from: string;

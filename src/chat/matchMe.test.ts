@@ -11,9 +11,10 @@ import { normalizeDatingProfile, resetDatingPasses } from './datingProfile';
 import { datingAccountId, datingAccounts, datingNpcProfiles, resolveDatingAccount } from './datingAccounts';
 import { canSendMatchMeMessage, incomingMatchMeMessage, isMatchMeMatch, matchMeContext, matchMeLikePolicy, matchMeMessageAllowed, matchMePairId, matchMeState, migrateDatingHistory } from './matchMe';
 import { parseSocialDirectMessageOutput, socialDirectMessageActor, socialDirectMessageInputText } from './socialMedia';
-import { parseMessengerAppMessagesObject } from './phoneMessages';
+import { parseMessengerAppMessagesObject, parseEmbeddedPhoneMessagesFromRpOutput, embeddedPhoneMessagesLivePreview } from './phoneMessages';
 import { validateSocialMessengerAccounts } from './socialMessageValidation';
 import { prepareMatchMePromptSlots, defaultMatchMeDmPrompt } from './matchMePrompt';
+import { socialMessagePreviewLinks } from './socialMessagePreview';
 
 const now = '2026-09-06T10:00:00.000Z';
 function character(id = 'mia', name = 'Mia'): StorybookCharacter {
@@ -37,6 +38,47 @@ function fixture(partner = 'demo-alex') {
 const replyJson = (from = 'demo-alex', to = datingAccountId('mia')) => JSON.stringify({ matchMeApp: [{ from, to, message: 'Hi!' }] });
 
 describe('MatchMe permissions and identity', () => {
+  it.each(['matchMeApp', 'matchmeApp'])('streams %s bubbles before JSON completion and keeps conversation identity', (key) => {
+    const { state, messages } = fixture();
+    const before = 'She checks her phone.\n';
+    const first = { from: 'demo-alex', to: datingAccountId('mia'), message: 'Hello there' };
+    const start = `${before}{"${key}":[${JSON.stringify(first)}, {"from":"${datingAccountId('mia')}","to":"demo-alex","message":"`;
+    for (const partial of ['H', 'Hello', 'Hello back!']) {
+      const parsed = embeddedPhoneMessagesLivePreview(start + partial);
+      const links = socialMessagePreviewLinks(parsed.socialDirectMessages, state);
+      expect(links).toHaveLength(2);
+      expect(links.map((link) => link.message)).toEqual(['Hello there', partial]);
+      expect(links.map((link) => link.socialMessageId)).toEqual([-1, -2]);
+      expect(links.map((link) => link.sourceOrder)).toEqual([0, 1]);
+      expect(links[0].previewMessage?.matchId).toBe(links[1].previewMessage?.matchId);
+      expect(links[0].previewMessage?.fromAccountId).not.toBe(links[1].previewMessage?.fromAccountId);
+      expect(links[1].from).toBe('Mia');
+      expect(parsed.textBefore).toContain('She checks her phone.');
+    }
+    const complete = embeddedPhoneMessagesLivePreview(start + 'Hello back!"}]}\nShe smiles.');
+    expect(socialMessagePreviewLinks(complete.socialDirectMessages, state)).toHaveLength(2);
+    expect(complete.textAfter).toContain('She smiles.');
+    expect(messages).toHaveLength(1);
+    expect(socialMessagePreviewLinks(complete.socialDirectMessages, { ...state, matches: [] })).toEqual([]);
+  });
+  it('embeds lowercase MatchMe keys and applies the same delivery restrictions', () => {
+    const { characters, messages, outgoing } = fixture();
+    const alias = replyJson().replace('matchMeApp', 'matchmeApp');
+    const text = `Before\n${alias}\nAfter`;
+    const embedded = parseEmbeddedPhoneMessagesFromRpOutput(text);
+    expect(embedded.socialDirectMessages).toMatchObject([{ app: 'matchme', text: 'Hi!' }]);
+    expect(JSON.stringify(embedded)).not.toContain('matchmeApp');
+    expect(embeddedPhoneMessagesLivePreview(`Before\n${alias.slice(0, -2)}`).socialDirectMessages)
+      .toMatchObject([{ app: 'matchme', text: 'Hi!' }]);
+    expect(validateSocialMessengerAccounts({ text, characters, messages }).issues).toEqual([]);
+    expect(validateSocialMessengerAccounts({ text, characters, messages: [] }).sanitizedText).not.toContain('matchmeApp');
+    const unknown = alias.replace('demo-alex', 'unknown-account');
+    expect(validateSocialMessengerAccounts({ text: unknown, characters, messages }).sanitizedText).toBe('');
+    expect(parseSocialDirectMessageOutput(alias, outgoing, now, characters).message).toBeDefined();
+    const duplicate = JSON.stringify({ ...JSON.parse(replyJson()), ...JSON.parse(alias) });
+    expect(validateSocialMessengerAccounts({ text: duplicate, characters, messages, directMessage: outgoing }).issues.length).toBeGreaterThan(0);
+    expect(parseSocialDirectMessageOutput(duplicate, outgoing, now, characters).message).toBeUndefined();
+  });
   it.each(datingNpcProfiles.map((profile) => profile.id))('restores legacy match %s once, in both directions', (id) => {
     const { state, owner, match } = fixture(id);
     const ownerId = datingAccountId(owner.id);
