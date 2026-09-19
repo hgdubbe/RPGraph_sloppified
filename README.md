@@ -33,10 +33,8 @@ and design changes maintained by this fork on top of that upstream release.
 - Moves character export next to import and simplifies the character identity/image fields.
 - Keeps character agency-tag controls visually integrated with the active Studio theme.
 
-### Roleplay, Turns, and Recovery
+### Roleplay and Recovery
 
-- Adds **turn variants**: regenerated or reflavored replies remain available as alternate
-  versions instead of the newest rewrite replacing the previous one.
 - Adds optional rotating turn autosaves and a startup recovery dialog for choosing between
   recent autosaves.
 - Adds message context comments so directions such as "obviously sarcastic" can accompany
