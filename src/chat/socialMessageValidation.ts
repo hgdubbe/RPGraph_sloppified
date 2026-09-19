@@ -3,7 +3,7 @@ import { matchMeState, incomingMatchMeMessage } from './matchMe';
 import { resolveDatingAccount } from './datingAccounts';
 import type { StorybookCharacter } from '../storybook/runtime';
 import type { MessageRecord, SocialAppKind, SocialMessengerAppKind, SocialDirectMessageRecord } from '../types';
-import { jsonObjectRanges, messengerAppMessageKeys } from './phoneMessages';
+import { jsonObjectRanges, messengerAppMessageKeys, normalizeMatchMeMessageKey } from './phoneMessages';
 import { parseSocialReactionsOutput, type SocialReactionTarget } from './socialMedia';
 
 function cleanHandle(value: string) {
@@ -170,13 +170,16 @@ export function validateSocialMessengerAccounts(options: {
   const invalidRanges: Array<{ start: number; end: number }> = [];
   const ranges = jsonObjectRanges(options.text);
   const directReplyBlockCount = options.directMessage ? ranges.filter((range) => {
-    try { return Array.isArray(JSON.parse(options.text.slice(range.start, range.end))?.matchMeApp); }
+    try {
+      const record = normalizeMatchMeMessageKey(JSON.parse(options.text.slice(range.start, range.end))) as Record<string, unknown> | null;
+      return Array.isArray(record?.matchMeApp);
+    }
     catch { return false; }
   }).length : 0;
   for (const range of ranges) {
     let parsed: unknown;
     try {
-      parsed = JSON.parse(options.text.slice(range.start, range.end)) as unknown;
+      parsed = normalizeMatchMeMessageKey(JSON.parse(options.text.slice(range.start, range.end)));
     } catch {
       continue;
     }

@@ -518,6 +518,18 @@ export const messengerAppMessageKeys: Record<MessengerAppKind, string> = {
   matchme: 'matchMeApp',
 };
 
+/** Accept the common MatchMe casing variant without changing message contents. */
+export function normalizeMatchMeMessageKey(value: unknown): unknown {
+  if (!isRecord(value) || !('matchmeApp' in value)) return value;
+  const { matchmeApp, ...record } = value;
+  return {
+    ...record,
+    matchMeApp: Array.isArray(record.matchMeApp) && Array.isArray(matchmeApp)
+      ? [...record.matchMeApp, ...matchmeApp]
+      : record.matchMeApp ?? matchmeApp,
+  };
+}
+
 type ParsedMessengerAppMessages = {
   phoneMessages: ParsedPhoneMessage[];
   socialDirectMessages: ParsedIncomingSocialDirectMessage[];
@@ -525,6 +537,7 @@ type ParsedMessengerAppMessages = {
 
 /** Parse the shared message-array format used by WhatsUp, Fotogram, and OnlyFriends. */
 export function parseMessengerAppMessagesObject(value: unknown): ParsedMessengerAppMessages {
+  value = normalizeMatchMeMessageKey(value);
   const result: ParsedMessengerAppMessages = { phoneMessages: [], socialDirectMessages: [] };
   if (!isRecord(value)) {
     return result;
@@ -588,6 +601,7 @@ export function parseMessengerAppMessagesObject(value: unknown): ParsedMessenger
 
 /** True when the object claims a Fotogram or OnlyFriends message array. */
 export function hasIncomingSocialDirectMessagesKey(value: unknown) {
+  value = normalizeMatchMeMessageKey(value);
   return isRecord(value) &&
     ([messengerAppMessageKeys.fotogram, messengerAppMessageKeys.onlyfriends, messengerAppMessageKeys.matchme] as const)
       .some((key) => value[key] !== undefined);
@@ -763,6 +777,7 @@ function stripIncompleteEmbeddedJsonTail(value: string) {
       tail.includes('"fotogramApp"') ||
       tail.includes('"onlyFriendsApp"') ||
       tail.includes('"matchMeApp"') ||
+      tail.includes('"matchmeApp"') ||
       tail.includes('"bankTransfers"') ||
       tail.includes('"fotogramPostComment"') ||
       tail.includes('"onlyFriendsPostComment"') ||
@@ -860,7 +875,7 @@ function incompleteMessengerPreview(value: string): PartialMessengerPreview | un
   }
   const openObject = value.slice(openObjectStart);
   const appMatch = openObject.match(
-    /"(phoneMessages|whatsUpApp|fotogramApp|onlyFriendsApp|matchMeApp)"\s*:\s*\[/,
+    /"(phoneMessages|whatsUpApp|fotogramApp|onlyFriendsApp|matchMeApp|matchmeApp)"\s*:\s*\[/,
   );
   if (!appMatch || appMatch.index === undefined) {
     return undefined;

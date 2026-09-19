@@ -18,6 +18,7 @@ import {
   hasIncomingSocialDirectMessagesKey,
   jsonObjectRanges,
   messengerAppMessageKeys,
+  normalizeMatchMeMessageKey,
   parseEmbeddedBankTransfersObject,
   parseMessengerAppMessagesObject,
   parseIncomingSocialDirectMessagesObject,
@@ -497,7 +498,7 @@ export function parseSocialDirectMessageOutput(
   for (const range of ranges) {
     let parsed: unknown;
     try {
-      parsed = JSON.parse(cleaned.slice(range.start, range.end)) as unknown;
+      parsed = normalizeMatchMeMessageKey(JSON.parse(cleaned.slice(range.start, range.end)));
     } catch {
       continue;
     }

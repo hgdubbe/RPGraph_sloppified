@@ -2,6 +2,7 @@ import { socialReactionAccountContext } from '../characters/socialReactionAccoun
 import { postsWithInitialContent } from '../characters/publications';
 import { resolveWhatsUpMessageParticipants } from '../characters/messageIdentity';
 import { matchMeState, matchMeMessageAllowed, incomingMatchMeMessage } from '../chat/matchMe';
+import { socialMessagePreviewLinks } from '../chat/socialMessagePreview';
 // runGraph orchestration hook, extracted verbatim from App.tsx (Etappe 2, APP_ZERLEGUNG.md).
 // Pure move: all component-scope dependencies arrive via the options object; the run
 // body is unchanged. nodesRef discipline: runGraph writes nodesRef.current manually and
@@ -1232,18 +1233,8 @@ export function useGraphRun(options: UseGraphRunOptions) {
             })
           : undefined,
         embeddedSocialMessages: preview.socialDirectMessages.length > 0
-          ? preview.socialDirectMessages.flatMap((socialMessage, index) =>
-              socialMessage.to && socialMessage.app !== 'matchme'
-                ? [{
-                    socialMessageId: -(index + 1),
-                    app: socialMessage.app,
-                    from: socialMessage.from,
-                    to: socialMessage.to,
-                    message: socialMessage.text,
-                    sourceOrder: socialMessage.sourceOrder,
-                  }]
-                : [],
-            )
+          ? socialMessagePreviewLinks(preview.socialDirectMessages,
+              matchMeState(appCharacters(), messagesRef.current))
           : undefined,
         embeddedPhoneTextBefore: hasMessengerPreview ? preview.textBefore : undefined,
         embeddedPhoneTextAfter: hasMessengerPreview ? preview.textAfter : undefined,

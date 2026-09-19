@@ -75,10 +75,21 @@ the MatchMe context. Existing workflow context is still governed by the prompt's
 in-world knowledge rules; MatchMe does not remove unrelated inputs from a custom
 workflow.
 
-Normal RP prompts receive active matches and public profiles as structured
-context when matches exist. They and `Messenger_message` command passes can
-initiate valid MatchMe messages. Account/match validation and correction replays
-apply before output leaves the LLM prompt node. Direct runs additionally require
+Generated `matchmeApp` blocks are accepted as a casing alias for `matchMeApp`
+in validation, embedded messages, streaming previews, and direct replies. Both
+spellings together count as combined entries, preserving single-reply checks.
+Embedded MatchMe conversations stream as growing bubbles before the JSON block
+closes. Preview links retain account and match identities for profile labels,
+conversation grouping, and sender alignment without delivering messages or
+changing unread state. Delivery still validates the completed output.
+
+Normal RP and Narrator planning, output, and command passes receive active
+matches and public profiles with canonical account IDs as structured context
+when matches exist. The context is also recorded in prompt previews and traces.
+Direct replies retain their conversation-scoped input context instead of receiving
+all active matches. Normal RP and `Messenger_message` command passes can
+initiate valid MatchMe messages. Account/match validation applies before output
+leaves the LLM prompt node; invalid message blocks are removed. Direct runs additionally require
 the exact bound recipient and sender. Final parsers and the central timeline
 append operation check permission again. Invented accounts, self-messages and
 unmatched pairs cannot become delivered app messages. MatchMe supports text and

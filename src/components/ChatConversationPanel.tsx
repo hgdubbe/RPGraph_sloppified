@@ -1298,8 +1298,8 @@ export function ChatConversationPanel({
               const sameConversation = first &&
                 first.app === socialMessage.app &&
                 (first.app === 'matchme'
-                  ? !!socialMessagesById.get(first.socialMessageId)?.matchId &&
-                    socialMessagesById.get(first.socialMessageId)?.matchId === socialMessagesById.get(socialMessage.socialMessageId)?.matchId
+                  ? !!(socialMessagesById.get(first.socialMessageId) ?? first.previewMessage)?.matchId &&
+                    (socialMessagesById.get(first.socialMessageId) ?? first.previewMessage)?.matchId === (socialMessagesById.get(socialMessage.socialMessageId) ?? socialMessage.previewMessage)?.matchId
                   : [first.from, first.to].map((name) => name.toLocaleLowerCase()).sort().join('::') ===
                     [socialMessage.from, socialMessage.to].map((name) => name.toLocaleLowerCase()).sort().join('::'));
               if (!current || !sameConversation) {
@@ -1318,7 +1318,7 @@ export function ChatConversationPanel({
                   }
                   const anchorSender = first.from.trim().toLocaleLowerCase();
                   const appName = socialAppNames[first.app];
-                  const firstMessage = socialMessagesById.get(first.socialMessageId);
+                  const firstMessage = socialMessagesById.get(first.socialMessageId) ?? first.previewMessage;
                   return (
                     <section
                       className={`chat-social-message-card ${first.app}`}
@@ -1332,10 +1332,10 @@ export function ChatConversationPanel({
                       </header>
                       <div className="chat-social-message-thread">
                         {segment.map((socialMessage, messageIndex) => {
-                          const linkedMessage = socialMessagesById.get(socialMessage.socialMessageId);
+                          const linkedMessage = socialMessagesById.get(socialMessage.socialMessageId) ?? socialMessage.previewMessage;
                           const text = socialTimelineMessageText(socialMessage, linkedMessage, englishProcessingEnabled);
                           const outgoing = first.app === 'matchme'
-                            ? linkedMessage?.fromAccountId === socialMessagesById.get(first.socialMessageId)?.fromAccountId
+                            ? linkedMessage?.fromAccountId === firstMessage?.fromAccountId
                             : socialMessage.from.trim().toLocaleLowerCase() === anchorSender;
                           const fromColor = characterColors.get(socialMessage.from);
                           return (
