@@ -26,7 +26,7 @@ Play workspace—not only isolated controls.
   <img src="fork-showcase/assets/themes/image_playmode3.jpg" alt="Kawaii Light theme in Play mode" width="49%">
 </p>
 
-[Open the complete eight-image slideshow](https://hgdubbe.github.io/RPGraph_sloppified/)
+[Open the complete eight-image slideshow](https://htmlpreview.github.io/?https://raw.githubusercontent.com/hgdubbe/RPGraph_sloppified/main/fork-showcase/index.html)
 
 ### Studio Workspace and Navigation
 
