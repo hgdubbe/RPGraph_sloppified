@@ -228,6 +228,7 @@ import { useDialogueVoice } from './chat/useDialogueVoice';
 import { latestOutputTurnMessages } from './chat/dialogueVoiceSegments';
 import { WelcomeDialog } from './components/WelcomeDialog';
 import { TurnAutosaveChoiceDialog } from './components/TurnAutosaveChoiceDialog';
+import { TurnTraceDialog } from './components/TurnTraceDialog';
 import { npcPromotionCard } from './characters/promotion';
 import { NpcLibraryDialog } from './components/NpcLibraryDialog';
 import { CharacterAssistantDialog } from './components/CharacterAssistantDialog';
@@ -864,6 +865,7 @@ function App() {
   const [editingMessageId, setEditingMessageId] = useState<number | null>(null);
   const [editingDraft, setEditingDraft] = useState('');
   const [previewImage, setPreviewImage] = useState<PreviewImageState | null>(null);
+  const [turnTraceDialogOpen, setTurnTraceDialogOpen] = useState(false);
   const {
     isRunning,
     setIsRunning,
@@ -5503,15 +5505,6 @@ function App() {
       >
         Switch
       </button>
-      <button
-        className="roleplay-detach-button"
-        type="button"
-        onClick={() => setRoleplayPanelDetached((detached) => !detached)}
-        title={roleplayPanelDetached ? 'Dock roleplay panel' : 'Pop out roleplay panel'}
-        aria-label={roleplayPanelDetached ? 'Dock roleplay panel' : 'Pop out roleplay panel'}
-      >
-        {roleplayPanelDetached ? '⧈' : '⧉'}
-      </button>
       <div className="header-turn-actions">
         <button
           className="auto-turn-button"
@@ -5659,7 +5652,15 @@ function App() {
         </span>
       </div>
       <div className="graph-canvas-hud-group">
-        <span className="graph-hud-pill">Run Trace</span>
+        <button
+          className="graph-hud-pill graph-run-trace-button"
+          type="button"
+          onClick={() => setTurnTraceDialogOpen(true)}
+          title="Open the in-memory turn trace"
+          aria-label="Open turn trace"
+        >
+          Run Trace
+        </button>
         {showDeletedNodeRestoreButton && (
           <button
             className="graph-restore-deleted"
@@ -6089,6 +6090,13 @@ function App() {
           isRunning={isRunning && activeRunId === runLlmReport.runId}
           runStartTimeMs={runStartTimeMs}
           onClose={() => setShowRunLlmReport(false)}
+        />
+      )}
+      {turnTraceDialogOpen && (
+        <TurnTraceDialog
+          traces={turnTraces}
+          estimatedTokenBytesPerToken={activeTokenEstimateBytesPerToken}
+          onClose={() => setTurnTraceDialogOpen(false)}
         />
       )}
       {nodeTextEditorRequest && (
@@ -7547,4 +7555,3 @@ function App() {
 }
 
 export default App;
-

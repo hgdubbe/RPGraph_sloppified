@@ -2017,11 +2017,16 @@ export function ChatConversationPanel({
               type="button"
               disabled={isRunning || !imageUploadEnabled}
               onClick={onSelectDraftImages}
-              title={!imageUploadEnabled ? imageUploadDisabledReason ?? 'Image upload requires a vision-capable provider.' : undefined}
+              title={!imageUploadEnabled ? imageUploadDisabledReason ?? 'Image upload requires a vision-capable provider.' : 'Attach images'}
+              aria-label="Attach images"
             >
-              Attach Image
+              <svg className="attach-image-icon" aria-hidden="true" viewBox="0 0 24 24">
+                <rect x="3" y="4" width="18" height="16" rx="2" />
+                <circle cx="8.5" cy="9" r="1.5" />
+                <path d="m4 17 5-5 4 4 2-2 5 4" />
+              </svg>
             </button>
-            <div className="phone-display-menu" ref={outsidePhoneMenuRef}>
+            <div className="chat-tab-settings-menu" ref={outsidePhoneMenuRef}>
               <button
                 className="composer-icon-button"
                 type="button"
@@ -2036,37 +2041,37 @@ export function ChatConversationPanel({
                 </svg>
               </button>
               {outsidePhoneMenuOpen && (
-                <div className="phone-display-popover" role="menu">
-                  <div className="phone-display-popover-section">
-                    <span className="phone-display-popover-heading">Chat Tab Settings</span>
+                <div className="chat-tab-settings-popover" role="menu">
+                  <div className="chat-tab-settings-section">
+                    <span className="chat-tab-settings-heading">Chat Tab Settings</span>
                     <button
-                      className={`phone-display-checkbox${composerAutoCollapseEnabled ? ' active' : ''}`}
+                      className={`chat-tab-settings-checkbox${composerAutoCollapseEnabled ? ' active' : ''}`}
                       type="button"
                       role="menuitemcheckbox"
                       aria-checked={composerAutoCollapseEnabled}
                       onClick={() => changeComposerAutoCollapseEnabled(!composerAutoCollapseEnabled)}
                     >
-                      <span className="phone-display-check" aria-hidden="true">
+                      <span className="chat-tab-settings-check" aria-hidden="true">
                         {composerAutoCollapseEnabled ? '✓' : ''}
                       </span>
                       <span>Auto-collapse input</span>
                     </button>
                     <button
-                      className={`phone-display-checkbox${chatReadsPhoneAppsEnabled ? ' active' : ''}`}
+                      className={`chat-tab-settings-checkbox${chatReadsPhoneAppsEnabled ? ' active' : ''}`}
                       type="button"
                       role="menuitemcheckbox"
                       aria-checked={chatReadsPhoneAppsEnabled}
                       title="App messages shown inside a chat bubble are marked read and raise no phone notification."
                       onClick={() => onChatReadsPhoneAppsEnabledChange(!chatReadsPhoneAppsEnabled)}
                     >
-                      <span className="phone-display-check" aria-hidden="true">
+                      <span className="chat-tab-settings-check" aria-hidden="true">
                         {chatReadsPhoneAppsEnabled ? '✓' : ''}
                       </span>
                       <span>Chat marks app messages read</span>
                     </button>
                   </div>
-                  <div className="phone-display-popover-section">
-                    <span className="phone-display-popover-heading">Phone Messages</span>
+                  <div className="chat-tab-settings-section">
+                    <span className="chat-tab-settings-heading">Phone Messages</span>
                     {([
                       ['bubbles', 'Show Phone Messages'],
                       ['hide', 'Hide Phone Messages'],
@@ -2088,33 +2093,33 @@ export function ChatConversationPanel({
                       </button>
                     ))}
                     <button
-                      className={`phone-display-checkbox${phoneAuthorBadgesEnabled ? ' active' : ''}`}
+                      className={`chat-tab-settings-checkbox${phoneAuthorBadgesEnabled ? ' active' : ''}`}
                       type="button"
                       role="menuitemcheckbox"
                       aria-checked={phoneAuthorBadgesEnabled}
                       onClick={() => onPhoneAuthorBadgesEnabledChange(!phoneAuthorBadgesEnabled)}
                     >
-                      <span className="phone-display-check" aria-hidden="true">
+                      <span className="chat-tab-settings-check" aria-hidden="true">
                         {phoneAuthorBadgesEnabled ? '✓' : ''}
                       </span>
                       <span>Show AI/User badges</span>
                     </button>
                     <button
-                      className={`phone-display-checkbox${phoneBubbleHeadersEnabled ? ' active' : ''}`}
+                      className={`chat-tab-settings-checkbox${phoneBubbleHeadersEnabled ? ' active' : ''}`}
                       type="button"
                       role="menuitemcheckbox"
                       aria-checked={phoneBubbleHeadersEnabled}
                       onClick={() => changePhoneBubbleHeadersEnabled(!phoneBubbleHeadersEnabled)}
                     >
-                      <span className="phone-display-check" aria-hidden="true">
+                      <span className="chat-tab-settings-check" aria-hidden="true">
                         {phoneBubbleHeadersEnabled ? '✓' : ''}
                       </span>
                       <span>Show bubble headers</span>
                     </button>
                   </div>
-                  <div className="phone-display-popover-section">
-                    <span className="phone-display-popover-heading">Chat Text</span>
-                    <div className="phone-display-size-control" aria-label="Normal chat text size">
+                  <div className="chat-tab-settings-section">
+                    <span className="chat-tab-settings-heading">Chat Text</span>
+                    <div className="chat-tab-settings-size-control" aria-label="Normal chat text size">
                       <span>Size</span>
                       <div>
                         <button
