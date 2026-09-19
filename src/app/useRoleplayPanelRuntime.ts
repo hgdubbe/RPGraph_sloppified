@@ -1,3 +1,4 @@
+import { bankingRecipientByName } from '../chat/bankingRecipients';
 import { hasAuthoredConnection } from '../characters/relationships';
 import { automaticAccountLinkGrants, resolveAccountLink, type AccountLinkTarget } from '../chat/accountLinks';
 import type { AccountLinkOpenRequest } from '../chat/accountLinkContext';
@@ -237,11 +238,6 @@ export function useRoleplayPanelRuntime({
   const chatAutoFollowAnimatingRef = useRef(false);
   const chatAutoFollowProgrammaticScrollRef = useRef(false);
   const chatAutoFollowProgrammaticClearFrameRef = useRef(0);
-  const isRunningRef = useRef(isRunning);
-
-  useEffect(() => {
-    isRunningRef.current = isRunning;
-  }, [isRunning]);
   const phoneImageInputRef = useRef<HTMLInputElement | null>(null);
   const phoneEmojiPickerRef = useRef<HTMLDivElement | null>(null);
   const phoneThreadRef = useRef<HTMLDivElement | null>(null);
@@ -271,7 +267,7 @@ export function useRoleplayPanelRuntime({
   const persistedSocialConnectionsByCharacter = useMemo(() => {
     let connections = savedSocialConnectionsByCharacter;
     for (const { owner, link } of automaticAccountLinkGrants(messages, appCharacters)) {
-      if (link.app === 'matchme') continue;
+      if (link.app === 'matchme' || link.app === 'banking') continue;
       const user = socialDirectory.users.find((entry) => entry.characterId === link.character.id);
       const targetId = link.app === 'whatsup' ? link.accountId : user?.id;
       if (targetId) connections = withSocialConnectionAdded(connections, owner.sourceId, link.app, targetId);
@@ -874,23 +870,27 @@ export function useRoleplayPanelRuntime({
   }
 
   function openAccountLink(link: AccountLinkTarget) {
-    const owner = chatPanelView === 'phone' ? viewedPhoneCharacter : selectedCharacter;
+    const owner = (chatPanelView === 'phone' ? viewedPhoneCharacter : selectedCharacter) ?? viewedPhoneCharacter;
     if (!owner || isRunning) return;
-    const target = resolveAccountLink(link.app, link.accountId, appCharacters);
+    const target = resolveAccountLink(link.app, link.app === 'banking' ? link.characterId : link.accountId, appCharacters);
     if (!target || target.characterId !== link.characterId) {
       notifySystem('warning', 'This shared account is unavailable.');
       return;
     }
     if (owner.sourceId === target.characterId) return;
-    captureNpcParticipants([{ kind: 'account', app: target.app, id: target.accountId, canonical: true }]);
-    if (target.app === 'whatsup') {
-      setSocialConnectionsByCharacter((current) => withSocialConnectionAdded(current, owner.sourceId, 'whatsup', target.accountId));
-      openPhoneConversation(phoneConversationKey(owner.name, target.character.name), 0,
-        { speakerId: owner.id, contactId: target.character.id, activatePlayer: false });
-    } else if (target.app !== 'matchme') {
-      const user = socialDirectory.users.find((entry) => entry.characterId === target.character.id);
-      if (!user) { notifySystem('warning', 'This shared social account is unavailable.'); return; }
-      addSocialConnection(owner.id, target.app, user.id);
+    if (target.app === 'banking') {
+      addBankingContact(owner.id, target.name);
+    } else {
+      captureNpcParticipants([{ kind: 'account', app: target.app, id: target.accountId, canonical: true }]);
+      if (target.app === 'whatsup') {
+        setSocialConnectionsByCharacter((current) => withSocialConnectionAdded(current, owner.sourceId, 'whatsup', target.accountId));
+        openPhoneConversation(phoneConversationKey(owner.name, target.character.name), 0,
+          { speakerId: owner.id, contactId: target.character.id, activatePlayer: false });
+      } else if (target.app !== 'matchme') {
+        const user = socialDirectory.users.find((entry) => entry.characterId === target.character.id);
+        if (!user) { notifySystem('warning', 'This shared social account is unavailable.'); return; }
+        addSocialConnection(owner.id, target.app, user.id);
+      }
     }
     setViewedPhoneCharacterId(owner.id);
     setHighlightedPhoneMessage(undefined);
@@ -1092,12 +1092,18 @@ export function useRoleplayPanelRuntime({
     if (!normalizedName) {
       return;
     }
+    const owner = appCharacters.find((character) => character.id === characterId);
+    const target = bankingRecipientByName(normalizedName, appCharacters, owner);
+    if (!target) {
+      return;
+    }
+    captureNpcParticipants([{ kind: 'character', id: target.sourceId || target.id }]);
     setBankingContactsByCharacter((current) => {
       const contacts = current[characterId] ?? [];
-      if (contacts.some((name) => normalizePhoneName(name) === normalizePhoneName(normalizedName))) {
+      if (contacts.some((name) => normalizePhoneName(name) === normalizePhoneName(target.name))) {
         return current;
       }
-      return { ...current, [characterId]: [...contacts, normalizedName] };
+      return { ...current, [characterId]: [...contacts, target.name] };
     });
   }
 
@@ -1337,14 +1343,9 @@ export function useRoleplayPanelRuntime({
       const targetTop = Math.max(0, currentThread.scrollHeight - currentThread.clientHeight);
       const distance = targetTop - currentThread.scrollTop;
       if (distance <= 1) {
+        cancelChatAutoFollowAnimation();
         markChatProgrammaticScroll();
         currentThread.scrollTop = targetTop;
-        if (isRunningRef.current) {
-          chatAutoFollowAnimationTimeRef.current = timestamp;
-          chatAutoFollowAnimationFrameRef.current = requestAnimationFrame(step);
-          return;
-        }
-        cancelChatAutoFollowAnimation();
         return;
       }
 
@@ -1680,7 +1681,7 @@ export function useRoleplayPanelRuntime({
     setBankingContactsByCharacter,
     addBankingContact,
     markSelectedPhoneConversationSeen,
-    accountLinkContext: { characters: appCharacters, owner: chatPanelView === 'phone' ? viewedPhoneCharacter : selectedCharacter,
+    accountLinkContext: { characters: appCharacters, owner: (chatPanelView === 'phone' ? viewedPhoneCharacter : selectedCharacter) ?? viewedPhoneCharacter,
       disabled: isRunning, open: openAccountLink, request: accountLinkOpenRequest },
     phoneHomeRequestId,
     phoneAppOpenRequest,

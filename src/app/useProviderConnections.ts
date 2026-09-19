@@ -1115,6 +1115,10 @@ export function useProviderConnections({
   const checkProviderConnectionsRef = useRef(checkProviderConnections);
   const inspectComfyWorkflowRef = useRef(inspectComfyWorkflow);
   const editingConnectionRef = useRef(editingConnection);
+  const checkProviderConnectionByIdStable = useCallback(
+    (connectionId: string, showStatus = false) => checkProviderConnectionByIdRef.current(connectionId, showStatus),
+    [],
+  );
   useEffect(() => {
     checkProviderConnectionByIdRef.current = checkProviderConnectionById;
     checkProviderConnectionsRef.current = checkProviderConnections;
@@ -2705,7 +2709,7 @@ export function useProviderConnections({
     unloadAllProviderModelsForClose,
     applyConnectionToAllNodes,
     checkProviderConnection,
-    checkProviderConnectionById,
+    checkProviderConnectionById: checkProviderConnectionByIdStable,
     checkProviderConnections,
     loadCharacterComfyLoras,
     generateCharacterComfyPreview,

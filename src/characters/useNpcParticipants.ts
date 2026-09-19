@@ -1,4 +1,5 @@
 import { appCharactersFromRegistry } from './appRuntime';
+import { createNpcRuntimeCache } from './npcRuntimeCache';
 import { useRef, useState, type Dispatch, type SetStateAction } from 'react';
 import { acquireMessageContacts, reconcileNpcMessageContacts } from './messageContacts';
 import { historicalContactCheckpoints } from './historicalContactCheckpoints';
@@ -12,45 +13,20 @@ import {
 } from './npcParticipants';
 import {
   openingHistoryNpcParticipantsFromNodes,
-  storybookRegistryEntries,
   candidateStorybookRegistry,
   type StorybookRegistryCandidateOptions,
 } from './npcParticipantRuntime';
 import type { Character } from './character';
 
+const emptyLibraryEntries: NonNullable<NpcLibrarySnapshot>['entries'] = [];
+
 export function useNpcParticipants(nodesRef: { current: WorkflowNode[] }, library: NpcLibrarySnapshot | null,
   setNodes: Dispatch<SetStateAction<WorkflowNode[]>>) {
   const [, setRevision] = useState(0);
   const snapshotsRef = useRef<NpcParticipantSnapshots>({});
-  const projectionCacheRef = useRef<{
-    nodes: WorkflowNode[];
-    library: NpcLibrarySnapshot | null;
-    snapshots: NpcParticipantSnapshots;
-    registry: ReturnType<typeof buildCharacterRegistry>;
-    characters: ReturnType<typeof appCharactersFromRegistry>;
-  } | null>(null);
-  const entries = () => [...(library?.entries ?? []), ...storybookRegistryEntries(nodesRef.current)];
-  const projection = () => {
-    const cached = projectionCacheRef.current;
-    if (
-      cached &&
-      cached.nodes === nodesRef.current &&
-      cached.library === library &&
-      cached.snapshots === snapshotsRef.current
-    ) {
-      return cached;
-    }
-    const registry = buildCharacterRegistry([...entries(), ...npcSnapshotEntries(snapshotsRef.current)]);
-    const next = {
-      nodes: nodesRef.current,
-      library,
-      snapshots: snapshotsRef.current,
-      registry,
-      characters: appCharactersFromRegistry(registry),
-    };
-    projectionCacheRef.current = next;
-    return next;
-  };
+  const [runtimeCache] = useState(createNpcRuntimeCache);
+  const runtime = () => runtimeCache(nodesRef.current, library?.entries ?? emptyLibraryEntries, snapshotsRef.current);
+  const entries = () => runtime().entries;
   const registryForStorybook = (nodeId: string, characters: Character[], options?: StorybookRegistryCandidateOptions) =>
     candidateStorybookRegistry(entries(), snapshotsRef.current, nodeId, characters, options);
   const capture = (references: NpcParticipantReference[]) => {
@@ -70,9 +46,9 @@ export function useNpcParticipants(nodesRef: { current: WorkflowNode[] }, librar
   };
   return {
     current: () => snapshotsRef.current,
-    registry: () => projection().registry,
+    registry: () => runtime().registry,
     registryForStorybook,
-    characters: () => projection().characters,
+    characters: () => runtime().characters,
     capture,
     reconcileMessages: (messages: MessageRecord[]) => {
       commitContacts({ nodes: nodesRef.current, participants: reconcileNpcMessageContacts(snapshotsRef.current, entries(), messages) });

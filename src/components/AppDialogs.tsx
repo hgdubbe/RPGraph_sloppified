@@ -6,6 +6,7 @@ import { CharacterMentionInput } from './CharacterMentionInput';
 import { HiddenAgencyField } from './HiddenAgencyField';
 import { withCharacterPortrait } from '../characters/portrait';
 import { CharacterAppProfiles } from './CharacterAppProfiles';
+import { formatBankingAmount } from '../chat/bankTransfers';
 import { useEffect, useMemo, useRef, useState, type FormEvent, type PointerEvent as ReactPointerEvent } from 'react';
 import { DarkAudioPlayer } from './DarkAudioPlayer';
 import { LiveRunClock } from './LiveRunClock';
@@ -1372,7 +1373,7 @@ function characterPhoneSummary(character: RpStorybookCharacter) {
   const onlyFriendsCreated = Boolean(character.apps?.onlyfriends?.enabled);
   const matchMeCreated = Boolean(character.apps?.matchme?.enabled);
   return <span className="character-phone-summary">
-    <span>Bank: ${banking.startBalance}</span>
+    <span>Bank: {formatBankingAmount(banking.startBalance)}</span>
     <span className="character-phone-summary-separator" aria-hidden="true">·</span>
     <span>Fotogram {accountStatus(true)}</span>
     <span className="character-phone-summary-separator" aria-hidden="true">·</span>
