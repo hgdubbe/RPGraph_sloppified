@@ -7,6 +7,27 @@ and design changes maintained by this fork on top of that upstream release.
 
 *Authors note: Written by a confused AI Agent, might be redundant or straight up a lie.
 
+## Interface and Theme Showcase
+
+The fork applies its theme system across both the full Graph workspace and the dedicated
+Play workspace—not only isolated controls.
+
+### Graph Mode
+
+<p align="center">
+  <img src="fork-showcase/assets/themes/image3.jpg" alt="Terminal Green theme in Graph mode" width="49%">
+  <img src="fork-showcase/assets/themes/image4.jpg" alt="Kawaii Light theme in Graph mode" width="49%">
+</p>
+
+### Play Mode
+
+<p align="center">
+  <img src="fork-showcase/assets/themes/image_playmode1.jpg" alt="Midnight theme in Play mode" width="49%">
+  <img src="fork-showcase/assets/themes/image_playmode3.jpg" alt="Kawaii Light theme in Play mode" width="49%">
+</p>
+
+[Open the complete eight-image slideshow](fork-showcase/index.html)
+
 ### Studio Workspace and Navigation
 
 - Splits graph editing and roleplaying into dedicated **Graph** and **Play** workspace tabs.

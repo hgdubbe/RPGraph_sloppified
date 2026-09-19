@@ -1,0 +1,338 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#090b10">
+  <title>RPGraph Studio — Upstream to Sloppified</title>
+  <style>
+    :root {
+      --ink: #f4f1ea;
+      --muted: #9d9b95;
+      --dim: #666762;
+      --paper: #090b10;
+      --panel: rgba(18, 20, 27, .82);
+      --line: rgba(244, 241, 234, .12);
+      --lime: #c7f36b;
+      --violet: #9f8cff;
+      --blue: #75c9ff;
+      --orange: #ff9d66;
+      --serif: Georgia, "Times New Roman", serif;
+      --sans: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+
+    * { box-sizing: border-box; }
+    html, body { margin: 0; min-height: 100%; background: var(--paper); color: var(--ink); }
+    body { font-family: var(--sans); overflow: hidden; }
+    button { font: inherit; }
+
+    .noise,
+    .aurora { position: fixed; inset: 0; pointer-events: none; }
+    .noise {
+      opacity: .13;
+      background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 180 180' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='.3'/%3E%3C/svg%3E");
+      mix-blend-mode: soft-light;
+      z-index: 10;
+    }
+    .aurora {
+      background:
+        radial-gradient(circle at 15% 15%, rgba(159, 140, 255, .17), transparent 35%),
+        radial-gradient(circle at 88% 84%, rgba(199, 243, 107, .12), transparent 34%);
+    }
+
+    .deck { position: relative; width: 100vw; height: 100vh; }
+    .slide {
+      position: absolute;
+      inset: 0;
+      display: grid;
+      grid-template-rows: auto 1fr auto;
+      padding: clamp(24px, 4vw, 64px);
+      opacity: 0;
+      visibility: hidden;
+      transform: translateY(18px);
+      transition: opacity .45s ease, transform .45s ease, visibility .45s;
+    }
+    .slide.is-active { opacity: 1; visibility: visible; transform: none; }
+
+    .topline, .footer { display: flex; align-items: center; justify-content: space-between; gap: 20px; }
+    .topline { border-bottom: 1px solid var(--line); padding-bottom: 16px; }
+    .wordmark { font-weight: 800; letter-spacing: -.04em; }
+    .wordmark span { color: var(--lime); }
+    .edition, .page-no { color: var(--muted); font: 600 11px/1 var(--sans); letter-spacing: .14em; text-transform: uppercase; }
+
+    .content { min-height: 0; display: grid; align-items: center; padding-block: clamp(28px, 5vh, 64px); }
+    .eyebrow { color: var(--lime); font-size: 12px; font-weight: 700; letter-spacing: .15em; text-transform: uppercase; }
+    h1, h2, p { margin: 0; }
+    h1, h2 { font-family: var(--serif); font-weight: 400; letter-spacing: -.055em; }
+    h1 { max-width: 1050px; font-size: clamp(54px, 8.2vw, 132px); line-height: .89; }
+    h2 { max-width: 980px; font-size: clamp(42px, 6vw, 88px); line-height: .94; }
+    .lede { max-width: 680px; color: var(--muted); font-size: clamp(16px, 1.65vw, 23px); line-height: 1.5; }
+    .accent { color: var(--lime); font-style: italic; }
+
+    .hero-grid { display: grid; grid-template-columns: 1.2fr .8fr; gap: clamp(30px, 7vw, 120px); align-items: end; }
+    .hero-copy { display: grid; gap: 28px; }
+    .stats { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); border-top: 1px solid var(--line); }
+    .stat { padding: 20px 10px 10px 0; border-bottom: 1px solid var(--line); }
+    .stat:nth-child(odd) { border-right: 1px solid var(--line); }
+    .stat:nth-child(even) { padding-left: 20px; }
+    .stat strong { display: block; font-family: var(--serif); font-size: clamp(32px, 4vw, 58px); font-weight: 400; }
+    .stat span { color: var(--muted); font-size: 12px; }
+
+    .compare-grid { display: grid; grid-template-columns: 1fr 1fr; gap: clamp(18px, 3vw, 48px); align-items: stretch; }
+    .compare-col { min-width: 0; padding: clamp(24px, 3vw, 42px); border: 1px solid var(--line); background: rgba(255,255,255,.018); }
+    .compare-col.fork { background: linear-gradient(145deg, rgba(199,243,107,.11), rgba(159,140,255,.07)); border-color: rgba(199,243,107,.3); }
+    .compare-label { display: flex; align-items: center; gap: 10px; color: var(--muted); font-size: 12px; font-weight: 700; letter-spacing: .12em; text-transform: uppercase; }
+    .compare-label::before { content: ""; width: 8px; height: 8px; border-radius: 50%; background: var(--dim); }
+    .fork .compare-label::before { background: var(--lime); box-shadow: 0 0 18px var(--lime); }
+    .compare-col h3 { margin: 24px 0 12px; font: 400 clamp(30px, 3vw, 48px)/1 var(--serif); }
+    .compare-col p { color: var(--muted); line-height: 1.55; }
+    .feature-list { display: grid; gap: 0; margin-top: 26px; }
+    .feature-list > div { display: flex; justify-content: space-between; gap: 16px; padding: 13px 0; border-top: 1px solid var(--line); font-size: 13px; }
+    .feature-list span:last-child { color: var(--muted); text-align: right; }
+
+    .phone-layout { display: grid; grid-template-columns: .72fr 1.28fr; gap: clamp(30px, 6vw, 100px); align-items: center; }
+    .phone-copy { display: grid; gap: 24px; }
+    .phone-copy .lede { font-size: 17px; }
+    .phone-stage { min-height: 470px; display: grid; place-items: center; position: relative; }
+    .phone {
+      width: min(280px, 54vw); aspect-ratio: 9/18.7; border: 9px solid #22252e; border-radius: 42px; overflow: hidden;
+      transform: rotate(5deg); box-shadow: 0 40px 90px rgba(0,0,0,.6), 0 0 80px rgba(159,140,255,.18);
+      background: #151827;
+    }
+    .phone img { width: 100%; height: 100%; object-fit: cover; display: block; }
+    .orbit { position: absolute; padding: 10px 14px; border: 1px solid var(--line); background: rgba(15,17,23,.88); color: var(--muted); font-size: 12px; backdrop-filter: blur(14px); }
+    .orbit.one { top: 12%; left: 2%; }
+    .orbit.two { right: 0; top: 32%; }
+    .orbit.three { left: 6%; bottom: 16%; }
+
+    .matrix { display: grid; grid-template-columns: repeat(3, 1fr); border-top: 1px solid var(--line); border-left: 1px solid var(--line); }
+    .matrix article { min-height: 170px; padding: clamp(18px, 2vw, 30px); border-right: 1px solid var(--line); border-bottom: 1px solid var(--line); }
+    .matrix .num { color: var(--dim); font-size: 11px; letter-spacing: .14em; }
+    .matrix h3 { margin: 32px 0 10px; font: 400 25px/1 var(--serif); }
+    .matrix p { color: var(--muted); font-size: 13px; line-height: 1.5; }
+
+    .proof-layout { display: grid; grid-template-columns: 1fr 1fr; gap: clamp(30px, 7vw, 110px); align-items: center; }
+    .proof-copy { display: grid; gap: 24px; }
+    .commit-stack { display: grid; gap: 10px; }
+    .commit { padding: 18px; border: 1px solid var(--line); background: rgba(255,255,255,.025); }
+    .commit code { color: var(--lime); font: 600 12px/1.4 ui-monospace, SFMono-Regular, Consolas, monospace; }
+    .commit p { margin-top: 8px; color: var(--muted); font-size: 13px; }
+
+    .footer { align-self: end; padding-top: 16px; border-top: 1px solid var(--line); }
+    .hint { color: var(--dim); font-size: 11px; }
+    .nav { display: flex; align-items: center; gap: 8px; }
+    .nav button { width: 38px; height: 38px; border: 1px solid var(--line); background: transparent; color: var(--ink); cursor: pointer; }
+    .nav button:hover, .nav button:focus-visible { border-color: var(--lime); color: var(--lime); outline: none; }
+    .progress { width: min(220px, 28vw); height: 2px; background: var(--line); overflow: hidden; }
+    .progress span { display: block; width: 100%; height: 100%; background: var(--lime); transition: transform .4s ease; transform-origin: left; }
+
+    /* Interface-first showcase */
+    .ui-frame { position: relative; min-height: 0; height: 100%; overflow: hidden; border: 1px solid var(--line); background: #0d111a; box-shadow: 0 28px 80px rgba(0,0,0,.45); }
+    .ui-frame img { width: 100%; height: 100%; object-fit: cover; display: block; }
+    .ui-frame.contain img { object-fit: contain; }
+    .ui-caption { position: absolute; inset: auto 0 0; padding: 70px 28px 24px; background: linear-gradient(transparent, rgba(6,8,12,.94)); display: flex; align-items: end; justify-content: space-between; gap: 24px; }
+    .ui-caption h1, .ui-caption h2 { font-size: clamp(34px, 5vw, 72px); }
+    .ui-caption p { max-width: 480px; color: #c7c9cf; line-height: 1.5; }
+    .crop-grid { height: 100%; min-height: 0; display: grid; grid-template-columns: 1.35fr .65fr; gap: 16px; }
+    .crop-stack { min-height: 0; display: grid; grid-template-rows: 1fr 1fr; gap: 16px; }
+    .ui-crop { position: relative; min-height: 0; overflow: hidden; border: 1px solid var(--line); background-image: url('../docs/main-screen.png'); background-repeat: no-repeat; background-size: auto 100%; }
+    .ui-crop.graph { background-position: left center; }
+    .ui-crop.chat { background-position: right top; }
+    .ui-crop.composer { background-position: right bottom; }
+    .crop-label { position: absolute; left: 16px; bottom: 16px; padding: 8px 11px; background: rgba(7,9,14,.84); border: 1px solid rgba(255,255,255,.18); color: #fff; font-size: 11px; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; backdrop-filter: blur(12px); }
+    .device-showcase { height: 100%; min-height: 0; display: grid; grid-template-columns: minmax(260px,.72fr) 1.28fr; gap: 18px; }
+    .mobile-shot { position: relative; overflow: hidden; border: 1px solid var(--line); background: radial-gradient(circle at 50% 30%, rgba(159,140,255,.24), transparent 48%), #0b0d13; display: grid; place-items: center; }
+    .mobile-shot img { height: 91%; max-width: 88%; object-fit: contain; filter: drop-shadow(0 35px 55px rgba(0,0,0,.58)); }
+    .social-wall { min-height: 0; display: grid; grid-template-columns: repeat(2,1fr); grid-template-rows: repeat(2,1fr); gap: 8px; }
+    .social-wall img { width: 100%; height: 100%; min-height: 0; object-fit: cover; border: 1px solid var(--line); }
+    .social-wall img:first-child { grid-row: 1 / 3; }
+    .compare-visual { height: 100%; min-height: 0; display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+    .visual-panel { min-height: 0; position: relative; overflow: hidden; border: 1px solid var(--line); background: #0b0d13; }
+    .visual-panel img { width: 100%; height: 100%; object-fit: cover; }
+    .visual-panel:first-child img { object-position: left center; }
+    .visual-panel:last-child img { object-position: right center; }
+    .visual-tag { position: absolute; inset: 18px 18px auto; display: flex; justify-content: space-between; color: #fff; font-size: 12px; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; text-shadow: 0 2px 10px #000; }
+    .closing-strip { position: absolute; inset: auto 20px 20px; padding: 18px 22px; background: rgba(7,9,14,.9); border: 1px solid rgba(255,255,255,.18); backdrop-filter: blur(16px); display: flex; justify-content: space-between; align-items: center; gap: 24px; }
+    .closing-strip strong { font: 400 clamp(24px,3vw,44px)/1 var(--serif); }
+    .closing-strip span { color: var(--muted); font-size: 13px; }
+    .theme-mosaic { position: relative; height: 100%; min-height: 0; display: grid; grid-template-columns: 1fr 1fr; grid-template-rows: 1fr 1fr; gap: 8px; overflow: hidden; border: 1px solid var(--line); background: #08090d; }
+    .theme-mosaic img { width: 100%; height: 100%; min-height: 0; object-fit: cover; }
+    .mosaic-title { position: absolute; inset: 0; display: grid; place-content: center; text-align: center; background: radial-gradient(circle, rgba(5,6,10,.35), rgba(5,6,10,.82)); }
+    .mosaic-title h1 { font-size: clamp(54px,8vw,120px); text-shadow: 0 8px 40px #000; }
+    .mosaic-title p { margin-top: 18px; color: #d5d3cf; font-size: 14px; letter-spacing: .16em; text-transform: uppercase; }
+    .theme-frame { position: relative; height: 100%; min-height: 0; display: grid; place-items: center; overflow: hidden; border: 1px solid var(--line); background: #08090d; }
+    .theme-frame img { width: 100%; height: 100%; object-fit: contain; display: block; }
+    .theme-meta { position: absolute; left: 18px; top: 18px; display: flex; align-items: center; gap: 10px; padding: 10px 13px; background: rgba(5,6,10,.82); border: 1px solid rgba(255,255,255,.18); backdrop-filter: blur(14px); }
+    .theme-meta strong { font-size: 12px; letter-spacing: .12em; text-transform: uppercase; }
+    .theme-meta span { color: var(--muted); font-size: 11px; }
+    .mode-graph .theme-meta::before, .mode-play .theme-meta::before { content: ""; width: 8px; height: 8px; border-radius: 50%; background: var(--lime); box-shadow: 0 0 14px var(--lime); }
+    .mode-play .theme-meta::before { background: var(--violet); box-shadow: 0 0 14px var(--violet); }
+
+    /* Image-only presentation */
+    .slide { display: block; padding: 0; }
+    .topline,
+    .footer,
+    .theme-meta,
+    .mosaic-title { display: none; }
+    .content { height: 100vh; padding: 0; }
+    .theme-frame,
+    .theme-mosaic { border: 0; }
+    .nav { bottom: 18px !important; opacity: .22; transition: opacity .2s ease; }
+    .nav:hover, .nav:focus-within { opacity: 1; }
+    .nav button { background: rgba(7,9,14,.72); backdrop-filter: blur(12px); }
+
+    @media (max-width: 820px) {
+      body { overflow: auto; }
+      .deck { min-height: 100svh; height: auto; }
+      .slide { position: relative; display: none; min-height: 100svh; }
+      .slide.is-active { display: grid; }
+      .hero-grid, .compare-grid, .phone-layout, .proof-layout { grid-template-columns: 1fr; }
+      .crop-grid, .device-showcase, .compare-visual { grid-template-columns: 1fr; }
+      .crop-stack { display: none; }
+      .social-wall { display: none; }
+      .ui-caption { display: block; }
+      .ui-caption p { margin-top: 10px; }
+      .theme-mosaic { grid-template-columns: 1fr; }
+      .theme-mosaic img:nth-child(even) { display: none; }
+      .stats { margin-top: 10px; }
+      .compare-grid { align-content: center; }
+      .phone-stage { min-height: 390px; }
+      .phone { width: 210px; }
+      .matrix { grid-template-columns: 1fr 1fr; }
+      .matrix article { min-height: 130px; }
+      .matrix h3 { margin-top: 18px; }
+    }
+
+    @media (max-width: 520px) {
+      .slide { padding: 20px; }
+      .edition, .hint { display: none; }
+      .content { padding-block: 24px; }
+      h1 { font-size: 50px; }
+      h2 { font-size: 42px; }
+      .compare-col { padding: 20px; }
+      .feature-list > div { font-size: 12px; }
+      .matrix { grid-template-columns: 1fr; }
+      .matrix article { min-height: 110px; }
+      .orbit { font-size: 10px; }
+      .progress { width: 90px; }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after { scroll-behavior: auto !important; transition-duration: .01ms !important; animation-duration: .01ms !important; }
+    }
+  </style>
+</head>
+<body>
+  <div class="aurora"></div>
+  <div class="noise"></div>
+
+  <main class="deck" aria-label="RPGraph fork comparison presentation">
+    <section class="slide is-active" aria-hidden="false">
+      <header class="topline"><div class="wordmark">RPGraph<span>/</span>Themes</div><div class="edition">Eight real interface captures</div></header>
+      <div class="content">
+        <div class="theme-mosaic">
+          <img src="assets/themes/image1.jpg" alt="Violet Graph mode theme">
+          <img src="assets/themes/image3.jpg" alt="Green Graph mode theme">
+          <img src="assets/themes/image4.jpg" alt="Light Graph mode theme">
+          <img src="assets/themes/image_playmode3.jpg" alt="Light Play mode theme">
+          <div class="mosaic-title"><h1>Themes in<br><span class="accent">their habitat.</span></h1><p>Graph mode · Play mode</p></div>
+        </div>
+      </div>
+      <footer class="footer"><span class="hint">Use ← → or swipe</span><span class="page-no"></span></footer>
+    </section>
+
+    <section class="slide mode-graph" aria-hidden="true">
+      <header class="topline"><div class="wordmark">Graph mode</div><div class="edition">Violet workspace</div></header>
+      <div class="content"><div class="theme-frame"><img src="assets/themes/image1.jpg" alt="Violet Graph mode interface"><div class="theme-meta"><strong>Graph mode</strong><span>Violet</span></div></div></div>
+      <footer class="footer"><span class="hint">Node palette · canvas · inspector</span><span class="page-no"></span></footer>
+    </section>
+
+    <section class="slide mode-graph" aria-hidden="true">
+      <header class="topline"><div class="wordmark">Graph mode</div><div class="edition">Midnight workspace</div></header>
+      <div class="content"><div class="theme-frame"><img src="assets/themes/image2.jpg" alt="Midnight Graph mode interface"><div class="theme-meta"><strong>Graph mode</strong><span>Midnight</span></div></div></div>
+      <footer class="footer"><span class="hint">Quiet chrome, focused canvas</span><span class="page-no"></span></footer>
+    </section>
+
+    <section class="slide mode-graph" aria-hidden="true">
+      <header class="topline"><div class="wordmark">Graph mode</div><div class="edition">Terminal green</div></header>
+      <div class="content"><div class="theme-frame"><img src="assets/themes/image3.jpg" alt="Terminal Green Graph mode interface"><div class="theme-meta"><strong>Graph mode</strong><span>Terminal green</span></div></div></div>
+      <footer class="footer"><span class="hint">Semantic color across every panel</span><span class="page-no"></span></footer>
+    </section>
+
+    <section class="slide mode-graph" aria-hidden="true">
+      <header class="topline"><div class="wordmark">Graph mode</div><div class="edition">Kawaii light</div></header>
+      <div class="content"><div class="theme-frame"><img src="assets/themes/image4.jpg" alt="Kawaii Light Graph mode interface"><div class="theme-meta"><strong>Graph mode</strong><span>Kawaii light</span></div></div></div>
+      <footer class="footer"><span class="hint">Light shell, dark canvas</span><span class="page-no"></span></footer>
+    </section>
+
+    <section class="slide mode-graph" aria-hidden="true">
+      <header class="topline"><div class="wordmark">Graph mode</div><div class="edition">Neon violet</div></header>
+      <div class="content"><div class="theme-frame"><img src="assets/themes/image5.jpg" alt="Neon Violet Graph mode interface"><div class="theme-meta"><strong>Graph mode</strong><span>Neon violet</span></div></div></div>
+      <footer class="footer"><span class="hint">Electric accents, deep surfaces</span><span class="page-no"></span></footer>
+    </section>
+
+    <section class="slide mode-play" aria-hidden="true">
+      <header class="topline"><div class="wordmark">Play mode</div><div class="edition">Midnight phone</div></header>
+      <div class="content"><div class="theme-frame"><img src="assets/themes/image_playmode1.jpg" alt="Midnight Play mode interface"><div class="theme-meta"><strong>Play mode</strong><span>Midnight</span></div></div></div>
+      <footer class="footer"><span class="hint">Phone, scene, and composer</span><span class="page-no"></span></footer>
+    </section>
+
+    <section class="slide mode-play" aria-hidden="true">
+      <header class="topline"><div class="wordmark">Play mode</div><div class="edition">Blue noir</div></header>
+      <div class="content"><div class="theme-frame"><img src="assets/themes/image_playmode2.jpg" alt="Blue Noir Play mode interface"><div class="theme-meta"><strong>Play mode</strong><span>Blue noir</span></div></div></div>
+      <footer class="footer"><span class="hint">The phone keeps its own visual identity</span><span class="page-no"></span></footer>
+    </section>
+
+    <section class="slide mode-play" aria-hidden="true">
+      <header class="topline"><div class="wordmark">Play mode</div><div class="edition">Kawaii light</div></header>
+      <div class="content"><div class="theme-frame"><img src="assets/themes/image_playmode3.jpg" alt="Kawaii Light Play mode interface"><div class="theme-meta"><strong>Play mode</strong><span>Kawaii light</span></div></div></div>
+      <footer class="footer"><span class="hint">One theme across shell and play workspace</span><span class="page-no"></span></footer>
+    </section>
+
+    <nav class="nav" aria-label="Slide navigation" style="position:fixed;left:50%;bottom:clamp(24px,4vw,64px);z-index:20;transform:translateX(-50%)">
+      <button type="button" id="prev" aria-label="Previous slide">←</button>
+      <div class="progress" aria-hidden="true"><span id="progressBar"></span></div>
+      <button type="button" id="next" aria-label="Next slide">→</button>
+    </nav>
+  </main>
+
+  <script>
+    const slides = [...document.querySelectorAll('.slide')];
+    const pageNumbers = [...document.querySelectorAll('.page-no')];
+    const progress = document.getElementById('progressBar');
+    let active = 0;
+    let touchStartX = 0;
+
+    function show(index) {
+      active = (index + slides.length) % slides.length;
+      slides.forEach((slide, i) => {
+        const selected = i === active;
+        slide.classList.toggle('is-active', selected);
+        slide.setAttribute('aria-hidden', String(!selected));
+      });
+      pageNumbers.forEach((page, i) => {
+        page.textContent = `${String(i + 1).padStart(2, '0')} / ${String(slides.length).padStart(2, '0')}`;
+      });
+      progress.style.transform = `scaleX(${(active + 1) / slides.length})`;
+      history.replaceState(null, '', `#${active + 1}`);
+    }
+
+    document.getElementById('prev').addEventListener('click', () => show(active - 1));
+    document.getElementById('next').addEventListener('click', () => show(active + 1));
+    window.addEventListener('keydown', event => {
+      if (['ArrowRight', 'PageDown', ' '].includes(event.key)) { event.preventDefault(); show(active + 1); }
+      if (['ArrowLeft', 'PageUp'].includes(event.key)) { event.preventDefault(); show(active - 1); }
+      if (event.key === 'Home') show(0);
+      if (event.key === 'End') show(slides.length - 1);
+    });
+    window.addEventListener('touchstart', event => { touchStartX = event.changedTouches[0].clientX; }, { passive: true });
+    window.addEventListener('touchend', event => {
+      const distance = event.changedTouches[0].clientX - touchStartX;
+      if (Math.abs(distance) > 55) show(active + (distance < 0 ? 1 : -1));
+    }, { passive: true });
+
+    const initial = Number.parseInt(location.hash.slice(1), 10);
+    show(Number.isFinite(initial) ? initial - 1 : 0);
+  </script>
+</body>
+</html>
