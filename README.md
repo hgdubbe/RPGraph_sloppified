@@ -1,5 +1,11 @@
 # Sloppified Fork of RPGraph Studio
 
+`main` carries the full `codex/vanilla-rebuild` work, merged in on 2026-09-15: a UI overhaul
+on top of the kept backend features listed below (LLM providers, turn autosave, NPC
+auto-unlock).
+
+Planning history: [History](https://claude.ai/artifact/S4LSEJucXErxVe358Kw8rw)
+
 ## What's New (2026-09-17)
 
 - **App-wide theming engine.** Theming now covers the whole app, not just Play mode: Graph
@@ -33,7 +39,6 @@
   - Comments on messages (e.g. "obviously sarcastic," so the LLM understands intent better)
   - New providers
   - Rotating autosaves, with a prompt to load one on startup
-  - Comfy UI Flux 2 Klein 9b and generation parameter Support (steps, sampler, scheduler)
 
 Not everything works perfectly yet, but it's all in active use.
 

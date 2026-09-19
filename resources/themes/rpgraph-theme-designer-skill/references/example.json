@@ -1,0 +1,275 @@
+// This file is a commented JSONC reference. Copy it to
+// <user-data>/themes/my-theme/theme.json, remove comments as desired, and change id.
+// Every value below is a CSS value string.
+{
+  "id": "example-complete",
+  "label": "Example Complete",
+  "extends": "base",
+  "order": 50,
+
+  // The compact tier. Advanced tokens below override values derived from these.
+  "basic": {
+    "primary": "#e58b52",
+    "secondary": "#74b8a8",
+    "background": "#121519",
+    "foreground": "#f5efe4",
+    "headingFont": "Georgia, serif",
+    "bodyFont": "system-ui, sans-serif",
+    "radius": "6px"
+  },
+
+  "tokens": {
+    // Main Studio palette: Play mode, chat, tabs, rail, and phone glass.
+    "color": {
+      "background": "#121519",
+      "backgroundElevated": "#1a2024",
+      "header": "#20282c",
+      "surfaceRail": "#101417",
+      "surfaceContent": "#171c20",
+      "panel": "#222a2e",
+      "card": "#2a3438",
+      "cardStrong": "#354248",
+      "input": "#0d1113",
+      "foreground": "#f5efe4",
+      "mutedForeground": "#a7b1ad",
+      "primary": "#e58b52",
+      "primaryForeground": "#21130c",
+      "secondary": "#74b8a8",
+      "border": "rgba(190, 211, 203, 0.42)",
+      "borderSoft": "rgba(190, 211, 203, 0.18)",
+      "userBubble": "#33231c",
+      "userBubbleBorder": "rgba(229, 139, 82, 0.72)",
+      "rail": "#c7d4ce",
+      "complete": "#83d39b",
+      "phoneGlass": "rgba(21, 27, 30, 0.52)"
+    },
+
+    // Play-mode chrome that has no exact color.* equivalent.
+    "shell": {
+      "chatSurface": "#151b1f",
+      "messageBorder": "rgba(190, 211, 203, 0.28)",
+      "messageText": "#f5efe4",
+      "labelStrong": "#fffaf0",
+      "inputBorder": "rgba(229, 139, 82, 0.52)",
+      "segmentedBg": "#303a3d",
+      "iconColor": "#d7e2dc",
+      "iconButtonBg": "#20282c",
+      "autoTurnText": "#21130c",
+      "railBorder": "rgba(190, 211, 203, 0.22)",
+      "characterStripBg": "#181e21",
+      "railActiveColor": "#f0a06a",
+      "railActiveBorder": "rgba(229, 139, 82, 0.78)",
+      "railActiveBg": "rgba(229, 139, 82, 0.12)",
+      "badgeBorder": "rgba(10, 14, 16, 0.72)",
+      "badgeText": "#102519",
+      "badgeBg": "#83d39b",
+      "badgeGlow": "rgba(131, 211, 155, 0.42)",
+      "tabBorder": "rgba(190, 211, 203, 0.38)",
+      "tabBorderBottom": "rgba(190, 211, 203, 0.20)",
+      "tabText": "#b8c7c0",
+      "tabBg": "#1c2428",
+      "tabActiveBorder": "rgba(229, 139, 82, 0.84)",
+      "tabActiveBg": "#252e32",
+      "tabActiveText": "#fffaf0",
+      "tabSubtext": "#91a19a",
+      "topbarButtonBorder": "#46565a",
+      "topbarButtonText": "#dce8e1",
+      "topbarButtonBg": "#20282c",
+      "topbarHoverBg": "rgba(229, 139, 82, 0.14)",
+      "topbarHoverBorder": "rgba(229, 139, 82, 0.70)",
+      "badgeAccentBg": "#e58b52",
+      "topbarContextBorder": "rgba(190, 211, 203, 0.26)",
+      "topbarMutedText": "#a7b1ad",
+      "topbarSelectBg": "#1d2529"
+    },
+
+    // Explicit Graph values make this surface intentionally different.
+    "graph": {
+      "background": "#0c1114",
+      "chrome": "#172126",
+      "panel": "#1c292d",
+      "panel2": "#243237",
+      "line": "#40565b",
+      "lineSoft": "rgba(151, 190, 181, 0.24)",
+      "text": "#eef7f1",
+      "muted": "#a2bcb3",
+      "faint": "#708b82",
+      "accent": "#e6a06b",
+      "accentSoft": "rgba(230, 160, 107, 0.15)",
+      "success": "#91dca5",
+      "violet": "#b9a0e8"
+    },
+
+    "storybook": {
+      "background": "#11161a",
+      "panel": "#202a2e",
+      "passive": "#1a2327",
+      "line": "#415258",
+      "lineSoft": "rgba(180, 208, 198, 0.22)",
+      "text": "#f4f8f2",
+      "muted": "#a6b8b0",
+      "faint": "#71847d",
+      "accent": "#e58b52",
+      "accentSoft": "rgba(229, 139, 82, 0.14)",
+      "violet": "#b9a0e8",
+      "violetSoft": "rgba(185, 160, 232, 0.14)",
+      "pink": "#e783a5",
+      "lime": "#a5d878"
+    },
+
+    // Shared dialog and legacy component palette.
+    "app": {
+      "accent": "#e58b52",
+      "accentLight": "#f2b17f",
+      "surface": "#222a2e",
+      "surfaceAlt": "#2d393d",
+      "surfaceSoft": "#171c20",
+      "line": "#405055",
+      "muted": "#a7b1ad",
+      "cyan": "#74b8a8",
+      "wire": "#b9a0e8",
+      "success": "#83d39b",
+      "successSoft": "rgba(131, 211, 155, 0.18)",
+      "warning": "#e3bd65",
+      "warningSoft": "rgba(227, 189, 101, 0.16)",
+      "danger": "#e78383",
+      "dangerSoft": "rgba(231, 131, 131, 0.16)",
+      "softWhite": "#f0f2ec",
+      "dialogBg": "#20282c",
+      "dialogBorder": "#526267",
+      "dialogText": "#f5efe4",
+      "text": "#f5efe4"
+    },
+
+    "typography": {
+      "headingFont": "Georgia, serif",
+      "bodyFont": "system-ui, sans-serif",
+      "fontWeight": "500",
+      "fontWeightHeading": "700",
+      "letterSpacing": "0.01em",
+      "textTransform": "none",
+      "baseSize": "13px",
+      "lineHeight": "1.5"
+    },
+
+    "shape": {
+      "radius": "6px",
+      "radiusCard": "8px",
+      "radiusButton": "5px",
+      "radiusInput": "4px",
+      "borderWidth": "1px",
+      "borderStyle": "solid",
+      "clipPath": "none"
+    },
+
+    "effect": {
+      "cardShadow": "0 12px 28px rgba(0, 0, 0, 0.28)",
+      "buttonShadow": "0 4px 12px rgba(0, 0, 0, 0.22)",
+      "buttonShadowHover": "0 7px 18px rgba(0, 0, 0, 0.32)",
+      "accentGlow": "0 0 10px rgba(229, 139, 82, 0.32)",
+      "backgroundTexture": "linear-gradient(120deg, rgba(229, 139, 82, 0.08), transparent 42%)",
+      "buttonBackground": "linear-gradient(135deg, #e58b52, #c96b42)"
+    },
+
+    "motion": {
+      "transitionDuration": "160ms",
+      "transitionEasing": "ease-out",
+      "hoverScale": "1.015"
+    },
+
+    // Phone apps are independent on purpose. These retint Notes only.
+    "phoneNotes": {
+      "background": "#171512",
+      "text": "#f7ead2",
+      "textStrong": "#fff8e9",
+      "accent": "#e5a84f",
+      "accentLight": "#f4c875",
+      "accentStrong": "#c27d21",
+      "accentDeep": "#754b12",
+      "danger": "#e78888",
+      "tintNeutral": "196, 196, 196",
+      "tintSand": "224, 193, 139",
+      "tintCoral": "224, 145, 137",
+      "tintPeach": "229, 172, 126",
+      "tintMint": "135, 201, 171",
+      "tintSky": "137, 183, 218",
+      "tintLavender": "178, 158, 216",
+      "tintRose": "218, 154, 180"
+    },
+
+    "phoneChatgpd": {
+      "background": "#101817",
+      "panelStrong": "#19302c",
+      "glass": "#d8fff5",
+      "text": "#dff4ed",
+      "textStrong": "#f3fff9",
+      "textOnAccent": "#06221c",
+      "accent": "#55c7ae",
+      "accentLight": "#8de4d0",
+      "accentDeep": "#17866f",
+      "accentBright": "#b2f6e4",
+      "danger": "#f0a2a2"
+    },
+
+    "phoneBanking": {
+      "background": "#101820",
+      "panel": "#1a2935",
+      "line": "#3b5563",
+      "text": "#dcebf0",
+      "textStrong": "#f5fbff",
+      "muted": "#91aab4",
+      "accent": "#51b6c9",
+      "accentStrong": "#247f9a",
+      "accentDeep": "#174d61",
+      "success": "#83d39b",
+      "danger": "#e78383"
+    },
+
+    "phoneGallery": {
+      "background": "#151718",
+      "panel": "#252b2d",
+      "stage": "#090b0c",
+      "line": "#4b5759",
+      "text": "#e9efec",
+      "textStrong": "#ffffff",
+      "muted": "#9ba9a5",
+      "badge": "#d3b5f2",
+      "success": "#83d39b",
+      "danger": "#e78383"
+    },
+
+    // Shared social chrome plus independent Fotogram and OnlyFriends branding.
+    "phoneSocial": {
+      "background": "#111519",
+      "panel": "#1b2328",
+      "panelAlt": "#273238",
+      "panelDeep": "#0c1012",
+      "bubbleIncoming": "#29343a",
+      "glass": "#ffffff",
+      "line": "#a9c0bb",
+      "text": "#dce9e5",
+      "textStrong": "#ffffff",
+      "muted": "#91a29e",
+      "tip": "#e5a84f",
+      "tipText": "#251808",
+      "success": "#83d39b",
+      "danger": "#e78383",
+      "dangerBg": "#432126",
+      "fotogramAccent": "#d58af0",
+      "fotogramAccentStrong": "#8068df",
+      "fotogramCard": "#28213a",
+      "onlyfriendsAccent": "#f27b95",
+      "onlyfriendsAccentStrong": "#d94a70",
+      "onlyfriendsGlow": "#e98cc0",
+      "onlyfriendsBackground": "#1d101c",
+      "onlyfriendsCard": "#382034",
+      "onlyfriendsBubbleIncoming": "#3b2637"
+    },
+
+    // Optional low-level overrides. Names come from repeated CSS literals.
+    "raw": {
+      "v131b28": "#1c2528",
+      "vrgba000028": "rgba(0, 0, 0, 0.38)"
+    }
+  }
+}

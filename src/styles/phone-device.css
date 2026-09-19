@@ -255,6 +255,67 @@
 }
 
 .roleplay-phone-screen {
+  /* The simulated phone is its own product surface. Keep Studio theme aliases
+     from cascading into phone apps; the future phone-theme system will replace
+     these phone-owned primitives without coupling them to the Studio theme. */
+  --phone-ui-background: #020203;
+  --phone-ui-surface: #111824;
+  --phone-ui-surface-alt: #182131;
+  --phone-ui-surface-soft: #0d1421;
+  --phone-ui-input: #0d1421;
+  --phone-ui-text: #f8fafc;
+  --phone-ui-muted: #94a3b8;
+  --phone-ui-accent: #8a73c9;
+  --phone-ui-accent-light: #b29ce3;
+  --phone-ui-line: rgba(77, 96, 138, 0.55);
+  --phone-ui-line-soft: rgba(77, 96, 138, 0.35);
+  --phone-ui-success: #5fae68;
+  --phone-ui-warning: #c7af45;
+  --phone-ui-danger: #c65f5f;
+  --accent: var(--phone-ui-accent);
+  --accent-light: var(--phone-ui-accent-light);
+  --surface: var(--phone-ui-surface);
+  --surface-alt: var(--phone-ui-surface-alt);
+  --surface-soft: var(--phone-ui-surface-soft);
+  --line: var(--phone-ui-line);
+  --muted: var(--phone-ui-muted);
+  --soft-white: var(--phone-ui-text);
+  --success: var(--phone-ui-success);
+  --warning: var(--phone-ui-warning);
+  --danger: var(--phone-ui-danger);
+  --theme-background: var(--phone-ui-background);
+  --theme-background-elevated: var(--phone-ui-surface-soft);
+  --theme-foreground: var(--phone-ui-text);
+  --theme-muted-foreground: var(--phone-ui-muted);
+  --theme-primary: var(--phone-ui-accent);
+  --theme-primary-foreground: var(--phone-ui-text);
+  --theme-secondary: var(--phone-ui-accent-light);
+  --theme-panel: var(--phone-ui-surface);
+  --theme-card: var(--phone-ui-surface-alt);
+  --theme-input: var(--phone-ui-input);
+  --theme-border: var(--phone-ui-line);
+  --theme-border-soft: var(--phone-ui-line-soft);
+  --theme-button-background: var(--phone-ui-accent);
+  --theme-button-shadow: none;
+  --theme-button-shadow-hover: none;
+  --theme-success: var(--phone-ui-success);
+  --theme-warning: var(--phone-ui-warning);
+  --theme-danger: var(--phone-ui-danger);
+  --theme-app-accent: var(--phone-ui-accent);
+  --theme-app-accent-light: var(--phone-ui-accent-light);
+  --theme-app-surface: var(--phone-ui-surface);
+  --theme-app-surface-alt: var(--phone-ui-surface-alt);
+  --theme-app-surface-soft: var(--phone-ui-surface-soft);
+  --theme-app-line: var(--phone-ui-line);
+  --theme-app-muted: var(--phone-ui-muted);
+  --theme-app-soft-white: var(--phone-ui-text);
+  --theme-app-success: var(--phone-ui-success);
+  --theme-app-warning: var(--phone-ui-warning);
+  --theme-app-danger: var(--phone-ui-danger);
+  --theme-app-text: var(--phone-ui-text);
+  --theme-app-dialog-bg: var(--phone-ui-surface);
+  --theme-app-dialog-border: var(--phone-ui-line);
+  --theme-app-dialog-text: var(--phone-ui-text);
   display: flex;
   width: 100%;
   height: 100%;
@@ -264,7 +325,7 @@
   position: relative;
   padding: 43px 0 24px;
   border-radius: 49px;
-  background: var(--theme-raw-v020203, #020203);
+  background: var(--phone-ui-background);
   box-sizing: border-box;
 }
 

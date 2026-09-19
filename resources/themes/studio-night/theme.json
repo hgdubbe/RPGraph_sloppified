@@ -2,5 +2,90 @@
   "id": "studio-night",
   "label": "Studio Night",
   "extends": "base",
-  "order": 0
+  "order": 0,
+  "tokens": {
+    "color": {
+      "background": "#080c13",
+      "backgroundElevated": "#0d131c",
+      "header": "#111a25",
+      "surfaceRail": "#070b11",
+      "surfaceContent": "#0b1018",
+      "panel": "#121b27",
+      "card": "#172230",
+      "cardStrong": "#1e2d3c",
+      "input": "#070c12",
+      "foreground": "#e8f0f5",
+      "mutedForeground": "#91a5b5",
+      "primary": "#7bd8ee",
+      "primaryForeground": "#061119",
+      "secondary": "#a58de8",
+      "border": "rgba(125, 157, 184, 0.48)",
+      "borderSoft": "rgba(125, 157, 184, 0.22)",
+      "userBubble": "#162438",
+      "userBubbleBorder": "rgba(123, 216, 238, 0.62)",
+      "rail": "#a9bdca",
+      "complete": "#78d79a",
+      "phoneGlass": "rgba(19, 28, 39, 0.52)"
+    },
+    "graph": {
+      "background": "#080d14",
+      "chrome": "#101a25",
+      "panel": "#111d29",
+      "panel2": "#172635",
+      "line": "#385264",
+      "lineSoft": "rgba(123, 216, 238, 0.24)",
+      "text": "#e6f1f5",
+      "muted": "#9bb2bf",
+      "faint": "#6f8998",
+      "accent": "#7bd8ee",
+      "accentSoft": "rgba(123, 216, 238, 0.14)",
+      "success": "#78d79a",
+      "violet": "#a58de8"
+    },
+    "storybook": {
+      "background": "#0b1017",
+      "panel": "#141e29",
+      "passive": "#101923",
+      "line": "#344858",
+      "lineSoft": "rgba(145, 174, 190, 0.22)",
+      "text": "#edf3f5",
+      "muted": "#a5b5bd",
+      "faint": "#748994",
+      "accent": "#7bd8ee",
+      "accentSoft": "rgba(123, 216, 238, 0.12)",
+      "violet": "#a58de8",
+      "violetSoft": "rgba(165, 141, 232, 0.12)",
+      "pink": "#d891b8",
+      "lime": "#9dd681"
+    },
+    "typography": {
+      "headingFont": "ui-sans-serif, system-ui, sans-serif",
+      "bodyFont": "system-ui, sans-serif",
+      "fontWeight": "500",
+      "fontWeightHeading": "700",
+      "letterSpacing": "normal",
+      "textTransform": "none",
+      "baseSize": "13px",
+      "lineHeight": "1.5"
+    },
+    "shape": {
+      "radius": "5px",
+      "borderWidth": "1px",
+      "borderStyle": "solid",
+      "clipPath": "none"
+    },
+    "effect": {
+      "cardShadow": "0 10px 24px rgba(0, 0, 0, 0.24)",
+      "buttonShadow": "0 3px 10px rgba(0, 0, 0, 0.20)",
+      "buttonShadowHover": "0 5px 14px rgba(0, 0, 0, 0.28)",
+      "accentGlow": "none",
+      "backgroundTexture": "linear-gradient(120deg, rgba(123, 216, 238, 0.06), transparent 42%)",
+      "buttonBackground": "var(--theme-primary)"
+    },
+    "motion": {
+      "transitionDuration": "160ms",
+      "transitionEasing": "ease-out",
+      "hoverScale": "1.01"
+    }
+  }
 }

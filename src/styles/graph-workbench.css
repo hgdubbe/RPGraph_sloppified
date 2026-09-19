@@ -42,7 +42,7 @@
     radial-gradient(circle at center, color-mix(in srgb, var(--graph-cyan) calc(0.04 * 100%), transparent), transparent 34rem),
     linear-gradient(var(--theme-raw-vrgba2552552550018, rgba(255, 255, 255, 0.018)) 1px, transparent 1px),
     linear-gradient(90deg, var(--theme-raw-vrgba2552552550018, rgba(255, 255, 255, 0.018)) 1px, transparent 1px),
-    #07090f;
+    var(--graph-bg);
   background-size: auto, 18px 18px, 18px 18px;
 }
 
@@ -92,6 +92,19 @@
   color: var(--graph-text);
 }
 
+.graph-run-trace-button {
+  font: inherit;
+  cursor: pointer;
+}
+
+.graph-run-trace-button:hover,
+.graph-run-trace-button:focus-visible {
+  outline: none;
+  border-color: var(--graph-cyan);
+  color: var(--graph-text);
+  background: color-mix(in srgb, var(--graph-cyan) 12%, var(--graph-panel));
+}
+
 .studio-graph-palette-slot {
   position: relative;
   min-height: 0;
@@ -115,10 +128,10 @@
   align-items: center;
   gap: 7px;
   padding: 0 10px;
-  border: 1px solid var(--graph-line);
+  border: 1px solid var(--theme-graph-line);
   border-radius: 7px;
-  color: var(--graph-muted);
-  background: var(--graph-panel, #13182a);
+  color: var(--theme-graph-muted);
+  background: var(--theme-graph-panel);
   font-size: 12px;
   font-weight: 760;
   white-space: nowrap;
@@ -128,8 +141,8 @@
   width: 7px;
   height: 7px;
   border-radius: 50%;
-  background: var(--graph-lime);
-  box-shadow: 0 0 12px color-mix(in srgb, var(--graph-lime) calc(0.65 * 100%), transparent);
+  background: var(--theme-graph-success);
+  box-shadow: 0 0 12px color-mix(in srgb, var(--theme-graph-success) calc(0.65 * 100%), transparent);
 }
 
 .graph-secondary-action {
@@ -427,29 +440,6 @@
   white-space: pre-wrap;
 }
 
-.roleplay-detach-button {
-  flex: none;
-  height: 28px;
-  width: 28px;
-  padding: 0;
-  border: 1px solid var(--theme-raw-vrgba255255255008, rgba(255, 255, 255, 0.08));
-  border-radius: 6px;
-  color: var(--graph-text, #d9e6f8);
-  background: var(--theme-raw-vrgba255255255004, rgba(255, 255, 255, 0.04));
-  backdrop-filter: blur(8px);
-  cursor: pointer;
-  font-size: 13px;
-  line-height: 1;
-  transition: all 0.18s ease;
-}
-
-.roleplay-detach-button:hover {
-  border-color: var(--success, #56d99a);
-  color: var(--soft-white);
-  background: color-mix(in srgb, var(--success) calc(0.15 * 100%), transparent);
-  box-shadow: 0 0 12px color-mix(in srgb, var(--success) calc(0.2 * 100%), transparent);
-}
-
 .turn-variant-select {
   max-width: 138px;
   height: 28px;
@@ -461,4 +451,3 @@
   font-size: 11px;
   font-weight: 800;
 }
-

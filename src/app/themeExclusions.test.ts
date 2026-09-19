@@ -73,4 +73,49 @@ describe('theming exclusion boundary', () => {
     const offenders = findThemeReferencesInExcludedBlocks(contents);
     expect(offenders).toEqual([]);
   });
+
+  it('resets inherited Studio colors at the simulated-phone screen boundary', () => {
+    const contents = readFileSync('src/styles/phone-device.css', 'utf8');
+    const boundary = contents.match(/\.roleplay-phone-screen\s*\{([\s\S]*?)\}/)?.[1];
+
+    expect(boundary).toBeDefined();
+    expect(boundary).toContain('--phone-ui-text:');
+    expect(boundary).toContain('--phone-ui-accent:');
+
+    const inheritedStudioVariables = [
+      '--accent',
+      '--accent-light',
+      '--surface',
+      '--surface-alt',
+      '--surface-soft',
+      '--line',
+      '--muted',
+      '--soft-white',
+      '--success',
+      '--warning',
+      '--danger',
+      '--theme-primary',
+      '--theme-primary-foreground',
+      '--theme-panel',
+      '--theme-card',
+      '--theme-input',
+      '--theme-muted-foreground',
+      '--theme-border',
+      '--theme-app-accent',
+      '--theme-app-surface',
+      '--theme-app-surface-alt',
+      '--theme-app-line',
+      '--theme-app-muted',
+      '--theme-app-text',
+      '--theme-app-dialog-bg',
+      '--theme-app-dialog-border',
+      '--theme-app-dialog-text',
+    ];
+
+    for (const variable of inheritedStudioVariables) {
+      expect(boundary, `${variable} must be owned by the phone palette`).toMatch(
+        new RegExp(`${variable}:\\s*var\\(--phone-ui-`),
+      );
+    }
+  });
 });

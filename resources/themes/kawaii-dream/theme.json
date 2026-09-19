@@ -80,7 +80,39 @@
       "radiusButton": "12px",
       "radiusInput": "12px",
       "borderWidth": "1px",
-      "borderStyle": "solid"
+      "borderStyle": "solid",
+      "clipPath": "none"
+    },
+    "graph": {
+      "background": "#eee2f0",
+      "chrome": "#e6d5eb",
+      "panel": "#f1e3f2",
+      "panel2": "#e4d0e8",
+      "line": "#8a6d91",
+      "lineSoft": "rgba(111, 72, 120, 0.24)",
+      "text": "#4d3153",
+      "muted": "#765f7b",
+      "faint": "#947e99",
+      "accent": "#a33b75",
+      "accentSoft": "rgba(233, 110, 174, 0.16)",
+      "success": "#4f8f70",
+      "violet": "#7655b7"
+    },
+    "storybook": {
+      "background": "#fbf4fb",
+      "panel": "#f3e6f4",
+      "passive": "#f8eef8",
+      "line": "#b59eb9",
+      "lineSoft": "rgba(111, 72, 120, 0.20)",
+      "text": "#3a273f",
+      "muted": "#765f7b",
+      "faint": "#947e99",
+      "accent": "#a33b75",
+      "accentSoft": "rgba(233, 110, 174, 0.14)",
+      "violet": "#7655b7",
+      "violetSoft": "rgba(168, 138, 223, 0.16)",
+      "pink": "#c44b88",
+      "lime": "#4f8f70"
     },
     "effect": {
       "cardShadow": "0 14px 32px rgba(91, 54, 95, 0.14)",

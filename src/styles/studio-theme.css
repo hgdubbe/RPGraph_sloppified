@@ -151,6 +151,10 @@
   background: var(--theme-surface-rail);
 }
 
+.studio[data-studio-theme] .studio-play-footer .studio-activity-rail {
+  background: transparent;
+}
+
 .studio[data-studio-theme] .studio-rail-button {
   border-radius: var(--theme-radius);
   color: var(--theme-rail);

@@ -3,6 +3,49 @@ import type { CharacterApps } from './character';
 
 type Crop = RpStorybookCharacterProfileImage['crop'];
 
+const portraitCacheMaxEntries = 64;
+const portraitCache = new Map<string, Map<string, string>>();
+let portraitCacheEntries = 0;
+
+function cachedPortrait(dataUrl: string, variant: string) {
+  const variants = portraitCache.get(dataUrl);
+  const value = variants?.get(variant);
+  if (value === undefined) return undefined;
+  // Refresh both levels so Map insertion order remains the LRU order.
+  variants!.delete(variant);
+  variants!.set(variant, value);
+  portraitCache.delete(dataUrl);
+  portraitCache.set(dataUrl, variants!);
+  return value;
+}
+
+function cachePortrait(dataUrl: string, variant: string, value: string) {
+  let variants = portraitCache.get(dataUrl);
+  if (!variants) {
+    variants = new Map();
+    portraitCache.set(dataUrl, variants);
+  } else {
+    portraitCache.delete(dataUrl);
+    portraitCache.set(dataUrl, variants);
+  }
+  if (!variants.has(variant)) portraitCacheEntries += 1;
+  variants.set(variant, value);
+
+  while (portraitCacheEntries > portraitCacheMaxEntries) {
+    const oldestSource = portraitCache.entries().next().value as [string, Map<string, string>] | undefined;
+    if (!oldestSource) break;
+    const [oldestDataUrl, oldestVariants] = oldestSource;
+    const oldestVariant = oldestVariants.keys().next().value as string | undefined;
+    if (oldestVariant === undefined) {
+      portraitCache.delete(oldestDataUrl);
+      continue;
+    }
+    oldestVariants.delete(oldestVariant);
+    portraitCacheEntries -= 1;
+    if (oldestVariants.size === 0) portraitCache.delete(oldestDataUrl);
+  }
+}
+
 /** Older galleries omit dimensions. Read the JPEG frame header without decoding pixels. */
 function jpegDimensions(dataUrl: string): [number, number] | undefined {
   try {
@@ -29,6 +72,9 @@ function jpegDimensions(dataUrl: string): [number, number] | undefined {
 export function portraitDataUrl(image: Pick<RpStorybookCharacterImage, 'dataUrl' | 'width' | 'height'>, crop?: Crop): string {
   if (!crop || ![crop.x, crop.y, crop.size].every(Number.isFinite) || crop.size <= 0 ||
       !/^data:image\/jpeg;base64,[A-Za-z0-9+/]+={0,2}$/.test(image.dataUrl)) return image.dataUrl;
+  const variant = `${image.width ?? ''}:${image.height ?? ''}:${crop.x}:${crop.y}:${crop.size}`;
+  const cached = cachedPortrait(image.dataUrl, variant);
+  if (cached !== undefined) return cached;
   const dimensions = image.width && image.height ? [image.width, image.height] : jpegDimensions(image.dataUrl);
   if (!dimensions) return image.dataUrl;
   const [width, height] = dimensions;
@@ -39,7 +85,9 @@ export function portraitDataUrl(image: Pick<RpStorybookCharacterImage, 'dataUrl'
   // Only validated JPEG bytes and finite numbers enter this self-contained SVG.
   // The viewport applies the crop synchronously, including in import and snapshot projections.
   const svg = `<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="256" height="256" viewBox="${x} ${y} ${size} ${size}"><image width="${width}" height="${height}" xlink:href="${image.dataUrl}"/></svg>`;
-  return `data:image/svg+xml;base64,${btoa(svg)}`;
+  const value = `data:image/svg+xml;base64,${btoa(svg)}`;
+  cachePortrait(image.dataUrl, variant, value);
+  return value;
 }
 
 /** An app using the portrait's source photo inherits its manually editable crop. */

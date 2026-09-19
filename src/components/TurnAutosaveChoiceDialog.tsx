@@ -45,13 +45,13 @@ export function TurnAutosaveChoiceDialog({
         </div>
         <div className="event-manager-prompt-body">
           <section className="event-manager-prompt-editor">
-            <p>More than one recent turn autosave was found. Choose which one to restore, or skip to load the last workflow instead.</p>
+            <p className="turn-autosave-choice-copy">More than one recent turn autosave was found. Choose which one to restore, or skip to load the last workflow instead.</p>
             {choices.map((choice) => {
               const session = choice.value as RpgraphSessionV2;
               const turnNumber = latestSessionTurnNumber(session);
               const savedAt = choice.savedAt ? new Date(choice.savedAt).toLocaleString() : 'unknown time';
               return (
-                <div key={choice.fileName} className="node-toggle nodrag" style={{ justifyContent: 'space-between' }}>
+                <div key={choice.fileName} className="turn-autosave-choice-row nodrag">
                   <span>
                     <strong>{choice.name || choice.fileName}</strong> — Turn {turnNumber}, saved {savedAt}
                   </span>

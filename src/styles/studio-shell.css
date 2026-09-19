@@ -200,26 +200,21 @@
 }
 
 .studio-shell-play .attach-image-button:not(.voice-stop-button) {
-  position: relative;
   width: 36px;
   min-width: 36px;
   height: 36px;
   min-height: 36px;
   padding: 0;
-  overflow: hidden;
-  color: transparent;
-  font-size: 0;
 }
 
-.studio-shell-play .attach-image-button:not(.voice-stop-button)::before {
-  content: "";
-  display: block;
-  width: 15px;
-  height: 19px;
-  border: 2px solid var(--theme-shell-icon-color, #dce8ff);
-  border-right-color: transparent;
-  border-radius: 9px 0 0 9px;
-  transform: rotate(-38deg);
+.studio-shell-play .attach-image-icon {
+  width: 18px;
+  height: 18px;
+  fill: none;
+  stroke: currentColor;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 1.8;
 }
 
 .studio-shell-play .composer .composer-icon-button {
@@ -328,14 +323,20 @@
 }
 
 
-.studio-play-footer .studio-activity-rail { display: flex; border: 0; padding: 0; gap: 4px; }
+.studio-play-footer .studio-activity-rail {
+  display: flex;
+  gap: 4px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+}
 
 .studio-character-strip {
   display: flex;
   min-width: 0;
   overflow-x: auto;
   border-bottom: 1px solid var(--theme-border-soft, rgba(77, 96, 138, 0.42));
-  background: var(--theme-shell-character-strip-bg, #0b0d18);
+  background: var(--theme-surface-content, #090b15);
 }
 
 .studio-play-content {
@@ -486,7 +487,4 @@
   text-overflow: ellipsis;
   white-space: nowrap;
 }
-
-
-
 
