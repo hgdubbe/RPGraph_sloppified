@@ -443,7 +443,7 @@ export function PhonePanel({
 }: PhonePanelProps) {
   const { request: accountLinkRequest } = useContext(AccountLinkContext);
   const accountLinkScreen = accountLinkRequest?.app === 'matchme' ? 'plottwist' : accountLinkRequest?.app;
-  const linkedSocialRequest = accountLinkRequest && accountLinkRequest.app !== 'whatsup' ? {
+  const linkedSocialRequest = accountLinkRequest && accountLinkRequest.app !== 'whatsup' && accountLinkRequest.app !== 'banking' ? {
     requestId: accountLinkRequest.requestId, app: accountLinkRequest.app, messageId: '',
     participantName: accountLinkRequest.name,
     participantHandle: accountLinkRequest.app === 'matchme' ? accountLinkRequest.accountId : accountLinkRequest.username,
@@ -478,6 +478,7 @@ export function PhonePanel({
     useState<number>();
   const [dismissedSocialDirectMessageOpenRequestId, setDismissedSocialDirectMessageOpenRequestId] =
     useState<number>();
+  const [dismissedBankingRequestId, setDismissedBankingRequestId] = useState<number>();
   if (
     socialPostOpenRequest &&
     seenSocialPostOpenRequestId !== socialPostOpenRequest.requestId
@@ -791,11 +792,17 @@ export function PhonePanel({
   }
 
   if (screen === 'banking') {
+    const bankingRecipientRequest =
+      accountLinkRequest?.app === 'banking' &&
+      accountLinkRequest.requestId !== dismissedBankingRequestId
+        ? accountLinkRequest.name
+        : undefined;
     return (
       <PhoneBankingScreen
         key={selectedCharacter?.id ?? 'no-account'}
         owner={selectedCharacter}
         storyCharacters={storyCharacters}
+        appCharacters={appCharacters}
         characterColors={characterColors}
         bankTransferMessages={bankTransferMessages}
         bankingContactNames={bankingContactNames}
@@ -804,7 +811,12 @@ export function PhonePanel({
         rpWeekdayLanguage={rpWeekdayLanguage}
         sendLocked={inputLocked}
         isRunning={isRunning}
-        onBack={() => setScreen('desktop')}
+        initialRecipientName={bankingRecipientRequest}
+        recipientRequestId={bankingRecipientRequest ? accountLinkRequest?.requestId : undefined}
+        onBack={() => {
+          setDismissedBankingRequestId(accountLinkRequest?.requestId);
+          setScreen('desktop');
+        }}
         onAddBankingContact={onAddBankingContact}
         onSendBankTransfer={onSendBankTransfer}
       />
