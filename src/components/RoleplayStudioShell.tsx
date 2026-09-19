@@ -2,7 +2,7 @@ import { type CSSProperties, type ReactNode } from 'react';
 
 export type StorySurfaceId = 'chat' | 'phone' | 'gallery' | 'social' | 'events' | 'bank' | 'notes';
 
-type StorySurfaceItem = {
+export type StorySurfaceItem = {
   id: StorySurfaceId;
   label: string;
   badge?: number;
@@ -13,7 +13,6 @@ type StorySurfaceItem = {
 
 export type RoleplayStudioShellProps = {
   characterPicker: ReactNode;
-  composerActions: ReactNode;
   surfaces: StorySurfaceItem[];
   panelWidth: number;
   onResizeStart: () => void;
@@ -84,9 +83,35 @@ function renderSurfaceIcon(id: StorySurfaceId) {
   }
 }
 
+export function RoleplaySurfaceControls({
+  surfaces,
+  className,
+}: {
+  surfaces: StorySurfaceItem[];
+  className?: string;
+}) {
+  return (
+    <nav className={`studio-activity-rail${className ? ` ${className}` : ''}`} aria-label="Story surfaces">
+      {surfaces.filter((surface) => surface.id === 'events' || surface.id === 'chat').map((surface) => (
+        <button
+          key={surface.id}
+          className={`studio-rail-button ${surface.id}${surface.active ? ' active' : ''}`}
+          type="button"
+          disabled={surface.disabled}
+          aria-current={surface.active ? 'page' : undefined}
+          onClick={surface.onSelect}
+        >
+          <span className="studio-rail-icon">{renderSurfaceIcon(surface.id)}</span>
+          <span>{surface.label}</span>
+          {!!surface.badge && <span className="studio-rail-badge">{surface.badge}</span>}
+        </button>
+      ))}
+    </nav>
+  );
+}
+
 export function RoleplayStudioShell({
   characterPicker,
-  composerActions,
   surfaces,
   panelWidth,
   onResizeStart,
@@ -105,27 +130,11 @@ export function RoleplayStudioShell({
       </div>
 
       <div className="studio-play-main">
-        <div className="studio-character-strip">{characterPicker}</div>
+        <div className="studio-character-strip">
+          {characterPicker}
+          <RoleplaySurfaceControls className="studio-character-surface-tabs" surfaces={surfaces} />
+        </div>
         <div className="studio-play-content">{children}</div>
-        <div className="studio-play-footer">
-        <nav className="studio-activity-rail" aria-label="Story surfaces">
-          {surfaces.filter((surface) => surface.id === 'events' || surface.id === 'chat').map((surface) => (
-            <button
-              key={surface.id}
-              className={`studio-rail-button ${surface.id}${surface.active ? ' active' : ''}`}
-              type="button"
-              disabled={surface.disabled}
-              aria-current={surface.active ? 'page' : undefined}
-              onClick={surface.onSelect}
-            >
-              <span className="studio-rail-icon">{renderSurfaceIcon(surface.id)}</span>
-              <span>{surface.label}</span>
-              {!!surface.badge && <span className="studio-rail-badge">{surface.badge}</span>}
-            </button>
-          ))}
-        </nav>
-
-        {composerActions}</div>
       </div>
     </section>
   );

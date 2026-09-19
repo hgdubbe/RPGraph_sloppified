@@ -151,8 +151,22 @@
   background: var(--theme-surface-rail);
 }
 
-.studio[data-studio-theme] .studio-play-footer .studio-activity-rail {
+.studio[data-studio-theme] .studio-character-surface-tabs {
   background: transparent;
+}
+
+.studio[data-studio-theme] .studio-character-surface-tabs .studio-rail-button {
+  border-color: var(--theme-border-soft);
+  border-radius: var(--theme-radius) var(--theme-radius) 0 0;
+  color: var(--theme-muted-foreground);
+  background: var(--theme-panel);
+}
+
+.studio[data-studio-theme] .studio-character-surface-tabs .studio-rail-button.active {
+  border-color: var(--theme-primary);
+  border-bottom-color: var(--theme-card);
+  color: var(--theme-primary);
+  background: var(--theme-card);
 }
 
 .studio[data-studio-theme] .studio-rail-button {
@@ -166,8 +180,7 @@
   background: color-mix(in srgb, var(--theme-primary) 13%, transparent);
 }
 
-.studio[data-studio-theme] .studio-play-content,
-.studio[data-studio-theme] .studio-play-footer {
+.studio[data-studio-theme] .studio-play-content {
   background: var(--theme-surface-content);
 }
 
@@ -216,11 +229,47 @@
 }
 
 .studio[data-studio-theme] .studio-shell-play .composer .command-composer-input {
-  border-color: var(--theme-border-soft);
-  border-radius: var(--theme-radius-input, var(--theme-radius));
-  background: var(--theme-input);
+  border-color: transparent;
+  border-radius: 0;
+  background: transparent;
 }
 
-.studio[data-studio-theme] .studio-play-footer {
-  border-top-color: var(--theme-border-soft);
+.studio[data-studio-theme] .studio-shell-play .composer .attach-image-button,
+.studio[data-studio-theme] .studio-shell-play .composer .composer-icon-button {
+  border-color: transparent;
+  color: var(--theme-muted-foreground);
+  background: transparent;
+}
+
+.studio[data-studio-theme] .studio-shell-play .composer .attach-image-button:hover:not(:disabled),
+.studio[data-studio-theme] .studio-shell-play .composer .composer-icon-button:hover,
+.studio[data-studio-theme] .studio-shell-play .composer .composer-icon-button:focus-visible,
+.studio[data-studio-theme] .studio-shell-play .composer .composer-icon-button.active {
+  border-color: var(--theme-border-soft);
+  color: var(--theme-foreground);
+  background: var(--theme-card);
+}
+
+.studio[data-studio-theme] .studio-shell-play .composer .autoplay-split-button {
+  border-color: var(--theme-border-soft);
+  background: var(--theme-card);
+  box-shadow: var(--theme-button-shadow, none);
+}
+
+.studio[data-studio-theme] .studio-shell-play .composer .autoplay-menu-trigger,
+.studio[data-studio-theme] .studio-shell-play .composer .autoplay-state-toggle {
+  color: var(--theme-muted-foreground);
+}
+
+.studio[data-studio-theme] .studio-shell-play .composer .autoplay-menu-trigger:hover,
+.studio[data-studio-theme] .studio-shell-play .composer .autoplay-menu-trigger[aria-expanded="true"],
+.studio[data-studio-theme] .studio-shell-play .composer .autoplay-state-toggle:hover {
+  color: var(--theme-foreground);
+  background: var(--theme-card-strong);
+}
+
+.studio[data-studio-theme] .studio-shell-play .composer .autoplay-split-button.enabled .autoplay-menu-trigger,
+.studio[data-studio-theme] .studio-shell-play .composer .autoplay-split-button.enabled .autoplay-state-toggle {
+  color: var(--theme-primary);
+  background: color-mix(in srgb, var(--theme-primary) 14%, transparent);
 }

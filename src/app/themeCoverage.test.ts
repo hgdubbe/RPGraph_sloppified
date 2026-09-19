@@ -6,7 +6,10 @@ const graphStyles = readFileSync('src/styles/graph-workbench.css', 'utf8');
 const topbarStyles = readFileSync('src/styles/topbar-menu.css', 'utf8');
 const studioShellStyles = readFileSync('src/styles/studio-shell.css', 'utf8');
 const studioThemeStyles = readFileSync('src/styles/studio-theme.css', 'utf8');
+const roleplayDualPaneStyles = readFileSync('src/styles/roleplay-dual-pane.css', 'utf8');
 const conversationPanel = readFileSync('src/components/ChatConversationPanel.tsx', 'utf8');
+const roleplayShell = readFileSync('src/components/RoleplayStudioShell.tsx', 'utf8');
+const autoplayControl = readFileSync('src/chat/AutoplayControl.tsx', 'utf8');
 const appSource = readFileSync('src/App.tsx', 'utf8');
 
 function cssRange(source: string, start: string, end: string): string {
@@ -312,6 +315,42 @@ describe('theme coverage for audited Studio surfaces', () => {
 
     expect(studioShellStyles).not.toContain('.attach-image-button:not(.voice-stop-button)::before');
     expect(conversationPanel).toContain('className="attach-image-icon"');
+
+    const themedAutoplay = cssRule(
+      studioThemeStyles,
+      '.studio[data-studio-theme] .studio-shell-play .composer .autoplay-split-button',
+    );
+    const themedAutoplayEnabled = cssRule(
+      studioThemeStyles,
+      '.studio[data-studio-theme] .studio-shell-play .composer .autoplay-split-button.enabled .autoplay-menu-trigger,\n.studio[data-studio-theme] .studio-shell-play .composer .autoplay-split-button.enabled .autoplay-state-toggle',
+    );
+    expect(themedAutoplay).toMatch(/var\(--theme-(?:card|border)/);
+    expect(themedAutoplayEnabled).toContain('var(--theme-primary)');
+    expect(`${themedAutoplay}\n${themedAutoplayEnabled}`).not.toMatch(/#[0-9a-f]{3,8}\b|rgba?\(/i);
+  });
+
+  it('uses a compact modern composer toolbar instead of stretched action bars', () => {
+    const composer = cssRule(studioShellStyles, '.studio-shell-play .composer');
+    const input = cssRule(studioShellStyles, '.studio-shell-play .composer .command-composer-input');
+    const actions = cssRule(studioShellStyles, '.studio-shell-play .composer-actions');
+    const runActions = cssRule(studioShellStyles, '.studio-shell-play .composer-run-actions');
+    const submit = cssRule(studioShellStyles, '.studio-shell-play .composer button[type="submit"]');
+
+    expect(composer).toContain('position: relative');
+    expect(input).toContain('border: 0');
+    expect(input).toContain('background: transparent');
+    expect(actions).toContain('display: flex');
+    expect(actions).toContain('flex-wrap: wrap');
+    expect(runActions).toContain('margin-left: auto');
+    expect(runActions).toContain('background: transparent');
+    expect(submit).toContain('width: 44px');
+    expect(submit).toContain('min-width: 44px');
+    expect(submit).toContain('height: 44px');
+    expect(submit).toContain('border-radius: 50%');
+    expect(studioShellStyles).not.toContain('display: contents');
+    expect(studioShellStyles).not.toContain('button[type="submit"]::after');
+    expect(conversationPanel).toContain('className="composer-submit-icon"');
+    expect(autoplayControl).toContain('{enabled ? pauseIcon : playIcon}');
   });
 
   it('themes the shared assistant-window shells and primary content surfaces', () => {
@@ -372,15 +411,78 @@ describe('theme coverage for audited Studio surfaces', () => {
     }
   });
 
-  it('keeps the Play footer and character strip visually continuous', () => {
-    const footerRail = cssRule(studioThemeStyles, '.studio[data-studio-theme] .studio-play-footer .studio-activity-rail');
+  it('keeps the right-aligned surface tabs and character strip visually continuous', () => {
+    const surfaceTabs = cssRule(studioThemeStyles, '.studio[data-studio-theme] .studio-character-surface-tabs');
     const characterStrip = cssRule(studioShellStyles, '.studio-character-strip');
 
-    expect(footerRail).toContain('background: transparent');
+    expect(surfaceTabs).toContain('background: transparent');
     expect(characterStrip).toContain('background: var(--theme-surface-content');
   });
 
-  it('keeps the Play footer Switch control and removes the pop-out control', () => {
+  it('keeps the phone bay separate from the bordered narrative pane', () => {
+    const wrapper = cssRule(roleplayDualPaneStyles, '.studio-shell-play .chat-lockable.roleplay-dual-pane');
+    const narrativePane = cssRule(roleplayDualPaneStyles, '.roleplay-chat-pane');
+
+    expect(wrapper).toContain('box-sizing: border-box');
+    expect(wrapper).toContain('border: 0');
+    expect(wrapper).toContain('background: transparent');
+    expect(narrativePane).toContain('box-sizing: border-box');
+    expect(narrativePane).toContain('background: var(--theme-panel');
+  });
+
+  it('places Chat and Events in the upper character bar and keeps actions only in the chat composer', () => {
+    const controls = cssRule(studioShellStyles, '.studio-shell-play .composer-workspace-controls');
+    const surfaceTabs = cssRule(studioShellStyles, '.studio-shell-play .studio-character-surface-tabs');
+
+    expect(controls).toContain('display: flex');
+    expect(controls).toContain('align-items: center');
+    expect(surfaceTabs).toContain('margin-left: auto');
+    expect(surfaceTabs).toContain('align-self: stretch');
+    expect(conversationPanel).toContain('className="composer-workspace-controls"');
+    expect(appSource).not.toContain('events-workspace-controls');
+    expect(appSource).not.toContain('const roleplayWorkspaceControls = (');
+    expect(roleplayShell).toContain('className="studio-character-surface-tabs"');
+    expect(roleplayShell).not.toContain('studio-play-footer');
+  });
+
+  it('themes the Event Viewer entirely from semantic application roles', () => {
+    const selectors = [
+      '.events-surface',
+      '.events-disabled-overlay',
+      '.events-disabled-overlay span',
+      '.events-list',
+      '.events-list-header',
+      '.events-list-header span',
+      '.event-item',
+      '.event-item:hover,\n.event-item.active',
+      '.event-item.active',
+      '.event-item.unread',
+      '.event-item.unread::after',
+      '.event-cancel-button',
+      '.event-cancel-button:hover',
+      '.event-date',
+      '.event-title',
+      '.event-source',
+      '.event-detail',
+      '.event-detail-header span',
+      '.event-detail-header strong',
+      '.event-detail-body div',
+      '.event-detail-body small',
+      '.event-detail-body span',
+      '.event-prompt-preview',
+      '.event-prompt-preview:focus',
+      '.event-run-button',
+      '.event-run-button:hover:not(:disabled)',
+      '.event-run-button:disabled',
+      '.events-empty',
+    ];
+
+    for (const selector of selectors) {
+      expect(cssRule(styles, selector), selector).not.toMatch(/--theme-raw-|#[0-9a-f]{3,8}\b|rgba?\(/i);
+    }
+  });
+
+  it('keeps the integrated Switch control and removes the pop-out control', () => {
     expect(appSource).toContain('className="switch-player-button"');
     expect(appSource).not.toContain('className="roleplay-detach-button"');
   });

@@ -110,11 +110,19 @@
 }
 
 .studio-shell-play .composer {
+  position: relative;
   margin: 10px 15px 14px;
-  padding: 10px;
+  padding: 12px;
   border: 1px solid var(--theme-border, rgba(77, 96, 138, 0.72));
-  border-radius: 10px;
+  border-radius: var(--theme-radius-card, var(--theme-radius, 18px));
   background: var(--theme-panel, #101421);
+  box-shadow: var(--theme-card-shadow, none);
+  transition: border-color 140ms ease, box-shadow 140ms ease;
+}
+
+.studio-shell-play .composer:focus-within {
+  border-color: var(--theme-primary, #79d8ef);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--theme-primary, #79d8ef) 18%, transparent);
 }
 
 .studio-shell-play .composer-heading {
@@ -122,15 +130,24 @@
 }
 
 .studio-shell-play .composer .command-composer-input {
-  border-color: var(--theme-shell-input-border, rgba(77, 96, 138, 0.62));
-  border-radius: 8px;
-  background: var(--theme-input, #060913);
+  padding: 3px 4px 10px;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
 }
 
 .studio-shell-play .composer .command-composer textarea {
-  min-height: 36px;
+  min-height: 56px;
+  padding: 0;
   color: var(--theme-shell-message-text, #f6f8ff);
-  font-weight: 800;
+  font-size: 15px;
+  font-weight: 550;
+  line-height: 1.45;
+}
+
+.studio-shell-play .composer.expanded .command-composer textarea {
+  height: 64px;
 }
 
 .studio-shell-play .message-edit-textarea {
@@ -139,36 +156,62 @@
 }
 
 .studio-shell-play .composer-actions {
-  display: grid;
-  grid-template-columns: auto minmax(0, 1fr);
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
   gap: 8px;
 }
 
 .studio-shell-play .composer-run-actions {
   display: flex;
   min-width: 0;
+  margin-left: auto;
   align-items: center;
-  gap: 0;
-  border-radius: 8px;
-  background: var(--theme-shell-segmented-bg, #252a49);
-  overflow: hidden;
+  gap: 8px;
+  background: transparent;
+  overflow: visible;
 }
 
 .studio-shell-play .composer button[type="submit"] {
-  grid-column: 1 / -1;
-  width: 100%;
-  height: 32px;
-  border: 0;
-  border-radius: 7px;
+  display: grid;
+  width: 44px;
+  min-width: 44px;
+  height: 44px;
+  padding: 0;
+  place-items: center;
+  border: 1px solid color-mix(in srgb, var(--theme-primary, #79d8ef) 68%, transparent);
+  border-radius: 50%;
   color: var(--theme-primary-foreground, #051018);
   background: var(--theme-primary, #79d8ef);
-  box-shadow: none;
+  box-shadow: var(--theme-button-shadow, none);
   font-weight: 950;
 }
 
-.studio-shell-play .composer button[type="submit"]::before {
-  margin-right: 8px;
-  content: ">";
+.studio-shell-play .composer button[type="submit"]:hover:not(:disabled) {
+  box-shadow: var(--theme-button-shadow-hover, var(--theme-button-shadow, none));
+  transform: translateY(-1px);
+}
+
+.studio-shell-play .composer-submit-icon {
+  width: 20px;
+  height: 20px;
+  fill: none;
+  stroke: currentColor;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 2;
+}
+
+.studio-shell-play .composer-submit-label {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
 }
 
 
@@ -196,14 +239,15 @@
 
 .studio-shell-play .composer-left-actions {
   display: flex;
-  gap: 8px;
+  align-items: center;
+  gap: 6px;
 }
 
 .studio-shell-play .attach-image-button:not(.voice-stop-button) {
-  width: 36px;
-  min-width: 36px;
-  height: 36px;
-  min-height: 36px;
+  width: 34px;
+  min-width: 34px;
+  height: 34px;
+  min-height: 34px;
   padding: 0;
 }
 
@@ -218,9 +262,9 @@
 }
 
 .studio-shell-play .composer .composer-icon-button {
-  width: 36px;
-  min-width: 36px;
-  height: 36px;
+  width: 34px;
+  min-width: 34px;
+  height: 34px;
 }
 
 .studio-shell-play .composer .composer-icon-button svg {
@@ -228,10 +272,15 @@
   height: 17px;
 }
 
-.studio-shell-play .composer-run-actions .autoplay-control,
-.studio-shell-play .composer-run-actions .autoplay-mode-button,
-.studio-shell-play .composer-run-actions .autoplay-pause-button {
-  border-radius: 0;
+.studio-shell-play .composer-run-actions .autoplay-control {
+  flex: none;
+  width: max-content;
+}
+
+.studio-shell-play .composer-run-actions .autoplay-split-button {
+  width: max-content;
+  height: 36px;
+  border-radius: 999px;
 }
 
 .studio-shell-play .auto-turn-button {
@@ -256,27 +305,16 @@
 
 .studio-shell-play .composer:not(.expanded) .composer-actions,
 .studio-shell-play .composer.expanded .composer-actions {
-  display: grid;
-  grid-template-columns: auto minmax(0, 1fr) auto;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
   max-height: none;
-  margin-top: 8px;
-  padding-top: 0;
+  margin-top: 0;
+  padding-top: 4px;
   overflow: visible;
   border-top: 0;
   opacity: 1;
   pointer-events: auto;
-}
-
-.studio-shell-play .composer-run-actions {
-  display: contents;
-}
-
-.studio-shell-play .composer-left-actions {
-  grid-column: 1;
-}
-
-.studio-shell-play .composer .autoplay-menu {
-  grid-column: 3;
 }
 
 .studio-play-resizer {
@@ -295,7 +333,7 @@
 
 
 .studio-shell-play .studio-play-main {
-  grid-template-rows: auto minmax(0, 1fr) auto;
+  grid-template-rows: auto minmax(0, 1fr);
 }
 
 .studio-shell-play button,
@@ -306,8 +344,7 @@
 .studio-play-resizer,
 .studio-activity-rail,
 .studio-character-strip,
-.studio-play-content,
-.studio-play-footer {
+.studio-play-content {
   -webkit-app-region: no-drag;
 }
 
@@ -323,18 +360,11 @@
 }
 
 
-.studio-play-footer .studio-activity-rail {
-  display: flex;
-  gap: 4px;
-  padding: 0;
-  border: 0;
-  background: transparent;
-}
-
 .studio-character-strip {
   display: flex;
+  align-items: stretch;
   min-width: 0;
-  overflow-x: auto;
+  overflow: hidden;
   border-bottom: 1px solid var(--theme-border-soft, rgba(77, 96, 138, 0.42));
   background: var(--theme-surface-content, #090b15);
 }
@@ -349,20 +379,27 @@
 }
 
 
-.studio-play-footer {
+.studio-shell-play .composer-workspace-controls {
   display: flex;
   align-items: center;
-  justify-content: flex-end;
-  gap: 8px;
-  padding: 10px 14px;
-  border-top: 1px solid var(--theme-border-soft, rgba(77, 96, 138, 0.42));
-  background: var(--theme-surface-content, #090b15);
+  flex-wrap: wrap;
+  gap: 5px;
+  min-width: 0;
 }
 
+.studio-shell-play .composer-workspace-controls {
+  margin-left: auto;
+}
 
-.studio-play-footer .studio-rail-button { min-height: 32px; padding: 5px 10px; flex-direction: row; }
+.studio-shell-play .composer-workspace-controls .chat-actions {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
 
-.studio-play-footer .studio-rail-icon { width: 16px; height: 16px; }
+.studio-shell-play .composer-workspace-controls .header-turn-actions {
+  gap: 5px;
+}
 
 .studio-rail-button {
   position: relative;
@@ -438,9 +475,60 @@
 
 .studio-character-tabs {
   display: flex;
+  flex: 1 1 auto;
   min-width: 0;
+  overflow-x: auto;
   gap: 6px;
   padding: 8px 12px 0;
+}
+
+.studio-shell-play .studio-character-surface-tabs {
+  display: flex;
+  align-self: stretch;
+  align-items: flex-end;
+  flex: 0 0 auto;
+  gap: 6px;
+  min-height: 0;
+  margin-left: auto;
+  padding: 8px 12px 0 6px;
+  border: 0;
+  background: transparent;
+}
+
+.studio-shell-play .studio-character-surface-tabs .studio-rail-button {
+  display: inline-flex;
+  width: auto;
+  min-width: 92px;
+  min-height: 50px;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  padding: 8px 13px;
+  border: 1px solid var(--theme-shell-tab-border, rgba(77, 96, 138, 0.76));
+  border-bottom-color: var(--theme-shell-tab-border-bottom, rgba(77, 96, 138, 0.44));
+  border-radius: 8px 8px 0 0;
+  color: var(--theme-shell-tab-text, #b4c1ef);
+  background: var(--theme-shell-tab-bg, #0e1120);
+  font-size: 11px;
+}
+
+.studio-shell-play .studio-character-surface-tabs .studio-rail-button.active {
+  border-color: var(--theme-shell-tab-active-border, rgba(126, 225, 247, 0.88));
+  border-bottom-color: var(--theme-shell-tab-active-bg, #10131f);
+  color: var(--theme-shell-tab-active-text, #f5f8ff);
+  background: var(--theme-shell-tab-active-bg, #10131f);
+}
+
+.studio-shell-play .studio-character-surface-tabs .studio-rail-icon,
+.studio-shell-play .studio-character-surface-tabs .studio-rail-icon svg {
+  width: 17px;
+  height: 17px;
+}
+
+.studio-shell-play .studio-character-surface-tabs .studio-rail-badge {
+  top: 5px;
+  right: 5px;
+  left: auto;
 }
 
 .studio-character-tabs button {
@@ -487,4 +575,3 @@
   text-overflow: ellipsis;
   white-space: nowrap;
 }
-

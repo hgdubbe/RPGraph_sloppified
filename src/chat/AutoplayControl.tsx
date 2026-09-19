@@ -116,7 +116,7 @@ export function AutoplayControl({
           title={enabled ? 'Autoplay is playing. Click to pause' : 'Autoplay is paused. Click to play'}
           onClick={() => onEnabledChange(!enabled)}
         >
-          {enabled ? playIcon : pauseIcon}
+          {enabled ? pauseIcon : playIcon}
         </button>
       </div>
       {menuOpen && (

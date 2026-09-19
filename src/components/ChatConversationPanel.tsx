@@ -5,6 +5,7 @@ import {
   Fragment,
   type CSSProperties,
   type FormEvent,
+  type ReactNode,
   type RefObject,
   useCallback,
   useEffect,
@@ -186,6 +187,7 @@ function rpTimePlaceholderParts(format: RpDateTimeFormat) {
 }
 
 type ChatConversationPanelProps = {
+  workspaceControls?: ReactNode;
   runtimeNodes: WorkflowNode[];
   messages: MessageRecord[];
   storyCharacters: StorybookCharacter[];
@@ -287,6 +289,7 @@ type ChatConversationPanelProps = {
 };
 
 export function ChatConversationPanel({
+  workspaceControls,
   runtimeNodes,
   messages,
   storyCharacters,
@@ -2178,6 +2181,9 @@ export function ChatConversationPanel({
               onRequestMessageFocus={() => commandComposerRef.current?.focusMessage()}
             />
           )}
+          {workspaceControls && (
+            <div className="composer-workspace-controls">{workspaceControls}</div>
+          )}
           <div className="composer-run-actions">
             <AutoplayControl
               enabled={autoplayEnabled}
@@ -2190,6 +2196,7 @@ export function ChatConversationPanel({
             <button
               type="submit"
               disabled={!canRunChat}
+              aria-label={isRunning ? 'Cancel the running chat turn' : 'Run chat'}
               title={
                 canRunChat || isRunning
                   ? undefined
@@ -2197,7 +2204,16 @@ export function ChatConversationPanel({
                     'Add a Storybook with one player and at least one actor to run the chat.'
               }
             >
-              {isRunning ? 'Cancel' : 'Run Chat'}
+              <span className="composer-submit-label">{isRunning ? 'Cancel' : 'Run Chat'}</span>
+              {isRunning ? (
+                <svg className="composer-submit-icon" aria-hidden="true" viewBox="0 0 24 24">
+                  <path d="M6 6l12 12M18 6 6 18" />
+                </svg>
+              ) : (
+                <svg className="composer-submit-icon" aria-hidden="true" viewBox="0 0 24 24">
+                  <path d="M12 19V5M6 11l6-6 6 6" />
+                </svg>
+              )}
             </button>
           </div>
         </div>

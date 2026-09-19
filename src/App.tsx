@@ -788,8 +788,6 @@ function App() {
     setDialogueCloneVoiceProviderId,
     edgeCharacterPickerHintSeen,
     setEdgeCharacterPickerHintSeen,
-    phoneNotificationSwitchHintSeen,
-    setPhoneNotificationSwitchHintSeen,
   } = useAppSettings();
   const {
     appliedUiScale,
@@ -1057,8 +1055,6 @@ function App() {
     chatPanelView,
     selectChatPanelView,
     selectPhonePanelView,
-    openPhoneApp,
-    cyclePhoneNotificationOwner,
     setSelectedCharacterId,
     selectedCharacter,
     narratorSelected,
@@ -1085,8 +1081,6 @@ function App() {
     cancelEvent,
     highlightedEventIds,
     unreadPhoneConversations,
-    unreadPhoneNotificationCount,
-    viewedPhoneHasNotifications,
     unreadPhoneSwitchName,
     openUnreadPhoneConversation,
     openEmbeddedPhoneMessage,
@@ -5566,6 +5560,23 @@ function App() {
     </div>
   );
 
+  const roleplayStudioSurfaces = [
+    {
+      id: 'chat' as const,
+      label: 'Chat',
+      badge: unreadChatCount,
+      active: chatPanelView === 'chat',
+      onSelect: () => selectChatPanelView('chat'),
+    },
+    {
+      id: 'events' as const,
+      label: 'Events',
+      badge: unreadEventCount,
+      active: chatPanelView === 'events',
+      onSelect: () => selectChatPanelView('events'),
+    },
+  ];
+
   const graphCanvas = (
     <NodeActionsContext.Provider value={nodeActions}>
       <NodeViewContext.Provider value={nodeViewValues}>
@@ -6437,73 +6448,7 @@ function App() {
         )}
         <RoleplayStudioShell
           characterPicker={roleplayCharacterPicker}
-          composerActions={roleplayComposerActions}
-          surfaces={[
-            {
-              id: 'chat',
-              label: 'Chat',
-              badge: unreadChatCount,
-              active: chatPanelView === 'chat',
-              onSelect: () => selectChatPanelView('chat'),
-            },
-            {
-              id: 'phone',
-              label: 'Phone',
-              badge: unreadPhoneNotificationCount,
-              active: chatPanelView === 'phone',
-              onSelect: () => {
-                if (
-                  chatPanelView === 'phone' &&
-                  viewedPhoneHasNotifications &&
-                  settingsLoadComplete
-                ) {
-                  cyclePhoneNotificationOwner();
-                } else {
-                  selectPhonePanelView();
-                }
-                if (!phoneNotificationSwitchHintSeen) {
-                  setPhoneNotificationSwitchHintSeen(true);
-                }
-              },
-            },
-            {
-              id: 'gallery',
-              label: 'Gallery',
-              active: false,
-              onSelect: () => openPhoneApp('gallery'),
-            },
-            {
-              id: 'social',
-              label: 'Social',
-              badge: Object.values(unreadSocialDirectMessages).reduce(
-                (total, byHandle) =>
-                  total + Object.values(byHandle).reduce((sum, unread) => sum + unread.count, 0),
-                0,
-              ),
-              active: false,
-              onSelect: () => openPhoneApp('fotogram'),
-            },
-            {
-              id: 'events',
-              label: 'Events',
-              badge: unreadEventCount,
-              active: chatPanelView === 'events',
-              onSelect: () => selectChatPanelView('events'),
-            },
-            {
-              id: 'bank',
-              label: 'Bank',
-              badge: unreadBankingCount,
-              active: false,
-              onSelect: () => openPhoneApp('banking'),
-            },
-            {
-              id: 'notes',
-              label: 'Notes',
-              active: false,
-              onSelect: () => openPhoneApp('notes'),
-            },
-          ]}
+          surfaces={roleplayStudioSurfaces}
           panelWidth={chatWidth}
           onResizeStart={() => setIsResizing(true)}
         >
@@ -6512,6 +6457,7 @@ function App() {
             if (chatPanelView === 'phone') selectChatPanelView('chat');
           }}>
             <ChatConversationPanel
+              workspaceControls={roleplayComposerActions}
               appCharacters={npcParticipants.characters()}
               runtimeNodes={nodes}
               messages={messages}

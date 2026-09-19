@@ -67,9 +67,18 @@ Removed from the active backlog after implementation and focused theme-coverage 
   image-generation assistants: backdrops, dialog shells, primary panels, headers,
   chat surfaces, message/table/code presentation, composers, core buttons, and
   custom-node diagnostics.
-- Play footer cleanup: removed the pop-out-window control, retained the Switch control,
-  flattened the Chat/Events rail onto the footer background, and made the character-tab
-  strip use one continuous background color.
+- Play control cleanup: removed the pop-out-window control, retained Switch, moved
+  Chat/Events into the right side of the character-tab strip, integrated turn actions
+  into matching Chat and Events lower surfaces, and kept the strip background continuous.
+- Play workspace separation: the dual-pane wrapper no longer paints the narrative
+  surface behind the phone, the narrative pane owns a complete unclipped border and
+  background, and the former full-width footer no longer consumes its own layout row.
+- Play composer redesign: the message input and toolbar now form one restrained
+  command surface, utility actions stay compact, and Autoplay plus Run Chat use
+  content-sized controls instead of stretched full-row bars.
+- Event Viewer surfaces, list and detail cards, text hierarchy, overlay, semantic
+  states, prompt preview, and Run Event action now follow the active Studio theme;
+  its redundant lower action row was removed after Chat/Events moved to the upper tabs.
 - Graph Run Trace now opens the existing in-memory Turn Trace viewer; Chat Tab Settings
   menu surfaces and states, plus the Voice Playback Close control, now use application
   theme roles.
@@ -128,8 +137,6 @@ Source: `src/styles/graph-workbench.css`.
 - Composer container, heading, mode/command controls, textarea, image attachments,
   send/stop/voice/attach buttons, focus, hover, disabled, and recording states.
 - RP day divider.
-- Event list, event cards, unread markers, source/date labels, cancel button, detail
-  view, and run button.
 
 Representative source ranges: `src/styles.css:6208-7651`, `8496-8765`, and
 `10500-11700`.
