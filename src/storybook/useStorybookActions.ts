@@ -275,6 +275,7 @@ export function useStorybookActions({
     registryWarnings.forEach((warning) => notifySystem('warning', warning.message));
     if (options?.replaceExisting) {
       clearCurrentSession();
+      resetStorybookRuntime();
       replaceCurrentChatWithOpeningHistoryRef.current = true;
       updateRuntimeNode(nodeId, {
         ...patch,
@@ -806,6 +807,25 @@ export function useStorybookActions({
     });
   }
 
+  function resetStorybookRuntime() {
+    nodesRef.current
+      .filter((entry) => entry.data.kind === undefined && entry.data.nodeType === 'event-manager')
+      .forEach((entry) => {
+        updateRuntimeNode(entry.id, {
+          eventAppointments: [],
+          eventStatus: 'Storybook session restarted. All events cleared.',
+        });
+      });
+    nodesRef.current
+      .filter((entry) => entry.data.kind === undefined && entry.data.nodeType === 'character-stats')
+      .forEach((entry) => {
+        updateRuntimeNode(entry.id, {
+          ...resetCharacterStatsRuntimeData(),
+          characterStatsStatus: 'Storybook session restarted. State initializes on next run.',
+        });
+      });
+  }
+
   // A full reset wipes the running story with the storybook (chat session,
   // events, character stats), so the image-usage and identity locks that
   // protect a running story intentionally do not apply here.
@@ -815,22 +835,7 @@ export function useStorybookActions({
       return;
     }
     clearCurrentSession();
-    nodesRef.current
-      .filter((entry) => entry.data.kind === undefined && entry.data.nodeType === 'event-manager')
-      .forEach((entry) => {
-        updateRuntimeNode(entry.id, {
-          eventAppointments: [],
-          eventStatus: 'Storybook reset. All events cleared.',
-        });
-      });
-    nodesRef.current
-      .filter((entry) => entry.data.kind === undefined && entry.data.nodeType === 'character-stats')
-      .forEach((entry) => {
-        updateRuntimeNode(entry.id, {
-          ...resetCharacterStatsRuntimeData(),
-          characterStatsStatus: 'Storybook reset. State initializes on next run.',
-        });
-      });
+    resetStorybookRuntime();
     updateRuntimeNode(nodeId, {
       storybookJson: rpStorybookJsonText(emptyRpStorybook),
       storybookStatus: 'Storybook and current session reset.',

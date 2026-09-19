@@ -145,3 +145,30 @@ it('rebuilds automatic contacts after save/load and removes them when their turn
   options.messages = [];
   expect(render().persistedSocialConnectionsByCharacter).toEqual({ player: { whatsup: [npc.apps!.whatsup!.accountId] } });
 });
+
+
+it('invalidates panel state and clears drafts when the same cast starts another session', () => {
+  const { render, player } = harness();
+  const runtime = render();
+  runtime.setPhoneDraft('Old phone draft');
+  runtime.setShowPhoneEmojiPicker(true);
+  runtime.setSelectedEventId('old-event');
+  runtime.selectPhoneReply({ id: 42, role: 'output', originalText: 'Old message' });
+  runtime.openSocialPost({ app: 'fotogram', postId: 'old-post', author: 'Player', authorHandle: 'player', caption: '' });
+  const before = render();
+  expect(before.phoneDraft).toBe('Old phone draft');
+  expect(before.socialPostOpenRequest).toBeDefined();
+  before.resetPanelSession();
+  const after = render();
+  expect(after.playerCharacters.map((character) => character.id)).toEqual([player.id]);
+  expect(after.panelSessionRevision).toBe(before.panelSessionRevision + 1);
+  expect(after.phoneDraft).toBe('');
+  expect(after.phoneDraftCommands).toEqual([]);
+  expect(after.phoneImages).toEqual([]);
+  expect(after.showPhoneEmojiPicker).toBe(false);
+  expect(after.selectedEventId).toBe('');
+  expect(after.phoneReplyToMessage).toBeUndefined();
+  expect(after.socialPostOpenRequest).toBeUndefined();
+  after.resetPanelSession();
+  expect(render().panelSessionRevision).toBe(after.panelSessionRevision + 1);
+});

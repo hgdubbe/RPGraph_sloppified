@@ -954,6 +954,8 @@ function App() {
     );
   }, [nodeViewNodes]);
   const {
+    panelSessionRevision,
+    resetPanelSession,
     chatPanelView,
     selectChatPanelView,
     selectPhonePanelView,
@@ -2614,6 +2616,13 @@ function App() {
 
   function clearCurrentSession() {
     if (activeRunRef.current) throw new Error('Wait for the current run to finish before replacing or saving the RP.');
+    resetPanelSession();
+    stopDialogueVoice();
+    setDraftCommands([]);
+    setDraftImages([]);
+    setEditingMessageId(null);
+    setEditingDraft('');
+    setPreviewImage(null);
     npcParticipants.reset();
     clearTemporaryReferenceImages();
     clearTurnTraces();
@@ -2622,6 +2631,7 @@ function App() {
     setMessages([]);
     turnsRef.current = [];
     setTurns([]);
+    turnCheckpointsRef.current = [];
     setTurnCheckpoints([]);
     setPhoneSeenByConversation({});
     setBankingSeenByCharacter({});
@@ -2927,6 +2937,7 @@ function App() {
     hydrateOpeningHistory = true,
   ) {
     if (activeRunRef.current) throw new Error('Wait for the current run to finish before loading a workflow.');
+    resetPanelSession();
     customNodeAssistant.clearState();
     clearTemporaryReferenceImages();
     if (hydrateOpeningHistory) {
@@ -5601,6 +5612,7 @@ function App() {
           <div className="chat-lockable">
           {chatPanelView === 'chat' ? (
             <ChatConversationPanel
+              key={panelSessionRevision}
               appCharacters={npcParticipants.characters()}
               runtimeNodes={nodes}
               messages={messages}
@@ -5741,6 +5753,7 @@ function App() {
             />
           ) : chatPanelView === 'phone' ? (
             <PhonePanel
+              key={panelSessionRevision}
               appCharacters={npcParticipants.characters()}
               phoneContacts={phoneContacts}
               storyCharacters={storyCharacters}
@@ -5998,6 +6011,7 @@ function App() {
             />
           ) : (
             <EventsPanel
+              key={panelSessionRevision}
               upcomingEvents={upcomingEvents}
               selectedEvent={selectedEvent}
               highlightedEventIds={highlightedEventIds}

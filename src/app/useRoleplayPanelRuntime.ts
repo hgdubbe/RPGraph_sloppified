@@ -137,6 +137,7 @@ export function useRoleplayPanelRuntime({
   commitNodes,
   notifySystem,
 }: UseRoleplayPanelRuntimeOptions) {
+  const [panelSessionRevision, setPanelSessionRevision] = useState(0);
   const [chatPanelView, setChatPanelView] = useState<ChatPanelView>('chat');
   const [selectedCharacterId, setSelectedCharacterId] = useState('');
   const [viewedPhoneCharacterId, setViewedPhoneCharacterId] = useState('');
@@ -212,6 +213,28 @@ export function useRoleplayPanelRuntime({
     selectReply: selectPhoneReply,
     clearReply: clearPhoneReply,
   } = usePhoneReply(openedPhoneConversationKey);
+
+  function resetPanelSession() {
+    // A new session can reuse every character and message ID. Explicitly
+    // invalidate component-local profiles, drafts, and navigation in that case.
+    setPanelSessionRevision((revision) => revision + 1);
+    setSelectedCharacterId('');
+    setViewedPhoneCharacterId('');
+    setSelectedPhoneCharacterId('');
+    setSelectedEventId('');
+    setAccountLinkOpenRequest(undefined);
+    setSocialPostOpenRequest(undefined);
+    setSocialDirectMessageOpenRequest(undefined);
+    setHighlightedPhoneMessage(undefined);
+    setLastSeenMessageRecordId(0);
+    setSeenEventIds(new Set());
+    setHighlightedEventIds(new Set());
+    setPhoneDraft('');
+    setPhoneDraftCommands([]);
+    setPhoneImages([]);
+    setShowPhoneEmojiPicker(false);
+    clearPhoneReply();
+  }
 
   const storyCharacters: StorybookCharacter[] = useMemo(
     () => storyCharactersFromNodes(nodeViewNodes),
@@ -1380,7 +1403,7 @@ export function useRoleplayPanelRuntime({
       thread.removeEventListener('keydown', markUserScrollIntent);
       thread.removeEventListener('scroll', updateAutoFollow);
     };
-  }, [cancelChatAutoFollowAnimation, chatPanelView]);
+  }, [cancelChatAutoFollowAnimation, chatPanelView, panelSessionRevision]);
 
   useEffect(() => {
     if (chatPanelView === 'chat') {
@@ -1413,6 +1436,8 @@ export function useRoleplayPanelRuntime({
   }
 
   return {
+    panelSessionRevision,
+    resetPanelSession,
     chatPanelView,
     selectChatPanelView,
     selectPhonePanelView,

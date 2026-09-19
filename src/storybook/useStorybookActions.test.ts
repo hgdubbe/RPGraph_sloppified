@@ -293,6 +293,10 @@ it.each(['rp-storybook', 'rp-storybook-editor'] as const)(
   'restores Opening History on repeated file loads into %s', (nodeType) => {
     const state = harness();
     state.nodesRef.current[0].data.nodeType = nodeType;
+    state.nodesRef.current.push(
+      { id: 'events', position: { x: 0, y: 0 }, data: { label: 'Events', description: '', preview: '', nodeType: 'event-manager', eventAppointments: [] } } as WorkflowNode,
+      { id: 'stats', position: { x: 0, y: 0 }, data: { nodeType: 'character-stats' } } as WorkflowNode,
+    );
     state.options.setActiveStorybookProtection = vi.fn();
     const book = structuredClone(emptyRpStorybook);
     book.openingHistory.turns = [{
@@ -468,4 +472,26 @@ it('protects a followed character without chat and preserves the connection when
   await state.render().removeStorybookCharacter('book', fixture.character.id, 'npc');
   expect(directory()[0].id).toBe(originalUserId);
   expect(state.snapshots[fixture.character.id].character.playable).toBe(false);
+});
+
+
+it('resets events and character stats only after a valid Storybook replacement', () => {
+  const state = harness();
+  state.options.setActiveStorybookProtection = vi.fn();
+  state.nodesRef.current.push(
+    { id: 'events', position: { x: 0, y: 0 }, data: { label: 'Events', description: '', preview: '', nodeType: 'event-manager', eventAppointments: [{ id: 'old-event' }] } } as WorkflowNode,
+    { id: 'stats', position: { x: 0, y: 0 }, data: { nodeType: 'character-stats', characterStatsLastRpDateTime: 'old-time',
+      characterStatsContextText: 'Old story context' } } as WorkflowNode,
+  );
+  state.options.lifecycleBusy = () => true;
+  expect(state.render().applyStorybookToNode('book', emptyRpStorybook)).toBe(false);
+  expect(state.clearCurrentSession).not.toHaveBeenCalled();
+  expect(state.nodesRef.current[1].data.eventAppointments).toHaveLength(1);
+  state.options.lifecycleBusy = () => false;
+  expect(state.render().applyStorybookToNode('book', emptyRpStorybook)).toBe(true);
+  expect(state.clearCurrentSession).toHaveBeenCalledOnce();
+  expect(state.nodesRef.current[1].data.eventAppointments).toEqual([]);
+  expect(state.nodesRef.current[2].data.characterStatsLastRpDateTime).toBeUndefined();
+  expect(state.nodesRef.current[2].data.characterStatsContextText).toBe('');
+  expect(state.options.replaceCurrentChatWithOpeningHistoryRef.current).toBe(true);
 });
