@@ -40,6 +40,10 @@ into it.
   since that content is upstream-owned, not fork-authored.
 - chore: some UI elements slipped past the the theme-engine conversion and are still hardcoded
   or falling back to default style. Needs to be searched for and fixed.
+- chore: normalize theming: if something is on the same surface and has the same type and use,
+  use the same theming (e.g. all textboxes in options use the same theming, all descriptions
+  in Storyeditor user the same theme values). Remove outliers that use their own schema despite
+  having same function and visual representation inside their ui surface.
 - ComfyUI Provider: add a CFG control, change steps from a number field to a slider, and
   replace the free-text sampler/scheduler fields with dropdowns populated from supported values.
 - Add the established encryption/decryption mechanism to rotating autosaves, with an
