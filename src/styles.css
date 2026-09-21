@@ -6422,7 +6422,7 @@ input[type="number"]::-webkit-outer-spin-button {
   border: 1px solid var(--line, #1e293b);
   border-radius: 8px;
   color: var(--theme-app-text, #edf1ff);
-  background: #182131;
+  background: var(--surface, #182131);
   font-size: 11.5px;
   font-weight: 700;
   cursor: pointer;
@@ -11032,7 +11032,7 @@ input[type="number"]::-webkit-outer-spin-button {
 .output-action-progress-fill {
   height: 100%;
   border-radius: inherit;
-  background: linear-gradient(90deg, #22c55e, var(--theme-raw-v38bdf8, #38bdf8));
+  background: linear-gradient(90deg, var(--theme-raw-v22c55e, #22c55e), var(--theme-raw-v38bdf8, #38bdf8));
 }
 
 .output-action-context-capacity {
@@ -12722,7 +12722,7 @@ button.message-timeline-row.phone:focus-visible {
   min-height: 35px;
   color: #f2f6ff;
   border: 1px solid #3b4d68;
-  background: linear-gradient(180deg, var(--line, #243149), #172235);
+  background: linear-gradient(180deg, var(--line, #243149), var(--theme-raw-v172235, #172235));
   border-radius: 8px;
   padding: 8px 14px;
   font-size: 12px;
@@ -12766,7 +12766,7 @@ button.message-timeline-row.phone:focus-visible {
   border: 1px solid #3b4d68;
   border-radius: 8px;
   color: var(--theme-raw-vdbeafe, #dbeafe);
-  background: linear-gradient(180deg, var(--line, #243149), #172235);
+  background: linear-gradient(180deg, var(--line, #243149), var(--theme-raw-v172235, #172235));
   cursor: pointer;
   transition: all 0.2s;
   box-shadow:
@@ -13153,7 +13153,7 @@ button.message-timeline-row.phone:focus-visible {
   color: var(--soft-white);
   border: 1px solid color-mix(in srgb, var(--accent-light) calc(0.44 * 100%), transparent);
   border-radius: 8px;
-  background: linear-gradient(180deg, #967fd1, var(--theme-raw-v715da7, #715da7));
+  background: linear-gradient(180deg, var(--theme-raw-v967fd1, #967fd1), var(--theme-raw-v715da7, #715da7));
   font-size: 13px;
   font-weight: 850;
   padding: 8px 18px;
@@ -20935,7 +20935,7 @@ button.message-timeline-row.phone:focus-visible {
 .dialog-actions > button:last-child,
 .dialog-actions .primary {
   color: var(--soft-white);
-  background: linear-gradient(180deg, #967fd1, var(--theme-raw-v715da7, #715da7));
+  background: linear-gradient(180deg, var(--theme-raw-v967fd1, #967fd1), var(--theme-raw-v715da7, #715da7));
   border-color: var(--accent);
   font-weight: 800;
 }
@@ -22476,7 +22476,7 @@ button.message-timeline-row.phone:focus-visible {
 }
 
 .welcome-btn.primary-btn {
-  background: linear-gradient(180deg, #967fd1, var(--theme-raw-v715da7, #715da7));
+  background: linear-gradient(180deg, var(--theme-raw-v967fd1, #967fd1), var(--theme-raw-v715da7, #715da7));
   border: 1px solid color-mix(in srgb, var(--accent-light) calc(0.44 * 100%), transparent);
   color: var(--soft-white);
   box-shadow:
