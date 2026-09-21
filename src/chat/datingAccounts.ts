@@ -1,3 +1,4 @@
+import { characterMessageAliases, messageAliasKey } from '../characters/messageAliases';
 import { appAvatarDataUrl } from '../characters/portrait';
 import { recipientCharacterContext } from '../characters/appRuntime';
 import type { ChatImageAttachment, MessageRecord } from '../types';
@@ -54,7 +55,7 @@ export function datingAccounts(characters: StorybookCharacter[], messages: Messa
       photos: (profile.photoIds ?? []).flatMap((id) => character.images?.find((image) => image.id === id) ?? []),
       avatarDataUrl: appAvatarDataUrl(character, character.images?.find((image) => image.id === character.apps?.matchme?.avatarImageId)),
       recipientContext: recipientCharacterContext(character), libraryNpc: character.libraryNpc,
-      aliases: [...(character.identityAliases?.accountIds?.matchme ?? []), ...(character.identityAliases?.characterIds ?? []).map(datingAccountId), datingAccountId(character.id), character.name, profile.name, character.apps?.matchme?.profileName ?? character.apps?.matchme?.displayName ?? '', ...(character.apps?.matchme?.legacyHandles ?? []), character.apps?.matchme?.username ?? '', character.apps?.matchme?.accountId ?? ''],
+      aliases: [...characterMessageAliases(character), ...(character.identityAliases?.accountIds?.matchme ?? []), ...(character.identityAliases?.characterIds ?? []).map(datingAccountId), datingAccountId(character.id), character.name, profile.name, character.apps?.matchme?.profileName ?? character.apps?.matchme?.displayName ?? '', ...(character.apps?.matchme?.legacyHandles ?? []), character.apps?.matchme?.username ?? '', character.apps?.matchme?.accountId ?? ''],
       decisions: profile.decisions, name: character.name, age: profile.age, gender: profile.gender, bio: profile.bio,
       interests: profile.interests.split(',').map((part) => part.trim()).filter(Boolean),
       personality: [character.profile.personality, character.profile.speechStyle].filter(Boolean).join('\n'), color: 'violet' });
@@ -65,10 +66,10 @@ export function datingAccounts(characters: StorybookCharacter[], messages: Messa
 }
 
 export function resolveDatingAccount(identity: string, accounts: DatingAccount[]) {
-  const key = identity.trim().replace(/^@/, '');
-  const byId = accounts.filter((account) => account.id === key);
+  const key = messageAliasKey(identity);
+  const byId = accounts.filter((account) => account.id === identity.trim().replace(/^@/, ''));
   if (byId.length === 1) return byId[0];
-  const matches = accounts.filter((account) => account.name.toLowerCase() === key.toLowerCase() || account.aliases?.some((alias) => !!alias && alias.toLowerCase() === key.toLowerCase()));
+  const matches = accounts.filter((account) => messageAliasKey(account.name) === key || account.aliases?.some((alias) => !!alias && messageAliasKey(alias) === key));
   return matches.length === 1 ? matches[0] : undefined;
 }
 

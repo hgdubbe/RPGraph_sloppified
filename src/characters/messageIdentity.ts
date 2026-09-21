@@ -1,8 +1,9 @@
+import { characterMessageAliasMatches, messageAliasKey } from './messageAliases';
 import { accountHandleMatches } from './character';
 import type { StorybookCharacter } from '../storybook/runtime';
 import type { MessageRecord } from '../types';
 
-const key = (value: string) => value.trim().replace(/^@/, '').replace(/\s+/g, ' ').toLowerCase();
+const key = messageAliasKey;
 
 /** Every effective character has a stable phone identity, even before a contact is added. */
 export function whatsUpAccountId(character: StorybookCharacter) {
@@ -17,9 +18,11 @@ export function resolveWhatsUpRecipient(characters: StorybookCharacter[], messag
   const stable = characters.filter((character) => character.id === identity || character.sourceId === identity ||
     character.identityAliases?.characterIds?.includes(identity) ||
     character.identityAliases?.accountIds?.whatsup?.includes(identity));
-  const identityCharacters = canonical.length ? canonical : stable.length ? stable : characters.filter((character) =>
+  const localCharacters = canonical.length ? canonical : stable.length ? stable : characters.filter((character) =>
     key(character.name) === key(identity) ||
     accountHandleMatches(character.apps?.whatsup, identity));
+  const identityCharacters = localCharacters.length ? localCharacters
+    : characters.filter((character) => characterMessageAliasMatches(character, identity));
   if (identityCharacters.length > 1) {
     throw new Error(`Ambiguous WhatsUp recipient "${identity}". Use a unique account ID.`);
   }
