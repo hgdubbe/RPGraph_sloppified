@@ -38,8 +38,8 @@
 .account-link-input-mirror { box-sizing: border-box; }
 .account-link-input-mirror > span { flex: none; }
 .account-link-recognized {
-  color: #72b9ff;
-  background: rgba(114, 185, 255, 0.12);
+  color: var(--theme-primary, #72b9ff);
+  background: color-mix(in srgb, var(--theme-primary, #72b9ff) 12%, transparent);
   text-decoration: underline;
   text-underline-offset: 3px;
 }

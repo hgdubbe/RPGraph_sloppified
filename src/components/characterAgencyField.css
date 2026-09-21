@@ -458,7 +458,7 @@
   border-color: color-mix(in srgb, var(--cyan) calc(0.65 * 100%), transparent);
   background: color-mix(in srgb, var(--cyan) calc(0.55 * 100%), transparent);
   color: var(--soft-white, #ffffff);
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.25);
+  box-shadow: var(--theme-button-shadow-hover, 0 2px 8px rgba(0, 0, 0, 0.25));
 }
 
 .character-agency-save-btn:disabled,
@@ -477,21 +477,21 @@
 
 .character-agency-select-button.is-open {
   border-color: var(--accent, #7eb9c5);
-  box-shadow: 0 0 0 2px rgba(126, 185, 197, 0.2);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) calc(0.2 * 100%), transparent);
 }
 
 .character-agency-select-display.is-placeholder {
-  color: #8fa0bd;
+  color: var(--muted, #8fa0bd);
   font-style: italic;
 }
 
 .character-agency-dropdown-popover {
   position: fixed;
   z-index: 100050;
-  background: #0b111a;
-  border: 1px solid #28354b;
+  background: var(--surface-soft, #0b111a);
+  border: 1px solid var(--line, #28354b);
   border-radius: 8px;
-  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.65), 0 0 0 1px rgba(255, 255, 255, 0.05);
+  box-shadow: var(--theme-card-shadow, 0 16px 40px rgba(0, 0, 0, 0.65), 0 0 0 1px rgba(255, 255, 255, 0.05));
   display: flex;
   flex-direction: column;
   overflow: hidden;
@@ -505,17 +505,17 @@
 
 .character-agency-dropdown-search-wrap {
   padding: 6px 8px;
-  border-bottom: 1px solid #1e293b;
+  border-bottom: 1px solid var(--line, #1e293b);
   background: rgba(0, 0, 0, 0.25);
 }
 
 .character-agency-dropdown-search {
   width: 100%;
   box-sizing: border-box;
-  background: #070a10;
-  border: 1px solid #1e293b;
+  background: var(--surface-soft, #070a10);
+  border: 1px solid var(--line, #1e293b);
   border-radius: 5px;
-  color: #edf1ff;
+  color: var(--theme-app-text, #edf1ff);
   font-family: inherit;
   font-size: 11.5px;
   padding: 5px 8px;
@@ -545,7 +545,7 @@
   font-family: inherit;
   font-size: 11.5px;
   font-weight: 500;
-  color: #cbd5e1;
+  color: var(--theme-app-text, #cbd5e1);
   background: transparent;
   border: none;
   border-radius: 5px;
@@ -556,13 +556,13 @@
 
 .character-agency-dropdown-option:hover:not(:disabled),
 .character-agency-dropdown-option.is-focused:not(:disabled) {
-  background: rgba(125, 170, 255, 0.15);
-  color: #ffffff;
+  background: color-mix(in srgb, var(--cyan) calc(0.15 * 100%), transparent);
+  color: var(--soft-white, #ffffff);
 }
 
 .character-agency-dropdown-option.is-selected {
-  background: rgba(108, 211, 173, 0.16);
-  color: #a7f3d0;
+  background: color-mix(in srgb, var(--success) calc(0.16 * 100%), transparent);
+  color: var(--success, #a7f3d0);
   font-weight: 600;
 }
 
@@ -580,7 +580,7 @@
 .character-agency-dropdown-option-check {
   font-size: 11px;
   font-weight: 700;
-  color: #a7f3d0;
+  color: var(--success, #a7f3d0);
   margin-left: 6px;
 }
 
@@ -610,12 +610,12 @@
   width: max-content;
   min-width: 180px;
   box-sizing: border-box;
-  background: #090e17;
-  border: 1px solid rgba(125, 170, 255, 0.32);
+  background: var(--surface-soft, #090e17);
+  border: 1px solid color-mix(in srgb, var(--cyan) calc(0.32 * 100%), transparent);
   border-radius: 8px;
-  box-shadow: 0 14px 36px rgba(0, 0, 0, 0.75), 0 2px 8px rgba(0, 0, 0, 0.45);
+  box-shadow: var(--theme-card-shadow, 0 14px 36px rgba(0, 0, 0, 0.75), 0 2px 8px rgba(0, 0, 0, 0.45));
   padding: 9px 12px;
-  color: #edf1ff;
+  color: var(--theme-app-text, #edf1ff);
   pointer-events: none;
   animation: character-agency-tooltip-fade 0.15s cubic-bezier(0.16, 1, 0.3, 1);
 }
@@ -656,21 +656,21 @@
 .character-agency-tooltip-tag {
   font-size: 11px;
   font-weight: 700;
-  color: #a7f3d0;
+  color: var(--success, #a7f3d0);
   letter-spacing: 0.02em;
 }
 
 .character-agency-tooltip-meaning {
   font-size: 11.5px;
   line-height: 1.45;
-  color: #d1d5db;
+  color: var(--muted, #d1d5db);
   text-align: left;
 }
 
 .character-agency-tooltip-extra {
   font-size: 10.5px;
   line-height: 1.4;
-  color: #fca5a5;
+  color: var(--danger, #fca5a5);
   margin-top: 6px;
   padding-top: 5px;
   border-top: 1px solid rgba(255, 255, 255, 0.08);
