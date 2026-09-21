@@ -294,7 +294,7 @@ export async function runActionAwarePrompt({
   const createImageCharacters = storybookCreateImageCharactersFromNodes(context.nodes);
   const actionAvailabilityOptions = {
     visionEnabled,
-    hasImageInput: visionEnabled && images.length > 0,
+    hasImageInput: images.length > 0,
     comfyProviderIds: context.comfyProviderIds,
     providerHealthById: context.providerHealthById,
     createImageCharacters,

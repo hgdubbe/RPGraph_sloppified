@@ -36,7 +36,10 @@ export function appCharacterImage(characters: StorybookCharacter[], imageId: str
   const owners = ownerId ? characters.filter((character) => character.sourceId === ownerId || character.id === ownerId ||
     Object.values(character.apps ?? {}).some((account) => account.accountId === ownerId)) : characters;
   const images = owners.flatMap((character) => character.images?.filter((image) => image.id === imageId) ?? []);
-  return images.length === 1 ? images[0] : undefined;
+  if (!images.length || images.some((image) => image.dataUrl !== images[0].dataUrl)) return undefined;
+  // Forwarding adds gallery copies with the same ID and pixels. Legacy posts
+  // without an owner binding must still resolve those copies to the original.
+  return images.find((image) => !image.receivedFrom && !image.imageAccess) ?? images[0];
 }
 
 /** Resolve outgoing attachments across galleries, rejecting conflicting image IDs. */

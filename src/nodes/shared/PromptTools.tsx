@@ -638,6 +638,17 @@ export function PromptActionModal({
                     <input
                       className="nodrag nowheel"
                       type="checkbox"
+                      checked={draft.disableWhenImageAttached}
+                      onChange={(event) => updateRuntimeConfig({
+                        disableWhenImageAttached: event.currentTarget.checked,
+                      })}
+                    />
+                    Disable when an input image is attached
+                  </label>
+                  <label className="node-toggle post-output-toggle nodrag">
+                    <input
+                      className="nodrag nowheel"
+                      type="checkbox"
                       checked={draft.sendImagesToLlm}
                       disabled={!visionEnabled}
                       title={!visionEnabled ? 'Requires Activate vision features on this node provider.' : undefined}

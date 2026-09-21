@@ -195,6 +195,7 @@ describe('shared NPC app discovery', () => {
 
   it('scopes equal seed/image IDs to their owners and exports original seed IDs', () => {
     const second = npc('second'); second.images[0].description = 'Different owner';
+    second.images[0].dataUrl = 'data:image/jpeg;base64,ZGlmZmVyZW50';
     const { characters } = setup([entry(second)]);
     const seeds = initialCharacterPosts(characters).filter((post) => post.authorCharacterId !== 'player');
     expect(new Set(seeds.map((post) => post.postId)).size).toBe(2);

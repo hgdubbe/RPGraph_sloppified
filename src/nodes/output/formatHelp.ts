@@ -26,8 +26,8 @@ Direct Actions does not use Message Format and does not select a Prompt Switch c
 
 Turn Mode
 Selects the prompt slot inside the chosen normal output channel:
-0 = Input with image
-1 = Input without image
+0 = Messenger input with image (unused in Normal RP)
+1 = Normal RP input with or without images; messenger input without images
 2 = AutoTurn
 3 = Event
 4 = Narrator

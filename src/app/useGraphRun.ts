@@ -1201,7 +1201,7 @@ export function useGraphRun(options: UseGraphRunOptions) {
           ? 4
         : isAutoTurn
           ? 2
-          : activeInputImages.length > 0
+          : isPhoneMessage && activeInputImages.length > 0
             ? 0
             : 1
     );

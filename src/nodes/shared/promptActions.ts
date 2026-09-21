@@ -12,6 +12,7 @@ export type PromptActionConfig = {
   maxReturnedImages: number;
   sendImagesToLlm: boolean;
   hideImageTextWhenSendingToLlm: boolean;
+  disableWhenImageAttached: boolean;
   manageModelMemoryForComfy: boolean;
   runAfterReply: boolean;
   comfyProviderId?: string;
@@ -22,7 +23,7 @@ export type PromptActionConfig = {
 
 export type PromptActionRuntimeConfig = Pick<
   PromptActionConfig,
-  'maxReturnedImages' | 'sendImagesToLlm' | 'hideImageTextWhenSendingToLlm' | 'manageModelMemoryForComfy' | 'comfyProviderId'
+  'maxReturnedImages' | 'sendImagesToLlm' | 'hideImageTextWhenSendingToLlm' | 'disableWhenImageAttached' | 'manageModelMemoryForComfy' | 'comfyProviderId'
 >;
 
 export type PromptActionRuntimeSettings = Partial<Record<PromptActionId, Partial<PromptActionRuntimeConfig>>>;
@@ -100,7 +101,7 @@ export function promptActionHintText(actionId: PromptActionId) {
   switch (actionId) {
     case 'getImageId':
       return [
-        'Stored character image search is available. To request it, output exactly one JSON object and nothing else:',
+        'When a character photo is requested or needed, search their phone gallery before replying, even if history contains image IDs. Check returned recipients and publications to avoid repeats. An explicitly supplied image needs no search. Request the search with exactly one JSON object and nothing else:',
         '{"action":"get_image_id","plan":"brief plan stating whose phone gallery to search and who or what the image should show"}',
       ].join('\n');
     case 'createImage':
@@ -888,6 +889,7 @@ export function defaultPromptActionConfig(
     maxReturnedImages: actionId === 'getImageId' ? 3 : 5,
     sendImagesToLlm: sendsImagesByDefault,
     hideImageTextWhenSendingToLlm: false,
+    disableWhenImageAttached: true,
     manageModelMemoryForComfy: true,
     runAfterReply: defaultPromptActionRunAfterReply(actionId),
     comfyProviderId: '',
@@ -915,6 +917,9 @@ function normalizedPromptActionRuntimeConfig(
         ? value.hideImageTextWhenSendingToLlm
         : false
     ),
+    disableWhenImageAttached: typeof value?.disableWhenImageAttached === 'boolean'
+      ? value.disableWhenImageAttached
+      : true,
     manageModelMemoryForComfy: actionId === 'createImage' && typeof value?.manageModelMemoryForComfy === 'boolean'
       ? value.manageModelMemoryForComfy
       : true,
@@ -1035,6 +1040,9 @@ export function normalizePromptActionConfig(
         ? record.hideImageTextWhenSendingToLlm
         : false
     ),
+    disableWhenImageAttached: typeof record.disableWhenImageAttached === 'boolean'
+      ? record.disableWhenImageAttached
+      : true,
     manageModelMemoryForComfy: typeof record.manageModelMemoryForComfy === 'boolean'
       ? record.manageModelMemoryForComfy
       : true,
@@ -1274,9 +1282,12 @@ function createImageCharacterStatus(
 }
 
 export function promptActionStatus(
-  action: Pick<PromptActionConfig, 'actionId' | 'sendImagesToLlm' | 'comfyProviderId'>,
+  action: Pick<PromptActionConfig, 'actionId' | 'sendImagesToLlm' | 'comfyProviderId'> & Partial<Pick<PromptActionConfig, 'disableWhenImageAttached'>>,
   options: PromptActionAvailabilityOptions = {},
 ): PromptActionStatus | undefined {
+  if (action.actionId === 'getImageId' && (action.disableWhenImageAttached ?? true) && options.hasImageInput) {
+    return { available: false, tone: 'warning', label: 'Disabled for attached input images' };
+  }
   const createImageStatus = createImageProviderStatus(action, options);
   if (createImageStatus) {
     return createImageStatus;
@@ -1300,7 +1311,7 @@ export function promptActionStatus(
 }
 
 export function promptActionAvailable(
-  action: Pick<PromptActionConfig, 'actionId' | 'sendImagesToLlm' | 'comfyProviderId'>,
+  action: Pick<PromptActionConfig, 'actionId' | 'sendImagesToLlm' | 'comfyProviderId'> & Partial<Pick<PromptActionConfig, 'disableWhenImageAttached'>>,
   options: PromptActionAvailabilityOptions = {},
 ) {
   return promptActionStatus(action, options)?.available !== false;

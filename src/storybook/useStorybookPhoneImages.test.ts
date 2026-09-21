@@ -1,3 +1,4 @@
+import { appCharacterImage, appCharactersFromRegistry } from '../characters/appRuntime';
 import { expect, it, vi } from 'vitest';
 import { useStorybookPhoneImages } from './useStorybookPhoneImages';
 import { chatAttachmentFromStorybookImage, storyCharactersFromNodes } from './runtime';
@@ -108,4 +109,25 @@ it.each([false, true])('links foreign phone images through sender and recipient 
     expect.objectContaining({ id: image.id, dataUrl: image.dataUrl, receivedFrom: sender.name }),
   ]);
   expect(original.images[0].receivedFrom).toBeUndefined();
+});
+
+it('keeps an unbound social post image visible after forwarding it to another gallery', () => {
+  const { options, book } = harness();
+  const owner = book.characters[0];
+  const recipient = { ...structuredClone(owner), id: 'recipient', name: 'Jack Carter', images: [], apps: {} };
+  options.nodesRef.current[0].data.storybookJson = rpStorybookJsonText({ ...book, characters: [recipient, owner] });
+  options.updateRuntimeNode.mockImplementation((id, patch) => {
+    const node = options.nodesRef.current.find((entry) => entry.id === id)!;
+    node.data = { ...node.data, ...patch };
+  });
+  const api = useStorybookPhoneImages(options);
+  const characters = () => appCharactersFromRegistry(options.currentCharacterRegistry());
+  const image = owner.images[0];
+  const original = appCharacterImage(characters(), image.id);
+  expect(original?.dataUrl).toBe(image.dataUrl);
+  api.ensurePhoneImages(owner.name, recipient.name, [chatAttachmentFromStorybookImage(image)]);
+  expect(characters().filter((character) => character.images?.some((entry) => entry.id === image.id))).toHaveLength(2);
+  expect(appCharacterImage(characters(), image.id)).toEqual(original);
+  expect(appCharacterImage(characters(), image.id, owner.id)).toEqual(original);
+  expect(appCharacterImage(characters(), image.id, 'unknown-owner')).toBeUndefined();
 });

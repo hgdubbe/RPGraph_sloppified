@@ -33,21 +33,45 @@ describe('workflow Storybook selection', () => {
     expect(workflowNeedsStorybookSelection({ nodes: [] })).toBe(false);
   });
 
-  it.each(['default_normal_v32.json', 'default_planning_v32.json'])(
+  it.each(['default_normal_v33.json', 'default_planning_v33.json'])(
     'recognizes the empty Storybook slot in %s',
     (fileName) => {
       const workflow = JSON.parse(readFileSync(`resources/default-content/${fileName}`, 'utf8'));
       expect(workflowNeedsStorybookSelection(workflow)).toBe(true);
     },
   );
-  it.each(['default_normal_v32.json', 'default_planning_v32.json'])(
+  it.each(['default_normal_v33.json', 'default_planning_v33.json'])(
+    'uses one RP input prompt and no image generation in %s',
+    (fileName) => {
+      const workflow = JSON.parse(readFileSync(`resources/default-content/${fileName}`, 'utf8')) as WorkflowFile;
+      const data = workflow.nodes.find((node) => node.data.nodeType === 'llm-prompt-switch')!.data;
+      const rows = data.llmPromptSwitchPromptAftersByOutput!;
+      expect(data.llmPromptSwitchPromptTitlesByOutput![0].slice(0, 2)).toEqual(['Empty', 'RP Prompt Normal']);
+      expect(data.llmPromptSwitchPromptBeforesByOutput![0][0]).toBe('');
+      expect(rows[0][0]).toBe('');
+      expect(rows.flat().join('\n')).not.toContain('@action:Create character phone image');
+      expect(rows.flat().join('\n')).not.toContain('request character phone image creation');
+      for (const after of [...rows[0].slice(1), ...rows[1]]) {
+        expect(after).toContain('its supplied ID (including RP_Picture_ IDs) can be forwarded');
+        expect(after).toContain('@action:Get character phone image list');
+        expect(after).toContain('request the phone gallery search before continuing');
+        expect(after).toContain("Check the results' recipients and publication history");
+        expect(after).not.toContain('reuse a suitable known image ID');
+        expect(after).not.toContain('from the plan or history');
+        if (fileName.includes('normal')) expect(after).toContain('Do not answer from memory or skip it with an excuse.');
+      }
+      expect(rows[0][1]).toContain('@action:Describe input image (After Reply Action)');
+      expect(rows[1][0]).toContain('attached image');
+    },
+  );
+  it.each(['default_normal_v33.json', 'default_planning_v33.json'])(
     'explains account links once in every independent app and RP pass in %s',
     (fileName) => {
       const workflow = JSON.parse(readFileSync(`resources/default-content/${fileName}`, 'utf8')) as WorkflowFile;
       const promptSwitch = workflow.nodes.find((node) => node.data.nodeType === 'llm-prompt-switch')!;
       const rows = promptSwitch.data.llmPromptSwitchPromptAftersByOutput!;
       expect(rows.flat()).toHaveLength(23);
-      for (const after of rows.flat()) {
+      for (const after of rows.flat().filter(Boolean)) {
         for (const step of buildPromptStepChain('', after)) {
           expect(step.after.match(/Account links:/g)).toHaveLength(1);
           expect(step.after).toContain('whatsup, fotogram, onlyfriends, matchme, bank');

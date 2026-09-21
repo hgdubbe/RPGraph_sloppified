@@ -5392,7 +5392,7 @@ async function verifyPromptRunFixtures() {
       '@action:Update phone image caption (After Reply Action)',
     ].join('\n\n'),
     actionConfigs: [
-      defaultPromptActionConfig('Get character phone image list', 'getImageId'),
+      { ...defaultPromptActionConfig('Get character phone image list', 'getImageId'), disableWhenImageAttached: false },
       defaultPromptActionConfig('Update phone image caption', 'updatePhoneImageCaption'),
     ],
     streamsVisibleOutput: false,
@@ -6102,7 +6102,7 @@ async function verifyPromptRunFixtures() {
     'a prose reply must stream live even while a pre-reply action is still pending',
   );
   assertFixture(
-    proseScenario.promptsForCalls[0]?.includes('Stored character image search is available') &&
+    proseScenario.promptsForCalls[0]?.includes('When a character photo is requested or needed') &&
       !proseScenario.promptsForCalls[0]?.includes('Action follow-up: search stored character phone images'),
     'pending pre-reply actions must show only their compact first-pass hint',
   );
@@ -6118,12 +6118,12 @@ async function verifyPromptRunFixtures() {
   );
   assertFixture(
     actionCallScenario.promptsForCalls.length === 3 &&
-      actionCallScenario.promptsForCalls[0]?.includes('Stored character image search is available') &&
+      actionCallScenario.promptsForCalls[0]?.includes('When a character photo is requested or needed') &&
       actionCallScenario.promptsForCalls[1]?.includes('Action follow-up: search stored character phone images') &&
       actionCallScenario.promptsForCalls[1]?.includes('Find a stored Espen party selfie that shows her outfit.') &&
       !actionCallScenario.promptsForCalls[1]?.includes('Write the story.') &&
       actionCallScenario.promptsForCalls[2]?.includes('Action executed: get character phone image list.') &&
-      !actionCallScenario.promptsForCalls[2]?.includes('Stored character image search is available'),
+      !actionCallScenario.promptsForCalls[2]?.includes('When a character photo is requested or needed'),
     'pre-reply image actions must run as compact request, focused follow-up, and result replay passes',
   );
 
