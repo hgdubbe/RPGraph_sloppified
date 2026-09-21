@@ -1,3 +1,6 @@
+import { createNodeViewSnapshot } from './app/nodeViewSnapshot';
+import { useNodeViewContent } from './nodes/nodeViewContent';
+import { useStorybookContentNodes } from './storybook/useStorybookContentNodes';
 import { onlyFriendsWalletBalance } from './chat/onlyFriendsWallet';
 import { planNpcCopyEdit } from './characters/editNpcCopy';
 import { CharacterRemovalDialog } from './components/CharacterRemovalDialog';
@@ -585,19 +588,6 @@ function textMentionsCharacter(text: string, character: StorybookCharacter) {
   });
 }
 
-function sameNodeViewNodes(left: WorkflowNode[], right: WorkflowNode[]) {
-  return left.length === right.length && left.every((node, index) => {
-    const other = right[index];
-    return (
-      !!other &&
-      node.id === other.id &&
-      node.type === other.type &&
-      node.data === other.data &&
-      node.style === other.style
-    );
-  });
-}
-
 function eventStoryCharacter(event: RpAppointment, characters: StorybookCharacter[]) {
   const explicitName = event.assignedTo ?? event.requestedBy;
   if (explicitName) {
@@ -637,13 +627,10 @@ function App() {
   useEffect(() => {
     nodesRef.current = nodes;
   }, [nodes]);
-  // Dragging recreates `nodes` every frame with only positions changed; keep a
-  // semantically-stable array so downstream memos only recompute on real changes.
-  // Guarded render-phase setState is React's sanctioned previous-render pattern.
-  const [nodeViewNodes, setNodeViewNodes] = useState(nodes);
-  if (!sameNodeViewNodes(nodeViewNodes, nodes)) {
-    setNodeViewNodes(nodes);
-  }
+  // Reuse content for position-only changes without an extra render-phase
+  // state update on every runtime node patch.
+  const [selectNodeViewSnapshot] = useState(createNodeViewSnapshot);
+  const nodeViewNodes = selectNodeViewSnapshot(nodes);
   const [showWelcome, setShowWelcome] = useState(() => {
     return window.localStorage.getItem('rpgraph.welcomeSeen') !== 'true';
   });
@@ -883,6 +870,7 @@ function App() {
   const imageInputRef = useRef<HTMLInputElement | null>(null);
   const characterDropdownRef = useRef<HTMLDivElement | null>(null);
   const {
+    messageStream,
     messages,
     setMessages,
     messagesRef,
@@ -939,9 +927,10 @@ function App() {
   } = useTurnTraceState();
   const notifySystemRef = useRef<(level: 'info' | 'warning' | 'error', message: string) => void>(() => {});
   const { characterStorybookNodes } = useMemo(() => findChatEndpoints(nodeViewNodes), [nodeViewNodes]);
+  const storybookContentNodes = useStorybookContentNodes(nodeViewNodes);
   const storybooksByNodeId = useMemo(() => {
     return new Map(
-      nodeViewNodes.flatMap((node) => {
+      storybookContentNodes.flatMap((node) => {
         if (!isStorybookSourceNode(node) || !node.data.storybookJson) {
           return [];
         }
@@ -953,7 +942,7 @@ function App() {
         }
       }),
     );
-  }, [nodeViewNodes]);
+  }, [storybookContentNodes]);
   const {
     panelSessionRevision,
     resetPanelSession,
@@ -5004,6 +4993,7 @@ function App() {
       break;
     }
   }
+  const nodeViewContent = useNodeViewContent(nodeViewNodes);
   const nodeViewValues = useMemo<NodeViewValues>(() => ({
     connections,
     providerHealthById,
@@ -5019,14 +5009,14 @@ function App() {
     setPromptActionSettings,
     promptTextCustomPresets,
     setPromptTextCustomPresets,
-    nodes: nodeViewNodes,
+    contentNodes: nodeViewContent,
     edges,
   }), [
     activeTokenEstimateBytesPerToken,
     checkProviderConnectionById,
     connections,
     edges,
-    nodeViewNodes,
+    nodeViewContent,
     providerHealthById,
     promptActionCustomPresets,
     promptActionSettings,
@@ -5625,7 +5615,8 @@ function App() {
               key={panelSessionRevision}
               appCharacters={npcParticipants.characters()}
               runtimeNodes={nodes}
-              messages={messages}
+              messageStream={messageStream}
+              onStreamContentChange={scrollChatThreadToBottomIfFollowing}
               storyCharacters={storyCharacters}
               characterColors={characterColors}
               selectedCharacter={selectedCharacter}

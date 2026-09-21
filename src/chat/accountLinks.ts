@@ -70,9 +70,13 @@ export function resolveAccountLink(app: AccountLinkApp, identity: string, charac
 /** Longest complete known identity wins. Never guess partial names or ambiguous aliases. */
 export function parseAccountLinks(text: string, characters: StorybookCharacter[], bindings?: AccountLink[]): ParsedAccountLink[] {
   const links: ParsedAccountLink[] = [];
-  const targets = accountLinkTargets(characters);
   const prefix = /@(whatsup|whatsapp|fotogram|photogram|onlyfriends|matchme|banking|bank):/gi;
-  for (const match of text.matchAll(prefix)) {
+  const matches = [...text.matchAll(prefix)];
+  // Most rendered speech/thought spans contain no account links. Avoid building
+  // the entire character account directory for each ordinary text fragment.
+  if (matches.length === 0) return links;
+  const targets = accountLinkTargets(characters);
+  for (const match of matches) {
     const start = match.index;
     if (start > 0 && /[\p{L}\p{N}_@]/u.test(text[start - 1])) continue;
     if (links.some((link) => start < link.end)) continue;

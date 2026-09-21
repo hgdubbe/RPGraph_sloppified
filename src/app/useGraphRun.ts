@@ -836,14 +836,13 @@ export function useGraphRun(options: UseGraphRunOptions) {
     let displayInputText = displayText;
     let translatedSocialDirectMessageText: string | undefined;
     let liveOutputMessageId: number | undefined;
-    let pendingLiveOutput:
-      | {
-          text: string;
-          translated: boolean;
-          originalText: string;
-          extraFields?: Partial<MessageRecord>;
-        }
-      | undefined;
+    type LiveOutputSnapshot = {
+      text: string;
+      translated: boolean;
+      originalText: string;
+      extraFields?: Partial<MessageRecord>;
+    };
+    let pendingLiveOutput: LiveOutputSnapshot | (() => LiveOutputSnapshot) | undefined;
     let liveOutputFlushFrame = 0;
     let liveOutputFlushTimer = 0;
     let lastLiveOutputFlushMs = 0;
@@ -938,7 +937,8 @@ export function useGraphRun(options: UseGraphRunOptions) {
       pendingLiveOutput = undefined;
       clearLiveOutputFlush();
       lastLiveOutputFlushMs = performance.now();
-      applyLiveOutput(pending.text, pending.translated, pending.originalText, pending.extraFields);
+      const output = typeof pending === 'function' ? pending() : pending;
+      applyLiveOutput(output.text, output.translated, output.originalText, output.extraFields);
     };
     const scheduleLiveOutputFlush = () => {
       if (liveOutputFlushFrame || liveOutputFlushTimer) {
@@ -1243,17 +1243,24 @@ export function useGraphRun(options: UseGraphRunOptions) {
       };
     };
     const showLiveWorkflowOutput = (text: string) => {
-      const definitions = settingsValueDefinitionsRef.current;
-      const extracted = extractWorkflowVariableSetCommands(text);
-      const previewValues = workflowVariablePreviewValues(
-        extracted.commands,
-        definitions,
-        workflowSettingsValuesForGraph(),
-      );
-      const preview = embeddedPhoneMessagesLivePreview(
-        resolveWorkflowVariables(extracted.text, definitions, previewValues),
-      );
-      showLiveOutput(preview.text, false, '', livePhonePreviewFields(preview));
+      if (runSignal.aborted || activeRun.current?.id !== runId) return;
+      // Coalesce before parsing, not just before setState. Provider chunks can
+      // arrive faster than the display cadence, and each carries the full text.
+      pendingLiveOutput = () => {
+        const definitions = settingsValueDefinitionsRef.current;
+        const extracted = extractWorkflowVariableSetCommands(text);
+        const previewValues = workflowVariablePreviewValues(
+          extracted.commands,
+          definitions,
+          workflowSettingsValuesForGraph(),
+        );
+        const preview = embeddedPhoneMessagesLivePreview(
+          resolveWorkflowVariables(extracted.text, definitions, previewValues),
+        );
+        return { text: preview.text, translated: false, originalText: '',
+          extraFields: livePhonePreviewFields(preview) };
+      };
+      scheduleLiveOutputFlush();
     };
     const showLiveRpOutput =
       activeInputImages.length > 0

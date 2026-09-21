@@ -79,6 +79,12 @@ export function acquireMessageContacts(nodes: WorkflowNode[], snapshots: NpcPart
   let changed = false;
   const nextNodes = nodes.map((node) => {
     if (!isStorybookSourceNode(node) || !node.data.storybookJson || storybookNeedsUpdate(node.data.storybookJson)) return node;
+    // Registry entries already contain the parsed authored characters. Inspect
+    // relationships there before reading the image-bearing raw JSON again.
+    // Keep raw parsing for actual writes so unrelated fields remain untouched.
+    const needsWrite = registryEntries.some((entry) => entry.tier === 'storybook' && entry.source === node.id &&
+      withMessageContacts(entry.character, grants) !== entry.character);
+    if (!needsWrite) return node;
     const book = JSON.parse(node.data.storybookJson) as { characters: Character[] };
     const characters = book.characters.map((character) => withMessageContacts(character, grants));
     if (characters.every((character, index) => character === book.characters[index])) return node;

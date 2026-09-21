@@ -394,15 +394,15 @@ export function CharacterStatsNodeCard({ id, data }: NodeProps<WorkflowNode>) {
   const actions = useNodeActions();
   const view = useNodeView();
   const nodeBodyRef = useNodeLayoutSync(id);
-  const characters = storyCharacterRefsFromNodes(view.nodes);
+  const characters = storyCharacterRefsFromNodes(view.contentNodes);
   const characterStats = characterStatDefinitionsForEditing(data);
   const characterIds = new Set(characters.map((character) => character.nodeId));
   const selectedPrimaryId =
     data.characterStatsPrimaryId && characterIds.has(data.characterStatsPrimaryId)
       ? data.characterStatsPrimaryId
       : characters[0]?.nodeId;
-  const statsState = normalizeCharacterStatsState(view.nodes, data.characterStatsState);
-  const baselineState = normalizeCharacterStatsState(view.nodes, data.characterStatsBaselineState);
+  const statsState = normalizeCharacterStatsState(view.contentNodes, data.characterStatsState);
+  const baselineState = normalizeCharacterStatsState(view.contentNodes, data.characterStatsBaselineState);
   const lastChanges = data.characterStatsLastChanges
     ? normalizeCharacterStatsChanges([...characterIds], data.characterStatsLastChanges)
     : undefined;

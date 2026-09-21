@@ -1,3 +1,4 @@
+import type { MessageStream } from '../chat/messageStream';
 import { socialDirectMessageDisplayText, socialDirectMessageParty } from '../chat/socialMedia';
 import { socialTimelineGroups, socialTimelineMessageText } from '../chat/socialTimeline';
 import { AccountLinkText } from './AccountLinkText';
@@ -11,6 +12,7 @@ import {
   useMemo,
   useRef,
   useState,
+  useSyncExternalStore,
 } from 'react';
 import {
   coloredDialogueParts,
@@ -187,7 +189,8 @@ function rpTimePlaceholderParts(format: RpDateTimeFormat) {
 
 type ChatConversationPanelProps = {
   runtimeNodes: WorkflowNode[];
-  messages: MessageRecord[];
+  messageStream: MessageStream;
+  onStreamContentChange: () => void;
   storyCharacters: StorybookCharacter[];
   appCharacters?: StorybookCharacter[];
   /** Show app profile names in chat cards; reserved for a future display setting. */
@@ -286,7 +289,8 @@ type ChatConversationPanelProps = {
 
 export function ChatConversationPanel({
   runtimeNodes,
-  messages,
+  messageStream,
+  onStreamContentChange,
   storyCharacters,
   appCharacters = storyCharacters,
   showProfileNames = false,
@@ -373,6 +377,10 @@ export function ChatConversationPanel({
   onSelectDraftImages,
   onMessageContentLoaded,
 }: ChatConversationPanelProps) {
+  const messages = useSyncExternalStore(messageStream.subscribe, messageStream.getSnapshot);
+  useEffect(() => {
+    onStreamContentChange();
+  }, [messages, onStreamContentChange]);
   const commandComposerRef = useRef<CommandPillComposerHandle | null>(null);
   const socialEngagementByApp = useMemo(() => ({
     fotogram: socialPostEngagementByPostId('fotogram', messages, socialLikesByAccount),
@@ -415,12 +423,7 @@ export function ChatConversationPanel({
       return false;
     }
   });
-  const phoneMessagesById = selectPhoneMessagesById(messages);
-  const socialMessagesById = new Map(
-    messages.flatMap((message) =>
-      message.socialDirectMessage ? [[message.id, message.socialDirectMessage] as const] : []
-    ),
-  );
+
 
   const [isComposerFocused, setIsComposerFocused] = useState(false);
   const [isComposerHovered, setIsComposerHovered] = useState(false);
@@ -590,151 +593,173 @@ export function ChatConversationPanel({
     }
   }
 
-  const isNarratorPhoneAutoTurnInstruction = (message: MessageRecord) =>
-    Boolean(
-      message.role === 'user' &&
-        message.phoneMessage &&
-        message.speakerName === 'Narrator' &&
-      /^This is a Narrator Phone AutoTurn\./.test(message.originalText.trim()),
-    );
-  const narratorPhoneAutoTurnIds = new Set(
-    messages.flatMap((message) =>
-      isNarratorPhoneAutoTurnInstruction(message) && message.turnId ? [message.turnId] : []
-    ),
-  );
   const badgeClassName = (badge: string) =>
     `entry-channel-badge badge-${badge.toLocaleLowerCase()}`;
-  const effectiveRpDateTime = (message: MessageRecord) =>
-    messageEffectiveRpDateTime(message, phoneMessagesById);
-  const visibleMessages = visibleMessageRecords(messages, {
-    hideMessage: (message) =>
-      isNarratorPhoneAutoTurnInstruction(message) ||
-      !!message.outputActionsHidden ||
-      socialMessageHiddenFromChat(message),
-  });
-  const socialTimeline = socialTimelineGroups(visibleMessages, englishProcessingEnabled);
-  const outsidePhoneEntriesByMessageId = new Map<number, PhoneTimelineEntry[]>();
-
-  const directPhoneTimelineEntriesByMessageId = new Map(
-    directPhoneTimelineEntries(visibleMessages).map((entry) => [entry.messageId, entry.phoneMessage]),
-  );
-
-  visibleMessages.forEach((message) => {
-    const directPhoneMessage = directPhoneTimelineEntriesByMessageId.get(message.id);
-    if (directPhoneMessage) {
-      const narratorAutoTurnPhone =
-        message.phoneAutoTurnSource === 'narrator' ||
-        (!!message.turnId && narratorPhoneAutoTurnIds.has(message.turnId) && message.turnPart === 'output');
-      const badges = narratorAutoTurnPhone
-        ? ['NARRATOR', 'AUTOTURN', 'PHONE']
-        : [message.role === 'user' ? 'USER' : 'AI', 'PHONE'];
-      outsidePhoneEntriesByMessageId.set(message.id, [{
-        phoneMessage: directPhoneMessage,
-        badges,
-        className: narratorAutoTurnPhone
-          ? 'auto-turn-phone'
-          : `direct-phone ${message.role}`,
-        ariaLabel: 'Open phone message',
-      }]);
-      return;
-    }
-    if (isStandaloneEmbeddedPhoneOutput(message)) {
-      outsidePhoneEntriesByMessageId.set(
-        message.id,
-        message.embeddedPhoneMessages!.map((phoneMessage) => ({
-          phoneMessage,
-          badges: ['AI', 'PHONE'],
-          className: 'embedded-phone output',
-          ariaLabel: 'Open phone message',
-        })),
-      );
-      return;
-    }
-    if (
-      message.role === 'user' &&
-      message.phoneMessage &&
-      message.speakerName === 'Narrator' &&
-      message.embeddedPhoneMessages?.length
-    ) {
-      const phoneSourceBadges = message.eventInput ? ['EVENT'] : ['NARRATOR', 'AUTOTURN'];
-      const phoneSourceClass = message.eventInput ? 'event-phone' : 'auto-turn-phone';
-      outsidePhoneEntriesByMessageId.set(
-        message.id,
-        message.embeddedPhoneMessages.map((phoneMessage) => ({
-          phoneMessage,
-          badges: [...phoneSourceBadges, 'PHONE'],
-          className: phoneSourceClass,
-          ariaLabel: 'Open sent phone message',
-        })),
-      );
-    }
-  });
-  const isEmptyOutputBridgeMessage = (candidate: MessageRecord) => {
-    const candidateText = (
-      englishProcessingEnabled
-        ? candidate.translatedText ?? candidate.originalText
-        : candidate.originalText
-    ).trim();
-    const hasOutputActionUi =
-      !!candidate.outputActionChoices?.length ||
-      !!candidate.outputActionInfoBoxes?.length ||
-      !!candidate.outputActionProgressBars?.length ||
-      !!candidate.outputActionContextCapacityBars?.length;
-    return (
-      candidate.role === 'output' &&
-      !candidate.socialDirectMessage &&
-      !candidate.embeddedSocialMessages?.length &&
-      !candidate.bankTransfer &&
-      !candidate.socialPost &&
-      !candidate.createdPhoneNote &&
-      !candidate.deletedPhoneNote &&
-      !candidate.simulatedAiChat &&
-      !candidateText &&
-      !candidate.rpDateTime &&
-      !hasOutputActionUi &&
-      !candidate.imageAttachments?.length
+  const { phoneMessagesById, socialMessagesById, visibleMessages, socialTimeline,
+    phoneTimelineGroupsByFirstMessageId, skippedPhoneTimelineMessageIds,
+    effectiveRpDateTime, previousDays } = useMemo(() => {
+    const phoneMessagesById = selectPhoneMessagesById(messages);
+    const socialMessagesById = new Map(
+      messages.flatMap((message) =>
+        message.socialDirectMessage ? [[message.id, message.socialDirectMessage] as const] : []
+      ),
     );
-  };
-  const phoneTimelineGroupsByFirstMessageId = new Map<number, PhoneTimelineGroup>();
-  const skippedPhoneTimelineMessageIds = new Set<number>();
-
-  visibleMessages.forEach((message, index) => {
-    if (skippedPhoneTimelineMessageIds.has(message.id)) {
-      return;
-    }
-    const phoneTimelineEntries = outsidePhoneEntriesByMessageId.get(message.id);
-    if (!phoneTimelineEntries?.length) {
-      return;
-    }
-
-    const groupedMessageIds = [message.id];
-    const groupedEntries = [...phoneTimelineEntries];
-    const groupDay = effectiveRpDateTime(message)?.slice(0, 10);
-
-    for (let nextIndex = index + 1; nextIndex < visibleMessages.length; nextIndex += 1) {
-      const nextMessage = visibleMessages[nextIndex];
-      const nextEntries = outsidePhoneEntriesByMessageId.get(nextMessage.id);
-      if (!nextEntries?.length) {
-        if (isEmptyOutputBridgeMessage(nextMessage)) {
-          groupedMessageIds.push(nextMessage.id);
-          continue;
-        }
-        break;
-      }
-      const nextDay = effectiveRpDateTime(nextMessage)?.slice(0, 10);
-      if (groupDay && nextDay && nextDay !== groupDay) {
-        break;
-      }
-      groupedMessageIds.push(nextMessage.id);
-      groupedEntries.push(...nextEntries);
-    }
-
-    groupedMessageIds.slice(1).forEach((messageId) => skippedPhoneTimelineMessageIds.add(messageId));
-    phoneTimelineGroupsByFirstMessageId.set(message.id, {
-      messageIds: groupedMessageIds,
-      entries: groupedEntries,
+    const isNarratorPhoneAutoTurnInstruction = (message: MessageRecord) =>
+      Boolean(
+        message.role === 'user' &&
+          message.phoneMessage &&
+          message.speakerName === 'Narrator' &&
+        /^This is a Narrator Phone AutoTurn\./.test(message.originalText.trim()),
+      );
+    const narratorPhoneAutoTurnIds = new Set(
+      messages.flatMap((message) =>
+        isNarratorPhoneAutoTurnInstruction(message) && message.turnId ? [message.turnId] : []
+      ),
+    );
+    const effectiveRpDateTime = (message: MessageRecord) =>
+      messageEffectiveRpDateTime(message, phoneMessagesById);
+    const visibleMessages = visibleMessageRecords(messages, {
+      hideMessage: (message) =>
+        isNarratorPhoneAutoTurnInstruction(message) ||
+        !!message.outputActionsHidden ||
+        socialMessageHiddenFromChat(message),
     });
-  });
+    const socialTimeline = socialTimelineGroups(visibleMessages, englishProcessingEnabled);
+    const outsidePhoneEntriesByMessageId = new Map<number, PhoneTimelineEntry[]>();
+
+    const directPhoneTimelineEntriesByMessageId = new Map(
+      directPhoneTimelineEntries(visibleMessages).map((entry) => [entry.messageId, entry.phoneMessage]),
+    );
+
+    visibleMessages.forEach((message) => {
+      const directPhoneMessage = directPhoneTimelineEntriesByMessageId.get(message.id);
+      if (directPhoneMessage) {
+        const narratorAutoTurnPhone =
+          message.phoneAutoTurnSource === 'narrator' ||
+          (!!message.turnId && narratorPhoneAutoTurnIds.has(message.turnId) && message.turnPart === 'output');
+        const badges = narratorAutoTurnPhone
+          ? ['NARRATOR', 'AUTOTURN', 'PHONE']
+          : [message.role === 'user' ? 'USER' : 'AI', 'PHONE'];
+        outsidePhoneEntriesByMessageId.set(message.id, [{
+          phoneMessage: directPhoneMessage,
+          badges,
+          className: narratorAutoTurnPhone
+            ? 'auto-turn-phone'
+            : `direct-phone ${message.role}`,
+          ariaLabel: 'Open phone message',
+        }]);
+        return;
+      }
+      if (isStandaloneEmbeddedPhoneOutput(message)) {
+        outsidePhoneEntriesByMessageId.set(
+          message.id,
+          message.embeddedPhoneMessages!.map((phoneMessage) => ({
+            phoneMessage,
+            badges: ['AI', 'PHONE'],
+            className: 'embedded-phone output',
+            ariaLabel: 'Open phone message',
+          })),
+        );
+        return;
+      }
+      if (
+        message.role === 'user' &&
+        message.phoneMessage &&
+        message.speakerName === 'Narrator' &&
+        message.embeddedPhoneMessages?.length
+      ) {
+        const phoneSourceBadges = message.eventInput ? ['EVENT'] : ['NARRATOR', 'AUTOTURN'];
+        const phoneSourceClass = message.eventInput ? 'event-phone' : 'auto-turn-phone';
+        outsidePhoneEntriesByMessageId.set(
+          message.id,
+          message.embeddedPhoneMessages.map((phoneMessage) => ({
+            phoneMessage,
+            badges: [...phoneSourceBadges, 'PHONE'],
+            className: phoneSourceClass,
+            ariaLabel: 'Open sent phone message',
+          })),
+        );
+      }
+    });
+    const isEmptyOutputBridgeMessage = (candidate: MessageRecord) => {
+      const candidateText = (
+        englishProcessingEnabled
+          ? candidate.translatedText ?? candidate.originalText
+          : candidate.originalText
+      ).trim();
+      const hasOutputActionUi =
+        !!candidate.outputActionChoices?.length ||
+        !!candidate.outputActionInfoBoxes?.length ||
+        !!candidate.outputActionProgressBars?.length ||
+        !!candidate.outputActionContextCapacityBars?.length;
+      return (
+        candidate.role === 'output' &&
+        !candidate.socialDirectMessage &&
+        !candidate.embeddedSocialMessages?.length &&
+        !candidate.bankTransfer &&
+        !candidate.socialPost &&
+        !candidate.createdPhoneNote &&
+        !candidate.deletedPhoneNote &&
+        !candidate.simulatedAiChat &&
+        !candidateText &&
+        !candidate.rpDateTime &&
+        !hasOutputActionUi &&
+        !candidate.imageAttachments?.length
+      );
+    };
+    const phoneTimelineGroupsByFirstMessageId = new Map<number, PhoneTimelineGroup>();
+    const skippedPhoneTimelineMessageIds = new Set<number>();
+
+    visibleMessages.forEach((message, index) => {
+      if (skippedPhoneTimelineMessageIds.has(message.id)) {
+        return;
+      }
+      const phoneTimelineEntries = outsidePhoneEntriesByMessageId.get(message.id);
+      if (!phoneTimelineEntries?.length) {
+        return;
+      }
+
+      const groupedMessageIds = [message.id];
+      const groupedEntries = [...phoneTimelineEntries];
+      const groupDay = effectiveRpDateTime(message)?.slice(0, 10);
+
+      for (let nextIndex = index + 1; nextIndex < visibleMessages.length; nextIndex += 1) {
+        const nextMessage = visibleMessages[nextIndex];
+        const nextEntries = outsidePhoneEntriesByMessageId.get(nextMessage.id);
+        if (!nextEntries?.length) {
+          if (isEmptyOutputBridgeMessage(nextMessage)) {
+            groupedMessageIds.push(nextMessage.id);
+            continue;
+          }
+          break;
+        }
+        const nextDay = effectiveRpDateTime(nextMessage)?.slice(0, 10);
+        if (groupDay && nextDay && nextDay !== groupDay) {
+          break;
+        }
+        groupedMessageIds.push(nextMessage.id);
+        groupedEntries.push(...nextEntries);
+      }
+
+      groupedMessageIds.slice(1).forEach((messageId) => skippedPhoneTimelineMessageIds.add(messageId));
+      phoneTimelineGroupsByFirstMessageId.set(message.id, {
+        messageIds: groupedMessageIds,
+        entries: groupedEntries,
+      });
+    });
+
+    // Carry the previous dated entry forward once instead of scanning backwards
+    // for every message (quadratic for long histories without timestamps).
+    let previousDay: string | undefined;
+    const previousDays: Array<string | undefined> = [];
+    for (const message of visibleMessages) {
+      previousDays.push(previousDay);
+      previousDay = effectiveRpDateTime(message)?.slice(0, 10) || previousDay;
+    }
+    return { phoneMessagesById, socialMessagesById, visibleMessages, socialTimeline,
+      phoneTimelineGroupsByFirstMessageId, skippedPhoneTimelineMessageIds,
+      effectiveRpDateTime, previousDays };
+  }, [messages, englishProcessingEnabled]);
 
   return (
     <>
@@ -844,13 +869,7 @@ export function ChatConversationPanel({
           const isEditingMessage = editingMessageId === message.id;
           const canEditMessage = message.id === editableUserMessageId && !isRunning;
           const effectiveMessageRpDateTime = effectiveRpDateTime(message);
-          let previousDay: string | undefined;
-          for (let previousIndex = index - 1; previousIndex >= 0; previousIndex -= 1) {
-            previousDay = effectiveRpDateTime(visibleMessages[previousIndex])?.slice(0, 10);
-            if (previousDay) {
-              break;
-            }
-          }
+          const previousDay = previousDays[index];
           const messageDay = effectiveMessageRpDateTime?.slice(0, 10);
           const dayLabel =
             rpTimeTrackingEnabled && effectiveMessageRpDateTime && messageDay !== previousDay

@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
-import type { SetStateAction } from 'react';
+import type { EffectCallback, SetStateAction } from 'react';
 import { useRoleplayPanelRuntime } from './useRoleplayPanelRuntime';
 import { emptyRpStorybook, normalizeRpStorybook, rpStorybookJsonText } from '../nodes/rp-storybook/model';
 import { storyCharactersFromNodes } from '../storybook/runtime';
@@ -10,7 +10,7 @@ import { currentWorkflowFormatVersion } from '../workflow/version';
 import type { TurnRecord, WorkflowFile, WorkflowNode } from '../types';
 
 // Exercise selection transitions without mounting components or launching the application.
-const hooks = vi.hoisted(() => ({ slots: [] as unknown[], index: 0 }));
+const hooks = vi.hoisted(() => ({ slots: [] as unknown[], index: 0, effects: [] as EffectCallback[] }));
 vi.mock('react', async (importOriginal) => ({
   ...await importOriginal<typeof import('react')>(),
   useState: <T,>(initial: T | (() => T)) => {
@@ -27,10 +27,10 @@ vi.mock('react', async (importOriginal) => ({
   },
   useMemo: <T,>(compute: () => T) => compute(),
   useCallback: <T,>(callback: T) => callback,
-  useEffect: () => {},
+  useEffect: (effect: EffectCallback) => { hooks.effects.push(effect); },
 }));
 
-beforeEach(() => { hooks.slots = []; hooks.index = 0; });
+beforeEach(() => { hooks.slots = []; hooks.index = 0; hooks.effects = []; });
 afterEach(() => vi.unstubAllGlobals());
 
 it('stops following at the bottom during generation and resumes when content grows', () => {
@@ -63,6 +63,63 @@ it('stops following at the bottom during generation and resumes when content gro
   for (let time = 96; time <= 1000 && frames.size; time += 16) tick(time);
   expect(thread.scrollTop).toBe(210);
   expect(frames.size).toBe(0);
+});
+
+it('coalesces queued automatic scrolls from streaming and image loads', () => {
+  const frames = new Map<number, FrameRequestCallback>();
+  let nextFrame = 0;
+  vi.stubGlobal('requestAnimationFrame', (callback: FrameRequestCallback) => {
+    frames.set(++nextFrame, callback);
+    return nextFrame;
+  });
+  vi.stubGlobal('cancelAnimationFrame', (id: number) => frames.delete(id));
+  const { render, options } = harness();
+  options.smoothChatAutoScrollEnabled = false;
+  const runtime = render();
+  const scrollTo = vi.fn();
+  runtime.chatThreadRef.current = { scrollHeight: 500, scrollTo } as unknown as HTMLDivElement;
+  for (let update = 0; update < 100; update++) {
+    runtime.scrollChatThreadToBottomIfFollowing();
+  }
+  expect(frames.size).toBe(1);
+  const pending = [...frames.values()];
+  frames.clear();
+  pending.forEach((callback) => callback(16));
+  expect(scrollTo).toHaveBeenCalledExactlyOnceWith({ top: 500, behavior: 'auto' });
+});
+
+it.each([false, true])('cancels a pending follow request on user input (smooth=%s)', (smooth) => {
+  const frames = new Map<number, FrameRequestCallback>();
+  let nextFrame = 0;
+  vi.stubGlobal('requestAnimationFrame', (callback: FrameRequestCallback) => {
+    frames.set(++nextFrame, callback);
+    return nextFrame;
+  });
+  vi.stubGlobal('cancelAnimationFrame', (id: number) => frames.delete(id));
+  const { render, options } = harness();
+  options.smoothChatAutoScrollEnabled = smooth;
+  const runtime = render();
+  const listeners = new Map<string, () => void>();
+  const scrollTo = vi.fn();
+  const thread = { scrollHeight: 600, clientHeight: 300, scrollTop: 300, scrollTo,
+    addEventListener: (type: string, callback: () => void) => listeners.set(type, callback),
+    removeEventListener: (type: string) => listeners.delete(type),
+  };
+  runtime.chatThreadRef.current = thread as unknown as HTMLDivElement;
+  const cleanups = hooks.effects.map((effect) => effect());
+  runtime.scrollChatThreadToBottomIfFollowing();
+  expect(listeners.has('wheel')).toBe(true);
+  listeners.get('wheel')!();
+  thread.scrollTop = 100;
+  listeners.get('scroll')!();
+  runtime.scrollChatThreadToBottomIfFollowing();
+  const pending = [...frames.values()];
+  frames.clear();
+  pending.forEach((callback) => callback(16));
+  expect(scrollTo).not.toHaveBeenCalled();
+  expect(thread.scrollTop).toBe(100);
+  expect(frames.size).toBe(0);
+  cleanups.forEach((cleanup) => cleanup?.());
 });
 
 function harness() {

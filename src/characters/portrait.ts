@@ -25,8 +25,26 @@ function jpegDimensions(dataUrl: string): [number, number] | undefined {
   return undefined;
 }
 
+type PortraitSource = Pick<RpStorybookCharacterImage, 'dataUrl' | 'width' | 'height'>;
+const portraitCache = new WeakMap<PortraitSource, {
+  source: string; width?: number; height?: number;
+  x: number; y: number; size: number; result: string;
+}>();
+
+/** Keep one crop per live source object; discarded galleries can be collected. */
+export function portraitDataUrl(image: PortraitSource, crop?: Crop): string {
+  if (!crop) return image.dataUrl;
+  const cached = portraitCache.get(image);
+  if (cached && cached.source === image.dataUrl && cached.width === image.width && cached.height === image.height &&
+      cached.x === crop.x && cached.y === crop.y && cached.size === crop.size) return cached.result;
+  const result = createPortraitDataUrl(image, crop);
+  portraitCache.set(image, { source: image.dataUrl, width: image.width, height: image.height,
+    x: crop.x, y: crop.y, size: crop.size, result });
+  return result;
+}
+
 /** A derived, square image for existing avatar consumers; never persisted in a container. */
-export function portraitDataUrl(image: Pick<RpStorybookCharacterImage, 'dataUrl' | 'width' | 'height'>, crop?: Crop): string {
+function createPortraitDataUrl(image: PortraitSource, crop?: Crop): string {
   if (!crop || ![crop.x, crop.y, crop.size].every(Number.isFinite) || crop.size <= 0 ||
       !/^data:image\/jpeg;base64,[A-Za-z0-9+/]+={0,2}$/.test(image.dataUrl)) return image.dataUrl;
   const dimensions = image.width && image.height ? [image.width, image.height] : jpegDimensions(image.dataUrl);

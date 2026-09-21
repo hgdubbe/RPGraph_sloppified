@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { appAvatarDataUrl, portraitDataUrl, withCharacterPortrait } from './portrait';
 import { characterPayload, validateCharacterPayload } from './character';
@@ -88,4 +88,25 @@ describe('portable character portrait crops', () => {
       expect(() => validateCharacterPayload(source)).toThrow('Portrait crops');
     }
   });
+});
+
+it('reuses avatar encoding and invalidates for crop, dimensions and source edits', () => {
+  const image = { dataUrl: 'data:image/jpeg;base64,YQ==', width: 800, height: 600 };
+  const crop = { x: 0, y: 0, size: 25 };
+  const encode = vi.spyOn(globalThis, 'btoa');
+  try {
+    const initial = portraitDataUrl(image, crop);
+    for (let message = 0; message < 100; message++) {
+      expect(portraitDataUrl(image, { ...crop })).toBe(initial);
+    }
+    expect(encode).toHaveBeenCalledTimes(1);
+    crop.x = 10;
+    expect(portraitDataUrl(image, crop)).not.toBe(initial);
+    image.width = 1000;
+    portraitDataUrl(image, crop);
+    image.dataUrl = 'data:image/jpeg;base64,Yg==';
+    portraitDataUrl(image, crop);
+    expect(encode).toHaveBeenCalledTimes(4);
+    expect(portraitDataUrl(image)).toBe(image.dataUrl);
+  } finally { encode.mockRestore(); }
 });

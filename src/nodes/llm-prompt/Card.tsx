@@ -100,7 +100,7 @@ export function LlmPromptNodeCard({ id, data }: NodeProps<WorkflowNode>) {
   const comfyProviderIds = view.connections
     .filter((connection) => connection.kind === 'comfyui')
     .map((connection) => connection.id);
-  const createImageCharacters = storybookCreateImageCharactersFromNodes(view.nodes);
+  const createImageCharacters = storybookCreateImageCharactersFromNodes(view.contentNodes);
   const [commandDialog, setCommandDialog] = useState<{
     name: string;
     config?: PromptCommandConfig;
@@ -470,7 +470,7 @@ export function LlmPromptNodeCard({ id, data }: NodeProps<WorkflowNode>) {
         setPromptActionSettings={view.setPromptActionSettings}
         visionEnabled={visionEnabled}
         connections={view.connections}
-        nodes={view.nodes}
+        nodes={view.contentNodes}
         providerHealthById={view.providerHealthById}
         onCheckProviderConnection={view.onCheckProviderConnection}
         onReplace={applyPromptActionConfig}

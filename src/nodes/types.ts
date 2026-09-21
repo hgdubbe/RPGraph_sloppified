@@ -303,6 +303,7 @@ export type NodeViewValues = {
   setPromptActionSettings: (updater: (current: PromptActionRuntimeSettings) => PromptActionRuntimeSettings) => void;
   promptTextCustomPresets: Record<string, string>;
   setPromptTextCustomPresets: (updater: (current: Record<string, string>) => Record<string, string>) => void;
-  nodes: WorkflowNode[];
+  /** Authored cross-node inputs; excludes runtime status and outputs. */
+  contentNodes: WorkflowNode[];
   edges: Edge[];
 };

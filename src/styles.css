@@ -7252,9 +7252,9 @@ input[type="number"]::-webkit-outer-spin-button {
 
 .phone-bubble.incoming {
   border-color: rgba(34, 211, 238, 0.22);
-  background: linear-gradient(135deg, rgba(18, 52, 67, 0.72), rgba(14, 38, 50, 0.55));
+  background: linear-gradient(135deg, rgba(18, 52, 67, 0.94), rgba(14, 38, 50, 0.92));
   border-bottom-left-radius: 4px;
-  backdrop-filter: blur(8px);
+  backdrop-filter: none;
   box-shadow: 
     0 4px 16px rgba(0, 0, 0, 0.2),
     inset 0 1px 0 rgba(255, 255, 255, 0.05);
@@ -7262,9 +7262,9 @@ input[type="number"]::-webkit-outer-spin-button {
 
 .phone-bubble.outgoing {
   border-bottom-right-radius: 4px;
-  background: linear-gradient(135deg, rgba(27, 77, 62, 0.72), rgba(17, 45, 36, 0.55));
+  background: linear-gradient(135deg, rgba(27, 77, 62, 0.94), rgba(17, 45, 36, 0.92));
   border-color: rgba(16, 185, 129, 0.22);
-  backdrop-filter: blur(8px);
+  backdrop-filter: none;
   box-shadow: 
     0 4px 16px rgba(0, 0, 0, 0.2),
     inset 0 1px 0 rgba(255, 255, 255, 0.05);

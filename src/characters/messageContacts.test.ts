@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import type { Character, CharacterApps } from './character';
 import { acquireMessageContacts, messageContactGrants, reconcileNpcMessageContacts } from './messageContacts';
 import { historicalContactCheckpoints } from './historicalContactCheckpoints';
@@ -229,4 +229,29 @@ describe('contacts acquired through private messages', () => {
     expect(retired.openingHistory.npcParticipants!.npc.character.relationships).toEqual(promoted.relationships);
     expect(library.every((entry) => entry.character.relationships?.length === 0)).toBe(true);
   });
+});
+
+it('does not parse or serialize the storybook again for an established phone contact', () => {
+  const { nodes, entries, library } = setup();
+  const message = dm('whatsup');
+  const first = acquireMessageContacts(nodes, {}, entries, [message]);
+  expect(first.nodes).not.toBe(nodes);
+  const refreshedEntries = [...library, ...storybookRegistryEntries(first.nodes)];
+  const parse = vi.spyOn(JSON, 'parse');
+  const stringify = vi.spyOn(JSON, 'stringify');
+  try {
+    for (let index = 0; index < 10; index++) {
+      const next = acquireMessageContacts(first.nodes, first.participants, refreshedEntries,
+        [{ ...message, id: index + 2, originalText: `Next message ${index}` }]);
+      expect(next.nodes).toBe(first.nodes);
+      expect(next.participants).toBe(first.participants);
+    }
+    expect(parse.mock.calls.some(([text]) => text === first.nodes[0].data.storybookJson)).toBe(false);
+    expect(stringify.mock.calls.some(([value]) => value && typeof value === 'object' &&
+      'format' in value && value.format === 'rpgraph-storybook')).toBe(false);
+  } finally { parse.mockRestore(); stringify.mockRestore(); }
+  const added = acquireMessageContacts(first.nodes, first.participants, refreshedEntries, [dm('whatsup', 'player', 'third')]);
+  expect(added.nodes).not.toBe(first.nodes);
+  expect(parseRpStorybookJson(added.nodes[0].data.storybookJson!).characters[0].relationships)
+    .toEqual(expect.arrayContaining([expect.objectContaining({ characterId: 'third', apps: expect.objectContaining({ whatsup: true }) })]));
 });

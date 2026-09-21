@@ -177,6 +177,19 @@ function configureLinuxChromiumLogging() {
 configureLinuxVideoAcceleration();
 configureLinuxChromiumLogging();
 
+// Opt-in evidence for compositor/rasterization investigations; do not force
+// driver flags based on GPU utilization alone.
+if (process.env.RPGRAPH_GPU_DIAGNOSTICS === '1') {
+  app.once('gpu-info-update', async () => {
+    console.info('[GPU diagnostics] Feature status:', app.getGPUFeatureStatus());
+    try {
+      console.info('[GPU diagnostics] Device information:', await app.getGPUInfo('basic'));
+    } catch (error) {
+      console.warn('[GPU diagnostics] Device information unavailable:', error.message);
+    }
+  });
+}
+
 app.setName('RPgraph Studio');
 if (process.platform === 'win32') {
   app.setAppUserModelId('studio.rpgraph.app');

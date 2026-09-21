@@ -1,3 +1,4 @@
+import { useStorybookContentNodes } from '../storybook/useStorybookContentNodes';
 import { bankingRecipientByName } from '../chat/bankingRecipients';
 import { hasAuthoredConnection } from '../characters/relationships';
 import { automaticAccountLinkGrants, resolveAccountLink, type AccountLinkTarget } from '../chat/accountLinks';
@@ -200,6 +201,7 @@ export function useRoleplayPanelRuntime({
   const chatThreadRef = useRef<HTMLDivElement | null>(null);
   const chatAutoFollowBottomRef = useRef(true);
   const chatAutoFollowAnimationFrameRef = useRef(0);
+  const chatScrollRequestFrameRef = useRef(0);
   const chatAutoFollowAnimationTimeRef = useRef(0);
   const chatAutoFollowAnimatingRef = useRef(false);
   const chatAutoFollowProgrammaticScrollRef = useRef(false);
@@ -236,9 +238,10 @@ export function useRoleplayPanelRuntime({
     clearPhoneReply();
   }
 
+  const storybookContentNodes = useStorybookContentNodes(nodeViewNodes);
   const storyCharacters: StorybookCharacter[] = useMemo(
-    () => storyCharactersFromNodes(nodeViewNodes),
-    [nodeViewNodes],
+    () => storyCharactersFromNodes(storybookContentNodes),
+    [storybookContentNodes],
   );
   const playerCharacters = useMemo(
     () => storyCharacters.filter((character) => character.playerSelectable !== false),
@@ -1259,6 +1262,10 @@ export function useRoleplayPanelRuntime({
   ]);
 
   const cancelChatAutoFollowAnimation = useCallback(() => {
+    if (chatScrollRequestFrameRef.current) {
+      cancelAnimationFrame(chatScrollRequestFrameRef.current);
+      chatScrollRequestFrameRef.current = 0;
+    }
     if (chatAutoFollowAnimationFrameRef.current) {
       cancelAnimationFrame(chatAutoFollowAnimationFrameRef.current);
       chatAutoFollowAnimationFrameRef.current = 0;
@@ -1323,10 +1330,16 @@ export function useRoleplayPanelRuntime({
     }
   }, [cancelChatAutoFollowAnimation, markChatProgrammaticScroll, smoothChatAutoScrollMinSpeed]);
 
-  const scrollChatThreadToBottom = useCallback((behavior: ScrollBehavior = 'auto') => {
-    requestAnimationFrame(() => {
+  const scrollChatThreadToBottom = useCallback((behavior: ScrollBehavior = 'auto', onlyIfFollowing = false) => {
+    // Multiple image loads and streamed updates can arrive before the next frame.
+    // Keep one pending request, and allow user input/unmount to cancel it.
+    if (chatScrollRequestFrameRef.current) {
+      cancelAnimationFrame(chatScrollRequestFrameRef.current);
+    }
+    chatScrollRequestFrameRef.current = requestAnimationFrame(() => {
+      chatScrollRequestFrameRef.current = 0;
       const thread = chatThreadRef.current;
-      if (!thread) {
+      if (!thread || (onlyIfFollowing && !chatAutoFollowBottomRef.current)) {
         return;
       }
       if (behavior === 'smooth') {
@@ -1361,7 +1374,7 @@ export function useRoleplayPanelRuntime({
 
   const scrollChatThreadToBottomIfFollowing = useCallback((behavior: ScrollBehavior = 'smooth') => {
     if (chatAutoFollowBottomRef.current) {
-      scrollChatThreadToBottom(behavior);
+      scrollChatThreadToBottom(behavior, true);
     }
   }, [scrollChatThreadToBottom]);
 

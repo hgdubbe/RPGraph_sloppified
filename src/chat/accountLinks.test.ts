@@ -18,6 +18,14 @@ import { isRpgraphSessionV2 } from '../data-management/validation';
 import { currentWorkflowFormatVersion } from '../workflow/version';
 import type { MessageRecord, TurnRecord, WorkflowFile } from '../types';
 
+it('does not enumerate character accounts for ordinary text fragments', () => {
+  const characters = new Proxy([] as ReturnType<typeof storyCharactersFromNodes>, {
+    get() { throw new Error('Ordinary text must not access the character directory.'); },
+  });
+  expect(parseAccountLinks('She smiled. "Hello!" *A quiet thought.*', characters)).toEqual([]);
+  expect(parseAccountLinks('Contact me at person@example.org or @unknown:someone.', characters)).toEqual([]);
+});
+
 const now = '2026-09-08T12:00:00Z';
 function entry(id: string, name: string, tier: CharacterRegistryEntry['tier'] = 'user'): CharacterRegistryEntry {
   const character = structuredClone(fixture.character) as Character;
