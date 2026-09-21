@@ -10,7 +10,7 @@ import { isRpgraphSessionV2 } from '../data-management/validation';
 import { normalizeDatingProfile, resetDatingPasses } from './datingProfile';
 import { datingAccountId, datingAccounts, datingNpcProfiles, resolveDatingAccount } from './datingAccounts';
 import { canSendMatchMeMessage, incomingMatchMeMessage, isMatchMeMatch, matchMeContext, matchMeLikePolicy, matchMeMessageAllowed, matchMePairId, matchMeState, migrateDatingHistory } from './matchMe';
-import { parseSocialDirectMessageOutput, socialDirectMessageActor, socialDirectMessageInputText } from './socialMedia';
+import { parseSocialDirectMessageOutput, socialPostInputText, socialDirectMessageActor, socialDirectMessageInputText } from './socialMedia';
 import { parseMessengerAppMessagesObject, parseEmbeddedPhoneMessagesFromRpOutput, embeddedPhoneMessagesLivePreview } from './phoneMessages';
 import { validateSocialMessengerAccounts } from './socialMessageValidation';
 import { prepareMatchMePromptSlots, defaultMatchMeDmPrompt } from './matchMePrompt';
@@ -299,6 +299,109 @@ describe('MatchMe display identities', () => {
       expect(socialDirectMessageHistoryText(direct, [partner])).toContain(`Sender Profile to Alex Realname (@${recipientHandle})`);
     },
   );
+
+  it('keeps private account owners and attached tips in LLM history, including legacy and translated records', () => {
+    const { owner, outgoing } = fixture();
+    const partner = character('alex', 'Alex Realname');
+    owner.name = 'Mia Realname';
+    owner.apps = { onlyfriends: { accountId: outgoing.fromAccountId!, username: 'mia.handle',
+      enabled: true, privacyMode: true, displayName: 'midnight.mileage', bio: '' } };
+    partner.apps = { onlyfriends: { accountId: outgoing.toAccountId!, username: 'alex.handle',
+      enabled: true, privacyMode: true, displayName: 'open.road.radio', bio: '' } };
+    const characters = [owner, partner];
+    const direct = { ...outgoing, app: 'onlyfriends' as const, from: 'midnight.mileage',
+      to: 'open.road.radio', text: 'Thank you!', tip: 5.5 };
+    const parties = 'Mia Realname (@midnight.mileage; private) to Alex Realname (@open.road.radio; private)';
+    for (const alreadyFormatted of [false, true]) {
+      const record: MessageRecord = {
+        id: 2, role: 'user', isOpening: true, socialDirectMessage: direct,
+        originalText: socialDirectMessageHistoryText({ ...direct, tip: alreadyFormatted ? direct.tip : undefined }),
+        translatedText: socialDirectMessageHistoryText({ ...direct, text: 'Translated thank you!',
+          tip: alreadyFormatted ? direct.tip : undefined }),
+      };
+      const before = JSON.stringify(record);
+      const outputs = buildHistoryOutputs({ messages: [record], characters, fallbackOriginalHistory: '',
+        fallbackTranslatedHistory: '', lastTurnsCount: 5, rpDateTimeFormat: 'iso', rpWeekdayLanguage: 'en-US' });
+      for (const history of [outputs.originalHistory, outputs.translatedHistory, outputs.lastTurnsHistory]) {
+        expect(history).toContain(parties);
+        expect(history.match(/\[Tip: \$5.5\]/g)).toHaveLength(1);
+      }
+      expect(outputs.originalHistory).toContain('"Thank you!" [Tip: $5.5]');
+      expect(outputs.translatedHistory).toContain('"Translated thank you!" [Tip: $5.5]');
+      expect(socialDirectMessageDisplayText(record, false, characters)).not.toContain('Realname');
+      expect(JSON.stringify(record)).toBe(before);
+    }
+    expect(socialDirectMessageInputText(direct, [], characters)).toContain(`Sender: Mia Realname (@midnight.mileage; private)`);
+    expect(socialDirectMessageInputText(direct, [], characters)).toContain('[Tip: $5.5]');
+    expect(socialDirectMessageHistoryText({ ...direct, tip: 5 }, characters)).toContain('"Thank you!" [Tip: $5]');
+    expect(socialDirectMessageHistoryText({ ...direct, tip: undefined }, characters)).not.toContain('[Tip:');
+    expect(socialDirectMessageHistoryText({ ...direct, app: 'fotogram' }, characters)).not.toContain('[Tip:');
+  });
+
+  it.each(['fotogram', 'onlyfriends'] as const)('marks privacy per %s account only in model context', (app) => {
+    const { owner, outgoing } = fixture();
+    owner.apps = { [app]: { accountId: outgoing.fromAccountId!, enabled: true,
+      profileName: 'quiet.artist', privacyMode: true, bio: '' } };
+    const direct = { ...outgoing, app };
+    expect(socialDirectMessageHistoryText(direct, [owner])).toContain('Mia (@quiet.artist; private)');
+    expect(socialDirectMessageHistoryText(direct, [owner], false)).toContain('quiet.artist (@quiet.artist)');
+    expect(socialDirectMessageHistoryText(direct, [owner], false)).not.toContain('; private');
+    owner.apps[app]!.privacyMode = false;
+    expect(socialDirectMessageHistoryText(direct, [owner])).toContain('Mia (@quiet.artist)');
+    expect(socialDirectMessageHistoryText(direct, [owner])).not.toContain('; private');
+    owner.apps[app]!.privacyMode = true;
+    const otherApp = app === 'fotogram' ? 'onlyfriends' : 'fotogram';
+    expect(socialDirectMessageHistoryText({ ...direct, app: otherApp }, [owner])).not.toContain('; private');
+  });
+
+  it.each(['fotogram', 'onlyfriends'] as const)('explains private sender and recipient identities only in the %s input block', (app) => {
+    const { owner, outgoing } = fixture();
+    const partner = character('alex', 'Alex Realname');
+    owner.apps = { [app]: { accountId: outgoing.fromAccountId!, enabled: true,
+      profileName: 'quiet.artist', privacyMode: true, bio: '' } };
+    partner.apps = { [app]: { accountId: outgoing.toAccountId!, enabled: true,
+      profileName: 'public.artist', privacyMode: false, bio: '' } };
+    const direct = { ...outgoing, app };
+    const characters = [owner, partner];
+    const input = socialDirectMessageInputText(direct, [], characters);
+    const sender = input.split('\n').find((line) => line.startsWith('Sender:'))!;
+    const recipient = input.split('\n').find((line) => line.startsWith('Recipient:'))!;
+    expect(sender).toContain('Mia (@quiet.artist; private) — Privacy Mode:');
+    expect(sender).toContain('not the real name or character photo');
+    expect(sender).toContain('only if established in the story');
+    expect(recipient).toBe('Recipient: Alex Realname (@public.artist)');
+    partner.apps[app]!.privacyMode = true;
+    expect(socialDirectMessageInputText(direct, [], characters).split('\n')
+      .find((line) => line.startsWith('Recipient:'))).toContain('(@public.artist; private) — Privacy Mode:');
+    const history = socialDirectMessageHistoryText(direct, characters);
+    expect(history).toContain('(@quiet.artist; private)');
+    expect(history).not.toContain('Privacy Mode:');
+    const ui = socialDirectMessageHistoryText(direct, characters, false);
+    expect(ui).not.toContain('Privacy Mode:');
+    expect(ui).not.toContain('Mia');
+  });
+
+  it.each(['fotogram', 'onlyfriends'] as const)('explains private post authors for %s photo and text posts', (app) => {
+    const { owner } = fixture();
+    owner.apps = { [app]: { accountId: 'author-account', enabled: true,
+      profileName: 'quiet.artist', privacyMode: true, bio: '' } };
+    const post = { app, postId: 'post-1', author: 'Old Name', authorHandle: 'old.handle',
+      authorAccountId: 'author-account', caption: 'Hello!', imageId: 'photo-1' };
+    for (const textOnly of [false, true]) {
+      const input = socialPostInputText({ ...post, textOnly }, [owner]);
+      expect(input).toContain('Author: Mia (@quiet.artist; private) — Privacy Mode:');
+      expect(input).toContain('only the nickname is public');
+      expect(input).toContain('such as a familiar face in the post');
+      expect(input).toContain('Post text: Hello!');
+    }
+    expect(socialPostInputText({ ...post, caption: 'Translated caption' }, [owner]))
+      .toContain('(@quiet.artist; private) — Privacy Mode:');
+    owner.apps[app]!.privacyMode = false;
+    expect(socialPostInputText(post, [owner])).toContain('Author: Mia (@quiet.artist)');
+    expect(socialPostInputText(post, [owner])).not.toContain('Privacy Mode:');
+    expect(socialPostInputText(post, [])).toContain('Author: Old Name (@old.handle)');
+    expect(socialPostInputText(post, [])).not.toContain('Privacy Mode:');
+  });
 
   it('derives public MatchMe names from characters and ignores editable legacy names', () => {
     const { owner, outgoing } = fixture();

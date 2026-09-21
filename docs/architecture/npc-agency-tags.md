@@ -1,6 +1,6 @@
 # NPC Agency Tags and Social Reactions
 
-Status: phases 1 and 2 and the post-reaction portion of phase 4 are implemented. Structured agency support, the revised 20-NPC roster, and tag-aware Fotogram/OnlyFriends post audiences are available. The additional 30 NPCs, configurable context controls, DM tag behavior and NPC-authored posts remain planned.
+Status: phases 1 and 2, direct-message context, and the post-reaction portion of phase 4 are implemented. Structured agency support, the revised 20-NPC roster, tag-aware one-to-one conversations, and Fotogram/OnlyFriends post audiences are available. The additional 30 NPCs, configurable context controls, and NPC-authored posts remain planned.
 
 ## Objective and agreed direction
 
@@ -80,12 +80,16 @@ The implemented Fotogram/OnlyFriends post path builds candidates from the effect
 1. Resolve the post app, author identity, post text and available image context.
 2. Require an enabled account for the target app and exclude the author by stable character/account identity, with exact handle fallback.
 3. For NPCs, require `accountRole: user` and at least one app-assigned tag whose catalog entry supports `react` for that app and role. Creator accounts, unclassified NPCs, disabled accounts, wrong-app accounts and NPCs with only DM tags are omitted.
-4. Show only the applicable reaction tags from that account. Character-level tags assigned to another app and app tags without `react` applicability never appear.
+4. Show all authored character agency tags after `[NPC]` or `[Storybook character]`. Eligibility still uses app-specific reaction assignments for new posts; displaying additional traits does not grant new actions.
 5. Storybook characters with an enabled user account remain available without invented tags, subject to author exclusion. Their established Storybook characterization remains available elsewhere in the workflow context; Storybook creator accounts are filtered like NPC creators.
 6. The runtime prompt instructs the LLM to use tags as private behavioral guidance for participation, tone, wording and intent. A tag is a tendency, so any listed account may stay silent. Tag labels and instructions must never appear in public comments.
 7. Following remains optional for this authored post-reaction flow. The existing structured-output validator still rejects invented or ambiguous identities.
 
-Comment-thread and DM runs retain their existing identity context. Agency behavior is currently added only when the player creates a new Fotogram or OnlyFriends post.
+Comment threads also receive authored character tags. Their existing enabled-account eligibility is retained, including creator accounts and characters without public-reaction tags. DM context is unchanged.
+
+Both post and thread prompts sample at most 20 eligible NPCs, plus eligible Storybook characters. The target mix is 10 positive, 5 neutral and 5 negative. `socialAgencyTone` in `src/characters/socialReactionAccounts.ts` explicitly classifies every catalog tag by its authored meaning: supportive traits are positive, manipulative/deceptive/conflict-oriented traits are negative, and other tendencies are neutral. A negative tag takes precedence over a positive tag; otherwise positive takes precedence over neutral. Untagged characters are neutral.
+
+The thread author and existing commenters are retained first, within the 20-NPC limit. If more than 20 are already involved, the author takes precedence followed by commenters in context order. Remaining candidates are randomly sampled toward the category targets; shortages are filled from any remaining eligible NPCs. Returning participants can therefore outweigh the target proportions. Sampling changes membership, while prompt presentation preserves registry order. Tags remain private LLM guidance, never public comment labels.
 
 Example default candidate context:
 
@@ -101,7 +105,11 @@ Do not automatically load biographies or full character profiles after selection
 
 The runtime supplies concise behavior instructions beside the account block and does not repeat full biographies or the complete catalog. It includes short examples for subtle tags such as `social_lurker`, `respectful_admirer` and `boundary_setter`; other tag IDs remain compact, readable cues. The authored workflow prompts retain their structured output contract.
 
-DM replies bind to the actual recipient instead of drawing a public audience. A missing applicable DM tag must not make an established recipient disappear; retain the existing recipient flow and omit unavailable tag guidance.
+DM replies bind to the actual recipient instead of drawing a public audience. All one-to-one WhatsUp, Fotogram, OnlyFriends and MatchMe inputs include the recipient's description, personality, speech style, hidden agency, and authored character-level agency tags with their complete catalog meanings. These fields are private behavioral guidance and must not be disclosed in the reply. A character without authored tags remains a valid recipient and is identified as unclassified in this context.
+
+The account section is scoped to the active conversation app. Its public profile may be shown in full; other enabled apps are summarized only by account presence and their public name or handle, without unrelated biographies, posts, or photos. MatchMe still supplies both participants' public dating profiles because those profiles establish the dating conversation itself.
+
+Relationship context is selected per message rather than copying the recipient's complete contact directory. It includes authored descriptions in both directions between sender and recipient. It also includes both directions between the recipient and any uniquely resolved character whose first or last name appears as a complete word in the new message; a shared surname can intentionally select multiple characters. Unrelated relationships stay out of the prompt. Missing relationships are not invented.
 
 ## In-app context controls
 

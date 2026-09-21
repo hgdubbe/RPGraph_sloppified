@@ -1,3 +1,4 @@
+import { onlyFriendsWalletBalance } from './chat/onlyFriendsWallet';
 import { planNpcCopyEdit } from './characters/editNpcCopy';
 import { CharacterRemovalDialog } from './components/CharacterRemovalDialog';
 import { createCharacterContainer } from './characters/creator';
@@ -6,7 +7,7 @@ import { AccountLinkContext } from './chat/accountLinkContext';
 import { npcSeedPostAccountId } from './characters/npcParticipants';
 import { useNpcParticipants } from './characters/useNpcParticipants';
 import { resolveWhatsUpMessageParticipants } from './characters/messageIdentity';
-import { appCharacterImage } from './characters/appRuntime';
+import { phoneImageSource } from './characters/appRuntime';
 import { removeEdgesConnectedToIncompatibleNodes } from './workflow/persistence';
 import { edgesAfterNodeUpgrade } from './nodes/nodeUpgrade';
 import { useMatchMeMigration } from './chat/useMatchMeMigration';
@@ -1497,6 +1498,7 @@ function App() {
     messages,
     messagesRef,
     nodesRef,
+    updateNpcImages: npcParticipants.updateImages,
     currentCharacterRegistry: npcParticipants.registry,
     characterRegistryForStorybook: npcParticipants.registryForStorybook,
     currentTurnInputMessages: () => activeTurnCollectorRef.current?.inputMessages ?? [],
@@ -1525,6 +1527,8 @@ function App() {
     openStorybookCreator,
     ensureCurrentStorybook,
     submitStorybookCreatorMessage,
+    clearStorybookCreatorChat,
+    retryStorybookCreatorMessage,
     updateStorybook,
     commitStorybookToNode,
     applyStorybookToNode,
@@ -3684,21 +3688,20 @@ function App() {
   function phoneImageAttachment(
     message: Pick<ParsedPhoneMessage, 'imageId'>,
     ownerId: string,
-    ownerName: string,
   ) {
     const imageId = message.imageId?.trim();
     if (!imageId) {
       return undefined;
     }
-    const image = appCharacterImage(npcParticipants.characters(), imageId, ownerId);
-    if (!image) {
-      notifySystem('warning', `Phone image ${imageId} was not found in ${ownerName}'s image library.`);
+    const source = phoneImageSource(npcParticipants.characters(), imageId, ownerId);
+    if (!source) {
+      notifySystem('warning', `Phone image ${imageId} was not found or is ambiguous in the available image libraries.`);
       return undefined;
     }
     return {
-      attachment: chatAttachmentFromStorybookImage(image),
-      description: image.description.trim() || undefined,
-      ownerName,
+      attachment: chatAttachmentFromStorybookImage(source.image),
+      description: source.image.description.trim() || undefined,
+      ownerName: source.ownerName,
     };
   }
 
@@ -3721,7 +3724,7 @@ function App() {
     };
     const storedImage = canonicalMessage.imageAttachments?.length
       ? undefined
-      : phoneImageAttachment(canonicalMessage, participants.from.accountId, participants.from.name);
+      : phoneImageAttachment(canonicalMessage, participants.from.accountId);
     const sourceImageAttachments = canonicalMessage.imageAttachments?.length
       ? canonicalMessage.imageAttachments
       : storedImage
@@ -4081,7 +4084,7 @@ function App() {
         ? socialThreadRunContextFromInput(turn.input.graphText)
         : undefined;
       const displayText = socialPost
-        ? socialPostInputText(socialPost)
+        ? socialPostInputText(socialPost, npcParticipants.characters())
         : socialThreadAction
           ? socialThreadActionInputText(
               socialThreadAction,
@@ -4471,7 +4474,7 @@ function App() {
       return false;
     }
     return runGraph(
-      socialPostInputText(request.post),
+      socialPostInputText(request.post, npcParticipants.characters()),
       request.image ? [request.image] : [],
       undefined,
       messagesRef.current,
@@ -4601,6 +4604,13 @@ function App() {
     const actor = socialDirectMessageActor(storyCharacters, characterId, message);
     if (!actor) {
       notifySystem('warning', 'The selected character no longer owns this social account. Reopen the app before sending a message.');
+      return false;
+    }
+    if (message.app === 'onlyfriends' && message.tip !== undefined && (
+      !Number.isFinite(message.tip) || message.tip <= 0 ||
+      message.tip > onlyFriendsWalletBalance(actor, messagesRef.current, onlyFriendsPurchasesByCharacter[actor.id])
+    )) {
+      notifySystem('warning', 'Cannot send tip. Check the amount and top up your OnlyFriends balance first.');
       return false;
     }
     let slot = { fotogram: 4, onlyfriends: 5, matchme: 6 }[message.app];
@@ -6051,6 +6061,8 @@ function App() {
           workflowNodes={nodeViewNodes}
           promptActionSettings={promptActionSettings}
           identityLocked={messages.length > 0}
+          onClearChat={clearStorybookCreatorChat}
+          onRetry={retryStorybookCreatorMessage}
           messages={storybookCreatorMessages}
           isSubmitting={storybookCreatorSubmitting}
           connections={connections}
