@@ -1,4 +1,4 @@
-import { characterUsageReasons, characterRemovalInfo, storybookWithRetiredCharacter } from '../characters/lifecycle';
+import { characterUsageReasons, characterRemovalInfo, characterStoryTextWarnings, storybookWithRetiredCharacter } from '../characters/lifecycle';
 import { openingHistoryNpcParticipantsFromNodes } from '../characters/npcParticipantRuntime';
 import type { NpcLibraryEntry, NpcLibraryFileSummary, NpcLibrarySnapshot } from '../characters/npcLibrary';
 import { characterReferenceCandidates, hydrateAddedCharacterReferences, relationshipReferenceContext, validateRelationshipTargets } from '../characters/relationships';
@@ -275,6 +275,7 @@ export function useStorybookActions({
     registryWarnings.forEach((warning) => notifySystem('warning', warning.message));
     if (options?.replaceExisting) {
       clearCurrentSession();
+      resetStorybookRuntime();
       replaceCurrentChatWithOpeningHistoryRef.current = true;
       updateRuntimeNode(nodeId, {
         ...patch,
@@ -377,6 +378,11 @@ export function useStorybookActions({
     return true;
   }
 
+  function clearStorybookCreatorChat() {
+    if (creatorRequestActiveRef.current) return;
+    setStorybookCreatorMessages([]);
+  }
+
   function openStorybookCreator(nodeId: string) {
     if (!ensureCurrentStorybook(nodeId)) return;
     setStorybookCreatorNodeId(nodeId);
@@ -389,7 +395,7 @@ export function useStorybookActions({
     storybookCreatorMessageNodeIdRef.current = nodeId;
   }
 
-  async function submitStorybookCreatorMessage(message: string, visibleMessage = message, referenceIds: string[] = []) {
+  async function submitStorybookCreatorMessage(message: string, visibleMessage = message, referenceIds: string[] = [], retryError?: string) {
     const nodeId = storybookCreatorNodeId;
     const node = nodesRef.current.find((entry) => entry.id === nodeId);
     if (creatorRequestActiveRef.current || !nodeId || !node || node.data.nodeType !== 'rp-storybook') {
@@ -404,6 +410,8 @@ export function useStorybookActions({
       llmCallStats: [],
     });
 
+    const retryRequest = { message, visibleMessage, referenceIds: [...referenceIds] };
+    let failedResponse: string | undefined;
     try {
       const conversion = pendingStorybookConversion?.nodeId === nodeId && pendingStorybookConversion.phase === 'review'
         ? pendingStorybookConversion
@@ -428,14 +436,17 @@ export function useStorybookActions({
         conversationContext,
         referenceContext,
         `Current user message:\n${message}`,
+        retryError ? `This is an explicit retry of the failed request above. The previous attempt was rejected with: ${retryError}\nCorrect the cause of this error before returning a new patch. Do not repeat the rejected assignment. Current JSON is unchanged by the failed attempt.` : '',
       ].filter(Boolean).join('\n\n');
       const currentJson = rpStorybookPromptJsonText(currentStorybook);
       const completion = await nodeLlm.complete({
         connectionId: node.data.connectionId,
         nodeId,
         label: 'Storybook Chat',
+        useConnectionSampling: true,
         prompt: rpStorybookEditPrompt(currentJson, instruction, storyHistoryPresent(currentStorybook)),
       });
+      failedResponse = completion.text;
       const latestNode = nodesRef.current.find((entry) => entry.id === nodeId);
       if (
         !latestNode || latestNode.data.nodeType !== 'rp-storybook' ||
@@ -485,7 +496,7 @@ export function useStorybookActions({
         if (commitError) {
           setStorybookCreatorMessages((current) => [
             ...current,
-            { role: 'error', text: commitError },
+            { role: 'error', text: commitError, failedResponse, retryRequest },
           ]);
           return;
         }
@@ -501,11 +512,19 @@ export function useStorybookActions({
     } catch (error) {
       const messageText = errorMessage(error);
       updateRuntimeNode(nodeId, { storybookStatus: `Error: ${messageText}` });
-      setStorybookCreatorMessages((current) => [...current, { role: 'error', text: messageText }]);
+      setStorybookCreatorMessages((current) => [...current, { role: 'error', text: messageText, failedResponse, retryRequest }]);
     } finally {
       creatorRequestActiveRef.current = false;
       setStorybookCreatorSubmitting(false);
     }
+  }
+
+  async function retryStorybookCreatorMessage(index: number) {
+    const failed = storybookCreatorMessages[index];
+    if (creatorRequestActiveRef.current || index !== storybookCreatorMessages.length - 1 ||
+        failed?.role !== 'error' || !failed.retryRequest) return;
+    const { message, visibleMessage, referenceIds } = failed.retryRequest;
+    await submitStorybookCreatorMessage(message, visibleMessage, referenceIds, failed.text);
   }
 
   function removalInfo(nodeId: string, characterId: string) {
@@ -523,9 +542,8 @@ export function useStorybookActions({
         ? [parseRpStorybookJson(entry.data.storybookJson).openingHistory] : entry.data.eventAppointments ?? []),
       currentSocialLikesByAccount?.(), currentSocialConnectionsByCharacter?.(),
       currentPhoneNotesByCharacter?.(), currentChatGpdChatsByCharacter?.()];
-    const reasons = characterUsageReasons(character, effective?.aliases ?? {}, history,
-      currentCharacterRegistry().characters.map((entry) => entry.character));
-    return { ...characterRemovalInfo(character, library?.character, reasons),
+    const reasons = characterUsageReasons(character, effective?.aliases ?? {}, history);
+    return { ...characterRemovalInfo(character, library?.character, reasons, characterStoryTextWarnings(book, character.name)),
       localFileName: users.length === 1 ? users[0].fileName : undefined };
   }
 
@@ -537,7 +555,8 @@ export function useStorybookActions({
     const character = book.characters.find((entry) => entry.id === characterId);
     const effective = currentCharacterRegistry().characters.find((entry) => entry.character.id === characterId);
     if (!character || !effective || effective.provenance.source !== nodeId) throw new Error('The character is no longer available in this Storybook.');
-    if (mode === 'delete' && removalInfo(nodeId, characterId).reasons.length) throw new Error('This character is in use. Keep it as an NPC instead.');
+    const info = removalInfo(nodeId, characterId);
+    if (mode === 'delete' && info.reasons.length) throw new Error('This character is in use. Keep it as an NPC instead.');
     const previousParticipants = currentNpcParticipants?.();
     const participants = { ...(previousParticipants ?? {}) };
     let next: RpStorybook;
@@ -566,6 +585,12 @@ export function useStorybookActions({
     }
     const error = commitStorybookToNode(nodeId, next, patch, options);
     if (error) throw new Error(error);
+    if (mode === 'delete' && info.warnings.length > 0) {
+      setStorybookCreatorMessages((current) => [...current, {
+        role: 'assistant',
+        text: `Deleted ${character.name}. Warning: ${info.warnings.join(' ')}`,
+      }]);
+    }
   }
 
   function applyStorybookToNode(
@@ -806,6 +831,25 @@ export function useStorybookActions({
     });
   }
 
+  function resetStorybookRuntime() {
+    nodesRef.current
+      .filter((entry) => entry.data.kind === undefined && entry.data.nodeType === 'event-manager')
+      .forEach((entry) => {
+        updateRuntimeNode(entry.id, {
+          eventAppointments: [],
+          eventStatus: 'Storybook session restarted. All events cleared.',
+        });
+      });
+    nodesRef.current
+      .filter((entry) => entry.data.kind === undefined && entry.data.nodeType === 'character-stats')
+      .forEach((entry) => {
+        updateRuntimeNode(entry.id, {
+          ...resetCharacterStatsRuntimeData(),
+          characterStatsStatus: 'Storybook session restarted. State initializes on next run.',
+        });
+      });
+  }
+
   // A full reset wipes the running story with the storybook (chat session,
   // events, character stats), so the image-usage and identity locks that
   // protect a running story intentionally do not apply here.
@@ -815,22 +859,7 @@ export function useStorybookActions({
       return;
     }
     clearCurrentSession();
-    nodesRef.current
-      .filter((entry) => entry.data.kind === undefined && entry.data.nodeType === 'event-manager')
-      .forEach((entry) => {
-        updateRuntimeNode(entry.id, {
-          eventAppointments: [],
-          eventStatus: 'Storybook reset. All events cleared.',
-        });
-      });
-    nodesRef.current
-      .filter((entry) => entry.data.kind === undefined && entry.data.nodeType === 'character-stats')
-      .forEach((entry) => {
-        updateRuntimeNode(entry.id, {
-          ...resetCharacterStatsRuntimeData(),
-          characterStatsStatus: 'Storybook reset. State initializes on next run.',
-        });
-      });
+    resetStorybookRuntime();
     updateRuntimeNode(nodeId, {
       storybookJson: rpStorybookJsonText(emptyRpStorybook),
       storybookStatus: 'Storybook and current session reset.',
@@ -1231,6 +1260,8 @@ export function useStorybookActions({
     openStorybookCreator,
     ensureCurrentStorybook,
     submitStorybookCreatorMessage,
+    clearStorybookCreatorChat,
+    retryStorybookCreatorMessage,
     updateStorybook,
     commitStorybookToNode,
     applyStorybookToNode,

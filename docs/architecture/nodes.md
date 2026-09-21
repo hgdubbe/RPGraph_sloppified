@@ -153,6 +153,20 @@ Not compile-enforced:
 - CSS class (`src/styles.css`).
 - New data fields in `isWorkflowNodeData` (`src/workflow/validation.ts`).
 
+## Prompt image availability
+
+`runActionAwarePrompt` evaluates gallery availability from current connected input
+images, independently of vision support. Historical reference images do not disable
+search. The `getImageId` runtime option `disableWhenImageAttached` defaults to true,
+including older settings; users can turn it off in the action options. Unavailable
+actions contribute neither prompt hints nor executable calls. Caption actions keep
+their image-input and vision requirements. Image creation remains available for
+custom workflows but is not referenced by the bundled V33 prompts.
+
+Normal RP input uses slot 1 with or without images; slot 0 is empty in the bundled
+V33 workflows. Messenger input retains slot 0 with images and slot 1 without images.
+Narrator and Narrator AutoTurn retain slots 4 and 5.
+
 ## Invariants
 
 - Load validates fully, then commits atomically; incompatible or corrupt nodes are preserved as placeholders, never coerced.

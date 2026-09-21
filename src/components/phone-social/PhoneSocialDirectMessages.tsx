@@ -1,3 +1,4 @@
+import { createPortal } from 'react-dom';
 import { AccountLinkInput } from '../AccountLinkInput';
 import { AccountLinkText } from '../AccountLinkText';
 import { npcSeedPostAccountId } from '../../characters/npcParticipants';
@@ -11,6 +12,7 @@ import type {
   SocialDirectMessageRecord,
   SocialDmUnreadByHandle,
 } from '../../types';
+import { formatOnlyFriendsTip } from '../../chat/onlyFriendsWallet';
 import { formatBankingAmount } from '../../chat/bankTransfers';
 import { isAccountPrivacyMode, socialIdentityMatches, socialAccountPresentation, socialCharacterForPost } from '../../chat/socialMedia';
 import { formatRpDateTimeParts } from '../../workflow';
@@ -44,6 +46,7 @@ type PhoneSocialDirectMessagesProps = {
   highlightedMessageId?: string;
   highlightedMessagePulseKey: number;
   disabled?: boolean;
+  walletBalance: number;
   onSelectParticipant: (participant: SocialDirectMessageParticipant) => void;
   onCloseConversation: () => void;
   onBack: () => void;
@@ -70,6 +73,7 @@ export function PhoneSocialDirectMessages({
   highlightedMessageId,
   highlightedMessagePulseKey,
   disabled = false,
+  walletBalance,
   onSelectParticipant,
   onCloseConversation,
   onBack,
@@ -92,6 +96,21 @@ export function PhoneSocialDirectMessages({
   const setDraft = (text: string) =>
     setDrafts((current) => ({ ...current, [draftKey]: text }));
   const [sending, setSending] = useState(false);
+  const sendLock = useRef(false);
+  const [tipDialogKey, setTipDialogKey] = useState<string>();
+  const [tipAmountText, setTipAmountText] = useState('10');
+  const tipAmount = Number(tipAmountText);
+  const tipAmountValid = /^\d{1,4}$/.test(tipAmountText) && tipAmount > 0;
+  const [tipError, setTipError] = useState('');
+  const [tipHost, setTipHost] = useState<Element | null>(null);
+  const [draftTips, setDraftTips] = useState<Record<string, number | undefined>>({});
+  const draftTip = app === 'onlyfriends' ? draftTips[draftKey] : undefined;
+  const messageInputRef = useRef<HTMLInputElement>(null);
+  function closeTipPicker() {
+    setTipDialogKey(undefined);
+    messageInputRef.current?.focus();
+  }
+
   const [expandedOriginDraftKey, setExpandedOriginDraftKey] = useState<string>();
   const originExpanded = expandedOriginDraftKey === draftKey;
   const [emojiPickerOpen, setEmojiPickerOpen] = useState(false);
@@ -138,6 +157,16 @@ export function PhoneSocialDirectMessages({
     return () => window.cancelAnimationFrame(frame);
   }, [highlightedMessageId, highlightedMessagePulseKey, selectedParticipant]);
 
+  function attachTip() {
+    if (disabled || sending || !tipAmountValid) return;
+    if (tipAmount > walletBalance) {
+      setTipError('Insufficient OnlyFriends balance. Please top up first.');
+      return;
+    }
+    setDraftTips((current) => ({ ...current, [draftKey]: tipAmount }));
+    closeTipPicker();
+  }
+
   function selectEmoji(emoji: string) {
     setDraft(`${draft}${emoji}`);
     setRecentEmojis((current) => [emoji, ...current.filter((entry) => entry !== emoji)].slice(0, 8));
@@ -147,11 +176,19 @@ export function PhoneSocialDirectMessages({
   async function submitMessage(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const text = draft.trim();
-    if (!selectedParticipant || !text || disabled || sending) {
+    if (!selectedParticipant || !text || disabled || sending || sendLock.current) {
+      return;
+    }
+    if (draftTip !== undefined && draftTip > walletBalance) {
+      setTipAmountText(String(draftTip));
+      setTipError('Insufficient OnlyFriends balance. Please top up first.');
+      setTipHost(event.currentTarget.closest('.phone-social-screen'));
+      setTipDialogKey(draftKey);
       return;
     }
     const sequence = messages.length + 1;
     setDraft('');
+    sendLock.current = true;
     setSending(true);
     try {
       const sent = await onSend({
@@ -162,13 +199,19 @@ export function PhoneSocialDirectMessages({
         to: selectedParticipant.name,
         toHandle: selectedParticipant.handle,
         text,
+        ...(draftTip !== undefined ? { tip: draftTip } : {}),
         sentAt: new Date().toISOString(),
         origin: selectedParticipant.origin ?? conversation.find((message) => message.origin)?.origin,
       });
       if (!sent) {
         setDraft(text);
+      } else {
+        setDraftTips((current) => ({ ...current, [draftKey]: undefined }));
       }
+    } catch {
+      setDraft(text);
     } finally {
+      sendLock.current = false;
       setSending(false);
     }
   }
@@ -223,7 +266,7 @@ export function PhoneSocialDirectMessages({
                   <span className="phone-social-dm-badges">
                     {app === 'onlyfriends' && unread.tipTotal > 0 && (
                       <span className="phone-social-tip-badge">
-                        +{formatBankingAmount(unread.tipTotal)}
+                        {formatOnlyFriendsTip(unread.tipTotal)}
                       </span>
                     )}
                     <span className="phone-contact-badge">{unread.count}</span>
@@ -280,6 +323,109 @@ export function PhoneSocialDirectMessages({
           <span>@{participantIdentity(selectedParticipant).handle}</span>
         </div>
       </header>
+      {tipDialogKey === draftKey && tipHost && createPortal(
+        <div
+          className="phone-social-tip-overlay"
+          onClick={(event) => {
+            if (event.target === event.currentTarget) {
+              closeTipPicker();
+            }
+          }}
+          onKeyDown={(event) => {
+            if (event.key === 'Escape') {
+              event.stopPropagation();
+              closeTipPicker();
+            }
+          }}
+        >
+          <div className="phone-social-tip-dialog" role="dialog" aria-modal="true" aria-labelledby="social-tip-title">
+            <div className="phone-social-tip-header">
+              <div className="phone-social-tip-header-text">
+                <h3 id="social-tip-title">Attach a Tip</h3>
+                <span className="phone-social-tip-recipient">
+                  To @{participantIdentity(selectedParticipant).handle}
+                </span>
+              </div>
+              <button
+                type="button"
+                className="phone-social-tip-close"
+                onClick={closeTipPicker}
+                aria-label="Close tip dialog"
+                title="Close"
+              >
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                  <line x1="18" y1="6" x2="6" y2="18" />
+                  <line x1="6" y1="6" x2="18" y2="18" />
+                </svg>
+              </button>
+            </div>
+            <div className="phone-social-tip-balance">
+              <span>OnlyFriends Balance</span>
+              <strong>{formatBankingAmount(walletBalance)}</strong>
+            </div>
+            <div className="phone-social-tip-section">
+              <span className="phone-social-tip-label">Select tip amount</span>
+              <div className="phone-social-tip-options">
+                {[10, 15, 25, 50].map((amount) => (
+                  <button
+                    type="button"
+                    key={amount}
+                    aria-pressed={tipAmount === amount}
+                    disabled={sending}
+                    onClick={() => {
+                      setTipAmountText(String(amount));
+                      setTipError('');
+                    }}
+                  >
+                    {formatOnlyFriendsTip(amount)}
+                  </button>
+                ))}
+              </div>
+            </div>
+            <label className="phone-social-tip-amount">
+              <span className="phone-social-tip-label">Custom amount ($)</span>
+              <div className="phone-social-tip-input-wrap">
+                <span className="phone-social-tip-currency-symbol">$</span>
+                <input
+                  type="text"
+                  inputMode="numeric"
+                  pattern="[0-9]{1,4}"
+                  maxLength={4}
+                  placeholder="10"
+                  value={tipAmountText}
+                  disabled={sending}
+                  autoFocus
+                  onChange={(event) => {
+                    if (/^\d{0,4}$/.test(event.target.value)) {
+                      setTipAmountText(event.target.value);
+                      setTipError('');
+                    }
+                  }}
+                />
+              </div>
+            </label>
+            {tipError && <p className="phone-social-tip-error" role="alert">{tipError}</p>}
+            <div className="phone-social-tip-actions">
+              <button
+                type="button"
+                className="phone-social-tip-cancel"
+                onClick={closeTipPicker}
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                className="phone-social-tip-submit"
+                disabled={disabled || sending || !tipAmountValid}
+                onClick={attachTip}
+              >
+                {`Attach ${formatOnlyFriendsTip(tipAmount)}`}
+              </button>
+            </div>
+          </div>
+        </div>,
+        tipHost,
+      )}
       {origin && (
         <button
           type="button"
@@ -349,26 +495,45 @@ export function PhoneSocialDirectMessages({
             >
               <div className="phone-social-dm-bubble">
                 <span><AccountLinkText text={message.displayText ?? message.text} bindings={message.accountLinks} /></span>
-                {message.app === 'onlyfriends' && message.tip !== undefined && (
-                  <span className="phone-social-dm-tip">+{formatBankingAmount(message.tip)} tip</span>
-                )}
-                {timeLabel && <time dateTime={rpDateTime ?? message.sentAt}>{timeLabel}</time>}
+                <div className="phone-social-dm-footer">
+                  {message.app === 'onlyfriends' && message.tip !== undefined && (
+                    <span className="phone-social-dm-tip">{outgoing ? '−' : '+'}{formatBankingAmount(message.tip)} tip</span>
+                  )}
+                  {timeLabel && <time dateTime={rpDateTime ?? message.sentAt}>{timeLabel}</time>}
+                </div>
               </div>
             </div>
           );
         })}
       </div>
       <form className="phone-social-dm-composer" onSubmit={submitMessage}>
+        <div className="phone-social-dm-input-field">
         <AccountLinkInput value={draft}>
           <input
             type="text"
             value={draft}
             onChange={(event) => setDraft(event.target.value)}
             placeholder="Message..."
-            disabled={disabled}
+            ref={messageInputRef}
+            disabled={disabled || sending}
             autoFocus
           />
         </AccountLinkInput>
+        {app === 'onlyfriends' && (
+          <span className="phone-social-draft-tip">
+            <button type="button" disabled={disabled || sending} aria-label="Choose message tip"
+              onClick={(event) => {
+                setTipAmountText(String(draftTip ?? 10)); setTipError('');
+                setTipHost(event.currentTarget.closest('.phone-social-screen'));
+                setTipDialogKey(draftKey);
+              }}>
+              TIP{draftTip !== undefined ? ` ${formatOnlyFriendsTip(draftTip)}` : ''}
+            </button>
+            {draftTip !== undefined && <button type="button" aria-label="Remove tip" disabled={disabled || sending}
+              onClick={() => setDraftTips((current) => ({ ...current, [draftKey]: undefined }))}>×</button>}
+          </span>
+        )}
+        </div>
         <div className="phone-social-dm-emoji-menu" ref={emojiMenuRef}>
           <button
             type="button"

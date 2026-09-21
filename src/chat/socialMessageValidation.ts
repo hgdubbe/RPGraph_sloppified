@@ -1,3 +1,4 @@
+import { characterMessageAliasMatches, messageAliasKey } from '../characters/messageAliases';
 import { accountHandle, accountHandleMatches } from '../characters/character';
 import { matchMeState, incomingMatchMeMessage } from './matchMe';
 import { resolveDatingAccount } from './datingAccounts';
@@ -18,7 +19,7 @@ function looseHandle(value: string) {
 }
 
 function normalizedName(value: string) {
-  return value.trim().replace(/\s+/g, ' ').toLocaleLowerCase();
+  return messageAliasKey(value);
 }
 
 function storedHandle(character: StorybookCharacter, app: SocialAppKind) {
@@ -56,16 +57,12 @@ export function resolveSocialMessageIdentity(options: {
   const key = cleanHandle(identity).toLowerCase();
   const app = options.app;
   const byAccountId = options.characters.filter((character) => character.apps?.[app]?.accountId === identity);
-  const characters = byAccountId.length ? byAccountId : options.characters.filter((character) => character.id === identity || character.sourceId === identity ||
+  const localCharacters = byAccountId.length ? byAccountId : options.characters.filter((character) => character.id === identity || character.sourceId === identity ||
     character.apps?.[app]?.accountId === identity || normalizedName(character.name) === normalizedName(identity) ||
     accountHandleMatches(character.apps?.[app], identity) ||
     storedHandle(character, app)?.toLowerCase() === key);
-  if (!characters.length) {
-    const otherApp = app === 'fotogram' ? 'onlyfriends' : 'fotogram';
-    const crossApp = options.characters.filter((entry) => storedHandle(entry, otherApp)?.toLowerCase() === key);
-    if (crossApp.length > 0) return { available: false, name: crossApp[0].name, character: crossApp[0], source: 'storybook',
-      reason: `${crossApp[0].name} has no matching ${app === 'fotogram' ? 'Fotogram' : 'OnlyFriends'} username. Use the full character name or the username in this app.` };
-  }
+  const characters = localCharacters.length ? localCharacters
+    : options.characters.filter((character) => characterMessageAliasMatches(character, identity));
   if (characters.length !== 1) return { available: false, name: identity, source: 'directory',
     reason: characters.length > 1 ? `Ambiguous ${app} recipient "${identity}". Use a unique app username or account ID.` : `Unknown ${app} recipient "${identity}". Use an existing full character name or app username.` };
   const character = characters[0];

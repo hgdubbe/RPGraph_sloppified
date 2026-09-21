@@ -138,7 +138,8 @@ describe('exact recipient identities', () => {
     expect(resolveSocialMessageIdentity({ characters, messages: [], app: 'fotogram', identity: 'Nov' }).available).toBe(false);
     expect(resolveSocialMessageIdentity({ characters, messages: [], app: 'onlyfriends', identity: '@nova.art' }).available).toBe(false);
     expect(() => resolveWhatsUpRecipient([...characters, other], [], 'Nova Testerson')).toThrow('Ambiguous');
-    expect(() => resolveWhatsUpRecipient(characters, [], 'Nova')).toThrow('Unknown');
+    expect(resolveWhatsUpRecipient(characters, [], 'Nova').characterId).toBe('nova');
+    expect(() => resolveWhatsUpRecipient(characters, [], 'Nov')).toThrow('Unknown');
   });
   it('supports WhatsUp usernames and retains canonical MatchMe identity across node changes', () => {
     const owner = { ...characters[0], apps: { ...characters[0].apps, whatsup: { accountId: 'wa', enabled: true, username: 'nova.phone', displayName: 'Nova', bio: '' } } };

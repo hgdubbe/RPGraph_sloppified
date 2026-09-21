@@ -75,6 +75,7 @@ function harness() {
   render().openStorybookCreator('book');
   return {
     nodesRef, complete, clearCurrentSession, options, render, library, snapshots, messages,
+    rawReply: (text: string) => resolve({ text, connection: { label: 'Test' } }),
     reply: () => resolve({ text: JSON.stringify({ reply: 'Updated.', patch: [{ op: 'replace', path: '/title', value: 'AI title' }] }), connection: { label: 'Test' } }),
   };
 }
@@ -293,6 +294,10 @@ it.each(['rp-storybook', 'rp-storybook-editor'] as const)(
   'restores Opening History on repeated file loads into %s', (nodeType) => {
     const state = harness();
     state.nodesRef.current[0].data.nodeType = nodeType;
+    state.nodesRef.current.push(
+      { id: 'events', position: { x: 0, y: 0 }, data: { label: 'Events', description: '', preview: '', nodeType: 'event-manager', eventAppointments: [] } } as WorkflowNode,
+      { id: 'stats', position: { x: 0, y: 0 }, data: { nodeType: 'character-stats' } } as WorkflowNode,
+    );
     state.options.setActiveStorybookProtection = vi.fn();
     const book = structuredClone(emptyRpStorybook);
     book.openingHistory.turns = [{
@@ -369,6 +374,48 @@ it.each(['rp-storybook', 'rp-storybook-editor'])('deletes an unused character de
   expect(state.render().removalInfo('book', fixture.character.id).reasons).toEqual([]);
   await state.render().removeStorybookCharacter('book', fixture.character.id, 'delete');
   expect(parseRpStorybookJson(state.nodesRef.current[0].data.storybookJson!).characters).toHaveLength(0);
+});
+
+it('deletes an unused character and removes relationships pointing to it', async () => {
+  const state = harness();
+  const book = normalizeRpStorybook({ characters: [fixture.character, {
+    ...fixture.character,
+    id: 'other-character',
+    name: 'Other Character',
+    relationships: [
+      { characterId: fixture.character.id, description: 'A former friend.', apps: { whatsup: true } },
+      { characterId: 'external-character', description: 'A colleague.', apps: { fotogram: true } },
+    ],
+  }] });
+  state.nodesRef.current[0].data.storybookJson = rpStorybookJsonText(book);
+
+  expect(state.render().removalInfo('book', fixture.character.id).reasons).toEqual([]);
+  await state.render().removeStorybookCharacter('book', fixture.character.id, 'delete');
+
+  const characters = parseRpStorybookJson(state.nodesRef.current[0].data.storybookJson!).characters;
+  expect(characters.map((character) => character.id)).toEqual(['other-character']);
+  expect(characters[0].relationships).toEqual([
+    { characterId: 'external-character', description: 'A colleague.', apps: { fotogram: true } },
+  ]);
+});
+
+it('warns about story text mentions without blocking character deletion', async () => {
+  const state = harness();
+  const book = normalizeRpStorybook({
+    introduction: `${fixture.character.name} has just arrived.`,
+    scenario: { summary: '', openingSituation: '', currentSituation: `Everyone is waiting for ${fixture.character.name}.` },
+    characters: [fixture.character],
+  });
+  state.nodesRef.current[0].data.storybookJson = rpStorybookJsonText(book);
+
+  const info = state.render().removalInfo('book', fixture.character.id);
+  expect(info.reasons).toEqual([]);
+  expect(info.warnings.length).toBeGreaterThan(0);
+  await state.render().removeStorybookCharacter('book', fixture.character.id, 'delete');
+  expect(parseRpStorybookJson(state.nodesRef.current[0].data.storybookJson!).characters).toHaveLength(0);
+  expect(hooks.slots.flatMap((slot) => Array.isArray(slot) ? slot : [])).toContainEqual(expect.objectContaining({
+    role: 'assistant', text: expect.stringContaining('Check Story Logic'),
+  }));
 });
 
 it('blocks direct and raw JSON deletion of a used character but retains an edited NPC with its history', async () => {
@@ -468,4 +515,68 @@ it('protects a followed character without chat and preserves the connection when
   await state.render().removeStorybookCharacter('book', fixture.character.id, 'npc');
   expect(directory()[0].id).toBe(originalUserId);
   expect(state.snapshots[fixture.character.id].character.playable).toBe(false);
+});
+
+
+it('resets events and character stats only after a valid Storybook replacement', () => {
+  const state = harness();
+  state.options.setActiveStorybookProtection = vi.fn();
+  state.nodesRef.current.push(
+    { id: 'events', position: { x: 0, y: 0 }, data: { label: 'Events', description: '', preview: '', nodeType: 'event-manager', eventAppointments: [{ id: 'old-event' }] } } as WorkflowNode,
+    { id: 'stats', position: { x: 0, y: 0 }, data: { nodeType: 'character-stats', characterStatsLastRpDateTime: 'old-time',
+      characterStatsContextText: 'Old story context' } } as WorkflowNode,
+  );
+  state.options.lifecycleBusy = () => true;
+  expect(state.render().applyStorybookToNode('book', emptyRpStorybook)).toBe(false);
+  expect(state.clearCurrentSession).not.toHaveBeenCalled();
+  expect(state.nodesRef.current[1].data.eventAppointments).toHaveLength(1);
+  state.options.lifecycleBusy = () => false;
+  expect(state.render().applyStorybookToNode('book', emptyRpStorybook)).toBe(true);
+  expect(state.clearCurrentSession).toHaveBeenCalledOnce();
+  expect(state.nodesRef.current[1].data.eventAppointments).toEqual([]);
+  expect(state.nodesRef.current[2].data.characterStatsLastRpDateTime).toBeUndefined();
+  expect(state.nodesRef.current[2].data.characterStatsContextText).toBe('');
+  expect(state.options.replaceCurrentChatWithOpeningHistoryRef.current).toBe(true);
+});
+
+
+it('retains the exact failed model response for copying without applying partial edits', async () => {
+  const state = harness();
+  const original = state.nodesRef.current[0].data.storybookJson;
+  const request = state.render().submitStorybookCreatorMessage('Create a story');
+  const raw = '{"reply":"Done","patch":[{"op":"replace","path":"/title","value":"Broken"}]} {"reply":"Another object"}';
+  state.rawReply(raw);
+  await request;
+  const error = state.render().storybookCreatorMessages.slice(-1)[0];
+  expect(error).toMatchObject({ role: 'error', failedResponse: raw });
+  expect(error?.text).toContain('JSON');
+  expect(state.nodesRef.current[0].data.storybookJson).toBe(original);
+  state.render().clearStorybookCreatorChat();
+  expect(state.render().storybookCreatorMessages).toEqual([]);
+});
+
+it('retries the latest failed request with provider sampling and preserved request details', async () => {
+  const state = harness();
+  const request = state.render().submitStorybookCreatorMessage('Change the title', 'Rename story', ['external-character']);
+  state.rawReply('{"reply":"broken","patch":[]}]}');
+  await request;
+  const index = state.render().storybookCreatorMessages.length - 1;
+  expect(state.render().storybookCreatorMessages[index].retryRequest).toEqual({
+    message: 'Change the title', visibleMessage: 'Rename story', referenceIds: ['external-character'],
+  });
+  const retry = state.render().retryStorybookCreatorMessage(index);
+  await state.render().retryStorybookCreatorMessage(index);
+  expect(state.complete).toHaveBeenCalledTimes(2);
+  expect(state.complete).toHaveBeenLastCalledWith(expect.objectContaining({
+    useConnectionSampling: true,
+    prompt: expect.stringContaining('This is an explicit retry of the failed request above.'),
+  }));
+  expect(state.complete).toHaveBeenLastCalledWith(expect.objectContaining({
+    prompt: expect.stringContaining('Current user message:\nChange the title'),
+  }));
+  state.reply();
+  await retry;
+  expect(parseRpStorybookJson(state.nodesRef.current[0].data.storybookJson!).title).toBe('AI title');
+  await state.render().retryStorybookCreatorMessage(index);
+  expect(state.complete).toHaveBeenCalledTimes(2);
 });

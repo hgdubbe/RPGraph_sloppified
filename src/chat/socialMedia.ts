@@ -239,16 +239,25 @@ export function socialDirectMessageInputText(
   const recipients = characters.filter((character) => message.toAccountId
     ? character.apps?.[message.app]?.accountId === message.toAccountId
     : character.apps?.[message.app]?.enabled && socialIdentityMatches(accountHandle(character.apps[message.app]), message.toHandle));
+  const senders = characters.filter((character) => message.fromAccountId
+    ? character.apps?.[message.app]?.accountId === message.fromAccountId
+    : character.apps?.[message.app]?.enabled && socialIdentityMatches(accountHandle(character.apps[message.app]), message.fromHandle));
+  const recipientContext = recipients.length === 1 ? recipientCharacterContext(recipients[0], {
+    app: message.app,
+    sender: senders.length === 1 ? senders[0] : undefined,
+    messageText: message.text,
+    characters,
+  }) : undefined;
   return [
     socialDirectMessageInputHeaders[message.app],
     `App: ${socialAppNames[message.app]}`,
-    `Sender: ${socialDirectMessageParty(message, 'from', characters)}`,
-    `Recipient: ${socialDirectMessageParty(message, 'to', characters)}`,
+    `Sender: ${socialDirectMessageParty(message, 'from', characters, true, true, 'explained')}`,
+    `Recipient: ${socialDirectMessageParty(message, 'to', characters, true, true, 'explained')}`,
     `Reply as: ${message.to} to ${message.from}`,
     '',
     ...(message.app === 'matchme'
-      ? [matchMeContext(matchMeState(characters, historyMessages), message), '']
-      : recipients.length === 1 ? [recipientCharacterContext(recipients[0]), ''] : []),
+      ? [matchMeContext(matchMeState(characters, historyMessages), message, recipientContext), '']
+      : recipientContext ? [recipientContext, ''] : []),
     ...(message.origin
       ? [
           message.origin.commentText
@@ -269,7 +278,7 @@ export function socialDirectMessageInputText(
         ]
       : []),
     '', 'New message:',
-    `${message.from}: ${message.text.trim()}`,
+    `${message.from}: ${message.text.trim()}${socialDirectMessageTipSuffix(message)}`,
   ].join('\n');
 }
 
@@ -279,6 +288,8 @@ export function socialDirectMessageParty(
   side: 'from' | 'to',
   characters: StorybookCharacter[],
   showProfileNames = true,
+  showRealNames = false,
+  privacyDetail: 'compact' | 'explained' = 'compact',
 ) {
   const storedHandle = message[side === 'from' ? 'fromHandle' : 'toHandle'];
   const id = message[side === 'from' ? 'fromAccountId' : 'toAccountId'];
@@ -292,7 +303,9 @@ export function socialDirectMessageParty(
       : !!storedHandle && accountHandleMatches(account, storedHandle));
   });
   const character = matches.length === 1 ? matches[0] : undefined;
-  const name = socialAccountPresentation(message.app, character, message[side], storedHandle).name;
+  const name = showRealNames && message.app !== 'matchme'
+    ? character?.name || message[side]
+    : socialAccountPresentation(message.app, character, message[side], storedHandle).name;
   if (message.app === 'matchme') {
     const age = character?.social.plotTwist?.age;
     return `${datingFirstName(name)}${age ? `, ${age}` : ''}`;
@@ -300,42 +313,66 @@ export function socialDirectMessageParty(
   // Social profile editors expose Display name; usernames remain internal account identities.
   const publicName = character?.apps?.[message.app]?.profileName ?? character?.apps?.[message.app]?.displayName;
   const handle = publicName?.trim().replace(/^@/, '') ?? '';
-  return `${name}${showProfileNames && handle ? ` (@${handle})` : ''}`;
+  const privateAccount = showRealNames && isAccountPrivacyMode(message.app, character);
+  const accountLabel = [showProfileNames && handle ? `@${handle}` : '', privateAccount ? 'private' : ''].filter(Boolean).join('; ');
+  const privacyExplanation = privateAccount && privacyDetail === 'explained'
+    ? ' — Privacy Mode: this account shows only the public nickname, not the real name or character photo. The real name here is for model identification only; the other character knows the owner only if established in the story, not from these labels or accounts on other apps.'
+    : '';
+  return `${name}${accountLabel ? ` (${accountLabel})` : ''}${privacyExplanation}`;
+}
+
+function socialDirectMessageTipSuffix(message: SocialDirectMessageRecord) {
+  if (message.app !== 'onlyfriends' || typeof message.tip !== 'number' ||
+    !Number.isFinite(message.tip) || message.tip <= 0) return '';
+  const amount = new Intl.NumberFormat('en-US', {
+    style: 'currency', currency: 'USD', minimumFractionDigits: 0, maximumFractionDigits: 2,
+  }).format(message.tip);
+  return ` [Tip: ${amount}]`;
 }
 
 export function socialDirectMessageHistoryText(
   message: SocialDirectMessageRecord,
   characters: StorybookCharacter[] = [],
+  showRealNames = true,
 ) {
-  return `[${socialAppNames[message.app]} DM] ${socialDirectMessageParty(message, 'from', characters)} to ${socialDirectMessageParty(message, 'to', characters)}: "${message.text}"`;
+  return `[${socialAppNames[message.app]} DM] ${socialDirectMessageParty(message, 'from', characters, true, showRealNames)} to ${socialDirectMessageParty(message, 'to', characters, true, showRealNames)}: "${message.text}"${socialDirectMessageTipSuffix(message)}`;
 }
 
-/** Reformat only a structured DM's authored header; preserve its original or translated body verbatim. */
+/** Refresh structured DM headers and tips while preserving the authored or translated body. */
 export function socialDirectMessageDisplayText(
   message: MessageRecord,
   translated: boolean,
   characters: StorybookCharacter[] = [],
+  showRealNames = false,
 ) {
   const text = translated ? message.translatedText ?? message.originalText : message.originalText;
   const direct = message.socialDirectMessage;
   if (!direct) return text;
   const header = text.match(new RegExp(`^\\[${socialAppNames[direct.app]} DM(?: Demo)?\\] [^\\n]*? to [^\\n]*?: "`));
   if (!header) return text;
-  const formatted = socialDirectMessageHistoryText({ ...direct, text: '' }, characters);
+  const formatted = socialDirectMessageHistoryText({ ...direct, text: '', tip: undefined }, characters, showRealNames);
   const prefix = text.startsWith('[MatchMe DM Demo]')
     ? formatted.replace('[MatchMe DM]', '[MatchMe DM Demo]')
     : formatted;
-  return prefix.slice(0, -1) + text.slice(header[0].length);
+  const body = text.slice(header[0].length).replace(/" \[Tip: \$[\d,.]+\]$/, '"');
+  return prefix.slice(0, -1) + body + socialDirectMessageTipSuffix(direct);
 }
 
 /** LLM-facing input text for a "user posted something" turn (Message Format 2). */
-export function socialPostInputText(post: SocialPostRecord) {
+export function socialPostInputText(post: SocialPostRecord, characters: StorybookCharacter[] = []) {
+  const author = socialCharacterForPost(post, characters);
+  const privateAccount = isAccountPrivacyMode(post.app, author);
+  const profileName = author?.apps?.[post.app]?.profileName ?? author?.apps?.[post.app]?.displayName;
+  const handle = profileName?.trim().replace(/^@/, '') || post.authorHandle;
+  const privacyNote = privateAccount
+    ? ' — Privacy Mode: only the nickname is public; the real name here is for model identification. Recognize the owner only from established story knowledge or plausible visible clues, such as a familiar face in the post.'
+    : '';
   return [
     '[SOCIAL MEDIA POST]',
     `App: ${socialAppNames[post.app]}`,
     `Post ID: ${post.postId}`,
     ...(!post.textOnly && post.imageId ? [`Image ID: ${post.imageId}`] : []),
-    `Author: ${post.author} (@${post.authorHandle})`,
+    `Author: ${author?.name ?? post.author} (@${handle}${privateAccount ? '; private' : ''})${privacyNote}`,
     `Post text: ${singleLine(post.caption)}`,
     ...(post.textOnly
       ? ['Content: text-only post, no image']

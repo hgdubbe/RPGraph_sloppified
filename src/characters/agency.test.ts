@@ -4,7 +4,7 @@ import { promisify } from 'node:util';
 import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { agencyTagCatalog, agencyTagSupports, validateCharacterAgency, type AgencyTagId } from '../../shared/agency-tags.mjs';
+import { agencyTagCatalog, agencyTagSupports, validateAccountAgency, validateCharacterAgency, type AgencyTagId } from '../../shared/agency-tags.mjs';
 import { characterAgencyDraft, withCharacterAgency } from './agency';
 import { createAuthoredCharacter } from './creator';
 import { normalizeCharacterApps, validateCharacterContainer, type Character } from './character';
@@ -123,7 +123,7 @@ describe('agency catalog and container contract', () => {
     expect(saved[source.id].character.apps).toEqual(card.character.apps);
     const runtime = appCharactersFromRegistry(buildCharacterRegistry(entries))[0];
     expect(runtime.agencyTags).toEqual(source.agencyTags);
-    expect(recipientCharacterContext(runtime)).not.toContain('friendly_regular');
+    expect(recipientCharacterContext(runtime)).toContain('- friendly_regular: Frequently interacts');
     const input = join(directory, 'source.json'), spec = join(directory, 'edit.json'), output = join(directory, 'result.json');
     writeFileSync(input, JSON.stringify(card));
     await run(process.execPath, ['scripts/inspect-character-container.mjs', '--input', input, '--output', spec]);
@@ -194,4 +194,13 @@ describe('agency catalog and container contract', () => {
     bad.agencyTags = ['not-a-tag' as AgencyTagId];
     expect(() => parseNpcParticipantSnapshots({ [source.id]: { character: bad, source: 'invalid' } })).toThrow('agencyTags');
   });
+});
+
+
+it('explains incompatible account roles with catalog-derived alternatives', () => {
+  expect(() => validateAccountAgency('fotogram', { agencyTags: ['fan_engager'] }))
+    .toThrow('Effective accountRole: user (default). fan_engager supports fotogram roles: creator.');
+  expect(() => validateAccountAgency('fotogram', { agencyTags: ['fan_engager'] }))
+    .toThrow('compatible examples for this role: casual_chatter');
+  expect(() => validateAccountAgency('fotogram', { accountRole: 'creator', agencyTags: ['fan_engager'] })).not.toThrow();
 });

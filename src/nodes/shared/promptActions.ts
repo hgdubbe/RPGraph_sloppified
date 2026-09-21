@@ -1,7 +1,8 @@
-import type { ChatImageAttachment, MessageRecord, ProviderConnectionHealth, WorkflowNode } from '../../types';
+import type { ChatImageAttachment, MessageRecord, ProviderConnectionHealth, SocialAppKind, WorkflowNode } from '../../types';
 import type { ExecuteContext } from '../types';
 import { createComfyImageForCharacter } from '../runScratch';
-import { storybookImageListsFromNodes, type StorybookCreateImageCharacter } from '../../storybook/runtime';
+import { postsWithInitialContent } from '../../characters/publications';
+import { storyCharactersFromNodes, storybookImageListsFromNodes, type StorybookCreateImageCharacter } from '../../storybook/runtime';
 
 export type PromptActionId = 'getImageId' | 'updatePhoneImageCaption' | 'describeInputImage' | 'createImage';
 
@@ -11,6 +12,7 @@ export type PromptActionConfig = {
   maxReturnedImages: number;
   sendImagesToLlm: boolean;
   hideImageTextWhenSendingToLlm: boolean;
+  disableWhenImageAttached: boolean;
   manageModelMemoryForComfy: boolean;
   runAfterReply: boolean;
   comfyProviderId?: string;
@@ -21,7 +23,7 @@ export type PromptActionConfig = {
 
 export type PromptActionRuntimeConfig = Pick<
   PromptActionConfig,
-  'maxReturnedImages' | 'sendImagesToLlm' | 'hideImageTextWhenSendingToLlm' | 'manageModelMemoryForComfy' | 'comfyProviderId'
+  'maxReturnedImages' | 'sendImagesToLlm' | 'hideImageTextWhenSendingToLlm' | 'disableWhenImageAttached' | 'manageModelMemoryForComfy' | 'comfyProviderId'
 >;
 
 export type PromptActionRuntimeSettings = Partial<Record<PromptActionId, Partial<PromptActionRuntimeConfig>>>;
@@ -61,6 +63,8 @@ type ActionImageResult = {
   caption: string;
   characterName: string;
   shownTo: string[];
+  postedOn: SocialAppKind[];
+  matchMeProfiles: string[];
   score: number;
   attachment: ChatImageAttachment;
 };
@@ -97,7 +101,7 @@ export function promptActionHintText(actionId: PromptActionId) {
   switch (actionId) {
     case 'getImageId':
       return [
-        'Stored character image search is available. To request it, output exactly one JSON object and nothing else:',
+        'When a character photo is requested or needed, search their phone gallery before replying, even if history contains image IDs. Check returned recipients and publications to avoid repeats. An explicitly supplied image needs no search. Request the search with exactly one JSON object and nothing else:',
         '{"action":"get_image_id","plan":"brief plan stating whose phone gallery to search and who or what the image should show"}',
       ].join('\n');
     case 'createImage':
@@ -640,7 +644,7 @@ export const defaultGetImagesResultTemplate = [
   'Found images for tags: {{tags}}',
   defaultGetImagesResultLineTemplate,
   '',
-  'Do not send a returned image again to anyone listed under "Image shown to"; they have already seen or received it. Choose another fitting image or omit sendImageId instead.',
+  'Do not send a returned image again to people named under "Image shown to"; they have already seen or received it. "Social media posts" lists prior publications: treat Fotogram posts as public and assume everyone has likely seen them, so do not present them as new or private discoveries. OnlyFriends posts have restricted access; use the story context to judge whether the intended recipient likely had access and saw the image. "MatchMe profile photo" identifies images used in a dating profile. Use the chat history, established matches, and story context to judge whether the recipient has likely seen that profile; do not treat profile photos as new pictures for someone who already knows them. Choose another fitting image or omit sendImageId when it would repeat something the recipient already knows.',
   'If no returned image fits, use the Create character phone image action when it is offered elsewhere in the current prompt: request it next, following its instructions, instead of writing the final reply.',
   'If image generation is not offered, write the reply without an image and steer the conversation naturally away from sending a photo. Do not mention a missing image and do not force an unrelated stored photo into the reply.',
 ].join('\n');
@@ -776,6 +780,24 @@ const previousGetImagesResultTemplates = new Set([
     '',
     '{{images}}',
   ].join('\n'),
+  [
+    'Action executed: get character phone image list.',
+    'Found images for tags: {{tags}}',
+    defaultGetImagesResultLineTemplate,
+    '',
+    'Do not send a returned image again to anyone listed under "Image shown to"; they have already seen or received it. Choose another fitting image or omit sendImageId instead.',
+    'If no returned image fits, use the Create character phone image action when it is offered elsewhere in the current prompt: request it next, following its instructions, instead of writing the final reply.',
+    'If image generation is not offered, write the reply without an image and steer the conversation naturally away from sending a photo. Do not mention a missing image and do not force an unrelated stored photo into the reply.',
+  ].join('\n'),
+  [
+    'Action executed: get character phone image list.',
+    'Found images for tags: {{tags}}',
+    defaultGetImagesResultLineTemplate,
+    '',
+    'Do not send a returned image again to people named under "Image shown to"; they have already seen or received it. "Social media posts" lists prior publications: treat Fotogram posts as public and assume everyone has likely seen them, so do not present them as new or private discoveries. OnlyFriends posts have restricted access; use the story context to judge whether the intended recipient likely had access and saw the image. Choose another fitting image or omit sendImageId when it would repeat something the recipient already knows.',
+    'If no returned image fits, use the Create character phone image action when it is offered elsewhere in the current prompt: request it next, following its instructions, instead of writing the final reply.',
+    'If image generation is not offered, write the reply without an image and steer the conversation naturally away from sending a photo. Do not mention a missing image and do not force an unrelated stored photo into the reply.',
+  ].join('\n'),
 ]);
 
 export function previousPromptActionDefaultsForValidation() {
@@ -867,6 +889,7 @@ export function defaultPromptActionConfig(
     maxReturnedImages: actionId === 'getImageId' ? 3 : 5,
     sendImagesToLlm: sendsImagesByDefault,
     hideImageTextWhenSendingToLlm: false,
+    disableWhenImageAttached: true,
     manageModelMemoryForComfy: true,
     runAfterReply: defaultPromptActionRunAfterReply(actionId),
     comfyProviderId: '',
@@ -894,6 +917,9 @@ function normalizedPromptActionRuntimeConfig(
         ? value.hideImageTextWhenSendingToLlm
         : false
     ),
+    disableWhenImageAttached: typeof value?.disableWhenImageAttached === 'boolean'
+      ? value.disableWhenImageAttached
+      : true,
     manageModelMemoryForComfy: actionId === 'createImage' && typeof value?.manageModelMemoryForComfy === 'boolean'
       ? value.manageModelMemoryForComfy
       : true,
@@ -1014,6 +1040,9 @@ export function normalizePromptActionConfig(
         ? record.hideImageTextWhenSendingToLlm
         : false
     ),
+    disableWhenImageAttached: typeof record.disableWhenImageAttached === 'boolean'
+      ? record.disableWhenImageAttached
+      : true,
     manageModelMemoryForComfy: typeof record.manageModelMemoryForComfy === 'boolean'
       ? record.manageModelMemoryForComfy
       : true,
@@ -1253,9 +1282,12 @@ function createImageCharacterStatus(
 }
 
 export function promptActionStatus(
-  action: Pick<PromptActionConfig, 'actionId' | 'sendImagesToLlm' | 'comfyProviderId'>,
+  action: Pick<PromptActionConfig, 'actionId' | 'sendImagesToLlm' | 'comfyProviderId'> & Partial<Pick<PromptActionConfig, 'disableWhenImageAttached'>>,
   options: PromptActionAvailabilityOptions = {},
 ): PromptActionStatus | undefined {
+  if (action.actionId === 'getImageId' && (action.disableWhenImageAttached ?? true) && options.hasImageInput) {
+    return { available: false, tone: 'warning', label: 'Disabled for attached input images' };
+  }
   const createImageStatus = createImageProviderStatus(action, options);
   if (createImageStatus) {
     return createImageStatus;
@@ -1279,7 +1311,7 @@ export function promptActionStatus(
 }
 
 export function promptActionAvailable(
-  action: Pick<PromptActionConfig, 'actionId' | 'sendImagesToLlm' | 'comfyProviderId'>,
+  action: Pick<PromptActionConfig, 'actionId' | 'sendImagesToLlm' | 'comfyProviderId'> & Partial<Pick<PromptActionConfig, 'disableWhenImageAttached'>>,
   options: PromptActionAvailabilityOptions = {},
 ) {
   return promptActionStatus(action, options)?.available !== false;
@@ -1798,6 +1830,35 @@ function imageRecipientsById(
   );
 }
 
+function imagePublicationsById(context: ExecuteContext) {
+  const characters = context.appCharacters ?? storyCharactersFromNodes(context.nodes);
+  const publications = new Map<string, Set<SocialAppKind>>();
+  for (const message of postsWithInitialContent(characters, context.historyMessages)) {
+    const post = message.socialPost;
+    const imageId = post?.imageId?.trim();
+    if (!post || !imageId || post.textOnly) continue;
+    const apps = publications.get(imageId) ?? new Set<SocialAppKind>();
+    apps.add(post.app);
+    publications.set(imageId, apps);
+  }
+  return publications;
+}
+
+function imageMatchMeProfilesById(context: ExecuteContext) {
+  const characters = context.appCharacters ?? storyCharactersFromNodes(context.nodes);
+  const profilesByImageId = new Map<string, Set<string>>();
+  for (const character of characters) {
+    const account = character.apps?.matchme;
+    if (!account?.enabled) continue;
+    for (const imageId of account.profile?.photoIds ?? []) {
+      const profiles = profilesByImageId.get(imageId) ?? new Set<string>();
+      profiles.add(character.name);
+      profilesByImageId.set(imageId, profiles);
+    }
+  }
+  return profilesByImageId;
+}
+
 function findGetImagesResults(
   context: ExecuteContext,
   call: ParsedPromptActionCall,
@@ -1815,6 +1876,8 @@ function findGetImagesResults(
       }))
     : storybookImageListsFromNodes(context.nodes);
   const recipientsByImageId = imageRecipientsById(imageLists, context.historyMessages);
+  const publicationsByImageId = imagePublicationsById(context);
+  const matchMeProfilesByImageId = imageMatchMeProfilesById(context);
   const lists = imageLists.filter((imageList) =>
     normalizedSearchText(imageList.name) === normalizedSearchText(call.phoneOwner ?? ''),
   );
@@ -1828,6 +1891,8 @@ function findGetImagesResults(
         caption: image.description,
         characterName: imageList.name,
         shownTo: recipientsByImageId.get(image.id) ?? [],
+        postedOn: [...(publicationsByImageId.get(image.id) ?? [])].sort(),
+        matchMeProfiles: [...(matchMeProfilesByImageId.get(image.id) ?? [])].sort(),
         score: tagScore(image.description, words),
         subjectScore: tagScore(image.description, subjectWords),
         attachment: {
@@ -1873,7 +1938,13 @@ function imageTextValue(result: ActionImageResult, hideImageText: boolean) {
 }
 
 function imageShownToValue(result: ActionImageResult) {
-  return result.shownTo.length ? result.shownTo.join(', ') : 'No one yet';
+  const recipients = result.shownTo.length ? result.shownTo.join(', ')
+    : result.postedOn.length || result.matchMeProfiles.length ? 'No direct recipients recorded' : 'No one yet';
+  const publications = result.postedOn.map((app) => app === 'fotogram' ? 'Fotogram (public)' : 'OnlyFriends (restricted access)');
+  return [recipients,
+    ...(publications.length ? [`Social media posts: ${publications.join(', ')}`] : []),
+    ...(result.matchMeProfiles.length ? [`MatchMe profile photo: ${result.matchMeProfiles.join(', ')}`] : []),
+  ].join('; ');
 }
 
 function formatImageLine(result: ActionImageResult, index: number, includeImageOrderLabels: boolean, hideImageText: boolean) {

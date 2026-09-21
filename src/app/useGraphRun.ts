@@ -1,3 +1,4 @@
+import { resolveSocialPostCommand, resolveSocialPostReference, type SocialPostCommandBinding } from '../chat/socialPostCommands';
 import { socialReactionAccountContext } from '../characters/socialReactionAccounts';
 import { resolveWhatsUpMessageParticipants } from '../characters/messageIdentity';
 import { matchMeState, matchMeMessageAllowed, incomingMatchMeMessage } from '../chat/matchMe';
@@ -45,7 +46,6 @@ import type { useNextTurnReferenceImages } from '../chat/useNextTurnReferenceIma
 import type { usePhoneReply } from '../chat/usePhoneReply';
 import { normalizeRunGraphRequest, type RunGraphRequest } from './runGraphRequest';
 import { applyPhoneOutputCommits, buildPhoneOutputCommits } from './phoneOutputCommits';
-import { buildSocialCommentCommit, buildSocialDirectMessageCommit } from './socialOutputCommits';
 import {
   applyTimeCommandsToWorkflowNodes,
   commandInputCommandsFromStructured,
@@ -90,18 +90,27 @@ import {
 } from '../chat/bankTransfers';
 import {
   parseSocialDirectMessageOutput,
+  socialAppNames,
   socialDirectMessageHistoryText,
   socialDirectMessageInputText,
+  socialHandleForCharacter,
+  socialHandleForName,
+  socialIdentityMatches,
   socialPostInputText,
   socialPostHistoryText,
   socialPostTextFromInput,
   socialReactionsHistoryText,
   socialThreadActionInputText,
+  socialThreadRunContextFromInput,
   socialThreadCommentTextFromInput,
   socialThreadHistoryText,
   type SocialThreadRunContext,
 } from '../chat/socialMedia';
-import { parseValidatedSocialReactionsOutput } from '../chat/socialMessageValidation';
+import {
+  establishedSocialHandle,
+} from '../chat/socialDirectory';
+import { parseValidatedSocialReactionsOutput, resolveSocialMessageIdentity } from '../chat/socialMessageValidation';
+import { postsWithInitialContent } from '../characters/publications';
 import { recentInputHistoryContext } from '../chat/inputTransforms';
 import {
   chatGpdFallbackTitle,
@@ -1069,7 +1078,7 @@ export function useGraphRun(options: UseGraphRunOptions) {
           inputText = socialPostInputText({
             ...socialPost,
             caption: translatedCaption || socialPost.caption,
-          });
+          }, appCharacters());
         } else if (socialThreadAction && socialThreadContext) {
           const translatedComment = socialThreadAction.action === 'comment'
             ? await translateSocialText(socialThreadAction.commentText ?? '')
@@ -1189,7 +1198,7 @@ export function useGraphRun(options: UseGraphRunOptions) {
             },
           ) : undefined;
       return whatsUpMessageInputText(
-        inputCharacterName, phoneRecipientName ?? 'Unknown', message, phoneContextRecipient, context,
+        inputCharacterName, phoneRecipientName ?? 'Unknown', message, phoneContextRecipient, context, appCharacters(),
       );
     };
     const promptSlot = turnModeOverrideValue ?? (
@@ -1201,7 +1210,7 @@ export function useGraphRun(options: UseGraphRunOptions) {
           ? 4
         : isAutoTurn
           ? 2
-          : activeInputImages.length > 0
+          : isPhoneMessage && activeInputImages.length > 0
             ? 0
             : 1
     );
@@ -1298,6 +1307,9 @@ export function useGraphRun(options: UseGraphRunOptions) {
           characterId: socialPost.authorCharacterId,
           accountId: socialPost.authorAccountId,
           handle: socialPost.authorHandle,
+        } : undefined, socialThreadAction ? {
+          authorHandle: socialThreadAction.postAuthorHandle,
+          participantHandles: (socialThreadContext ?? socialThreadRunContextFromInput(originalInput)).existingComments.map((comment) => comment.handle),
         } : undefined)
       : undefined;
     const executionOriginalInput = withDraftContextComment(
@@ -1880,6 +1892,8 @@ export function useGraphRun(options: UseGraphRunOptions) {
               phoneMessages: [],
               phoneImageActions: [],
               bankTransfers: [],
+              socialPosts: [],
+              invalidSocialPostCount: 0,
               socialPostComments: [],
               socialDirectMessages: [],
               simulatedAiChats: [],
@@ -1898,6 +1912,8 @@ export function useGraphRun(options: UseGraphRunOptions) {
         phoneOutputBankResult &&
         (phoneOutputBankResult.phoneImageActions.length > 0 ||
           phoneOutputBankResult.bankTransfers.length > 0 ||
+          phoneOutputBankResult.socialPosts.length > 0 ||
+          phoneOutputBankResult.invalidSocialPostCount > 0 ||
           phoneOutputBankResult.socialPostComments.length > 0 ||
           phoneOutputBankResult.socialDirectMessages.length > 0 ||
           phoneOutputBankResult.simulatedAiChats.length > 0 ||
@@ -1913,6 +1929,18 @@ export function useGraphRun(options: UseGraphRunOptions) {
           status: 'ok',
           detail: `${embeddedPhoneResult.phoneMessages.length} embedded phone message(s) parsed.`,
         });
+      }
+      const parsedSocialPosts = [
+        ...embeddedPhoneResult.socialPosts,
+        ...(phoneOutputBankResult?.socialPosts ?? []),
+      ];
+      const invalidSocialPostCount = embeddedPhoneResult.invalidSocialPostCount +
+        (phoneOutputBankResult?.invalidSocialPostCount ?? 0);
+      if (invalidSocialPostCount > 0) {
+        reportRunWarning(
+          `${invalidSocialPostCount} social post command(s) ignored: require from, nonempty text, and textOnly (true without imageId, or false with an exact imageId).`,
+          outputNodeTraceInfo,
+        );
       }
       const parsedSocialPostComments = [
         ...embeddedPhoneResult.socialPostComments,
@@ -2637,17 +2665,80 @@ export function useGraphRun(options: UseGraphRunOptions) {
           });
         }
 
+        // Reserve the current phone publication's ID because it is persisted below.
+        const reservedPostIds = socialPost ? [socialPost.postId] : [];
+        const postBindings: SocialPostCommandBinding[] = [];
+        for (const command of parsedSocialPosts) {
+          const result = resolveSocialPostCommand(command, appCharacters(), messagesRef.current, reservedPostIds);
+          const binding: SocialPostCommandBinding = { app: command.app, postRef: command.postRef };
+          postBindings.push(binding);
+          if (!result.post) {
+            reportRunWarning(`${socialAppNames[command.app]} post was ignored. ${result.error}`, outputNodeTraceInfo);
+            continue;
+          }
+          reservedPostIds.push(result.post.postId);
+          const historyText = socialPostHistoryText(result.post);
+          const translatedText = await translateOutputActionText(historyText, { text: historyText });
+          appendMessage({
+            role: 'output',
+            originalText: historyText,
+            translatedText,
+            includeInHistory: true,
+            socialPost: result.post,
+          });
+          binding.post = result.post;
+        }
+
         // A social post comment command appends one comment to an existing
         // post via the same append-reactions record the comment thread uses.
         for (const postComment of parsedSocialPostComments) {
-          const result = buildSocialCommentCommit({ incoming: postComment, characters: storyCharacters, messages: messagesRef.current });
-          result.warnings.forEach((warning) => reportRunWarning(warning, outputNodeTraceInfo));
-          if (!result.commit) continue;
-          const { historyText, reactions } = result.commit;
+          const targetPost = resolveSocialPostReference(
+            postComment.app, postComment.postId, postBindings,
+            postsWithInitialContent(appCharacters(), messagesRef.current),
+          );
+          if (!targetPost) {
+            reportRunWarning(
+              `${socialAppNames[postComment.app]} post comment was ignored because post "${postComment.postId}" is missing, failed, or ambiguous.`,
+              outputNodeTraceInfo,
+            );
+            continue;
+          }
+          // Commenters go through the same identity resolution as social DMs,
+          // so known Storybook characters without an account in the app are
+          // blocked here too instead of silently gaining one.
+          const resolvedCommenter = resolveSocialMessageIdentity({
+            characters: appCharacters(),
+            messages: messagesRef.current,
+            app: postComment.app,
+            identity: postComment.from,
+          });
+          if (!resolvedCommenter.available) {
+            reportRunWarning(
+              `${socialAppNames[postComment.app]} post comment was ignored. ${resolvedCommenter.reason}`,
+              outputNodeTraceInfo,
+            );
+            continue;
+          }
+          const from = resolvedCommenter.name;
+          const handle = resolvedCommenter.handle ??
+            (resolvedCommenter.character
+              ? socialHandleForCharacter(resolvedCommenter.character, postComment.app)
+              : establishedSocialHandle(messagesRef.current, postComment.app, from) ??
+                socialHandleForName(from));
+          const historyText = `[${socialAppNames[postComment.app]}] ${from} (@${handle}) commented on ${targetPost.postId}: "${postComment.text}"`;
           const translatedText = await translateOutputActionText(historyText, { text: historyText });
           appendMessage({
-            role: 'output', originalText: historyText, translatedText,
-            includeInHistory: true, socialReactions: reactions,
+            role: 'output',
+            originalText: historyText,
+            translatedText,
+            includeInHistory: true,
+            socialReactions: {
+              app: postComment.app,
+              postId: targetPost.postId,
+              likes: 0,
+              comments: [{ from, handle, text: postComment.text }],
+              append: true,
+            },
           });
         }
 
@@ -2682,15 +2773,102 @@ export function useGraphRun(options: UseGraphRunOptions) {
             return { socialMessageId, app: 'matchme', from: record.from, to: record.to,
               message: record.text, translatedMessage: displayText, sourceOrder: incoming.sourceOrder };
           }
-          const result = buildSocialDirectMessageCommit({
-            incoming, defaultRecipient, runPost, characters: appCharacters(), messages: messagesRef.current,
-            messageId: `${incoming.app}-dm-incoming-${Date.now()}-${incomingSocialDmSequence + 1}`,
-            sentAt: new Date().toISOString(),
+          const recipientName = incoming.to ?? defaultRecipient?.name;
+          if (!recipientName) {
+            reportRunWarning(
+              `A ${socialAppNames[incoming.app]} direct message from "${incoming.from}" was ignored because it has no recipient.`,
+              outputNodeTraceInfo,
+            );
+            return undefined;
+          }
+          const resolvedRecipient = resolveSocialMessageIdentity({
+            characters: appCharacters(),
+            messages: messagesRef.current,
+            app: incoming.app,
+            identity: recipientName,
           });
-          result.warnings.forEach((warning) => reportRunWarning(warning, outputNodeTraceInfo));
-          if (!result.commit) return undefined;
+          if (!resolvedRecipient.available) {
+            reportRunWarning(
+              `A ${socialAppNames[incoming.app]} direct message was ignored. ${resolvedRecipient.reason}`,
+              outputNodeTraceInfo,
+            );
+            return undefined;
+          }
+          const to = resolvedRecipient.name;
+          const recipientCharacter = resolvedRecipient.character;
+          const toHandle = !incoming.to && defaultRecipient
+            ? defaultRecipient.handle
+            : resolvedRecipient.handle ??
+              (recipientCharacter
+                ? socialHandleForCharacter(recipientCharacter, incoming.app)
+                : establishedSocialHandle(messagesRef.current, incoming.app, to) ??
+                  socialHandleForName(to));
+          const resolvedSender = resolveSocialMessageIdentity({
+            characters: appCharacters(),
+            messages: messagesRef.current,
+            app: incoming.app,
+            identity: incoming.from,
+          });
+          if (!resolvedSender.available) {
+            reportRunWarning(
+              `A ${socialAppNames[incoming.app]} direct message was ignored. ${resolvedSender.reason}`,
+              outputNodeTraceInfo,
+            );
+            return undefined;
+          }
+          const from = resolvedSender.name;
+          const senderCharacter = resolvedSender.character;
+          const knownFromHandle = resolvedSender.handle ??
+            (senderCharacter
+              ? socialHandleForCharacter(senderCharacter, incoming.app)
+              : establishedSocialHandle(messagesRef.current, incoming.app, from));
+          const fromHandle = knownFromHandle ?? socialHandleForName(from);
+          if (socialIdentityMatches(fromHandle, toHandle)) {
+            reportRunWarning(
+              `A ${socialAppNames[incoming.app]} direct message from "${from}" to themselves was ignored.`,
+              outputNodeTraceInfo,
+            );
+            return undefined;
+          }
+          let originPost = runPost?.app === incoming.app && runPost.postId === incoming.postId ? runPost : undefined;
+          if (!originPost && incoming.postId) {
+            originPost = resolveSocialPostReference(
+              incoming.app, incoming.postId, postBindings,
+              postsWithInitialContent(appCharacters(), messagesRef.current),
+            );
+            if (!originPost) {
+              reportRunWarning(
+                `${socialAppNames[incoming.app]} direct message references unknown post "${incoming.postId}"; it was delivered without the post context.`,
+                outputNodeTraceInfo,
+              );
+            }
+          }
           incomingSocialDmSequence += 1;
-          const { record } = result.commit;
+          const record: SocialDirectMessageRecord = {
+            app: incoming.app,
+            messageId: `${incoming.app}-dm-incoming-${Date.now()}-${incomingSocialDmSequence}`,
+            from,
+            fromHandle,
+            fromAccountId: resolvedSender.accountId,
+            to,
+            toHandle,
+            toAccountId: resolvedRecipient.accountId,
+            text: incoming.text,
+            ...(incoming.tip !== undefined ? { tip: incoming.tip } : {}),
+            sentAt: new Date().toISOString(),
+            ...(originPost
+              ? {
+                  origin: {
+                    postId: originPost.postId,
+                    postAuthor: originPost.author,
+                    postAuthorHandle: originPost.authorHandle,
+                    postCaption: originPost.caption,
+                    postImageId: originPost.imageId,
+                    postImageDescription: originPost.imageDescription,
+                  },
+                }
+              : {}),
+          };
           const translatedDmText = await translateOutputActionText(incoming.text, {
             text: incoming.text,
           });

@@ -141,6 +141,7 @@ import {
 } from '../chat/bankTransfers';
 import {
   onlyFriendsWalletBalance,
+  formatOnlyFriendsTip,
   onlyFriendsWalletName,
 } from '../chat/onlyFriendsWallet';
 import {
@@ -303,6 +304,8 @@ const previousPromptActionDefaultSignatures = [
   'get-images-result-4:921:28b64f33',
   'get-images-result-5:558:8938fbf8',
   'get-images-result-6:54:c3c52fe9',
+  'get-images-result-7:766:fbd0ca9e',
+  'get-images-result-8:1131:f210876a',
 ];
 
 export function verifyWorkflowValidationFixtures() {
@@ -437,6 +440,34 @@ export function verifyWorkflowValidationFixtures() {
       { 'onlyfriends-post-1': 9.99 },
     ) === 75.51,
     'OnlyFriends balance must combine bank funding, withdrawals, received DM tips, and internal post purchases',
+  );
+
+  const outgoingTip: MessageRecord = {
+    id: 16, role: 'user', originalText: 'Sent a tip',
+    socialDirectMessage: {
+      app: 'onlyfriends', messageId: 'outgoing-tip',
+      from: bankingCharacter.name, fromHandle: 'banking.character',
+      to: 'Generous Fan', toHandle: 'generous.fan',
+      text: 'Sent you a tip!', tip: 25, sentAt: '2026-06-01T12:01:00.000Z',
+    },
+  };
+  assertFixture(
+    onlyFriendsWalletBalance(bankingCharacter, [...onlyFriendsWalletMessages, outgoingTip],
+      { 'onlyfriends-post-1': 9.99 }) === 50.51,
+    'Sent tips must debit the sender wallet alongside purchases and received tips',
+  );
+  assertFixture(
+    onlyFriendsWalletBalance(bankingCharacter, [outgoingTip], undefined) === -25,
+    'Outgoing tips must be accounted for from persisted message history',
+  );
+  assertFixture(
+    onlyFriendsWalletBalance(bankingCharacter, onlyFriendsWalletMessages,
+      { 'onlyfriends-post-1': 9.99 }) === 75.51,
+    'Removing a sent tip from history must restore its wallet debit',
+  );
+  assertFixture(
+    formatOnlyFriendsTip(15) === '$15' && formatOnlyFriendsTip(15.5) === '$15.5',
+    'Compact tip badges must omit the plus sign and unnecessary decimal places',
   );
 
   const socialThreadAction = {
@@ -5361,7 +5392,7 @@ async function verifyPromptRunFixtures() {
       '@action:Update phone image caption (After Reply Action)',
     ].join('\n\n'),
     actionConfigs: [
-      defaultPromptActionConfig('Get character phone image list', 'getImageId'),
+      { ...defaultPromptActionConfig('Get character phone image list', 'getImageId'), disableWhenImageAttached: false },
       defaultPromptActionConfig('Update phone image caption', 'updatePhoneImageCaption'),
     ],
     streamsVisibleOutput: false,
@@ -6071,7 +6102,7 @@ async function verifyPromptRunFixtures() {
     'a prose reply must stream live even while a pre-reply action is still pending',
   );
   assertFixture(
-    proseScenario.promptsForCalls[0]?.includes('Stored character image search is available') &&
+    proseScenario.promptsForCalls[0]?.includes('When a character photo is requested or needed') &&
       !proseScenario.promptsForCalls[0]?.includes('Action follow-up: search stored character phone images'),
     'pending pre-reply actions must show only their compact first-pass hint',
   );
@@ -6087,12 +6118,12 @@ async function verifyPromptRunFixtures() {
   );
   assertFixture(
     actionCallScenario.promptsForCalls.length === 3 &&
-      actionCallScenario.promptsForCalls[0]?.includes('Stored character image search is available') &&
+      actionCallScenario.promptsForCalls[0]?.includes('When a character photo is requested or needed') &&
       actionCallScenario.promptsForCalls[1]?.includes('Action follow-up: search stored character phone images') &&
       actionCallScenario.promptsForCalls[1]?.includes('Find a stored Espen party selfie that shows her outfit.') &&
       !actionCallScenario.promptsForCalls[1]?.includes('Write the story.') &&
       actionCallScenario.promptsForCalls[2]?.includes('Action executed: get character phone image list.') &&
-      !actionCallScenario.promptsForCalls[2]?.includes('Stored character image search is available'),
+      !actionCallScenario.promptsForCalls[2]?.includes('When a character photo is requested or needed'),
     'pre-reply image actions must run as compact request, focused follow-up, and result replay passes',
   );
 
