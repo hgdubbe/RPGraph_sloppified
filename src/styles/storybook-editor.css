@@ -472,7 +472,7 @@
   min-height: 168px;
   border: 1px solid color-mix(in srgb, var(--storybook-line) 60%, transparent);
   border-radius: 7px;
-  color: var(--storybook-muted, #b9c7e4);
+  color: var(--storybook-text);
   background: var(--storybook-bg, rgba(5, 8, 14, 0.72));
   padding: 10px;
   resize: vertical;

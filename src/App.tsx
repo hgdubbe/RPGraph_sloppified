@@ -5660,7 +5660,8 @@ function App() {
           proOptions={{ hideAttribution: true }}
         >
           <Background
-            color="#273043"
+            color="var(--graph-line, #273043)"
+            bgColor="transparent"
             gap={24}
             size={1.5}
             variant={BackgroundVariant.Dots}

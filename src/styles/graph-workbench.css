@@ -38,16 +38,26 @@
   min-height: 0;
   min-width: 0;
   overflow: hidden;
+  /* Sunken relative to the shell chrome (which sits on plain --graph-bg) so the
+     canvas reads as its own surface, not a continuation of the toolbar/panel
+     tone -- still derived from --graph-bg so it tracks the active theme. */
   background:
     radial-gradient(circle at center, color-mix(in srgb, var(--graph-cyan) calc(0.04 * 100%), transparent), transparent 34rem),
     linear-gradient(var(--theme-raw-vrgba2552552550018, rgba(255, 255, 255, 0.018)) 1px, transparent 1px),
     linear-gradient(90deg, var(--theme-raw-vrgba2552552550018, rgba(255, 255, 255, 0.018)) 1px, transparent 1px),
-    var(--graph-bg);
+    color-mix(in srgb, var(--graph-bg) 88%, black);
   background-size: auto, 18px 18px, 18px 18px;
 }
 
 .studio-graph-canvas .react-flow {
   height: 100%;
+  /* @xyflow/react's own stylesheet paints .react-flow.dark with an opaque
+     background-color (colorMode="dark" on <ReactFlow>, see node_modules/
+     @xyflow/react/dist/style.css) -- that div sits directly on top of this
+     section's own themed background (above), fully hiding it. Must win that
+     rule outright, not just tint it, since the library's is a flat opaque
+     fill with no theme awareness at all. */
+  background-color: transparent;
 }
 
 .studio-graph-canvas-hud {

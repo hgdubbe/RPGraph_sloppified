@@ -98,6 +98,8 @@ Play workspace—not only isolated controls.
 - Includes user documentation, theme internals, token extraction tooling, validation tests,
   and a reusable guided theme-designer skill under
   [`resources/themes/`](resources/themes/README.md).
+- Roughly 2,590 formerly-hardcoded style declarations across `src/styles.css` now run through
+  the token system instead of a fixed literal.
 
 ### AI Providers and Media Generation
 

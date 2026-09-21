@@ -48,6 +48,13 @@ into it.
   replace the free-text sampler/scheduler fields with dropdowns populated from supported values.
 - Add the established encryption/decryption mechanism to rotating autosaves, with an
   explicit user option to enable it.
+- Glass mode for node display (`.studio.glass-design-active .workflow-node`/
+  `.wire-link-shape`/`.react-flow__handle`, ~src/styles.css:21100) needs its own
+  separate theming pass. It uses `rgba(r, g, b, var(--glass-opacity, N))` — the RGB
+  triplet is a bespoke glass-tint literal, not wired to any token, and doesn't fit the
+  color-mix pattern the rest of the node theming sweep used since the alpha channel is
+  itself a live CSS var. Flagged and deliberately left alone during that sweep pending
+  its own fix.
 
 ## Done
 
