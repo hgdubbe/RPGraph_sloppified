@@ -8308,7 +8308,7 @@ input[type="number"]::-webkit-outer-spin-button {
   padding: 14px 18px;
   background: rgba(13, 18, 28, 0.85);
   backdrop-filter: blur(16px);
-  border-bottom: 1px solid color-mix(in srgb, var(--theme-app-text, #ffffff) 8%, transparent);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
 }
 
 .phone-banking-back-button {
@@ -8318,10 +8318,10 @@ input[type="number"]::-webkit-outer-spin-button {
   width: 32px;
   height: 32px;
   padding: 0;
-  border: 1px solid color-mix(in srgb, var(--theme-app-text, #ffffff) 12%, transparent);
+  border: 1px solid rgba(255, 255, 255, 0.12);
   border-radius: 10px;
-  background: color-mix(in srgb, var(--theme-app-text, #ffffff) 5%, transparent);
-  color: var(--theme-app-soft-white, #e2e8f0);
+  background: rgba(255, 255, 255, 0.05);
+  color: #e2e8f0;
   cursor: pointer;
   transition: all 0.15s ease;
 }
@@ -8329,9 +8329,9 @@ input[type="number"]::-webkit-outer-spin-button {
 .phone-banking-back-button:hover,
 .phone-banking-back-button:focus-visible {
   outline: none;
-  background: color-mix(in srgb, var(--theme-app-accent, #3b82f6) 15%, transparent);
-  border-color: color-mix(in srgb, var(--theme-app-accent, #3b82f6) 40%, transparent);
-  color: var(--theme-app-text, #ffffff);
+  background: rgba(59, 130, 246, 0.15);
+  border-color: rgba(59, 130, 246, 0.4);
+  color: #ffffff;
   transform: translateX(-1px);
 }
 
@@ -8346,7 +8346,7 @@ input[type="number"]::-webkit-outer-spin-button {
 .phone-banking-header-title span {
   font-size: 10px;
   font-weight: 700;
-  color: var(--theme-app-accent, #60a5fa);
+  color: #60a5fa;
   letter-spacing: 0.08em;
   text-transform: uppercase;
 }
@@ -8354,7 +8354,7 @@ input[type="number"]::-webkit-outer-spin-button {
 .phone-banking-header-title strong {
   font-size: 15px;
   font-weight: 700;
-  color: var(--theme-app-text, #f8fafc);
+  color: #f8fafc;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -8370,15 +8370,15 @@ input[type="number"]::-webkit-outer-spin-button {
   border: 1px solid rgba(34, 197, 94, 0.3);
   font-size: 10px;
   font-weight: 700;
-  color: var(--theme-app-success, #4ade80);
+  color: #4ade80;
 }
 
 .phone-banking-status-dot {
   width: 6px;
   height: 6px;
   border-radius: 50%;
-  background: var(--theme-app-success, #22c55e);
-  box-shadow: 0 0 8px var(--theme-app-success, #22c55e);
+  background: #22c55e;
+  box-shadow: 0 0 8px #22c55e;
   animation: phoneBankingPulse 2s infinite ease-in-out;
 }
 
@@ -8396,22 +8396,22 @@ input[type="number"]::-webkit-outer-spin-button {
   min-height: 115px;
   padding: 14px 18px;
   border-radius: 18px;
-  background: linear-gradient(135deg, #1e3a8a 0%, var(--theme-app-surface, #0f172a) 55%, #1e1b4b 100%);
+  background: linear-gradient(135deg, #1e3a8a 0%, #0f172a 55%, #1e1b4b 100%);
   border: 1px solid rgba(96, 165, 250, 0.3);
-  box-shadow:
+  box-shadow: 
     0 12px 28px -6px rgba(0, 0, 0, 0.5),
     0 4px 12px rgba(30, 58, 138, 0.25),
-    inset 0 1px 0 color-mix(in srgb, var(--theme-app-text, #ffffff) 20%, transparent);
+    inset 0 1px 0 rgba(255, 255, 255, 0.2);
   overflow: hidden;
   transition: transform 0.2s ease, box-shadow 0.2s ease;
 }
 
 .phone-banking-balance-card:hover {
   transform: translateY(-2px);
-  box-shadow:
+  box-shadow: 
     0 16px 32px -6px rgba(0, 0, 0, 0.6),
     0 6px 16px rgba(30, 58, 138, 0.35),
-    inset 0 1px 0 color-mix(in srgb, var(--theme-app-text, #ffffff) 25%, transparent);
+    inset 0 1px 0 rgba(255, 255, 255, 0.25);
 }
 
 .phone-banking-card-shine {
@@ -8420,7 +8420,7 @@ input[type="number"]::-webkit-outer-spin-button {
   right: -20%;
   width: 200px;
   height: 200px;
-  background: radial-gradient(circle, color-mix(in srgb, var(--theme-app-text, #ffffff) 12%, transparent) 0%, rgba(255, 255, 255, 0) 70%);
+  background: radial-gradient(circle, rgba(255, 255, 255, 0.12) 0%, rgba(255, 255, 255, 0) 70%);
   pointer-events: none;
 }
 
@@ -8441,7 +8441,7 @@ input[type="number"]::-webkit-outer-spin-button {
   height: 18px;
   border-radius: 4px;
   background: linear-gradient(135deg, #fbbf24 0%, #d97706 100%);
-  box-shadow: inset 0 1px 1px color-mix(in srgb, var(--theme-app-text, #ffffff) 40%, transparent), 0 1px 3px rgba(0, 0, 0, 0.3);
+  box-shadow: inset 0 1px 1px rgba(255, 255, 255, 0.4), 0 1px 3px rgba(0, 0, 0, 0.3);
   border: 1px solid rgba(245, 158, 11, 0.8);
 }
 
@@ -8467,16 +8467,16 @@ input[type="number"]::-webkit-outer-spin-button {
   height: 28px;
   padding: 0;
   border-radius: 8px;
-  border: 1px solid color-mix(in srgb, var(--theme-app-text, #ffffff) 15%, transparent);
-  background: color-mix(in srgb, var(--theme-app-text, #ffffff) 8%, transparent);
-  color: var(--theme-app-accent, #bfdbfe);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  background: rgba(255, 255, 255, 0.08);
+  color: #bfdbfe;
   cursor: pointer;
   transition: all 0.15s ease;
 }
 
 .phone-banking-privacy-toggle:hover {
-  background: color-mix(in srgb, var(--theme-app-text, #ffffff) 18%, transparent);
-  color: var(--theme-app-text, #ffffff);
+  background: rgba(255, 255, 255, 0.18);
+  color: #ffffff;
   transform: scale(1.05);
 }
 
@@ -8517,7 +8517,7 @@ input[type="number"]::-webkit-outer-spin-button {
 .phone-banking-balance-owner {
   font-size: 13px;
   font-weight: 700;
-  color: var(--theme-app-text, #f1f5f9);
+  color: #f1f5f9;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -8533,7 +8533,7 @@ input[type="number"]::-webkit-outer-spin-button {
 .phone-banking-balance-amount {
   font-size: 22px;
   font-weight: 800;
-  color: var(--theme-app-text, #ffffff);
+  color: #ffffff;
   letter-spacing: -0.02em;
   white-space: nowrap;
   text-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
@@ -8552,8 +8552,8 @@ input[type="number"]::-webkit-outer-spin-button {
 .phone-banking-card-digits-btn {
   display: flex;
   align-items: center;
-  background: color-mix(in srgb, var(--theme-app-text, #ffffff) 8%, transparent);
-  border: 1px solid color-mix(in srgb, var(--theme-app-text, #ffffff) 15%, transparent);
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.15);
   border-radius: 6px;
   padding: 2px 8px;
   font-size: 11px;
@@ -8566,9 +8566,9 @@ input[type="number"]::-webkit-outer-spin-button {
 }
 
 .phone-banking-card-digits-btn:hover {
-  background: color-mix(in srgb, var(--theme-app-accent, #3b82f6) 25%, transparent);
-  border-color: color-mix(in srgb, var(--theme-app-accent, #3b82f6) 45%, transparent);
-  color: var(--theme-app-text, #ffffff);
+  background: rgba(59, 130, 246, 0.25);
+  border-color: rgba(59, 130, 246, 0.45);
+  color: #ffffff;
 }
 
 /* Sections */
@@ -8578,14 +8578,19 @@ input[type="number"]::-webkit-outer-spin-button {
   flex-direction: column;
   gap: 12px;
   padding: 16px;
-  border: 1px solid color-mix(in srgb, var(--theme-app-text, #ffffff) 8%, transparent);
+  border: 1px solid rgba(255, 255, 255, 0.08);
   border-radius: 16px;
   background: rgba(17, 24, 39, 0.55);
   backdrop-filter: blur(12px);
   box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2);
 }
 
-
+.phone-banking-section-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
 
 .phone-banking-section-title-group {
   display: flex;
@@ -8600,13 +8605,13 @@ input[type="number"]::-webkit-outer-spin-button {
   width: 24px;
   height: 24px;
   border-radius: 7px;
-  background: color-mix(in srgb, var(--theme-app-accent, #3b82f6) 15%, transparent);
-  color: var(--theme-app-accent, #60a5fa);
+  background: rgba(59, 130, 246, 0.15);
+  color: #60a5fa;
 }
 
 .phone-banking-section h4 {
   margin: 0;
-  color: var(--theme-app-text, #f1f5f9);
+  color: #f1f5f9;
   font-size: 13px;
   font-weight: 700;
   letter-spacing: -0.01em;
@@ -8615,8 +8620,8 @@ input[type="number"]::-webkit-outer-spin-button {
 .phone-banking-count-badge {
   padding: 2px 7px;
   border-radius: 999px;
-  background: color-mix(in srgb, var(--theme-app-text, #ffffff) 8%, transparent);
-  color: var(--theme-app-muted, #94a3b8);
+  background: rgba(255, 255, 255, 0.08);
+  color: #94a3b8;
   font-size: 10px;
   font-weight: 700;
 }
@@ -8626,9 +8631,9 @@ input[type="number"]::-webkit-outer-spin-button {
   align-items: center;
   gap: 5px;
   padding: 5px 10px;
-  border: 1px solid color-mix(in srgb, var(--theme-app-accent, #3b82f6) 35%, transparent);
+  border: 1px solid rgba(59, 130, 246, 0.35);
   border-radius: 8px;
-  color: var(--theme-app-accent, #bfdbfe);
+  color: #bfdbfe;
   background: rgba(30, 58, 138, 0.3);
   cursor: pointer;
   font-size: 11px;
@@ -8639,29 +8644,32 @@ input[type="number"]::-webkit-outer-spin-button {
 .phone-banking-add-recipient-button:hover,
 .phone-banking-add-recipient-button:focus-visible {
   outline: none;
-  border-color: var(--theme-app-accent, #3b82f6);
-  background: color-mix(in srgb, var(--theme-app-accent, #3b82f6) 25%, transparent);
-  color: var(--theme-app-text, #ffffff);
+  border-color: #3b82f6;
+  background: rgba(59, 130, 246, 0.25);
+  color: #ffffff;
 }
 
 .phone-banking-add-recipient-button.cancel {
-  border-color: color-mix(in srgb, var(--theme-danger, #ef4444) 30%, transparent);
+  border-color: rgba(239, 68, 68, 0.3);
   background: rgba(153, 27, 27, 0.2);
-  color: var(--theme-danger, #fca5a5);
+  color: #fca5a5;
 }
 
 .phone-banking-add-recipient-button.cancel:hover {
-  border-color: var(--theme-danger, #ef4444);
-  background: color-mix(in srgb, var(--theme-danger, #ef4444) 25%, transparent);
-  color: var(--theme-app-text, #ffffff);
+  border-color: #ef4444;
+  background: rgba(239, 68, 68, 0.25);
+  color: #ffffff;
 }
 
-
+.phone-banking-add-recipient-button:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
 
 .phone-banking-btn-plus {
   font-weight: 800;
   font-size: 13px;
-  color: var(--theme-app-accent, #60a5fa);
+  color: #60a5fa;
 }
 
 /* Add Recipient Drawer */
@@ -8671,9 +8679,9 @@ input[type="number"]::-webkit-outer-spin-button {
   gap: 12px;
   padding: 12px 14px;
   border-radius: 12px;
-  background: color-mix(in srgb, var(--theme-app-surface, #0f172a) 70%, transparent);
-  border: 1px solid color-mix(in srgb, var(--theme-app-accent, #3b82f6) 25%, transparent);
-  box-shadow: inset 0 1px 0 color-mix(in srgb, var(--theme-app-text, #ffffff) 5%, transparent);
+  background: rgba(15, 23, 42, 0.7);
+  border: 1px solid rgba(59, 130, 246, 0.25);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05);
   animation: phoneBankingFadeIn 0.2s ease-out;
 }
 
@@ -8698,26 +8706,26 @@ input[type="number"]::-webkit-outer-spin-button {
 .phone-banking-input-icon {
   position: absolute;
   left: 10px;
-  color: var(--theme-app-muted, #64748b);
+  color: #64748b;
   pointer-events: none;
 }
 
 .phone-banking-input-wrapper input {
   width: 100%;
   padding: 9px 12px 9px 32px;
-  border: 1px solid var(--theme-app-line, #334155);
+  border: 1px solid #334155;
   border-radius: 9px;
-  color: var(--theme-app-text, #f8fafc);
-  background: var(--theme-app-dialog-bg, #0b1120);
+  color: #f8fafc;
+  background: #0b1120;
   font-size: 13px;
   transition: all 0.15s ease;
 }
 
 .phone-banking-input-wrapper input:focus-visible {
   outline: none;
-  border-color: var(--theme-app-accent, #3b82f6);
-  box-shadow: 0 0 0 2px color-mix(in srgb, var(--theme-app-accent, #3b82f6) 20%, transparent);
-  background: var(--theme-app-surface, #0f172a);
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.2);
+  background: #0f172a;
 }
 
 .phone-banking-hint-box {
@@ -8730,9 +8738,9 @@ input[type="number"]::-webkit-outer-spin-button {
 }
 
 .phone-banking-hint-box.error {
-  background: color-mix(in srgb, var(--theme-danger, #ef4444) 12%, transparent);
-  border: 1px solid color-mix(in srgb, var(--theme-danger, #ef4444) 25%, transparent);
-  color: var(--theme-danger, #fca5a5);
+  background: rgba(239, 68, 68, 0.12);
+  border: 1px solid rgba(239, 68, 68, 0.25);
+  color: #fca5a5;
 }
 
 .phone-banking-candidate-preview-card {
@@ -8742,7 +8750,7 @@ input[type="number"]::-webkit-outer-spin-button {
   padding: 8px 12px;
   border-radius: 10px;
   background: rgba(30, 58, 138, 0.25);
-  border: 1px solid color-mix(in srgb, var(--theme-app-accent, #3b82f6) 40%, transparent);
+  border: 1px solid rgba(59, 130, 246, 0.4);
 }
 
 .phone-banking-candidate-details {
@@ -8754,12 +8762,12 @@ input[type="number"]::-webkit-outer-spin-button {
 
 .phone-banking-candidate-details strong {
   font-size: 12px;
-  color: var(--theme-app-text, #ffffff);
+  color: #ffffff;
 }
 
 .phone-banking-candidate-details small {
   font-size: 10px;
-  color: var(--theme-app-accent, #93c5fd);
+  color: #93c5fd;
 }
 
 .phone-banking-verified-check {
@@ -8769,8 +8777,8 @@ input[type="number"]::-webkit-outer-spin-button {
   width: 18px;
   height: 18px;
   border-radius: 50%;
-  background: var(--theme-app-success, #22c55e);
-  color: var(--theme-app-text, #ffffff);
+  background: #22c55e;
+  color: #ffffff;
   font-size: 10px;
   font-weight: 800;
 }
@@ -8778,10 +8786,10 @@ input[type="number"]::-webkit-outer-spin-button {
 .phone-banking-contact-save-button {
   width: 100%;
   padding: 8px 14px;
-  border: 1px solid var(--theme-app-accent, #2563eb);
+  border: 1px solid #2563eb;
   border-radius: 9px;
-  color: var(--theme-app-text, #ffffff);
-  background: linear-gradient(135deg, var(--theme-app-accent, #2563eb) 0%, var(--theme-app-accent, #1d4ed8) 100%);
+  color: #ffffff;
+  background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%);
   cursor: pointer;
   font-size: 12px;
   font-weight: 700;
@@ -8789,27 +8797,14 @@ input[type="number"]::-webkit-outer-spin-button {
 }
 
 .phone-banking-contact-save-button:hover:not(:disabled) {
-  background: linear-gradient(135deg, var(--theme-app-accent, #3b82f6) 0%, var(--theme-app-accent, #2563eb) 100%);
+  background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
   box-shadow: 0 4px 12px rgba(37, 99, 235, 0.35);
 }
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+.phone-banking-contact-save-button:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
 
 /* Recipient Carousel / Selection */
 .phone-banking-recipients-wrapper {
@@ -8821,7 +8816,7 @@ input[type="number"]::-webkit-outer-spin-button {
 .phone-banking-recipients-label {
   font-size: 11px;
   font-weight: 600;
-  color: var(--theme-app-muted, #94a3b8);
+  color: #94a3b8;
   letter-spacing: 0.02em;
 }
 
@@ -8840,9 +8835,9 @@ input[type="number"]::-webkit-outer-spin-button {
   min-width: 64px;
   max-width: 80px;
   padding: 8px 6px 6px;
-  border: 1px solid color-mix(in srgb, var(--theme-app-text, #ffffff) 8%, transparent);
+  border: 1px solid rgba(255, 255, 255, 0.08);
   border-radius: 12px;
-  background: color-mix(in srgb, var(--theme-app-surface, #0f172a) 50%, transparent);
+  background: rgba(15, 23, 42, 0.5);
   cursor: pointer;
   transition: all 0.15s cubic-bezier(0.4, 0, 0.2, 1);
 }
@@ -8855,9 +8850,9 @@ input[type="number"]::-webkit-outer-spin-button {
 }
 
 .phone-banking-recipient-card.active {
-  border-color: var(--theme-app-accent, #3b82f6);
+  border-color: #3b82f6;
   background: rgba(30, 58, 138, 0.4);
-  box-shadow: 0 0 16px color-mix(in srgb, var(--theme-app-accent, #3b82f6) 35%, transparent);
+  box-shadow: 0 0 16px rgba(59, 130, 246, 0.35);
   transform: translateY(-2px);
 }
 
@@ -8885,9 +8880,9 @@ input[type="number"]::-webkit-outer-spin-button {
   width: 14px;
   height: 14px;
   border-radius: 50%;
-  background: var(--theme-app-accent, #3b82f6);
-  border: 1.5px solid var(--theme-app-surface, #0f172a);
-  color: var(--theme-app-text, #ffffff);
+  background: #3b82f6;
+  border: 1.5px solid #0f172a;
+  color: #ffffff;
   font-size: 8px;
   font-weight: 900;
 }
@@ -8895,7 +8890,7 @@ input[type="number"]::-webkit-outer-spin-button {
 .phone-banking-recipient-name {
   font-size: 11px;
   font-weight: 600;
-  color: var(--theme-app-soft-white, #e2e8f0);
+  color: #e2e8f0;
   text-align: center;
   white-space: nowrap;
   overflow: hidden;
@@ -8904,7 +8899,7 @@ input[type="number"]::-webkit-outer-spin-button {
 }
 
 .phone-banking-recipient-card.active .phone-banking-recipient-name {
-  color: var(--theme-app-accent, #93c5fd);
+  color: #93c5fd;
   font-weight: 700;
 }
 
@@ -8922,7 +8917,7 @@ input[type="number"]::-webkit-outer-spin-button {
 }
 
 .phone-banking-field span {
-  color: var(--theme-app-muted, #94a3b8);
+  color: #94a3b8;
   font-size: 11px;
   font-weight: 600;
 }
@@ -8939,23 +8934,23 @@ input[type="number"]::-webkit-outer-spin-button {
   align-items: center;
   flex: 0 0 35%;
   min-width: 95px;
-  border: 1px solid var(--theme-app-line, #334155);
+  border: 1px solid #334155;
   border-radius: 10px;
-  background: var(--theme-app-dialog-bg, #0b1120);
+  background: #0b1120;
   padding: 4px 10px;
   transition: all 0.15s ease;
 }
 
 .phone-banking-amount-input-box:focus-within {
-  border-color: var(--theme-app-accent, #3b82f6);
-  box-shadow: 0 0 0 2px color-mix(in srgb, var(--theme-app-accent, #3b82f6) 20%, transparent);
-  background: var(--theme-app-surface, #0f172a);
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.2);
+  background: #0f172a;
 }
 
 .phone-banking-amount-prefix {
   font-size: 18px;
   font-weight: 700;
-  color: var(--theme-app-accent, #60a5fa);
+  color: #60a5fa;
   margin-right: 4px;
   user-select: none;
 }
@@ -8964,7 +8959,7 @@ input[type="number"]::-webkit-outer-spin-button {
   width: 100%;
   border: none;
   background: transparent;
-  color: var(--theme-app-text, #ffffff);
+  color: #ffffff;
   font-size: 18px;
   font-weight: 700;
   padding: 4px 0;
@@ -8982,10 +8977,10 @@ input[type="number"]::-webkit-outer-spin-button {
 .phone-banking-quick-chip {
   flex: 1;
   padding: 7px 4px;
-  border: 1px solid color-mix(in srgb, var(--theme-app-text, #ffffff) 10%, transparent);
+  border: 1px solid rgba(255, 255, 255, 0.1);
   border-radius: 8px;
-  background: color-mix(in srgb, var(--theme-app-text, #ffffff) 5%, transparent);
-  color: var(--theme-app-soft-white, #cbd5e1);
+  background: rgba(255, 255, 255, 0.05);
+  color: #cbd5e1;
   font-size: 12px;
   font-weight: 700;
   text-align: center;
@@ -8994,9 +8989,9 @@ input[type="number"]::-webkit-outer-spin-button {
 }
 
 .phone-banking-quick-chip:hover {
-  background: color-mix(in srgb, var(--theme-app-accent, #3b82f6) 25%, transparent);
-  border-color: color-mix(in srgb, var(--theme-app-accent, #3b82f6) 50%, transparent);
-  color: var(--theme-app-text, #ffffff);
+  background: rgba(59, 130, 246, 0.25);
+  border-color: rgba(59, 130, 246, 0.5);
+  color: #ffffff;
   transform: translateY(-1px);
 }
 
@@ -9010,8 +9005,8 @@ input[type="number"]::-webkit-outer-spin-button {
   padding: 12px 18px;
   border: none;
   border-radius: 12px;
-  color: var(--theme-app-text, #ffffff);
-  background: linear-gradient(135deg, var(--theme-app-accent, #2563eb) 0%, var(--theme-app-accent, #1d4ed8) 100%);
+  color: #ffffff;
+  background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%);
   cursor: pointer;
   font-size: 14px;
   font-weight: 700;
@@ -9021,7 +9016,7 @@ input[type="number"]::-webkit-outer-spin-button {
 }
 
 .phone-banking-send-button:hover:not(:disabled) {
-  background: linear-gradient(135deg, var(--theme-app-accent, #3b82f6) 0%, var(--theme-app-accent, #2563eb) 100%);
+  background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
   box-shadow: 0 6px 20px rgba(37, 99, 235, 0.45);
   transform: translateY(-1px);
 }
@@ -9038,14 +9033,14 @@ input[type="number"]::-webkit-outer-spin-button {
 
 .phone-banking-hint.send-hint {
   text-align: center;
-  color: var(--theme-danger, #fca5a5);
+  color: #fca5a5;
   font-size: 11px;
 }
 
 .phone-banking-empty {
   padding: 12px;
   text-align: center;
-  color: var(--theme-app-muted, #64748b);
+  color: #64748b;
   font-size: 12px;
 }
 
@@ -9065,15 +9060,15 @@ input[type="number"]::-webkit-outer-spin-button {
   align-items: center;
   gap: 12px;
   padding: 10px 14px;
-  border: 1px solid color-mix(in srgb, var(--theme-app-text, #ffffff) 6%, transparent);
+  border: 1px solid rgba(255, 255, 255, 0.06);
   border-radius: 12px;
-  background: color-mix(in srgb, var(--theme-app-surface, #0f172a) 50%, transparent);
+  background: rgba(15, 23, 42, 0.5);
   transition: all 0.15s ease;
 }
 
 .phone-banking-transaction:hover {
   background: rgba(30, 41, 59, 0.5);
-  border-color: color-mix(in srgb, var(--theme-app-text, #ffffff) 12%, transparent);
+  border-color: rgba(255, 255, 255, 0.12);
   transform: translateX(2px);
 }
 
@@ -9088,20 +9083,20 @@ input[type="number"]::-webkit-outer-spin-button {
 }
 
 .phone-banking-tx-icon.sent {
-  background: color-mix(in srgb, var(--theme-danger, #ef4444) 15%, transparent);
+  background: rgba(239, 68, 68, 0.15);
   color: #f87171;
-  border: 1px solid color-mix(in srgb, var(--theme-danger, #ef4444) 25%, transparent);
+  border: 1px solid rgba(239, 68, 68, 0.25);
 }
 
 .phone-banking-tx-icon.received {
   background: rgba(34, 197, 94, 0.15);
-  color: var(--theme-app-success, #4ade80);
+  color: #4ade80;
   border: 1px solid rgba(34, 197, 94, 0.25);
 }
 
 .phone-banking-tx-icon.dummy {
   background: rgba(148, 163, 184, 0.15);
-  color: var(--theme-app-soft-white, #cbd5e1);
+  color: #cbd5e1;
   border: 1px solid rgba(148, 163, 184, 0.25);
 }
 
@@ -9114,7 +9109,7 @@ input[type="number"]::-webkit-outer-spin-button {
 }
 
 .phone-banking-transaction-title {
-  color: var(--theme-app-text, #f1f5f9);
+  color: #f1f5f9;
   font-size: 13px;
   font-weight: 600;
   white-space: nowrap;
@@ -9123,7 +9118,7 @@ input[type="number"]::-webkit-outer-spin-button {
 }
 
 .phone-banking-transaction-note {
-  color: var(--theme-app-muted, #94a3b8);
+  color: #94a3b8;
   font-size: 11px;
   font-weight: 400;
   white-space: nowrap;
@@ -9132,7 +9127,7 @@ input[type="number"]::-webkit-outer-spin-button {
 }
 
 .phone-banking-transaction-time {
-  color: var(--theme-app-muted, #64748b);
+  color: #64748b;
   font-size: 10px;
   font-weight: 500;
 }
@@ -9150,7 +9145,13 @@ input[type="number"]::-webkit-outer-spin-button {
   letter-spacing: -0.01em;
 }
 
+.phone-banking-transaction-amount.sent {
+  color: #f87171;
+}
 
+.phone-banking-transaction-amount.received {
+  color: #4ade80;
+}
 
 /* Recipient Picker & Compact Candidate List */
 /* Recipient Picker: 3-column Grid */
@@ -9173,8 +9174,8 @@ input[type="number"]::-webkit-outer-spin-button {
   gap: 7px;
   padding: 6px 8px;
   border-radius: 9px;
-  background: color-mix(in srgb, var(--theme-app-surface, #0f172a) 65%, transparent);
-  border: 1px solid color-mix(in srgb, var(--theme-app-text, #ffffff) 8%, transparent);
+  background: rgba(15, 23, 42, 0.65);
+  border: 1px solid rgba(255, 255, 255, 0.08);
   cursor: pointer;
   min-width: 0;
   box-sizing: border-box;
@@ -9183,13 +9184,13 @@ input[type="number"]::-webkit-outer-spin-button {
 }
 
 .phone-banking-grid-candidate:hover {
-  background: color-mix(in srgb, var(--theme-app-accent, #3b82f6) 25%, transparent);
-  border-color: color-mix(in srgb, var(--theme-app-accent, #3b82f6) 50%, transparent);
+  background: rgba(59, 130, 246, 0.25);
+  border-color: rgba(59, 130, 246, 0.5);
   transform: translateY(-1px);
 }
 
 .phone-banking-grid-candidate:focus-visible {
-  outline: 2px solid var(--theme-app-accent, #3b82f6);
+  outline: 2px solid #3b82f6;
   outline-offset: 1px;
 }
 
@@ -9207,7 +9208,7 @@ input[type="number"]::-webkit-outer-spin-button {
 .phone-banking-grid-candidate-name {
   font-size: 12.5px;
   font-weight: 700;
-  color: var(--theme-app-text, #f1f5f9);
+  color: #f1f5f9;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -9222,7 +9223,7 @@ input[type="number"]::-webkit-outer-spin-button {
   padding: 12px;
   text-align: center;
   font-size: 11px;
-  color: var(--theme-app-muted, #64748b);
+  color: #64748b;
 }
 
 .phone-banking-input-clear-btn {
@@ -9232,8 +9233,8 @@ input[type="number"]::-webkit-outer-spin-button {
   height: 20px;
   border-radius: 50%;
   border: none;
-  background: color-mix(in srgb, var(--theme-app-text, #ffffff) 10%, transparent);
-  color: var(--theme-app-muted, #94a3b8);
+  background: rgba(255, 255, 255, 0.1);
+  color: #94a3b8;
   font-size: 10px;
   display: flex;
   align-items: center;
@@ -9243,14 +9244,14 @@ input[type="number"]::-webkit-outer-spin-button {
 }
 
 .phone-banking-input-clear-btn:hover {
-  background: color-mix(in srgb, var(--theme-app-text, #ffffff) 20%, transparent);
-  color: var(--theme-app-text, #ffffff);
+  background: rgba(255, 255, 255, 0.2);
+  color: #ffffff;
 }
 
 .phone-banking-suggestion-name {
   font-size: 12px;
   font-weight: 600;
-  color: var(--theme-app-text, #f1f5f9);
+  color: #f1f5f9;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -9258,7 +9259,7 @@ input[type="number"]::-webkit-outer-spin-button {
 
 .phone-banking-suggestion-role {
   font-size: 10px;
-  color: var(--theme-app-muted, #94a3b8);
+  color: #94a3b8;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -9271,9 +9272,9 @@ input[type="number"]::-webkit-outer-spin-button {
   width: 22px;
   height: 22px;
   border-radius: 50%;
-  background: color-mix(in srgb, var(--theme-app-accent, #3b82f6) 20%, transparent);
-  border: 1px solid color-mix(in srgb, var(--theme-app-accent, #3b82f6) 40%, transparent);
-  color: var(--theme-app-accent, #60a5fa);
+  background: rgba(59, 130, 246, 0.2);
+  border: 1px solid rgba(59, 130, 246, 0.4);
+  color: #60a5fa;
   font-size: 13px;
   font-weight: 700;
   flex-shrink: 0;
@@ -9287,8 +9288,8 @@ input[type="number"]::-webkit-outer-spin-button {
   gap: 12px;
   padding: 10px 14px;
   border-radius: 14px;
-  background: linear-gradient(135deg, rgba(30, 58, 138, 0.4) 0%, color-mix(in srgb, var(--theme-app-surface, #0f172a) 60%, transparent) 100%);
-  border: 1px solid color-mix(in srgb, var(--theme-app-accent, #3b82f6) 45%, transparent);
+  background: linear-gradient(135deg, rgba(30, 58, 138, 0.4) 0%, rgba(15, 23, 42, 0.6) 100%);
+  border: 1px solid rgba(59, 130, 246, 0.45);
   box-shadow: 0 4px 14px rgba(30, 58, 138, 0.25);
   animation: phoneBankingFadeIn 0.2s ease-out;
 }
@@ -9318,7 +9319,7 @@ input[type="number"]::-webkit-outer-spin-button {
 .phone-banking-selected-label {
   font-size: 10px;
   font-weight: 700;
-  color: var(--theme-app-accent, #60a5fa);
+  color: #60a5fa;
   text-transform: uppercase;
   letter-spacing: 0.05em;
 }
@@ -9326,7 +9327,7 @@ input[type="number"]::-webkit-outer-spin-button {
 .phone-banking-selected-name {
   font-size: 15px;
   font-weight: 700;
-  color: var(--theme-app-text, #ffffff);
+  color: #ffffff;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -9334,7 +9335,7 @@ input[type="number"]::-webkit-outer-spin-button {
 
 .phone-banking-selected-role {
   font-size: 11px;
-  color: var(--theme-app-muted, #94a3b8);
+  color: #94a3b8;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -9345,9 +9346,9 @@ input[type="number"]::-webkit-outer-spin-button {
   align-items: center;
   padding: 5px 10px;
   border-radius: 8px;
-  border: 1px solid color-mix(in srgb, var(--theme-app-text, #ffffff) 15%, transparent);
-  background: color-mix(in srgb, var(--theme-app-text, #ffffff) 8%, transparent);
-  color: var(--theme-app-soft-white, #e2e8f0);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  background: rgba(255, 255, 255, 0.08);
+  color: #e2e8f0;
   font-size: 11px;
   font-weight: 600;
   cursor: pointer;
@@ -9356,14 +9357,14 @@ input[type="number"]::-webkit-outer-spin-button {
 }
 
 .phone-banking-change-recipient-btn:hover {
-  background: color-mix(in srgb, var(--theme-danger, #ef4444) 20%, transparent);
-  border-color: color-mix(in srgb, var(--theme-danger, #ef4444) 40%, transparent);
-  color: var(--theme-danger, #fca5a5);
+  background: rgba(239, 68, 68, 0.2);
+  border-color: rgba(239, 68, 68, 0.4);
+  color: #fca5a5;
 }
 
 .phone-banking-subtle-hint {
   font-size: 11px;
-  color: var(--theme-app-muted, #64748b);
+  color: #64748b;
   text-align: center;
   margin-top: -4px;
 }
@@ -9373,10 +9374,10 @@ input[type="number"]::-webkit-outer-spin-button {
   display: flex;
   align-items: center;
   gap: 4px;
-  background: color-mix(in srgb, var(--theme-app-surface, #0f172a) 60%, transparent);
+  background: rgba(15, 23, 42, 0.6);
   padding: 3px;
   border-radius: 8px;
-  border: 1px solid color-mix(in srgb, var(--theme-app-text, #ffffff) 6%, transparent);
+  border: 1px solid rgba(255, 255, 255, 0.06);
 }
 
 .phone-banking-tx-filter-btn {
@@ -9384,7 +9385,7 @@ input[type="number"]::-webkit-outer-spin-button {
   border-radius: 6px;
   border: none;
   background: transparent;
-  color: var(--theme-app-muted, #94a3b8);
+  color: #94a3b8;
   font-size: 10px;
   font-weight: 600;
   cursor: pointer;
@@ -9392,12 +9393,12 @@ input[type="number"]::-webkit-outer-spin-button {
 }
 
 .phone-banking-tx-filter-btn:hover {
-  color: var(--theme-app-text, #ffffff);
+  color: #ffffff;
 }
 
 .phone-banking-tx-filter-btn.active {
-  background: color-mix(in srgb, var(--theme-app-accent, #3b82f6) 25%, transparent);
-  color: var(--theme-app-accent, #60a5fa);
+  background: rgba(59, 130, 246, 0.25);
+  color: #60a5fa;
   font-weight: 700;
 }
 
