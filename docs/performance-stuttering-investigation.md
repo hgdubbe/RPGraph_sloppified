@@ -247,3 +247,71 @@ Related phone-image, account-link, character-runtime and roleplay-runtime tests
 also pass. These are avoided-work assertions, not a measured frame-rate result.
 The user's next manual check remains the same sound/message arrival while the
 chat is auto-scrolling; no application or UI test was launched here.
+
+## Follow-up: node dragging and textarea typing, independent of streaming
+
+A separate report describes lag while dragging graph nodes and while typing into
+a node's own text fields (e.g. LLM Prompt's before/after textareas), unrelated to
+LLM output streaming. `portraitDataUrl`'s WeakMap cache above was replaced with a
+content-keyed LRU (`src/characters/portrait.ts`) as part of that report; this
+section covers the remaining, unimplemented findings. No code was changed for the
+items below — this is analysis only, to be validated before deciding on a fix.
+
+### Dragging is already position-filtered; the residual cost is App itself
+
+`createNodeViewSnapshot` (`src/app/nodeViewSnapshot.ts`) bails out and reuses the
+previous `nodeViewNodes` array whenever every node's `id`/`type`/`data`/`style`
+reference is unchanged, which is true for a pure position drag. The storybook,
+content-node, edge-coloring and workflow-capability selectors keyed on
+`nodeViewNodes` (see below) are therefore correctly skipped during a drag; the
+existing fast path works as intended.
+
+The residual drag cost is more diffuse: `nodes`, not `nodeViewNodes`, is passed
+directly to `<ReactFlow nodes={nodes} ...>` (`src/App.tsx`), so React Flow's own
+per-frame diffing plus re-executing the roughly 6,600-line `App` function body on
+every drag frame (including several un-memoized `.find()`/`.filter()` calls over
+`nodeViewNodes` scattered through the render body, e.g. locating the header,
+storybook creator/editor, and node-assistant nodes) is the likely remaining
+source. This has not been profiled; it is a secondary suspect relative to typing.
+
+### Typing still invalidates whole-graph selectors keyed on `nodeViewNodes`
+
+Item 2 above narrowed `NodeViewContext` itself to `contentNodes` so status/metric/
+step-label updates stop broadcasting to every card. That narrowing does not cover
+several *other* memos that are still keyed on the raw `nodeViewNodes` reference,
+which still changes on every keystroke (any edit to a node's `data` fails the
+`createNodeViewSnapshot` identity check for that node, so the selector returns a
+new top-level array). Each of the following therefore re-scans every node (and,
+for the first one, every edge) on every keystroke in any text field, regardless
+of which node is being edited:
+
+- `findChatEndpoints(nodeViewNodes)` (`src/App.tsx`, `src/storybook/runtime.ts`) —
+  parses `storybookJson` and scans for input/output nodes across all nodes.
+- `useStorybookContentNodes(nodeViewNodes)` (`src/storybook/useStorybookContentNodes.ts`)
+  — re-filters all nodes before its own memo can decide the output is unchanged.
+- `storybookOpeningSituation(nodeViewNodes)` (`src/storybook/runtime.ts`) —
+  `flatMap`s over all nodes.
+- `useNodeViewContent(nodeViewNodes)` (`src/nodes/nodeViewContent.ts`) — filters
+  all nodes before comparing against its cached selection.
+- `useWorkflowCapabilities({ nodes: nodeViewNodes, ... })`
+  (`src/app/useWorkflowCapabilities.ts`) — loops every node and reparses prompt
+  actions for every LLM node.
+- `renderedEdges` (`src/App.tsx`, via `removeEdgesConnectedToIncompatibleNodes`
+  and `withSourceNodeStatusConnectionColors` in `src/graph/edges.ts`) — filters
+  all edges, then maps every edge to a new object (new `style`/`markerEnd`
+  included). That new array is what `<ReactFlow edges={renderedEdges} ...>`
+  receives, so React Flow re-diffs every edge in the graph, not just edges
+  touching the node being typed into. This is the most expensive of the group
+  and scales directly with edge count.
+
+Node `Card` components remain correctly isolated (`WorkflowNodeRenderer`'s custom
+`memo` comparator, `useStableNodeActions`'s trampoline for `NodeActionsContext`,
+and the narrowed `NodeViewContext` value itself do not force unrelated cards to
+re-render). The lag is the selector re-computation above, not a card re-render
+storm — so it scales with total node/edge count rather than with how many cards
+happen to observe context.
+
+A fix in the same spirit as item 2 — giving these selectors their own
+`nodeViewNodes`-shaped-but-narrower stable input, analogous to `contentNodes`, so
+a keystroke that only changes one node's live field values does not fail their
+identity check — has not been implemented or measured here.
