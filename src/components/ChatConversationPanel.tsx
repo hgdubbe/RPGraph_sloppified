@@ -4,6 +4,7 @@ import { socialTimelineGroups, socialTimelineMessageText } from '../chat/socialT
 import { AccountLinkText } from './AccountLinkText';
 import {
   Fragment,
+  memo,
   type CSSProperties,
   type FormEvent,
   type RefObject,
@@ -25,6 +26,7 @@ import { dialogueSpeechText } from '../chat/dialogueVoiceSegments';
 import { VoicePlaybackDialog } from '../chat/VoicePlaybackDialog';
 import type { StorybookCharacter } from '../storybook/runtime';
 import type {
+  ChatDialogueQuote,
   ChatImageAttachment,
   DialogueVoiceMode,
   ImageCaptionChange,
@@ -186,6 +188,98 @@ function rpTimePlaceholderParts(format: RpDateTimeFormat) {
   }
   return { date: '00.00.00 WWW', time: '00:00' };
 }
+
+type DialogueTextProps = {
+  text: string;
+  keyPrefix: string;
+  messageId: number;
+  dialogue: ChatDialogueQuote[];
+  llmDialogueHighlightActive: boolean;
+  speakerColors: Record<string, string> | undefined;
+  characterColors: Map<string, string>;
+  dialogueVoiceSpeakerNames: ReadonlySet<string>;
+  activeDialogueVoiceKey: string | null;
+  onSpeakDialogue: (request: { key: string; messageId: number; speakerName: string; text: string }) => void;
+  chatColorIntensity: number;
+  thoughtTextStyle: 'bold' | 'italic' | 'light';
+  accountLinks: MessageRecord['accountLinks'];
+};
+
+/** Re-runs the dialogue-color/quoted-speech/thought-part text parsing (and its
+ * spans) only when this message's own text/dialogue or the shared display
+ * settings change — not on every render of the panel, e.g. every streamed
+ * chunk of an unrelated (or this same) message elsewhere in the history. */
+const DialogueText = memo(function DialogueText({
+  text, keyPrefix, messageId, dialogue, llmDialogueHighlightActive, speakerColors,
+  characterColors, dialogueVoiceSpeakerNames, activeDialogueVoiceKey, onSpeakDialogue,
+  chatColorIntensity, thoughtTextStyle, accountLinks,
+}: DialogueTextProps) {
+  const textParts = useMemo(
+    () => llmDialogueHighlightActive && dialogue.length > 0
+      ? coloredDialogueParts(text, dialogue)
+      : quotedSpeechParts(text),
+    [text, dialogue, llmDialogueHighlightActive],
+  );
+  return (
+    <>
+      {textParts.map((part, index) => {
+        const partSpeakerName = 'speakerName' in part ? part.speakerName : undefined;
+        const speechColor = partSpeakerName
+          ? speakerColors?.[partSpeakerName] ??
+            characterColors.get(partSpeakerName) ??
+            dialogueColors[0]
+          : undefined;
+        const pendingSpeech = !speechColor && 'isSpeech' in part && part.isSpeech;
+        const voiceKey =
+          partSpeakerName && dialogueVoiceSpeakerNames.has(partSpeakerName)
+            ? `${messageId}:${keyPrefix}:${index}`
+            : undefined;
+        const voiceActive = !!voiceKey && voiceKey === activeDialogueVoiceKey;
+        const className = [
+          speechColor ? 'dialogue-highlight' : pendingSpeech ? 'dialogue-highlight pending' : '',
+          voiceKey ? 'dialogue-voice' : '',
+          voiceActive ? 'dialogue-voice-active' : '',
+        ].filter(Boolean).join(' ');
+        return (
+          <span
+            key={`${keyPrefix}:${index}`}
+            className={className || undefined}
+            style={speechColor ? {
+              color: chatColorIntensity === 100
+                ? speechColor
+                : `oklch(from ${speechColor} calc(l * ${0.98 + chatColorIntensity * 0.0002}) calc(c * ${0.75 + chatColorIntensity * 0.0025}) h)`,
+            } : undefined}
+            title={
+              voiceKey
+                ? voiceActive
+                  ? 'Stop voice playback'
+                  : `Speak with the voice of ${partSpeakerName}`
+                : undefined
+            }
+            onClick={
+              voiceKey && partSpeakerName
+                ? () => onSpeakDialogue({ key: voiceKey, messageId, speakerName: partSpeakerName, text: part.text })
+                : undefined
+            }
+          >
+            {thoughtParts(part.text).map((thoughtPart, thoughtIndex) => (
+              <span
+                className={
+                  thoughtPart.isThought
+                    ? thoughtStyleClass(thoughtTextStyle || defaultThoughtTextStyle)
+                    : undefined
+                }
+                key={thoughtIndex}
+              >
+                <AccountLinkText text={thoughtPart.text} bindings={accountLinks} />
+              </span>
+            ))}
+          </span>
+        );
+      })}
+    </>
+  );
+});
 
 type ChatConversationPanelProps = {
   runtimeNodes: WorkflowNode[];
@@ -823,11 +917,6 @@ export function ChatConversationPanel({
           const llmDialogueHighlightActive =
             (message.role === 'output' || message.role === 'user') &&
             dialogueHighlightEnabled;
-          const parts = llmDialogueHighlightActive
-            ? dialogue.length > 0
-              ? coloredDialogueParts(visibleText, dialogue)
-              : quotedSpeechParts(visibleText)
-            : quotedSpeechParts(visibleText);
           const compositeTextBefore = (() => {
             const hasCompositeText =
               message.embeddedPhoneTextBefore !== undefined ||
@@ -888,71 +977,23 @@ export function ChatConversationPanel({
               ? <div className="rp-day-divider chat-day-divider" key={message.id}><span>{dayLabel}</span></div>
               : null;
           }
-          const renderDialoguePartSpans = (
-            textParts: Array<{ text: string; speakerName?: string; isSpeech?: boolean }>,
-            keyPrefix: string,
-          ) =>
-            textParts.map((part, index) => {
-              const partSpeakerName = 'speakerName' in part ? part.speakerName : undefined;
-              const speechColor = partSpeakerName
-                ? message.speakerColors?.[partSpeakerName] ??
-                  characterColors.get(partSpeakerName) ??
-                  dialogueColors[0]
-                : undefined;
-              const pendingSpeech = !speechColor && 'isSpeech' in part && part.isSpeech;
-              const voiceKey =
-                partSpeakerName && dialogueVoiceSpeakerNames.has(partSpeakerName)
-                  ? `${message.id}:${keyPrefix}:${index}`
-                  : undefined;
-              const voiceActive = !!voiceKey && voiceKey === activeDialogueVoiceKey;
-              const className = [
-                speechColor ? 'dialogue-highlight' : pendingSpeech ? 'dialogue-highlight pending' : '',
-                voiceKey ? 'dialogue-voice' : '',
-                voiceActive ? 'dialogue-voice-active' : '',
-              ].filter(Boolean).join(' ');
-              return (
-                <span
-                  key={`${keyPrefix}:${index}`}
-                  className={className || undefined}
-                  style={speechColor ? {
-                    color: chatColorIntensity === 100
-                      ? speechColor
-                      : `oklch(from ${speechColor} calc(l * ${0.98 + chatColorIntensity * 0.0002}) calc(c * ${0.75 + chatColorIntensity * 0.0025}) h)`,
-                  } : undefined}
-                  title={
-                    voiceKey
-                      ? voiceActive
-                        ? 'Stop voice playback'
-                        : `Speak with the voice of ${partSpeakerName}`
-                      : undefined
-                  }
-                  onClick={
-                    voiceKey && partSpeakerName
-                      ? () => onSpeakDialogue({ key: voiceKey, messageId: message.id, speakerName: partSpeakerName, text: part.text })
-                      : undefined
-                  }
-                >
-                  {thoughtParts(part.text).map((thoughtPart, thoughtIndex) => (
-                    <span
-                      className={
-                        thoughtPart.isThought
-                          ? thoughtStyleClass(thoughtTextStyle || defaultThoughtTextStyle)
-                          : undefined
-                      }
-                      key={thoughtIndex}
-                    >
-                      <AccountLinkText text={thoughtPart.text} bindings={message.accountLinks} />
-                    </span>
-                  ))}
-                </span>
-              );
-            });
-          const renderDialogueTextParts = (text: string, keyPrefix: string) => {
-            const textParts = llmDialogueHighlightActive && dialogue.length > 0
-              ? coloredDialogueParts(text, dialogue)
-              : quotedSpeechParts(text);
-            return renderDialoguePartSpans(textParts, keyPrefix);
-          };
+          const renderDialogueTextParts = (text: string, keyPrefix: string) => (
+            <DialogueText
+              text={text}
+              keyPrefix={keyPrefix}
+              messageId={message.id}
+              dialogue={dialogue}
+              llmDialogueHighlightActive={llmDialogueHighlightActive}
+              speakerColors={message.speakerColors}
+              characterColors={characterColors}
+              dialogueVoiceSpeakerNames={dialogueVoiceSpeakerNames}
+              activeDialogueVoiceKey={activeDialogueVoiceKey}
+              onSpeakDialogue={onSpeakDialogue}
+              chatColorIntensity={chatColorIntensity}
+              thoughtTextStyle={thoughtTextStyle}
+              accountLinks={message.accountLinks}
+            />
+          );
           const characterNameStyle = (name: string) => {
             const color = characterColors.get(name);
             return color ? { color } : undefined;
@@ -1830,7 +1871,7 @@ export function ChatConversationPanel({
                       ) : (visibleText || message.rpDateTime) && (
                         <p style={{ fontSize: chatTextSize || defaultChatTextSize }}>
                           <span className="chat-reading-stripes">
-                            {renderDialoguePartSpans(parts, 'main')}
+                            {renderDialogueTextParts(visibleText, 'main')}
                           </span>
                           {rpTimeTrackingEnabled &&
                             !message.eventInput &&

@@ -401,3 +401,38 @@ large structural extraction of a ~1,100-line, closure-heavy render body in a cor
 UI component, and was not attempted blind without a way to drive the actual
 Electron chat view through available tooling. This is the confirmed next target,
 not a fix already made.
+
+### Follow-up fix: memoize the dialogue-text parsing specifically
+
+A full per-row extraction (~40 closure-captured props/handlers across ~1,100
+lines) was judged too large and too risky to make blind, without a way to drive
+the actual Electron chat view. A narrower, lower-risk fix was made instead,
+targeting specifically the per-message text-parsing work this document's
+earlier "Timeline preparation" section did not cover: `coloredDialogueParts`/
+`quotedSpeechParts`/`thoughtParts` ran fresh, inline, unmemoized, for every
+visible message's main text and any composite phone-text before/after, on every
+render — including every streaming tick, for every message in the history, not
+just the one being generated.
+
+`DialogueText` (`src/components/ChatConversationPanel.tsx`, defined at module
+scope, wrapped in `React.memo`) now owns that parsing: it takes `text`,
+`dialogue`, `llmDialogueHighlightActive` and the handful of display-setting
+props the original inline code touched, and computes `textParts` via its own
+internal `useMemo` keyed on exactly those inputs. Because `dialogue` is read
+directly off the (unchanged, for other messages) `message` object and `text` is
+the same string when a message hasn't changed, `React.memo`'s default shallow
+prop comparison skips re-invoking this component — and therefore skips
+re-running the parsing — for every message in the history except the one or two
+actually changing on a given streaming tick. The three call sites (main text,
+composite-before, composite-after) were rewired to render `<DialogueText ...>`
+instead of building spans inline; behavior is unchanged (verified by keeping the
+exact same span/key/className/style/click-handler logic, just moved).
+
+This does not eliminate the panel-wide re-render itself (the outer ~1,100-line
+row body still runs on every streaming tick, per the analysis above), only the
+specific text-parsing cost inside it. It is a real, bounded reduction, not the
+full fix. Verified with `tsc --noEmit`, `eslint` (including
+`react-hooks/exhaustive-deps`, which would flag a missing `useMemo` dependency),
+and the full `vitest` suite (855/856 passing; the one failure is a pre-existing,
+unrelated ImageMagick-binary timeout). No application/Electron/browser UI test
+was launched — the same limitation noted throughout this document.
