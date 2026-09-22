@@ -315,3 +315,50 @@ A fix in the same spirit as item 2 — giving these selectors their own
 `nodeViewNodes`-shaped-but-narrower stable input, analogous to `contentNodes`, so
 a keystroke that only changes one node's live field values does not fail their
 identity check — has not been implemented or measured here.
+
+## Follow-up: the per-keystroke cost inside the edited field itself
+
+The chain above explains lag that scales with *graph size*: it fires regardless
+of which node is edited, and is worse on bigger graphs. It does not explain why
+typing is slow even in a small graph, or in a single long prompt field. That cost
+lives entirely inside `src/nodes/shared/JsonSyntaxTextarea.tsx`, independent of
+any graph-wide invalidation, and two distinct causes were found and fixed there.
+
+### Auto-reformat re-parsed and re-serialized the whole field on every keystroke
+
+`llm-prompt/Card.tsx` and `llm-prompt-switch/Card.tsx` both had `updatePromptBefore`/
+`updatePromptAfter` call `maybeFormatJson` on every `onChange`, which (when
+`autoFormatJson` is true, the default) ran `formatJsonTextSegments` — a full scan
+of the current field value for `{`/`[`, brace-matching each span, then
+`JSON.parse` + `JSON.stringify(..., null, 2)` on every candidate — synchronously
+in the change handler, before React even schedules a render. This cost scales
+with that one field's own length/JSON complexity and fires on every character,
+regardless of graph size; it would still be slow on a graph of one node with a
+long prompt.
+
+Both cards already call the same formatting (`formatCurrentPrompts`) `onFocus`
+and `onBlur`, so the per-keystroke reformat was redundant with an existing
+settle-time safety net; its only added value was live pretty-printing while
+typing. `updatePromptBefore`/`updatePromptAfter` in both files now commit the raw
+typed value instead, and formatting still happens on blur/focus as before.
+
+### Syntax-highlight re-tokenization on every keystroke
+
+Independent of auto-reformat, and affecting every textarea built on
+`JsonSyntaxTextarea` (not just prompt nodes), the highlight overlay's `tokens`
+`useMemo` re-ran `findSegments` → `jsonTokens` → six chained `.flatMap` regex
+passes, plus four separate "is highlighting active" regex scans, over the full
+field value on every keystroke, all keyed on `value` so the memoization bought
+nothing during typing. This is purely cosmetic (the value/selection/undo state
+that must be exact is handled via refs elsewhere in the same file). The
+highlighting inputs now derive from `useDeferredValue(value)` instead of `value`
+directly, so React can deprioritize the highlight recompute during rapid typing
+without delaying the actual committed value.
+
+### What remains open
+
+The graph-wide `nodeViewNodes`/`renderedEdges` chain documented above is still
+unfixed. On a large graph it is likely comparable to or bigger than the two
+textarea-local fixes above; on a small graph or a single long prompt field, the
+two fixes above were likely the dominant cost. Both categories are real and
+additive, not alternatives to each other.
