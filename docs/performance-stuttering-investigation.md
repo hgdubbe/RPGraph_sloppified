@@ -247,3 +247,47 @@ Related phone-image, account-link, character-runtime and roleplay-runtime tests
 also pass. These are avoided-work assertions, not a measured frame-rate result.
 The user's next manual check remains the same sound/message arrival while the
 chat is auto-scrolling; no application or UI test was launched here.
+
+## Follow-up: the remaining nodeViewNodes-keyed graph selectors
+
+A separate fix (in another PR against this same report) narrowed `App.tsx`'s
+`renderedEdges` so it no longer rebuilds every edge in the graph on an
+unrelated node's data edit. That was one item out of six selectors keyed on
+`nodeViewNodes`, which changes reference whenever any single node's `data`
+changes (`src/app/nodeViewSnapshot.ts`'s `createNodeViewSnapshot` only filters
+out position-only changes). This addresses the other five.
+
+Two of them — `useStorybookContentNodes` and `useNodeViewContent` — already
+had their own internal stabilization, via the same `createXSelector`-with-a-
+`previous`-comparison idiom used elsewhere in this codebase; they already
+return a stable output when nothing relevant changed. Their remaining cost is
+just an unavoidable, cheap O(n) filter scan on the way in — no change needed.
+
+`findChatEndpoints` and `storybookOpeningSituation` (`src/storybook/runtime.ts`)
+both, internally, only read storybook-source nodes' `storybookJson` — exactly
+the same narrow set `useStorybookContentNodes` already computes and exposes as
+`storybookContentNodes` in `App.tsx`. Both call sites now pass
+`storybookContentNodes` instead of raw `nodeViewNodes` (reordering
+`useStorybookContentNodes`'s call above `findChatEndpoints`'s, which didn't
+previously need it). Filtering an already-storybook-filtered list is a no-op,
+so behavior is unchanged; `findChatEndpoints`'s `inputNode`/`outputNode`
+fields are unused at its only call site, so passing it a storybook-only list
+(where those come back `undefined`) is harmless.
+
+`useWorkflowCapabilities` (`src/app/useWorkflowCapabilities.ts`) reads a wider
+set of per-node fields to reparse prompt actions and detect active/vision-
+active nodes: `kind`, `connectionId`, `nodeType`, `llmPromptActions`,
+`llmPromptBefore`, `llmPromptAfter`, the three `llmPromptSwitchPrompt*ByOutput`
+fields, `runActive`, `runVisionActive`. `createCapabilityRelevantNodesSelector`/
+`useCapabilityRelevantNodes` project down to just those fields and keep a
+stable array reference otherwise; the hook's internal `useMemo` now keys on
+that projection instead of raw `nodes`. Text content changes unrelated to
+those fields (portrait images, storybookJson, non-prompt fields, runtime
+previews) no longer trigger a reparse of every LLM node's prompt actions.
+
+Covered by a new `createCapabilityRelevantNodesSelector` test in
+`src/app/useWorkflowCapabilities.test.ts`; existing storybook/App-level tests
+covering `findChatEndpoints`/`storybookOpeningSituation` consumers pass
+unchanged. `tsc --noEmit` and `eslint` (`react-hooks/exhaustive-deps` clean)
+pass, and the full `vitest` suite passes. No application/Electron/browser UI
+test was launched.

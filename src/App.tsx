@@ -926,8 +926,12 @@ function App() {
     clearTurnTraces,
   } = useTurnTraceState();
   const notifySystemRef = useRef<(level: 'info' | 'warning' | 'error', message: string) => void>(() => {});
-  const { characterStorybookNodes } = useMemo(() => findChatEndpoints(nodeViewNodes), [nodeViewNodes]);
   const storybookContentNodes = useStorybookContentNodes(nodeViewNodes);
+  // findChatEndpoints only filters to storybook-source nodes for this destructured
+  // field (its inputNode/outputNode are unused here), so the already-stable,
+  // narrower storybookContentNodes can stand in for nodeViewNodes: a keystroke in
+  // an unrelated node no longer produces a new characterStorybookNodes reference.
+  const { characterStorybookNodes } = useMemo(() => findChatEndpoints(storybookContentNodes), [storybookContentNodes]);
   const storybooksByNodeId = useMemo(() => {
     return new Map(
       storybookContentNodes.flatMap((node) => {
@@ -1657,9 +1661,11 @@ function App() {
   }, [edges]);
   const nodeTypes = useMemo(() => ({ workflow: WorkflowNodeRenderer }), []);
   const edgeTypes = useMemo<EdgeTypes>(() => ({ [workflowEdgeType]: WorkflowEdge }), []);
+  // storybookOpeningSituation only reads storybook-source nodes' storybookJson,
+  // exactly what storybookContentNodes already stably narrows nodeViewNodes to.
   const openingSituation = useMemo(
-    () => storybookOpeningSituation(nodeViewNodes),
-    [nodeViewNodes],
+    () => storybookOpeningSituation(storybookContentNodes),
+    [storybookContentNodes],
   );
   const {
     groupedNodePaletteItems,
