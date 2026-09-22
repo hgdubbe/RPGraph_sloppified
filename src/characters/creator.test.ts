@@ -126,6 +126,8 @@ describe('shared container creator', () => {
     expect(readdirSync(directory).some((file) => file.endsWith('.tmp'))).toBe(false);
   });
 
+  // Generating and re-encoding a 1800x1400 fractal via the real `magick`
+  // binary can exceed vitest's default 5s timeout on a slower machine.
   it('limits large gallery images to one megapixel at fixed JPEG quality 84', async () => {
     const photo = join(directory, 'large-photo.png');
     await run('magick', ['-size', '1800x1400', 'plasma:fractal', photo]);
@@ -140,7 +142,7 @@ describe('shared container creator', () => {
     writeFileSync(jpeg, Buffer.from(image.dataUrl.split(',')[1], 'base64'));
     expect((await run('magick', [jpeg, '-format', '%Q', 'info:'])).stdout.trim()).toBe('84');
     expect(Buffer.from(image.dataUrl.split(',')[1], 'base64')).toHaveLength(image.size);
-  });
+  }, 20000);
 
   it('supports WebP inputs and rejects conflicting image IDs', async () => {
     const photo = join(directory, 'photo.webp');
