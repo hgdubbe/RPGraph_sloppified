@@ -248,52 +248,93 @@ also pass. These are avoided-work assertions, not a measured frame-rate result.
 The user's next manual check remains the same sound/message arrival while the
 chat is auto-scrolling; no application or UI test was launched here.
 
-## Follow-up: every edge in the graph is rebuilt on any node data change
+## Follow-up: the six nodeViewNodes-keyed graph selectors, fully addressed
 
-A separate report of lag while typing into a node's text fields and while
-dragging nodes traced back to `App.tsx`'s `renderedEdges`:
+A separate report of lag while dragging graph nodes and typing into a node's
+text fields traced back to six `useMemo`s/hooks in `App.tsx` all keyed on
+`nodeViewNodes`. `nodeViewNodes` (`src/app/nodeViewSnapshot.ts`'s
+`createNodeViewSnapshot`) is already designed to ignore position-only changes
+during a drag, but it gets a brand-new array reference whenever *any* single
+node's `data` changes for any other reason — including a keystroke in an
+unrelated node's textarea. Each of the six therefore re-scanned every node
+(and, for the worst one, every edge) on every such edit, regardless of graph
+size or which node was actually being edited:
 
-```
-const renderedEdges = useMemo(
-  () => withSourceNodeStatusConnectionColors(removeEdgesConnectedToIncompatibleNodes(nodeViewNodes, edges), nodeViewNodes),
-  [edges, nodeViewNodes],
-);
-```
+- `renderedEdges` (`src/App.tsx`, via `removeEdgesConnectedToIncompatibleNodes`
+  in `src/workflow/persistence.ts` and `withSourceNodeStatusConnectionColors`
+  in `src/graph/edges.ts`) — filtered all edges, then mapped every edge to a
+  new object, feeding it straight into `<ReactFlow edges={renderedEdges} ...>`
+  and forcing React Flow to re-diff every edge in the graph. The worst of the
+  six, since it's the only one feeding directly into React Flow's own diffing.
+- `findChatEndpoints` and `storybookOpeningSituation` (`src/storybook/runtime.ts`)
+  — parsed `storybookJson` across all nodes.
+- `useWorkflowCapabilities` (`src/app/useWorkflowCapabilities.ts`) — looped
+  every node and reparsed prompt actions for every LLM node.
+- `useStorybookContentNodes` and `useNodeViewContent` — re-filtered all nodes
+  on the way in, though (see below) their *output* was already stable.
 
-`nodeViewNodes` (`src/app/nodeViewSnapshot.ts`'s `createNodeViewSnapshot`) is
-already designed to ignore position-only changes during a drag, but it gets a
-brand-new array reference whenever *any* single node's `data` changes for any
-other reason — including a keystroke in an unrelated node's textarea. Because
-`renderedEdges` is keyed on that reference, every such edit rebuilt this array
-and fed a fresh object for every edge in the graph straight into
-`<ReactFlow edges={renderedEdges} ...>`, forcing React Flow to re-diff every
-edge on every keystroke, regardless of graph size or which node was edited.
+All six are now addressed.
 
-Checked what the two functions inside `renderedEdges` actually read per node:
-`removeEdgesConnectedToIncompatibleNodes` (`src/workflow/persistence.ts`) only
-reads `id` and `data.kind`; `withSourceNodeStatusConnectionColors`
-(`src/graph/edges.ts`) only reads `data.runPrepared`/`data.runCompleted`.
-Nothing else about a node — text content, portrait images, runtime previews,
-reasoning-token counters — affects edge rendering at all.
+### `renderedEdges`
 
-`createEdgeRelevantNodesSelector`/`useEdgeRelevantNodes` (`src/graph/edges.ts`)
-project `nodeViewNodes` down to just those four fields per node and keep a
-stable array reference unless one of them, or node membership/order, actually
-changes. `renderedEdges` now keys on that projection instead of raw
-`nodeViewNodes`, so a keystroke (or any other node-data edit that doesn't touch
-`kind`/`runPrepared`/`runCompleted`) no longer rebuilds or re-diffs any edge.
+Checked what the two functions inside it actually read per node:
+`removeEdgesConnectedToIncompatibleNodes` only reads `id`/`data.kind`;
+`withSourceNodeStatusConnectionColors` only reads
+`data.runPrepared`/`data.runCompleted`. Nothing else about a node — text
+content, portrait images, runtime previews, reasoning-token counters —
+affects edge rendering at all. `createEdgeRelevantNodesSelector`/
+`useEdgeRelevantNodes` (`src/graph/edges.ts`) project `nodeViewNodes` down to
+just those four fields per node and keep a stable array reference unless one
+of them, or node membership/order, actually changes. `renderedEdges` now keys
+on that projection instead of raw `nodeViewNodes`.
+
+### `findChatEndpoints` and `storybookOpeningSituation`
+
+Both, internally, only read storybook-source nodes' `storybookJson` — exactly
+the same narrow set `useStorybookContentNodes` already computes and exposes
+as `storybookContentNodes` in `App.tsx`. Both call sites now pass
+`storybookContentNodes` instead of raw `nodeViewNodes` (reordering
+`useStorybookContentNodes`'s call above `findChatEndpoints`'s, which didn't
+previously need it). Filtering an already-storybook-filtered list is a no-op,
+so behavior is unchanged; `findChatEndpoints`'s `inputNode`/`outputNode`
+fields are unused at its only call site, so passing it a storybook-only list
+(where those come back `undefined`) is harmless.
+
+### `useWorkflowCapabilities`
+
+Reads a wider set of per-node fields to reparse prompt actions and detect
+active/vision-active nodes: `kind`, `connectionId`, `nodeType`,
+`llmPromptActions`, `llmPromptBefore`, `llmPromptAfter`, the three
+`llmPromptSwitchPrompt*ByOutput` fields, `runActive`, `runVisionActive`.
+`createCapabilityRelevantNodesSelector`/`useCapabilityRelevantNodes` project
+down to just those fields and keep a stable array reference otherwise; the
+hook's internal `useMemo` now keys on that projection instead of raw `nodes`.
+
+### `useStorybookContentNodes` and `useNodeViewContent`
+
+These two already had their own internal stabilization, via the same
+`createXSelector`-with-a-`previous`-comparison idiom used above — they
+already returned a stable output when nothing relevant changed. Their listing
+above was about the unavoidable, cheap O(n) filter scan on the way in, not
+about their output cascading further invalidation, so no change was needed.
+
+### Node `Card` components were never the problem
+
+`WorkflowNodeRenderer`'s custom `memo` comparator, `useStableNodeActions`'s
+trampoline for `NodeActionsContext`, and the narrowed `NodeViewContext` value
+(see the earlier item above) already correctly isolate unrelated cards from
+re-rendering. The lag was the selector re-computation described here, not a
+card re-render storm — so it scaled with total node/edge count rather than
+with how many cards happen to observe context.
+
+### Verification
 
 Covered by a new `createEdgeRelevantNodesSelector` test in
-`src/graph/edges.test.ts`; the existing `withSourceNodeStatusConnectionColors`/
-`removeEdgesConnectedToIncompatibleNodes` tests pass unchanged since their own
-behavior wasn't touched, only what feeds them. `tsc --noEmit` and `eslint`
-(including `react-hooks/exhaustive-deps`) are clean, and the full `vitest`
-suite passes. No application/Electron/browser UI test was launched, matching
-this document's stated limitation throughout.
-
-Several other selectors in `App.tsx` are also keyed on raw `nodeViewNodes` and
-would benefit from the same narrowing treatment (`findChatEndpoints`,
-`useStorybookContentNodes`, `storybookOpeningSituation`, `useNodeViewContent`,
-`useWorkflowCapabilities`) — not fixed here; `renderedEdges` was the one
-feeding directly into React Flow's own per-edge diffing, so it was the
-highest-impact target of the group.
+`src/graph/edges.test.ts` and a new `createCapabilityRelevantNodesSelector`
+test in `src/app/useWorkflowCapabilities.test.ts`; existing
+`withSourceNodeStatusConnectionColors`/`removeEdgesConnectedToIncompatibleNodes`
+and storybook/App-level tests pass unchanged, since none of their own
+behavior was touched — only what feeds them was narrowed. `tsc --noEmit` and
+`eslint` (`react-hooks/exhaustive-deps` clean) pass, `knip` is clean, and the
+full `vitest` suite passes. No application/Electron/browser UI test was
+launched, matching this document's stated limitation throughout.
