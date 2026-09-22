@@ -341,6 +341,51 @@ per-edge diffing), so it was fixed first. `tsc --noEmit`, `eslint`
 (`react-hooks/exhaustive-deps` clean), and the full `vitest` suite (857/857
 passing) were run; no application/Electron/browser UI test was launched.
 
+### Fix implemented: the remaining four selectors
+
+Two of the five were already correctly narrowed internally and didn't need a
+new selector, just correct wiring: `useStorybookContentNodes` and
+`useNodeViewContent` each already keep their own stable output (via the same
+`createXSelector`-with-a-`previous`-comparison idiom used throughout this
+file) — their listing above was about the unavoidable, cheap O(n) filter scan
+on the way in, not about their output cascading further invalidation.
+
+`findChatEndpoints` and `storybookOpeningSituation` both, internally, only
+read storybook-source nodes' `storybookJson` — exactly the same narrow set
+`useStorybookContentNodes` already computes and calls `storybookContentNodes`
+in `App.tsx`. Both call sites now pass `storybookContentNodes` instead of raw
+`nodeViewNodes` (reordering `useStorybookContentNodes`'s call above
+`findChatEndpoints`'s, since the latter didn't previously need it). Filtering
+an already-storybook-filtered list is a no-op, so behavior is unchanged;
+`findChatEndpoints`'s `inputNode`/`outputNode` fields go unused at its only
+call site, so passing it a storybook-only list (where those will always be
+`undefined`) is harmless.
+
+`useWorkflowCapabilities` reads a wider set of per-node fields (`kind`,
+`connectionId`, `nodeType`, `llmPromptActions`, `llmPromptBefore`,
+`llmPromptAfter`, the three `llmPromptSwitchPrompt*ByOutput` fields,
+`runActive`, `runVisionActive`) to reparse prompt actions and detect
+active/vision-active nodes. `createCapabilityRelevantNodesSelector`/
+`useCapabilityRelevantNodes` (`src/app/useWorkflowCapabilities.ts`) project
+down to just those fields and keep a stable array reference otherwise; the
+hook's internal `useMemo` now keys on that projection instead of raw `nodes`.
+Text content changes unrelated to those fields (portrait images,
+storybookJson, non-prompt fields, runtime previews) no longer trigger a
+reparse of every LLM node's prompt actions.
+
+Covered by a new `createCapabilityRelevantNodesSelector` test in
+`src/app/useWorkflowCapabilities.test.ts`; existing `findChatEndpoints`/
+`storybookOpeningSituation` consumers are exercised indirectly via existing
+storybook/App-level tests, which pass unchanged. `tsc --noEmit` and `eslint`
+(`react-hooks/exhaustive-deps` clean) pass, and the full `vitest` suite
+(858/858) passes. No application/Electron/browser UI test was launched.
+
+All six items in the `nodeViewNodes`-invalidation chain identified above are
+now addressed: two already had internal stabilization (unchanged), and four
+(`renderedEdges`, `findChatEndpoints`, `storybookOpeningSituation`,
+`useWorkflowCapabilities`) now narrow their input instead of keying directly
+on raw `nodeViewNodes`.
+
 ## Follow-up: the per-keystroke cost inside the edited field itself
 
 The chain above explains lag that scales with *graph size*: it fires regardless
