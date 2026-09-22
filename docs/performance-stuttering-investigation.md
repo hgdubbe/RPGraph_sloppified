@@ -301,8 +301,8 @@ of which node is being edited:
   all edges, then maps every edge to a new object (new `style`/`markerEnd`
   included). That new array is what `<ReactFlow edges={renderedEdges} ...>`
   receives, so React Flow re-diffs every edge in the graph, not just edges
-  touching the node being typed into. This is the most expensive of the group
-  and scales directly with edge count.
+  touching the node being typed into. This was the most expensive of the group
+  and scaled directly with edge count — see the fix below.
 
 Node `Card` components remain correctly isolated (`WorkflowNodeRenderer`'s custom
 `memo` comparator, `useStableNodeActions`'s trampoline for `NodeActionsContext`,
@@ -311,10 +311,35 @@ re-render). The lag is the selector re-computation above, not a card re-render
 storm — so it scales with total node/edge count rather than with how many cards
 happen to observe context.
 
-A fix in the same spirit as item 2 — giving these selectors their own
-`nodeViewNodes`-shaped-but-narrower stable input, analogous to `contentNodes`, so
-a keystroke that only changes one node's live field values does not fail their
-identity check — has not been implemented or measured here.
+### Fix implemented: narrow `renderedEdges`'s input to what it actually reads
+
+Applied the same idiom as item 2's `contentNodes` narrowing, specifically to
+`renderedEdges` (the worst offender above): `removeEdgesConnectedToIncompatibleNodes`
+only reads a node's `id` and `data.kind`; `withSourceNodeStatusConnectionColors`
+only reads `data.runPrepared`/`data.runCompleted`. Nothing else about a node —
+text content, portrait images, runtime previews, reasoning-token counters —
+affects edge rendering at all.
+
+`createEdgeRelevantNodesSelector`/`useEdgeRelevantNodes` (`src/graph/edges.ts`)
+project `nodeViewNodes` down to just those four fields per node and keep a
+stable array reference unless one of them, or node membership/order, actually
+changes. `App.tsx`'s `renderedEdges` `useMemo` now keys on this projection
+instead of raw `nodeViewNodes`, so a keystroke (or any other node-data edit
+that doesn't touch `kind`/`runPrepared`/`runCompleted`) no longer rebuilds
+every edge in the graph. Covered by a new test in `src/graph/edges.test.ts`
+(`createEdgeRelevantNodesSelector`) plus the existing `withSourceNodeStatusConnectionColors`/
+`removeEdgesConnectedToIncompatibleNodes` tests, which pass unchanged since
+their behavior wasn't touched — only what feeds them.
+
+The other five selectors listed above (`findChatEndpoints`,
+`useStorybookContentNodes`, `storybookOpeningSituation`, `useNodeViewContent`,
+`useWorkflowCapabilities`) are each still keyed on raw `nodeViewNodes` and would
+benefit from the same narrowing treatment, but were not touched in this pass —
+`renderedEdges` was identified as the most expensive and highest-impact of the
+group (the only one whose output feeds directly into React Flow's own
+per-edge diffing), so it was fixed first. `tsc --noEmit`, `eslint`
+(`react-hooks/exhaustive-deps` clean), and the full `vitest` suite (857/857
+passing) were run; no application/Electron/browser UI test was launched.
 
 ## Follow-up: the per-keystroke cost inside the edited field itself
 
