@@ -362,3 +362,42 @@ unfixed. On a large graph it is likely comparable to or bigger than the two
 textarea-local fixes above; on a small graph or a single long prompt field, the
 two fixes above were likely the dominant cost. Both categories are real and
 additive, not alternatives to each other.
+
+## Follow-up: the stall specifically during LLM Prompt Switch / RP Output streaming
+
+The user confirms the textarea fixes helped only slightly, and pins the stall
+specifically to LLM Prompt Switch / RP Output streaming: scrolling is smooth
+again the instant streaming ends, and other node transitions cause only brief
+small stalls by comparison. That distinction points at the live-output update
+path itself, not at App/graph-wide invalidation or GPU/idle-scroll causes.
+
+Traced the full chain: `executeGraph`'s `streamOutput` (`src/app/useGraphRun.ts:1635-1643`)
+is `showLiveRpOutput`/`showLiveAutoplayOutput` → `showLiveWorkflowOutput` →
+`pendingLiveOutput`/`flushLiveOutput` → `applyLiveOutput` → `updateMessage(...,
+{ streaming: true })` (`src/chat/useTurnRecordState.ts:279`) → `messageStream.
+publish(...)` only. The earlier "separate live display publication from App
+state" fix genuinely holds: App does not re-render per chunk.
+
+`ChatConversationPanel` does, by necessity — it subscribes to that same stream
+via `useSyncExternalStore` (`ChatConversationPanel.tsx:380`) so streamed text is
+visible at all. Its render body performs dialogue-color parsing, speaker-label
+resolution, composite phone-text merging, day-label lookup and account-link text
+prep inline, unmemoized, for every message in the visible history, in the single
+`visibleMessages.map(...)` spanning roughly `ChatConversationPanel.tsx:774-1910`.
+At the ~100ms streaming cadence that is up to ~10 full-history reprocesses per
+second, for the entire duration of the LLM's response — not just the one
+streaming message. This is exactly the gap this document already named as an
+open follow-up ("Full per-message memoization and context separation remain
+possible follow-ups if profiling identifies React rendering as dominant") and
+the user's report is that prediction now confirmed by real use: streaming stalls
+because the one component that must react to it reprocesses the whole
+conversation on every tick, while other node transitions commit once and so only
+cause a brief stall by comparison.
+
+No fix was implemented for this in this pass. The indicated fix — extracting each
+message's render body into its own `React.memo`-wrapped row component keyed on
+message identity, so unchanged messages are skipped on each streaming tick — is a
+large structural extraction of a ~1,100-line, closure-heavy render body in a core
+UI component, and was not attempted blind without a way to drive the actual
+Electron chat view through available tooling. This is the confirmed next target,
+not a fix already made.
