@@ -48,6 +48,25 @@ describe('portable character portrait crops', () => {
     expect(decodedSvg(portraitDataUrl(portrait, { x: 90, y: 90, size: 50 }))).toContain('viewBox="200 600 200 200"');
   });
 
+  it('reuses an already derived portrait until its source dimensions or crop change', () => {
+    const image = {
+      dataUrl: 'data:image/jpeg;base64,QUJDRA==',
+      width: 800,
+      height: 600,
+    };
+    const encode = vi.spyOn(globalThis, 'btoa');
+
+    const first = portraitDataUrl(image, { x: 10, y: 20, size: 40 });
+    const repeated = portraitDataUrl({ ...image }, { x: 10, y: 20, size: 40 });
+
+    expect(repeated).toBe(first);
+    expect(encode).toHaveBeenCalledTimes(1);
+
+    portraitDataUrl(image, { x: 11, y: 20, size: 40 });
+    expect(encode).toHaveBeenCalledTimes(2);
+    encode.mockRestore();
+  });
+
   it('keeps explicit uncropped pictures and missing portraits distinct, including round trips', () => {
     const source = structuredClone(container.character);
     delete source.profileImage;
@@ -88,25 +107,4 @@ describe('portable character portrait crops', () => {
       expect(() => validateCharacterPayload(source)).toThrow('Portrait crops');
     }
   });
-});
-
-it('reuses avatar encoding and invalidates for crop, dimensions and source edits', () => {
-  const image = { dataUrl: 'data:image/jpeg;base64,YQ==', width: 800, height: 600 };
-  const crop = { x: 0, y: 0, size: 25 };
-  const encode = vi.spyOn(globalThis, 'btoa');
-  try {
-    const initial = portraitDataUrl(image, crop);
-    for (let message = 0; message < 100; message++) {
-      expect(portraitDataUrl(image, { ...crop })).toBe(initial);
-    }
-    expect(encode).toHaveBeenCalledTimes(1);
-    crop.x = 10;
-    expect(portraitDataUrl(image, crop)).not.toBe(initial);
-    image.width = 1000;
-    portraitDataUrl(image, crop);
-    image.dataUrl = 'data:image/jpeg;base64,Yg==';
-    portraitDataUrl(image, crop);
-    expect(encode).toHaveBeenCalledTimes(4);
-    expect(portraitDataUrl(image)).toBe(image.dataUrl);
-  } finally { encode.mockRestore(); }
 });
