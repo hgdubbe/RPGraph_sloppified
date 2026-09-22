@@ -247,3 +247,53 @@ Related phone-image, account-link, character-runtime and roleplay-runtime tests
 also pass. These are avoided-work assertions, not a measured frame-rate result.
 The user's next manual check remains the same sound/message arrival while the
 chat is auto-scrolling; no application or UI test was launched here.
+
+## Follow-up: every edge in the graph is rebuilt on any node data change
+
+A separate report of lag while typing into a node's text fields and while
+dragging nodes traced back to `App.tsx`'s `renderedEdges`:
+
+```
+const renderedEdges = useMemo(
+  () => withSourceNodeStatusConnectionColors(removeEdgesConnectedToIncompatibleNodes(nodeViewNodes, edges), nodeViewNodes),
+  [edges, nodeViewNodes],
+);
+```
+
+`nodeViewNodes` (`src/app/nodeViewSnapshot.ts`'s `createNodeViewSnapshot`) is
+already designed to ignore position-only changes during a drag, but it gets a
+brand-new array reference whenever *any* single node's `data` changes for any
+other reason — including a keystroke in an unrelated node's textarea. Because
+`renderedEdges` is keyed on that reference, every such edit rebuilt this array
+and fed a fresh object for every edge in the graph straight into
+`<ReactFlow edges={renderedEdges} ...>`, forcing React Flow to re-diff every
+edge on every keystroke, regardless of graph size or which node was edited.
+
+Checked what the two functions inside `renderedEdges` actually read per node:
+`removeEdgesConnectedToIncompatibleNodes` (`src/workflow/persistence.ts`) only
+reads `id` and `data.kind`; `withSourceNodeStatusConnectionColors`
+(`src/graph/edges.ts`) only reads `data.runPrepared`/`data.runCompleted`.
+Nothing else about a node — text content, portrait images, runtime previews,
+reasoning-token counters — affects edge rendering at all.
+
+`createEdgeRelevantNodesSelector`/`useEdgeRelevantNodes` (`src/graph/edges.ts`)
+project `nodeViewNodes` down to just those four fields per node and keep a
+stable array reference unless one of them, or node membership/order, actually
+changes. `renderedEdges` now keys on that projection instead of raw
+`nodeViewNodes`, so a keystroke (or any other node-data edit that doesn't touch
+`kind`/`runPrepared`/`runCompleted`) no longer rebuilds or re-diffs any edge.
+
+Covered by a new `createEdgeRelevantNodesSelector` test in
+`src/graph/edges.test.ts`; the existing `withSourceNodeStatusConnectionColors`/
+`removeEdgesConnectedToIncompatibleNodes` tests pass unchanged since their own
+behavior wasn't touched, only what feeds them. `tsc --noEmit` and `eslint`
+(including `react-hooks/exhaustive-deps`) are clean, and the full `vitest`
+suite passes. No application/Electron/browser UI test was launched, matching
+this document's stated limitation throughout.
+
+Several other selectors in `App.tsx` are also keyed on raw `nodeViewNodes` and
+would benefit from the same narrowing treatment (`findChatEndpoints`,
+`useStorybookContentNodes`, `storybookOpeningSituation`, `useNodeViewContent`,
+`useWorkflowCapabilities`) — not fixed here; `renderedEdges` was the one
+feeding directly into React Flow's own per-edge diffing, so it was the
+highest-impact target of the group.
