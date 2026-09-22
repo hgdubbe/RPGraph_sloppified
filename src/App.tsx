@@ -225,6 +225,7 @@ import { CharacterAssistantDialog } from './components/CharacterAssistantDialog'
 import { useNpcLibrary } from './characters/useNpcLibrary';
 import { WorkflowCapabilityStrip } from './components/WorkflowCapabilityStrip';
 import {
+  useEdgeRelevantNodes,
   withSourceNodeStatusConnectionColors,
   workflowEdgeType,
 } from './graph/edges';
@@ -5027,9 +5028,15 @@ function App() {
     setPromptTextCustomPresets,
     settingsValueDefinitions,
   ]);
+  // Edge coloring/compatibility only ever reads id/kind/runPrepared/runCompleted
+  // (see edgeRelevantNode in graph/edges.ts); keying this off that narrower,
+  // stable projection instead of nodeViewNodes means an unrelated node-data
+  // edit (a keystroke, a streamed status update elsewhere) no longer forces
+  // every edge in the graph to be rebuilt and re-diffed by React Flow.
+  const edgeRelevantNodes = useEdgeRelevantNodes(nodeViewNodes);
   const renderedEdges = useMemo(
-    () => withSourceNodeStatusConnectionColors(removeEdgesConnectedToIncompatibleNodes(nodeViewNodes, edges), nodeViewNodes),
-    [edges, nodeViewNodes],
+    () => withSourceNodeStatusConnectionColors(removeEdgesConnectedToIncompatibleNodes(edgeRelevantNodes, edges), edgeRelevantNodes),
+    [edges, edgeRelevantNodes],
   );
   const workflowCapabilityIndicators = useWorkflowCapabilities({
     nodes: nodeViewNodes,
