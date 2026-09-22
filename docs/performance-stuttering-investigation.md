@@ -506,3 +506,82 @@ full fix. Verified with `tsc --noEmit`, `eslint` (including
 and the full `vitest` suite (855/856 passing; the one failure is a pre-existing,
 unrelated ImageMagick-binary timeout). No application/Electron/browser UI test
 was launched — the same limitation noted throughout this document.
+
+### Follow-up fix implemented: full per-message row memoization
+
+The full extraction deferred above has now been made. The entire per-message
+render body that used to live inline inside `visibleMessages.map((message,
+index) => { ... })` in `ChatConversationPanel` (previously
+`ChatConversationPanel.tsx:868-1951`, ~1,100 lines: dialogue-text assembly,
+speaker-label resolution, composite phone-text merging, day-label/timeline
+grouping, phone- and social-bubble rendering, output-action UI, and the final
+message `<article>` markup) has been moved into a new top-level,
+`React.memo`-wrapped `MessageRow` component defined at module scope in the
+same file, following the exact pattern `DialogueText` already established one
+section up. `ChatConversationPanel`'s `visibleMessages.map(...)` now does
+nothing but render `<MessageRow key={message.id} ... />` per visible message,
+passing everything the row body used to read from the panel's closure as
+explicit props.
+
+This was a mechanical move, not a rewrite: the JSX structure, keys,
+`className`/`style` values, and event-handler wiring are unchanged from
+before the extraction. The two adaptations made were both prop-surface
+simplifications, not behavior changes:
+- `previousDays[index]` (an array + the map index) became a single
+  `previousDay` prop, computed by the caller as `previousDays[index]` and
+  passed directly, since `index` had no other use inside the row body.
+- `isImageInContext`/`isImageManuallySelected` and the pure `badgeClassName`
+  helper, previously closures/locals defined inside `ChatConversationPanel`,
+  were either re-derived inside `MessageRow` from the two id-`Set` props they
+  actually depend on (`contextualReferenceImageIds`, `selectedReferenceImageIds`)
+  or, for `badgeClassName` (no closure at all), hoisted to a plain module-scope
+  function — removing them from `ChatConversationPanel` since nothing else in
+  the panel used them.
+
+`MessageRow`'s prop list (`MessageRowProps` in `ChatConversationPanel.tsx`)
+covers every value the row body reads that isn't a module-scope import or a
+pure function of the `message` itself: `message`, `previousDay`,
+`englishProcessingEnabled`, `appCharacters`, `showProfileNames`,
+`storyCharacters`, `characterColors`, `dialogueHighlightEnabled`,
+`dialogueVoiceSpeakerNames`, `activeDialogueVoiceKey`, `onSpeakDialogue`,
+`onGenerateVoiceMessageClip`, `chatColorIntensity`, `thoughtTextStyle`,
+`chatTextSize`, `phoneAuthorBadgesEnabled`, `rpTimeTrackingEnabled`,
+`rpDateTimeFormat`, `rpWeekdayLanguage`, `editingMessageId`,
+`editableUserMessageId`, `editingDraft`, `isRunning`,
+`contextualReferenceImageIds`, `selectedReferenceImageIds`,
+`referenceImageContextEnabled`, `referenceImageContextDisabledReason`,
+`onBeginEditMessage`, `onCancelEditMessage`, `onRegenerateEditedMessage`,
+`onEditingDraftChange`, `onPreviewImage`, `onToggleReferenceImage`,
+`onPreviewImageCaptionChange`, `onOpenEmbeddedPhoneMessage`,
+`onOpenEmbeddedSocialMessage`, `onOpenSocialPost`, `socialImageById`,
+`onOutputActionChoice`, `onMessageContentLoaded`, `phoneMessagesById`,
+`socialMessagesById`, `socialTimeline`,
+`phoneTimelineGroupsByFirstMessageId`, `skippedPhoneTimelineMessageIds`,
+`effectiveRpDateTime`, `outsidePhoneDisplayMode`, `expandedPhoneGroups`,
+`setExpandedPhoneGroups`, `phoneBubbleHeadersEnabled`,
+`socialEngagementByApp`. The `OutsidePhoneDisplayMode`/`PhoneTimelineEntry`/
+`PhoneTimelineGroup` types were also hoisted from inside
+`ChatConversationPanel` to module scope so `MessageRowProps` could reference
+them; `ChatConversationPanel` itself still uses them unchanged.
+
+With `MessageRow` now wrapped in `React.memo`, a streaming tick that only
+changes one message's `messageStream` snapshot causes `ChatConversationPanel`
+to re-render (as it must — it subscribes to the stream via
+`useSyncExternalStore`), but React's shallow prop comparison on `MessageRow`
+now skips re-invoking (and therefore skips re-running all of the parsing and
+bubble/timeline assembly work for) every other message's row whose props are
+referentially unchanged. This is additive to, not a replacement for, the
+narrower `DialogueText` memoization landed in the previous fix — that one
+still helps on the rare case where a `MessageRow` prop legitimately changes
+(e.g. `characterColors` identity churn) but the message's own text didn't.
+
+Verified with `tsc -b` (clean, no errors), `eslint .` (clean, including
+`react-hooks/exhaustive-deps`), and the full `vitest` suite (858/858 passing,
+102/102 test files — no pre-existing failures were observed in this run).
+As with every other fix in this document, no application/Electron/browser UI
+test was run — there is no way to interactively drive the real chat view in
+this environment. Only `MessageRow`'s render output, event-handler wiring,
+and prop threading were verified by (a) diffing the moved body 1:1 against
+the pre-extraction source and (b) the passing type-check/lint/test suite
+above; the actual on-screen behavior during a live LLM streaming turn has not
+been visually confirmed.

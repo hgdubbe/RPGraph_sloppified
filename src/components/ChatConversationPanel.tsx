@@ -6,8 +6,10 @@ import {
   Fragment,
   memo,
   type CSSProperties,
+  type Dispatch,
   type FormEvent,
   type RefObject,
+  type SetStateAction,
   useCallback,
   useEffect,
   useMemo,
@@ -36,6 +38,7 @@ import type {
   EmbeddedSocialMessageLink,
   RpDateTimeFormat,
   RpWeekdayLanguage,
+  SocialDirectMessageRecord,
   SocialPostRecord,
   WorkflowNode,
 } from '../types';
@@ -281,6 +284,1188 @@ const DialogueText = memo(function DialogueText({
   );
 });
 
+type OutsidePhoneDisplayMode = 'collapse' | 'show' | 'hide' | 'bubbles';
+type PhoneTimelineEntry = {
+  phoneMessage: EmbeddedPhoneMessageLink;
+  badges: string[];
+  className: string;
+  ariaLabel: string;
+};
+type PhoneTimelineGroup = {
+  messageIds: number[];
+  entries: PhoneTimelineEntry[];
+};
+
+function badgeClassName(badge: string) {
+  return `entry-channel-badge badge-${badge.toLocaleLowerCase()}`;
+}
+
+type MessageRowProps = {
+  message: MessageRecord;
+  previousDay: string | undefined;
+  englishProcessingEnabled: boolean;
+  appCharacters: StorybookCharacter[];
+  showProfileNames: boolean;
+  storyCharacters: StorybookCharacter[];
+  characterColors: Map<string, string>;
+  dialogueHighlightEnabled: boolean;
+  dialogueVoiceSpeakerNames: ReadonlySet<string>;
+  activeDialogueVoiceKey: string | null;
+  onSpeakDialogue: (request: { key: string; messageId: number; speakerName: string; text: string }) => void;
+  onGenerateVoiceMessageClip: (request: { messageId: number; speakerName: string; text: string }) => Promise<string | null>;
+  chatColorIntensity: number;
+  thoughtTextStyle: 'bold' | 'italic' | 'light';
+  chatTextSize: number;
+  phoneAuthorBadgesEnabled: boolean;
+  rpTimeTrackingEnabled: boolean;
+  rpDateTimeFormat: RpDateTimeFormat;
+  rpWeekdayLanguage: RpWeekdayLanguage;
+  editingMessageId: number | null;
+  editableUserMessageId: number | undefined;
+  editingDraft: string;
+  isRunning: boolean;
+  contextualReferenceImageIds: ReadonlySet<string>;
+  selectedReferenceImageIds: ReadonlySet<string>;
+  referenceImageContextEnabled: boolean;
+  referenceImageContextDisabledReason: string | undefined;
+  onBeginEditMessage: (message: MessageRecord, visibleText: string) => void;
+  onCancelEditMessage: () => void;
+  onRegenerateEditedMessage: () => void;
+  onEditingDraftChange: (value: string) => void;
+  onPreviewImage: (image: ChatImageAttachment) => void;
+  onToggleReferenceImage: (image: ChatImageAttachment) => void;
+  onPreviewImageCaptionChange: (change: ImageCaptionChange) => void;
+  onOpenEmbeddedPhoneMessage: (message: EmbeddedPhoneMessageLink) => void;
+  onOpenEmbeddedSocialMessage: (message: EmbeddedSocialMessageLink) => void;
+  onOpenSocialPost: (post: SocialPostRecord) => void;
+  socialImageById: (imageId: string, ownerId?: string) => ChatImageAttachment | undefined;
+  onOutputActionChoice: (selection: InputActionSelection) => void;
+  onMessageContentLoaded: () => void;
+  phoneMessagesById: Map<number, MessageRecord>;
+  socialMessagesById: Map<number, SocialDirectMessageRecord>;
+  socialTimeline: { groups: Map<number, EmbeddedSocialMessageLink[]>; skippedIds: Set<number> };
+  phoneTimelineGroupsByFirstMessageId: Map<number, PhoneTimelineGroup>;
+  skippedPhoneTimelineMessageIds: Set<number>;
+  effectiveRpDateTime: (message: MessageRecord) => string | undefined;
+  outsidePhoneDisplayMode: OutsidePhoneDisplayMode;
+  expandedPhoneGroups: Record<string, boolean>;
+  setExpandedPhoneGroups: Dispatch<SetStateAction<Record<string, boolean>>>;
+  phoneBubbleHeadersEnabled: boolean;
+  socialEngagementByApp: {
+    fotogram: Record<string, { likeCount: number; commentCount: number }>;
+    onlyfriends: Record<string, { likeCount: number; commentCount: number }>;
+  };
+};
+
+/** Re-runs the full per-message render body (dialogue/phone/social bubble
+ * assembly, output-action UI, timeline grouping, etc.) only when this
+ * message's own data or the shared display/handler props change — not on
+ * every render of the panel, e.g. every streamed chunk of live LLM output
+ * touching a different message elsewhere in the history. This is the
+ * primary target of the "full per-message row memoization" follow-up: see
+ * docs/performance-stuttering-investigation.md. */
+const MessageRow = memo(function MessageRow({
+  message, previousDay, englishProcessingEnabled, appCharacters, showProfileNames, storyCharacters,
+  characterColors, dialogueHighlightEnabled, dialogueVoiceSpeakerNames, activeDialogueVoiceKey,
+  onSpeakDialogue, onGenerateVoiceMessageClip, chatColorIntensity, thoughtTextStyle, chatTextSize,
+  phoneAuthorBadgesEnabled, rpTimeTrackingEnabled, rpDateTimeFormat, rpWeekdayLanguage,
+  editingMessageId, editableUserMessageId, editingDraft, isRunning, contextualReferenceImageIds,
+  selectedReferenceImageIds, referenceImageContextEnabled, referenceImageContextDisabledReason,
+  onBeginEditMessage, onCancelEditMessage, onRegenerateEditedMessage, onEditingDraftChange,
+  onPreviewImage, onToggleReferenceImage, onPreviewImageCaptionChange, onOpenEmbeddedPhoneMessage,
+  onOpenEmbeddedSocialMessage, onOpenSocialPost, socialImageById, onOutputActionChoice,
+  onMessageContentLoaded, phoneMessagesById, socialMessagesById, socialTimeline,
+  phoneTimelineGroupsByFirstMessageId, skippedPhoneTimelineMessageIds, effectiveRpDateTime,
+  outsidePhoneDisplayMode, expandedPhoneGroups, setExpandedPhoneGroups, phoneBubbleHeadersEnabled,
+  socialEngagementByApp,
+}: MessageRowProps) {
+  if (skippedPhoneTimelineMessageIds.has(message.id) || socialTimeline.skippedIds.has(message.id)) {
+    return null;
+  }
+  const isImageInContext = (image: ChatImageAttachment) =>
+    !!image.id.trim() && contextualReferenceImageIds.has(image.id.trim());
+  const isImageManuallySelected = (image: ChatImageAttachment) =>
+    !!image.id.trim() && selectedReferenceImageIds.has(image.id.trim());
+  const displayText = message.eventInput && message.eventDisplayText
+    ? message.eventDisplayText
+    : socialDirectMessageDisplayText(message, englishProcessingEnabled, appCharacters);
+  const speakerNames =
+    message.role === 'error'
+      ? ['Error']
+      : message.speakerNames?.length
+        ? message.speakerNames
+        : message.role === 'user'
+          ? [message.speakerName ?? 'Character']
+          : [];
+  const hasOutputActionUi =
+    !!message.outputActionChoices?.length ||
+    !!message.outputActionInfoBoxes?.length ||
+    !!message.outputActionProgressBars?.length ||
+    !!message.outputActionContextCapacityBars?.length;
+  const reserveSpeakerLabels =
+    message.role === 'output' && !hasOutputActionUi && !message.deletedPhoneNote;
+  const speakerLabelNames = speakerNames.length > 0
+    ? speakerNames
+    : reserveSpeakerLabels
+      ? ['Character']
+      : [];
+  const speakerLabelsPlaceholder = speakerNames.length === 0 && reserveSpeakerLabels;
+  const visibleText =
+    message.role === 'error'
+      ? displayText
+      : stripRecognizedSpeakerLabels(displayText, speakerNames);
+  const phoneAppCommandHistoryText = [
+    message.createdPhoneNote
+      ? createdPhoneNoteHistoryText(message.createdPhoneNote)
+      : '',
+    message.deletedPhoneNote
+      ? deletedPhoneNoteHistoryText(message.deletedPhoneNote)
+      : '',
+    message.simulatedAiChat
+      ? simulatedAiChatHistoryText(message.simulatedAiChat)
+      : '',
+  ].filter(Boolean).join('\n\n');
+  const phoneAppCommandCardOnly =
+    !!phoneAppCommandHistoryText &&
+    visibleText.trim() === phoneAppCommandHistoryText.trim();
+  const dialogue = englishProcessingEnabled
+    ? message.translatedDialogue ?? []
+    : message.originalDialogue ?? [];
+  const llmDialogueHighlightActive =
+    (message.role === 'output' || message.role === 'user') &&
+    dialogueHighlightEnabled;
+  const compositeTextBefore = (() => {
+    const hasCompositeText =
+      message.embeddedPhoneTextBefore !== undefined ||
+      message.embeddedPhoneTextAfter !== undefined ||
+      message.embeddedPhoneTranslatedTextBefore !== undefined ||
+      message.embeddedPhoneTranslatedTextAfter !== undefined;
+    if (!englishProcessingEnabled) {
+      return message.embeddedPhoneTextBefore ?? (!hasCompositeText ? message.originalText : undefined);
+    }
+    if (message.embeddedPhoneTranslatedTextBefore) {
+      return message.embeddedPhoneTranslatedTextBefore;
+    }
+    if (!hasCompositeText) {
+      return message.translatedText ?? message.originalText;
+    }
+    return message.translatedText && !message.embeddedPhoneTranslatedTextAfter
+      ? message.translatedText
+      : message.embeddedPhoneTextBefore;
+  })();
+  const compositeTextAfter = (() => {
+    const hasCompositeText =
+      message.embeddedPhoneTextBefore !== undefined ||
+      message.embeddedPhoneTextAfter !== undefined ||
+      message.embeddedPhoneTranslatedTextBefore !== undefined ||
+      message.embeddedPhoneTranslatedTextAfter !== undefined;
+    if (!englishProcessingEnabled) {
+      return message.embeddedPhoneTextAfter ?? (!hasCompositeText ? '' : undefined);
+    }
+    if (message.embeddedPhoneTranslatedTextAfter) {
+      return message.embeddedPhoneTranslatedTextAfter;
+    }
+    if (!hasCompositeText) {
+      return '';
+    }
+    return message.translatedText && !message.embeddedPhoneTranslatedTextBefore
+      ? ''
+      : message.embeddedPhoneTextAfter;
+  })();
+  const isEditingMessage = editingMessageId === message.id;
+  const canEditMessage = message.id === editableUserMessageId && !isRunning;
+  const effectiveMessageRpDateTime = effectiveRpDateTime(message);
+  const messageDay = effectiveMessageRpDateTime?.slice(0, 10);
+  const dayLabel =
+    rpTimeTrackingEnabled && effectiveMessageRpDateTime && messageDay !== previousDay
+      ? formatRpDayLabel(effectiveMessageRpDateTime, rpDateTimeFormat, rpWeekdayLanguage)
+      : '';
+  // Empty workflow outputs must not occupy a timeline slot between cards.
+  if (
+    message.role === 'output' && !isEditingMessage && !visibleText.trim() &&
+    !compositeTextBefore?.trim() && !compositeTextAfter?.trim() &&
+    !message.embeddedPhoneMessages?.length && !message.embeddedSocialMessages?.length &&
+    !message.imageAttachments?.length && !hasOutputActionUi &&
+    !message.bankTransfer && !message.socialPost && !message.socialDirectMessage &&
+    !message.createdPhoneNote && !message.deletedPhoneNote && !message.simulatedAiChat
+  ) {
+    return dayLabel
+      ? <div className="rp-day-divider chat-day-divider" key={message.id}><span>{dayLabel}</span></div>
+      : null;
+  }
+  const renderDialogueTextParts = (text: string, keyPrefix: string) => (
+    <DialogueText
+      text={text}
+      keyPrefix={keyPrefix}
+      messageId={message.id}
+      dialogue={dialogue}
+      llmDialogueHighlightActive={llmDialogueHighlightActive}
+      speakerColors={message.speakerColors}
+      characterColors={characterColors}
+      dialogueVoiceSpeakerNames={dialogueVoiceSpeakerNames}
+      activeDialogueVoiceKey={activeDialogueVoiceKey}
+      onSpeakDialogue={onSpeakDialogue}
+      chatColorIntensity={chatColorIntensity}
+      thoughtTextStyle={thoughtTextStyle}
+      accountLinks={message.accountLinks}
+    />
+  );
+  const characterNameStyle = (name: string) => {
+    const color = characterColors.get(name);
+    return color ? { color } : undefined;
+  };
+  const phoneMessageTimeParts = (phoneMessageId: number) => {
+    const rpDateTime = phoneMessageRpDateTime(phoneMessageId, phoneMessagesById);
+    return rpDateTime
+      ? formatRpDateTimeParts(
+          rpDateTime,
+          rpDateTimeFormat,
+          rpWeekdayLanguage,
+        )
+      : undefined;
+  };
+  const renderRpTime = (
+    rpDateTime: string | undefined,
+    className: 'message-rp-time' | 'phone-bubble-time',
+  ) => {
+    const parts = rpDateTime
+      ? formatRpDateTimeParts(rpDateTime, rpDateTimeFormat, rpWeekdayLanguage)
+      : undefined;
+    const displayParts = parts ?? rpTimePlaceholderParts(rpDateTimeFormat);
+    return (
+      <span className={`${className}${parts ? ' is-visible' : ' is-placeholder'}`}>
+        <span className="rp-time-date">{displayParts.date}</span>
+        {'   '}
+        <span className="rp-time-clock">{displayParts.time}</span>
+      </span>
+    );
+  };
+  const renderPhoneRpTime = (phoneMessageId: number) => {
+    const rpDateTime = phoneMessageRpDateTime(phoneMessageId, phoneMessagesById);
+    return renderRpTime(rpDateTime, 'phone-bubble-time');
+  };
+  const phoneVoiceClipDataUrl = (message: MessageRecord, speakerName: string, text: string) => {
+    const speechText = dialogueSpeechText(text);
+    return message.voiceClips?.find((clip) =>
+      clip.source === 'phone' &&
+      clip.speakerName === speakerName &&
+      clip.text === speechText &&
+      !!clip.dataUrl
+    )?.dataUrl;
+  };
+  const renderPhoneActionContent = (phoneMessage: EmbeddedPhoneMessageLink) => (
+    <>
+      <span>[WhatsUp]</span>
+      <strong style={characterNameStyle(phoneMessage.from)}>{phoneMessage.from}</strong>
+      {phoneAuthorBadgesEnabled && (
+        <span
+          className={`phone-author-badge ${
+            phoneMessagesById.get(phoneMessage.phoneMessageId)?.role === 'user' ? 'user' : 'ai'
+          }`}
+        >
+          {phoneMessagesById.get(phoneMessage.phoneMessageId)?.role === 'user' ? 'USER' : 'AI'}
+        </span>
+      )}
+      <span>sent message to</span>
+      <strong style={characterNameStyle(phoneMessage.to)}>{phoneMessage.to}</strong>
+    </>
+  );
+  const renderPhoneActionButton = (phoneMessage: EmbeddedPhoneMessageLink) => {
+    const timeParts = phoneMessageTimeParts(phoneMessage.phoneMessageId);
+    const linkedMessage = phoneMessagesById.get(phoneMessage.phoneMessageId);
+    const title = englishProcessingEnabled
+      ? linkedMessage?.translatedText ?? phoneMessage.translatedMessage ?? phoneMessage.message
+      : phoneMessage.message;
+    return (
+      <button
+        className="embedded-phone-link"
+        type="button"
+        key={phoneMessage.phoneMessageId}
+        onClick={() => onOpenEmbeddedPhoneMessage(phoneMessage)}
+        title={title}
+      >
+        {renderPhoneActionContent(phoneMessage)}
+        {timeParts && (
+          <span className="embedded-phone-link-time">
+            {timeParts.date}
+            {'   '}
+            {timeParts.time}
+          </span>
+        )}
+      </button>
+    );
+  };
+  const renderPhoneTimelineRow = (
+    phoneMessage: EmbeddedPhoneMessageLink,
+    badges: string[],
+    className: string,
+    ariaLabel: string,
+  ) => {
+    const timelineTimeParts = phoneMessageTimeParts(phoneMessage.phoneMessageId);
+    const linkedMessage = phoneMessagesById.get(phoneMessage.phoneMessageId);
+    const title = englishProcessingEnabled
+      ? linkedMessage?.translatedText ?? phoneMessage.translatedMessage ?? phoneMessage.message
+      : phoneMessage.message;
+    return (
+      <button
+        className={`message-timeline-row phone ${className}`}
+        style={{ fontSize: chatTextSize || defaultChatTextSize }}
+        type="button"
+        key={phoneMessage.phoneMessageId}
+        onClick={() => onOpenEmbeddedPhoneMessage(phoneMessage)}
+        title={title}
+        aria-label={ariaLabel}
+      >
+        {badges.map((badge) => (
+          <span className={badgeClassName(badge)} key={badge}>{badge}</span>
+        ))}
+        <span className="embedded-phone-link timeline-phone-action">
+          {renderPhoneActionContent(phoneMessage)}
+        </span>
+        {timelineTimeParts && (
+          <span className="message-timeline-time">
+            <span>{timelineTimeParts.date}</span>
+            <span>{timelineTimeParts.time}</span>
+          </span>
+        )}
+      </button>
+    );
+  };
+  const phoneConversationSignature = (phoneMessage: EmbeddedPhoneMessageLink) =>
+    [phoneMessage.from, phoneMessage.to]
+      .map((name) => name.trim().toLocaleLowerCase())
+      .sort()
+      .join('::');
+  const phoneConversationSegments = (phoneMessages: EmbeddedPhoneMessageLink[]) =>
+    phoneMessages.reduce<EmbeddedPhoneMessageLink[][]>((segments, phoneMessage) => {
+      const currentSegment = segments[segments.length - 1];
+      const previousPhoneMessage = currentSegment?.[currentSegment.length - 1];
+      if (
+        !currentSegment ||
+        !previousPhoneMessage ||
+        phoneConversationSignature(previousPhoneMessage) !== phoneConversationSignature(phoneMessage)
+      ) {
+        segments.push([phoneMessage]);
+        return segments;
+      }
+      currentSegment.push(phoneMessage);
+      return segments;
+    }, []);
+  const phoneConversationCardTitle = (phoneMessage: EmbeddedPhoneMessageLink) => (
+    <h3 className="chat-phone-card-title">
+      <span style={characterNameStyle(phoneMessage.from)}>{phoneMessage.from}</span>
+      <span>and</span>
+      <span style={characterNameStyle(phoneMessage.to)}>{phoneMessage.to}</span>
+    </h3>
+  );
+  const renderPhoneBubbleStack = (
+    phoneMessages: EmbeddedPhoneMessageLink[],
+    embedded = false,
+  ) => {
+    const renderPhoneBubble = (
+      phoneMessage: EmbeddedPhoneMessageLink,
+      anchorSender: string,
+      showRouteLabel = false,
+    ) => {
+      const linkedMessage = phoneMessagesById.get(phoneMessage.phoneMessageId);
+      const repliedToMessage = linkedMessage?.replyToMessageId !== undefined
+        ? phoneMessagesById.get(linkedMessage.replyToMessageId)
+        : undefined;
+      const repliedToText = repliedToMessage
+        ? phoneReplyVisibleText(repliedToMessage, englishProcessingEnabled) || 'Image'
+        : '';
+      const text = linkedMessage
+        ? phoneMessageVisibleText(linkedMessage, englishProcessingEnabled)
+        : englishProcessingEnabled
+          ? phoneMessage.translatedMessage ?? phoneMessage.message
+          : phoneMessage.message;
+      const fromColor = characterColors.get(phoneMessage.from);
+      const toColor = characterColors.get(phoneMessage.to);
+      const outgoing = phoneMessage.from.trim().toLocaleLowerCase() === anchorSender;
+      const openPhoneMessage = () => onOpenEmbeddedPhoneMessage(phoneMessage);
+      const authorRole = linkedMessage?.role ?? 'output';
+      const authorBadge = phoneAuthorBadgesEnabled ? (
+        <span className={`phone-author-badge ${authorRole === 'user' ? 'user' : 'ai'}`}>
+          {authorRole === 'user' ? 'USER' : 'AI'}
+        </span>
+      ) : null;
+      const imageAttachments =
+        linkedMessage?.imageAttachments ?? phoneMessage.previewImageAttachments;
+
+      return (
+        <div className="phone-message-row chat-phone-message-row" key={phoneMessage.phoneMessageId}>
+          <div className={`phone-message-content ${outgoing ? 'outgoing' : 'incoming'}`}>
+            <div
+              className={`phone-bubble ${outgoing ? 'outgoing' : 'incoming'} chat-phone-bubble`}
+              role="button"
+              tabIndex={0}
+              onClick={openPhoneMessage}
+              onKeyDown={(event) => {
+                if (event.key === 'Enter' || event.key === ' ') {
+                  event.preventDefault();
+                  openPhoneMessage();
+                }
+              }}
+              style={{ fontSize: chatTextSize || defaultChatTextSize }}
+            >
+              {showRouteLabel ? (
+                <span className="phone-bubble-sender chat-phone-bubble-route">
+                  <span style={fromColor ? { color: fromColor } : undefined}>{phoneMessage.from}</span>
+                  {authorBadge}
+                  <span>texts</span>
+                  <span style={toColor ? { color: toColor } : undefined}>{phoneMessage.to}</span>
+                </span>
+              ) : (
+                <span
+                  className="phone-bubble-sender"
+                  style={fromColor ? { color: fromColor } : undefined}
+                >
+                  {phoneMessage.from}
+                  {authorBadge}
+                </span>
+              )}
+              {repliedToMessage && (
+                <div className={`phone-bubble-reply-context${phoneReplySizeClass(repliedToText)}`}>
+                  {!!repliedToMessage.imageAttachments?.length && (
+                    <img
+                      src={repliedToMessage.imageAttachments[0]?.dataUrl}
+                      alt={repliedToMessage.imageAttachments[0]?.name ?? 'Replied image'}
+                      onLoad={onMessageContentLoaded}
+                    />
+                  )}
+                  <div className="phone-bubble-reply-copy">
+                    <strong>
+                      Reply to {repliedToMessage.phoneFrom || repliedToMessage.speakerName || 'Unknown'}
+                    </strong>
+                    <span>{repliedToText}</span>
+                  </div>
+                </div>
+              )}
+              {!!imageAttachments?.length && (
+                <div className="phone-bubble-images">
+                  {imageAttachments.map((image) => (
+                    <div className="phone-bubble-image" key={image.id}>
+                      <button
+                        className="phone-bubble-image-preview"
+                        type="button"
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          onPreviewImage(image);
+                        }}
+                      >
+                        <img
+                          src={image.dataUrl}
+                          alt={image.name}
+                          onLoad={onMessageContentLoaded}
+                        />
+                      </button>
+                      <ImageContextControl
+                        image={image}
+                        inContext={isImageInContext(image)}
+                        manuallySelected={isImageManuallySelected(image)}
+                        disabled={isRunning}
+                        contextEnabled={referenceImageContextEnabled}
+                        contextDisabledReason={referenceImageContextDisabledReason}
+                        onToggle={onToggleReferenceImage}
+                      />
+                    </div>
+                  ))}
+                </div>
+              )}
+              {text && linkedMessage?.phoneVoiceMessage && dialogueVoiceSpeakerNames.has(phoneMessage.from) ? (
+                <div
+                  onClick={(event) => event.stopPropagation()}
+                  onKeyDown={(event) => event.stopPropagation()}
+                >
+                  <PhoneVoiceMessage
+                    text={text}
+                    clipDataUrl={phoneVoiceClipDataUrl(linkedMessage, phoneMessage.from, text)}
+                    disabled={isRunning}
+                    disabledReason="Voice messages are unavailable while the chat is running."
+                    onGenerateClip={() =>
+                      onGenerateVoiceMessageClip({
+                        messageId: linkedMessage.id,
+                        speakerName: phoneMessage.from,
+                        text,
+                      })
+                    }
+                  />
+                </div>
+              ) : text ? (
+                <span><AccountLinkText text={text} bindings={linkedMessage?.accountLinks} /></span>
+              ) : null}
+              {linkedMessage?.phoneImageCaptionChange && (
+                <button
+                  className="caption-change-chip"
+                  type="button"
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    onPreviewImageCaptionChange(linkedMessage.phoneImageCaptionChange!);
+                  }}
+                >
+                  Image Caption Updated
+                </button>
+              )}
+              {rpTimeTrackingEnabled && renderPhoneRpTime(phoneMessage.phoneMessageId)}
+            </div>
+          </div>
+        </div>
+      );
+    };
+
+    if (embedded) {
+      const segments = phoneConversationSegments(phoneMessages);
+      return (
+        <section className="chat-social-message-stack" aria-label="WhatsUp messages">
+          {segments.map((segment, segmentIndex) => {
+            const first = segment[0];
+            if (!first) {
+              return null;
+            }
+            const anchorSender = first.from.trim().toLocaleLowerCase();
+            return (
+              <section
+                className="chat-social-message-card whatsup"
+                key={`${first.phoneMessageId}-${segmentIndex}`}
+              >
+                <header className="chat-social-message-header">
+                  <strong>WhatsUp</strong>
+                  <span>{first.from} and {first.to}</span>
+                </header>
+                <div className="chat-phone-card-messages">
+                  {segment.map((phoneMessage) =>
+                    renderPhoneBubble(phoneMessage, anchorSender)
+                  )}
+                </div>
+              </section>
+            );
+          })}
+        </section>
+      );
+    }
+
+    const segments = phoneConversationSegments(phoneMessages);
+    return (
+      <section className="chat-phone-bubble-stack" aria-label="Phone messages">
+        {segments.map((segment, segmentIndex) => {
+          const anchorSender = segment[0]?.from.trim().toLocaleLowerCase() ?? '';
+          return (
+            <section
+              className="chat-phone-card whatsup"
+              key={`${segment[0]?.phoneMessageId ?? 'segment'}-${segmentIndex}`}
+            >
+              <header className="chat-social-message-header"><strong>WhatsUp</strong></header>
+              {phoneBubbleHeadersEnabled && segment[0] && phoneConversationCardTitle(segment[0])}
+              <div className="chat-phone-card-messages">
+                {segment.map((phoneMessage, messageIndex) =>
+                  renderPhoneBubble(phoneMessage, anchorSender, messageIndex === 0)
+                )}
+              </div>
+            </section>
+          );
+        })}
+      </section>
+    );
+  };
+  const renderEmbeddedSocialMessages = (socialMessages: EmbeddedSocialMessageLink[]) => {
+    const segments = socialMessages.reduce<EmbeddedSocialMessageLink[][]>((groups, socialMessage) => {
+      const current = groups[groups.length - 1];
+      const first = current?.[0];
+      const sameConversation = first &&
+        first.app === socialMessage.app &&
+        (first.app === 'matchme'
+          ? !!(socialMessagesById.get(first.socialMessageId) ?? first.previewMessage)?.matchId &&
+            (socialMessagesById.get(first.socialMessageId) ?? first.previewMessage)?.matchId === (socialMessagesById.get(socialMessage.socialMessageId) ?? socialMessage.previewMessage)?.matchId
+          : [first.from, first.to].map((name) => name.toLocaleLowerCase()).sort().join('::') ===
+            [socialMessage.from, socialMessage.to].map((name) => name.toLocaleLowerCase()).sort().join('::'));
+      if (!current || !sameConversation) {
+        groups.push([socialMessage]);
+      } else {
+        current.push(socialMessage);
+      }
+      return groups;
+    }, []);
+    return (
+      <section className="chat-social-message-stack" aria-label="Social messenger messages">
+        {segments.map((segment, segmentIndex) => {
+          const first = segment[0];
+          if (!first) {
+            return null;
+          }
+          const anchorSender = first.from.trim().toLocaleLowerCase();
+          const appName = socialAppNames[first.app];
+          const firstMessage = socialMessagesById.get(first.socialMessageId) ?? first.previewMessage;
+          return (
+            <section
+              className={`chat-social-message-card ${first.app}`}
+              key={`${first.socialMessageId}-${segmentIndex}`}
+            >
+              <header className="chat-social-message-header">
+                <strong>{appName}{first.app === 'matchme' && <span aria-hidden="true"> ♥</span>}</strong>
+                <span>{firstMessage
+                  ? `${socialDirectMessageParty(firstMessage, 'from', appCharacters, showProfileNames)} to ${socialDirectMessageParty(firstMessage, 'to', appCharacters, showProfileNames)}`
+                  : `${first.from} to ${first.to}`}</span>
+              </header>
+              <div className="chat-social-message-thread">
+                {segment.map((socialMessage, messageIndex) => {
+                  const linkedMessage = socialMessagesById.get(socialMessage.socialMessageId) ?? socialMessage.previewMessage;
+                  const text = socialTimelineMessageText(socialMessage, linkedMessage, englishProcessingEnabled);
+                  const outgoing = first.app === 'matchme'
+                    ? linkedMessage?.fromAccountId === firstMessage?.fromAccountId
+                    : socialMessage.from.trim().toLocaleLowerCase() === anchorSender;
+                  const fromColor = characterColors.get(socialMessage.from);
+                  return (
+                    <div
+                      className={`chat-social-message-row ${outgoing ? 'outgoing' : 'incoming'}`}
+                      key={socialMessage.socialMessageId}
+                    >
+                      <div
+                        className="chat-social-message-bubble"
+                        role="button"
+                        tabIndex={0}
+                        onClick={() => onOpenEmbeddedSocialMessage(socialMessage)}
+                        onKeyDown={(event) => {
+                          if (event.key === 'Enter' || event.key === ' ') {
+                            event.preventDefault();
+                            onOpenEmbeddedSocialMessage(socialMessage);
+                          }
+                        }}
+                        style={{ fontSize: chatTextSize || defaultChatTextSize }}
+                      >
+                        <strong className={messageIndex === 0 ? 'chat-phone-bubble-route' : undefined}>
+                          <span style={fromColor ? { color: fromColor } : undefined}>{linkedMessage ? socialDirectMessageParty(linkedMessage, 'from', appCharacters, showProfileNames) : socialMessage.from}</span>
+                          {messageIndex === 0 && <>
+                            <span>texts</span>
+                            <span style={{ color: characterColors.get(socialMessage.to) }}>{linkedMessage ? socialDirectMessageParty(linkedMessage, 'to', appCharacters, showProfileNames) : socialMessage.to}</span>
+                          </>}
+                        </strong>
+                        <span><AccountLinkText text={text} bindings={linkedMessage?.accountLinks} /></span>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </section>
+          );
+        })}
+      </section>
+    );
+  };
+  const renderOutputActionChoices = () => {
+    const choiceGroups = message.outputActionChoices ?? [];
+    if (choiceGroups.length === 0) {
+      return null;
+    }
+    return (
+      <div className="output-action-choice-stack" style={{ fontSize: chatTextSize || defaultChatTextSize }}>
+        {choiceGroups.map((group, groupIndex) => {
+          return (
+            <section className={`output-action-choice-group ${group.kind}`} key={groupIndex}>
+              {group.prompt && <div className="output-action-choice-prompt">{group.prompt}</div>}
+              <div className="output-action-choice-options">
+                {group.options.map((option, optionIndex) => {
+                  const selection: InputActionSelection = {
+                    source: 'outputAction',
+                    kind: group.kind,
+                    messageId: message.id,
+                    groupId: group.id,
+                    groupIndex,
+                    optionId: option.id,
+                    optionIndex,
+                    prompt: group.prompt,
+                    label: option.label,
+                    value: option.value,
+                    text: option.text ?? group.text,
+                    player: option.player ?? group.player,
+                    messageFormat: option.messageFormat ?? group.messageFormat,
+                    turnMode: option.turnMode ?? group.turnMode,
+                    mode: option.mode ?? group.mode,
+                  };
+                  return (
+                    <button
+                      className="output-action-choice-button"
+                      type="button"
+                      disabled={isRunning}
+                      key={`${option.label}-${optionIndex}`}
+                      onClick={() => onOutputActionChoice(selection)}
+                      title={option.value}
+                    >
+                      {option.label}
+                    </button>
+                  );
+                })}
+              </div>
+            </section>
+          );
+        })}
+      </div>
+    );
+  };
+  const renderOutputActionDisplays = () => {
+    const infoBoxes = message.outputActionInfoBoxes ?? [];
+    const progressBars = message.outputActionProgressBars ?? [];
+    const contextCapacityBars = message.outputActionContextCapacityBars ?? [];
+    if (infoBoxes.length === 0 && progressBars.length === 0 && contextCapacityBars.length === 0) {
+      return null;
+    }
+    return (
+      <div className="output-action-display-stack" style={{ fontSize: chatTextSize || defaultChatTextSize }}>
+        {infoBoxes.map((box, boxIndex) => (
+          <section className={`output-action-info-box ${box.tone ?? 'info'}`} key={`info-${boxIndex}`}>
+            {box.title && <div className="output-action-info-title">{box.title}</div>}
+            <div className="output-action-info-text">{box.text}</div>
+          </section>
+        ))}
+        {progressBars.map((bar, barIndex) => {
+          const percent = ((bar.value - bar.min) / (bar.max - bar.min)) * 100;
+          return (
+            <section className="output-action-progress-card" key={`progress-${barIndex}`}>
+              <div className="output-action-progress-header">
+                <span className="output-action-progress-title">{bar.title}</span>
+                <span className="output-action-progress-value">
+                  {bar.value} / {bar.max}
+                </span>
+              </div>
+              <div
+                className="output-action-progress-track"
+                role="progressbar"
+                aria-label={bar.title}
+                aria-valuemin={bar.min}
+                aria-valuemax={bar.max}
+                aria-valuenow={bar.value}
+              >
+                <div className="output-action-progress-fill" style={{ width: `${percent}%` }} />
+              </div>
+              {bar.label && <div className="output-action-progress-label">{bar.label}</div>}
+            </section>
+          );
+        })}
+        {contextCapacityBars.map((bar, barIndex) => (
+          <section className="output-action-context-capacity-card" key={bar.id ?? `context-capacity-${barIndex}`}>
+            <div className="output-action-context-capacity-header">
+              <div className="output-action-context-capacity-title-row">
+                <span className="output-action-progress-title">{bar.title}</span>
+                {bar.showLegend && (
+                  <span className="output-action-context-capacity-legend">
+                    <span className="replaced">trimmed context</span>
+                    <span className="summary">summary</span>
+                    <span className="active">active</span>
+                    <span className="free">free</span>
+                  </span>
+                )}
+              </div>
+              <span className="output-action-progress-value">{bar.activeTokens + bar.summaryTokens} / {bar.maxTokens}</span>
+            </div>
+            <div
+              className="output-action-context-capacity"
+              title={`Trimmed context ~${bar.replacedTokens} / summary ~${bar.summaryTokens} / active ~${bar.activeTokens} / max ~${bar.maxTokens} tokens`}
+            >
+              {bar.replacedPercent > 0 && <span className="compression-capacity-replaced" style={{ width: `${bar.replacedPercent}%` }} />}
+              {bar.summaryPercent > 0 && <span className="compression-capacity-summary" style={{ width: `${bar.summaryPercent}%` }} />}
+              {bar.activePercent > 0 && <span className="compression-capacity-active" style={{ width: `${bar.activePercent}%` }} />}
+              {bar.freePercent > 0 && <span className="compression-capacity-free" style={{ width: `${bar.freePercent}%` }} />}
+            </div>
+            {bar.label && <div className="output-action-progress-label">{bar.label}</div>}
+          </section>
+        ))}
+      </div>
+    );
+  };
+  const autoTurnMatch = message.originalText.match(
+    /^(.+?) moves the story forward with an action, dialogue, or decision\.$/,
+  );
+  const narratorAutoTurnMarker =
+    message.role === 'user' &&
+    message.speakerName === 'Narrator' &&
+    message.originalText.trim() === 'Narrator AutoTurn';
+  const compactAutoTurnMarker =
+    message.role === 'user' &&
+    !message.phoneMessage &&
+    !message.eventInput &&
+    message.speakerName === 'Narrator' &&
+    (!!autoTurnMatch || narratorAutoTurnMarker);
+  const eventTitle = message.eventInput && message.eventDisplayText
+    ? message.eventDisplayText.replace(/^Event:\s*/i, '').trim()
+    : '';
+  const compactEventMarker =
+    message.role === 'user' &&
+    message.eventInput &&
+    !!eventTitle;
+  const rpTimeParts =
+    effectiveMessageRpDateTime
+      ? formatRpDateTimeParts(
+          effectiveMessageRpDateTime,
+          rpDateTimeFormat,
+          rpWeekdayLanguage,
+        )
+      : undefined;
+  const standaloneSocialMessages = socialTimeline.groups.get(message.id);
+  if (standaloneSocialMessages) {
+    return (
+      <Fragment key={message.id}>
+        {dayLabel && <div className="rp-day-divider chat-day-divider"><span>{dayLabel}</span></div>}
+        <section className="phone-timeline-bubbles">
+          {renderEmbeddedSocialMessages(standaloneSocialMessages)}
+        </section>
+      </Fragment>
+    );
+  }
+  const phoneTimelineGroup = phoneTimelineGroupsByFirstMessageId.get(message.id);
+
+  if (phoneTimelineGroup?.entries.length) {
+    if (outsidePhoneDisplayMode === 'hide') {
+      return null;
+    }
+
+    const phoneTimelineEntries = phoneTimelineGroup.entries;
+    const groupKey = phoneTimelineGroup.messageIds.join('-');
+    const collapsed =
+      outsidePhoneDisplayMode === 'collapse' &&
+      phoneTimelineEntries.length >= 2 &&
+      expandedPhoneGroups[groupKey] !== true;
+    const groupedParticipantNames = Array.from(
+      new Set(
+        phoneTimelineEntries.flatMap((entry) => [
+          entry.phoneMessage.from,
+          entry.phoneMessage.to,
+        ]),
+      ),
+    ).filter(Boolean);
+    const rows = phoneTimelineEntries.map((entry) =>
+      renderPhoneTimelineRow(
+        entry.phoneMessage,
+        entry.badges,
+        entry.className,
+        entry.ariaLabel,
+      ),
+    );
+    const bubbleStack = renderPhoneBubbleStack(phoneTimelineEntries.map((entry) => entry.phoneMessage));
+
+    return (
+      <Fragment key={message.id}>
+        {dayLabel && <div className="rp-day-divider chat-day-divider"><span>{dayLabel}</span></div>}
+        {outsidePhoneDisplayMode === 'bubbles' ? (
+          <section className="phone-timeline-bubbles">
+            {bubbleStack}
+          </section>
+        ) : phoneTimelineEntries.length >= 2 && outsidePhoneDisplayMode === 'collapse' ? (
+          <section className="phone-timeline-group">
+            <button
+              className="phone-timeline-group-toggle"
+              type="button"
+              onClick={() =>
+                setExpandedPhoneGroups((current) => ({
+                  ...current,
+                  [groupKey]: !current[groupKey],
+                }))
+              }
+              aria-expanded={!collapsed}
+            >
+              <span className="phone-timeline-group-chevron" aria-hidden="true">
+                {collapsed ? '>' : 'v'}
+              </span>
+              <span>
+                {phoneTimelineEntries.length} phone {phoneTimelineEntries.length === 1 ? 'message' : 'messages'} with
+              </span>
+              <span className="phone-timeline-group-summary">
+                {groupedParticipantNames.join(', ')}
+              </span>
+            </button>
+            {!collapsed && <div className="phone-timeline-group-rows">{rows}</div>}
+          </section>
+        ) : rows}
+      </Fragment>
+    );
+  }
+
+  if (compactAutoTurnMarker || compactEventMarker) {
+    return (
+      <Fragment key={message.id}>
+        {dayLabel && <div className="rp-day-divider chat-day-divider"><span>{dayLabel}</span></div>}
+        <div
+          className={`message-timeline-row ${compactEventMarker ? 'event' : 'auto-turn'}${
+            narratorAutoTurnMarker ? ' narrator-auto-turn' : ''
+          }`}
+          style={{ fontSize: chatTextSize || defaultChatTextSize }}
+        >
+          {narratorAutoTurnMarker && (
+            <span className={badgeClassName('NARRATOR')}>NARRATOR</span>
+          )}
+          <span className={badgeClassName(compactEventMarker ? 'EVENT' : 'AUTOTURN')}>
+            {compactEventMarker ? 'EVENT' : 'AUTOTURN'}
+          </span>
+          {!narratorAutoTurnMarker && (
+            <span className="message-timeline-label">
+              {compactEventMarker ? eventTitle : autoTurnMatch?.[1]}
+            </span>
+          )}
+          {rpTimeParts && (
+            <span className="message-timeline-time">
+              <span>{rpTimeParts.date}</span>
+              <span>{rpTimeParts.time}</span>
+            </span>
+          )}
+        </div>
+      </Fragment>
+    );
+  }
+
+  if (message.bankTransfer) {
+    return (
+      <Fragment key={message.id}>
+        {dayLabel && <div className="rp-day-divider chat-day-divider"><span>{dayLabel}</span></div>}
+        <BankTransferCard
+          transfer={message.bankTransfer}
+          rpDateTime={rpTimeTrackingEnabled ? effectiveMessageRpDateTime : undefined}
+          rpDateTimeFormat={rpDateTimeFormat}
+          rpWeekdayLanguage={rpWeekdayLanguage}
+          fontSize={chatTextSize || defaultChatTextSize}
+        />
+      </Fragment>
+    );
+  }
+
+  if (message.socialPost) {
+    const socialPost = message.socialPost;
+    const engagement = socialEngagementByApp[socialPost.app][socialPost.postId] ?? {
+      likeCount: 0,
+      commentCount: 0,
+    };
+    const authorCharacter = socialCharacterForPost(socialPost, appCharacters);
+    const authorColor = authorCharacter
+      ? characterColors.get(authorCharacter.name)
+      : undefined;
+    return (
+      <Fragment key={message.id}>
+        {dayLabel && <div className="rp-day-divider chat-day-divider"><span>{dayLabel}</span></div>}
+        <SocialPostCard
+          post={socialPost}
+          showProfileNames={showProfileNames}
+          imageDataUrl={socialPost.imageId
+            ? socialImageById(socialPost.imageId, socialPost.authorAccountId ?? socialPost.authorCharacterId)?.dataUrl
+            : undefined}
+          authorCharacter={authorCharacter}
+          authorColor={authorColor}
+          likeCount={engagement.likeCount}
+          commentCount={engagement.commentCount}
+          rpDateTime={rpTimeTrackingEnabled ? effectiveMessageRpDateTime : undefined}
+          rpDateTimeFormat={rpDateTimeFormat}
+          rpWeekdayLanguage={rpWeekdayLanguage}
+          fontSize={chatTextSize || defaultChatTextSize}
+          onOpen={() => onOpenSocialPost(socialPost)}
+          onImageLoaded={onMessageContentLoaded}
+        />
+      </Fragment>
+    );
+  }
+
+  if (phoneAppCommandCardOnly) {
+    return (
+      <Fragment key={message.id}>
+        {dayLabel && <div className="rp-day-divider chat-day-divider"><span>{dayLabel}</span></div>}
+        <div className="phone-app-command-card-stack">
+          {message.createdPhoneNote && (
+            <CreatedPhoneNoteCard
+              entry={message.createdPhoneNote}
+              fontSize={chatTextSize || defaultChatTextSize}
+            />
+          )}
+          {message.simulatedAiChat && (
+            <SimulatedAiChatCard
+              entry={message.simulatedAiChat}
+              fontSize={chatTextSize || defaultChatTextSize}
+            />
+          )}
+        </div>
+      </Fragment>
+    );
+  }
+
+  return (
+    <Fragment key={message.id}>
+      {dayLabel && <div className="rp-day-divider chat-day-divider"><span>{dayLabel}</span></div>}
+      <article className={`message ${message.role} ${hasOutputActionUi ? 'has-output-action-ui' : ''}${isEditingMessage ? ' is-editing' : ''}`}>
+      {speakerLabelNames.length > 0 && (
+        <div className={`message-speakers${speakerLabelsPlaceholder ? ' is-placeholder' : ''}`}>
+          {speakerLabelNames.map((speakerName) => {
+            const isCharacter = storyCharacters.some(
+              (character) => character.name === speakerName,
+            );
+            const color =
+              isCharacter && dialogueHighlightEnabled
+                ? message.speakerColors?.[speakerName] ?? characterColors.get(speakerName)
+                : undefined;
+            return (
+              <span
+                className="message-speaker"
+                key={speakerName}
+                style={color ? { color } : undefined}
+              >
+                {speakerName}
+              </span>
+            );
+          })}
+        </div>
+      )}
+      <div className="message-body">
+        {canEditMessage && !isEditingMessage && (
+          <button
+            className="message-pencil-button"
+            type="button"
+            onClick={() => onBeginEditMessage(message, visibleText)}
+            title="Edit the last user message"
+            aria-label="Edit the last user message"
+          >
+            <svg aria-hidden="true" viewBox="0 0 24 24">
+              <path d="m4 16.5-.8 4.3 4.3-.8L19.8 7.7a2.1 2.1 0 0 0 0-3l-.5-.5a2.1 2.1 0 0 0-3 0L4 16.5Zm10.8-10.8 3.5 3.5M3.2 20.8h17.6" />
+            </svg>
+          </button>
+        )}
+        <div className="message-text-stack">
+          {isEditingMessage ? (
+            <textarea
+              className="message-edit-textarea"
+              style={{ fontSize: chatTextSize || defaultChatTextSize }}
+              value={editingDraft}
+              onChange={(event) => onEditingDraftChange(event.target.value)}
+              onKeyDown={(event) => {
+                if (event.key === 'Enter' && !event.shiftKey && !event.ctrlKey) {
+                  event.preventDefault();
+                  onRegenerateEditedMessage();
+                }
+              }}
+              rows={1}
+              autoFocus
+            />
+          ) : (
+            <>
+              {(message.outputActionInfoBoxes?.length ?? 0) > 0 ||
+              (message.outputActionProgressBars?.length ?? 0) > 0 ||
+              (message.outputActionContextCapacityBars?.length ?? 0) > 0 ? (
+                renderOutputActionDisplays()
+              ) : (message.outputActionChoices?.length ?? 0) > 0 ? (
+                renderOutputActionChoices()
+              ) : (
+                (message.embeddedPhoneMessages?.length ?? 0) > 0 ||
+                (message.embeddedSocialMessages?.length ?? 0) > 0
+              ) ? (
+                <div
+                  className="message-composite-bubble"
+                  style={{ fontSize: chatTextSize || defaultChatTextSize }}
+                >
+                  {compositeTextBefore && (
+                    <span className="message-composite-text chat-reading-stripes">
+                      {renderDialogueTextParts(stripRecognizedSpeakerLabels(compositeTextBefore, speakerNames), 'before')}
+                    </span>
+                  )}
+                  {embeddedMessengerGroups(message).map((group, groupIndex) => (
+                    <Fragment key={`embedded-messenger-group-${groupIndex}`}>
+                      {group.kind === 'phone' ? (
+                        outsidePhoneDisplayMode === 'bubbles' ? (
+                          renderPhoneBubbleStack(group.phoneMessages, true)
+                        ) : (
+                          <span className="embedded-phone-links inline" aria-label="Sent phone messages">
+                            {group.phoneMessages.map((phoneMessage) => (
+                              renderPhoneActionButton(phoneMessage)
+                            ))}
+                          </span>
+                        )
+                      ) : (
+                        renderEmbeddedSocialMessages(group.socialMessages)
+                      )}
+                    </Fragment>
+                  ))}
+                  {compositeTextAfter && (
+                    <span className="message-composite-text chat-reading-stripes">
+                      {renderDialogueTextParts(stripRecognizedSpeakerLabels(compositeTextAfter, speakerNames), 'after')}
+                    </span>
+                  )}
+                  {rpTimeTrackingEnabled &&
+                    !message.eventInput &&
+                    renderRpTime(message.rpDateTime, 'message-rp-time')}
+                </div>
+              ) : (visibleText || message.rpDateTime) && (
+                <p style={{ fontSize: chatTextSize || defaultChatTextSize }}>
+                  <span className="chat-reading-stripes">
+                    {renderDialogueTextParts(visibleText, 'main')}
+                  </span>
+                  {rpTimeTrackingEnabled &&
+                    !message.eventInput &&
+                    renderRpTime(message.rpDateTime, 'message-rp-time')}
+                </p>
+              )}
+            </>
+          )}
+          {!isEditingMessage && (message.createdPhoneNote || message.simulatedAiChat) && (
+            <div className="phone-app-command-card-stack">
+              {message.createdPhoneNote && (
+                <CreatedPhoneNoteCard
+                  entry={message.createdPhoneNote}
+                  fontSize={chatTextSize || defaultChatTextSize}
+                />
+              )}
+              {message.simulatedAiChat && (
+                <SimulatedAiChatCard
+                  entry={message.simulatedAiChat}
+                  fontSize={chatTextSize || defaultChatTextSize}
+                />
+              )}
+            </div>
+          )}
+          {isEditingMessage && (
+            <div className="message-actions user-actions">
+              <button
+                className="message-action-button"
+                type="button"
+                onClick={onCancelEditMessage}
+              >
+                Cancel
+              </button>
+              <button
+                className="message-action-button primary"
+                type="button"
+                onClick={onRegenerateEditedMessage}
+                disabled={!editingDraft.trim()}
+              >
+                Regenerate
+              </button>
+            </div>
+          )}
+        </div>
+        {!!message.imageAttachments?.length && (
+          <div className="message-images">
+            {message.imageAttachments.map((image) => (
+              <div className="chat-image-shell" key={image.id}>
+                <button
+                  className="chat-image-button"
+                  type="button"
+                  onClick={() => onPreviewImage(image)}
+                >
+                  <img
+                    src={image.dataUrl}
+                    alt={image.name}
+                    onLoad={onMessageContentLoaded}
+                  />
+                </button>
+                <ImageContextControl
+                  image={image}
+                  inContext={isImageInContext(image)}
+                  manuallySelected={isImageManuallySelected(image)}
+                  disabled={isRunning}
+                  contextEnabled={referenceImageContextEnabled}
+                  contextDisabledReason={referenceImageContextDisabledReason}
+                  onToggle={onToggleReferenceImage}
+                />
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+      </article>
+    </Fragment>
+  );
+});
+
 type ChatConversationPanelProps = {
   runtimeNodes: WorkflowNode[];
   messageStream: MessageStream;
@@ -480,21 +1665,6 @@ export function ChatConversationPanel({
     fotogram: socialPostEngagementByPostId('fotogram', messages, socialLikesByAccount),
     onlyfriends: socialPostEngagementByPostId('onlyfriends', messages, socialLikesByAccount),
   }), [messages, socialLikesByAccount]);
-  const isImageInContext = (image: ChatImageAttachment) =>
-    !!image.id.trim() && contextualReferenceImageIds.has(image.id.trim());
-  const isImageManuallySelected = (image: ChatImageAttachment) =>
-    !!image.id.trim() && selectedReferenceImageIds.has(image.id.trim());
-  type OutsidePhoneDisplayMode = 'collapse' | 'show' | 'hide' | 'bubbles';
-  type PhoneTimelineEntry = {
-    phoneMessage: EmbeddedPhoneMessageLink;
-    badges: string[];
-    className: string;
-    ariaLabel: string;
-  };
-  type PhoneTimelineGroup = {
-    messageIds: number[];
-    entries: PhoneTimelineEntry[];
-  };
   const [outsidePhoneDisplayMode, setOutsidePhoneDisplayMode] =
     useState<OutsidePhoneDisplayMode>(() => {
       try {
@@ -687,8 +1857,6 @@ export function ChatConversationPanel({
     }
   }
 
-  const badgeClassName = (badge: string) =>
-    `entry-channel-badge badge-${badge.toLocaleLowerCase()}`;
   const { phoneMessagesById, socialMessagesById, visibleMessages, socialTimeline,
     phoneTimelineGroupsByFirstMessageId, skippedPhoneTimelineMessageIds,
     effectiveRpDateTime, previousDays } = useMemo(() => {
@@ -865,1090 +2033,62 @@ export function ChatConversationPanel({
           '--chat-reading-color': chatReadingColor(chatTextBrightness),
         } as CSSProperties}
       >
-        {visibleMessages.map((message, index) => {
-          if (skippedPhoneTimelineMessageIds.has(message.id) || socialTimeline.skippedIds.has(message.id)) {
-            return null;
-          }
-          const displayText = message.eventInput && message.eventDisplayText
-            ? message.eventDisplayText
-            : socialDirectMessageDisplayText(message, englishProcessingEnabled, appCharacters);
-          const speakerNames =
-            message.role === 'error'
-              ? ['Error']
-              : message.speakerNames?.length
-                ? message.speakerNames
-                : message.role === 'user'
-                  ? [message.speakerName ?? 'Character']
-                  : [];
-          const hasOutputActionUi =
-            !!message.outputActionChoices?.length ||
-            !!message.outputActionInfoBoxes?.length ||
-            !!message.outputActionProgressBars?.length ||
-            !!message.outputActionContextCapacityBars?.length;
-          const reserveSpeakerLabels =
-            message.role === 'output' && !hasOutputActionUi && !message.deletedPhoneNote;
-          const speakerLabelNames = speakerNames.length > 0
-            ? speakerNames
-            : reserveSpeakerLabels
-              ? ['Character']
-              : [];
-          const speakerLabelsPlaceholder = speakerNames.length === 0 && reserveSpeakerLabels;
-          const visibleText =
-            message.role === 'error'
-              ? displayText
-              : stripRecognizedSpeakerLabels(displayText, speakerNames);
-          const phoneAppCommandHistoryText = [
-            message.createdPhoneNote
-              ? createdPhoneNoteHistoryText(message.createdPhoneNote)
-              : '',
-            message.deletedPhoneNote
-              ? deletedPhoneNoteHistoryText(message.deletedPhoneNote)
-              : '',
-            message.simulatedAiChat
-              ? simulatedAiChatHistoryText(message.simulatedAiChat)
-              : '',
-          ].filter(Boolean).join('\n\n');
-          const phoneAppCommandCardOnly =
-            !!phoneAppCommandHistoryText &&
-            visibleText.trim() === phoneAppCommandHistoryText.trim();
-          const dialogue = englishProcessingEnabled
-            ? message.translatedDialogue ?? []
-            : message.originalDialogue ?? [];
-          const llmDialogueHighlightActive =
-            (message.role === 'output' || message.role === 'user') &&
-            dialogueHighlightEnabled;
-          const compositeTextBefore = (() => {
-            const hasCompositeText =
-              message.embeddedPhoneTextBefore !== undefined ||
-              message.embeddedPhoneTextAfter !== undefined ||
-              message.embeddedPhoneTranslatedTextBefore !== undefined ||
-              message.embeddedPhoneTranslatedTextAfter !== undefined;
-            if (!englishProcessingEnabled) {
-              return message.embeddedPhoneTextBefore ?? (!hasCompositeText ? message.originalText : undefined);
-            }
-            if (message.embeddedPhoneTranslatedTextBefore) {
-              return message.embeddedPhoneTranslatedTextBefore;
-            }
-            if (!hasCompositeText) {
-              return message.translatedText ?? message.originalText;
-            }
-            return message.translatedText && !message.embeddedPhoneTranslatedTextAfter
-              ? message.translatedText
-              : message.embeddedPhoneTextBefore;
-          })();
-          const compositeTextAfter = (() => {
-            const hasCompositeText =
-              message.embeddedPhoneTextBefore !== undefined ||
-              message.embeddedPhoneTextAfter !== undefined ||
-              message.embeddedPhoneTranslatedTextBefore !== undefined ||
-              message.embeddedPhoneTranslatedTextAfter !== undefined;
-            if (!englishProcessingEnabled) {
-              return message.embeddedPhoneTextAfter ?? (!hasCompositeText ? '' : undefined);
-            }
-            if (message.embeddedPhoneTranslatedTextAfter) {
-              return message.embeddedPhoneTranslatedTextAfter;
-            }
-            if (!hasCompositeText) {
-              return '';
-            }
-            return message.translatedText && !message.embeddedPhoneTranslatedTextBefore
-              ? ''
-              : message.embeddedPhoneTextAfter;
-          })();
-          const isEditingMessage = editingMessageId === message.id;
-          const canEditMessage = message.id === editableUserMessageId && !isRunning;
-          const effectiveMessageRpDateTime = effectiveRpDateTime(message);
-          const previousDay = previousDays[index];
-          const messageDay = effectiveMessageRpDateTime?.slice(0, 10);
-          const dayLabel =
-            rpTimeTrackingEnabled && effectiveMessageRpDateTime && messageDay !== previousDay
-              ? formatRpDayLabel(effectiveMessageRpDateTime, rpDateTimeFormat, rpWeekdayLanguage)
-              : '';
-          // Empty workflow outputs must not occupy a timeline slot between cards.
-          if (
-            message.role === 'output' && !isEditingMessage && !visibleText.trim() &&
-            !compositeTextBefore?.trim() && !compositeTextAfter?.trim() &&
-            !message.embeddedPhoneMessages?.length && !message.embeddedSocialMessages?.length &&
-            !message.imageAttachments?.length && !hasOutputActionUi &&
-            !message.bankTransfer && !message.socialPost && !message.socialDirectMessage &&
-            !message.createdPhoneNote && !message.deletedPhoneNote && !message.simulatedAiChat
-          ) {
-            return dayLabel
-              ? <div className="rp-day-divider chat-day-divider" key={message.id}><span>{dayLabel}</span></div>
-              : null;
-          }
-          const renderDialogueTextParts = (text: string, keyPrefix: string) => (
-            <DialogueText
-              text={text}
-              keyPrefix={keyPrefix}
-              messageId={message.id}
-              dialogue={dialogue}
-              llmDialogueHighlightActive={llmDialogueHighlightActive}
-              speakerColors={message.speakerColors}
-              characterColors={characterColors}
-              dialogueVoiceSpeakerNames={dialogueVoiceSpeakerNames}
-              activeDialogueVoiceKey={activeDialogueVoiceKey}
-              onSpeakDialogue={onSpeakDialogue}
-              chatColorIntensity={chatColorIntensity}
-              thoughtTextStyle={thoughtTextStyle}
-              accountLinks={message.accountLinks}
-            />
-          );
-          const characterNameStyle = (name: string) => {
-            const color = characterColors.get(name);
-            return color ? { color } : undefined;
-          };
-          const phoneMessageTimeParts = (phoneMessageId: number) => {
-            const rpDateTime = phoneMessageRpDateTime(phoneMessageId, phoneMessagesById);
-            return rpDateTime
-              ? formatRpDateTimeParts(
-                  rpDateTime,
-                  rpDateTimeFormat,
-                  rpWeekdayLanguage,
-                )
-              : undefined;
-          };
-          const renderRpTime = (
-            rpDateTime: string | undefined,
-            className: 'message-rp-time' | 'phone-bubble-time',
-          ) => {
-            const parts = rpDateTime
-              ? formatRpDateTimeParts(rpDateTime, rpDateTimeFormat, rpWeekdayLanguage)
-              : undefined;
-            const displayParts = parts ?? rpTimePlaceholderParts(rpDateTimeFormat);
-            return (
-              <span className={`${className}${parts ? ' is-visible' : ' is-placeholder'}`}>
-                <span className="rp-time-date">{displayParts.date}</span>
-                {'   '}
-                <span className="rp-time-clock">{displayParts.time}</span>
-              </span>
-            );
-          };
-          const renderPhoneRpTime = (phoneMessageId: number) => {
-            const rpDateTime = phoneMessageRpDateTime(phoneMessageId, phoneMessagesById);
-            return renderRpTime(rpDateTime, 'phone-bubble-time');
-          };
-          const phoneVoiceClipDataUrl = (message: MessageRecord, speakerName: string, text: string) => {
-            const speechText = dialogueSpeechText(text);
-            return message.voiceClips?.find((clip) =>
-              clip.source === 'phone' &&
-              clip.speakerName === speakerName &&
-              clip.text === speechText &&
-              !!clip.dataUrl
-            )?.dataUrl;
-          };
-          const renderPhoneActionContent = (phoneMessage: EmbeddedPhoneMessageLink) => (
-            <>
-              <span>[WhatsUp]</span>
-              <strong style={characterNameStyle(phoneMessage.from)}>{phoneMessage.from}</strong>
-              {phoneAuthorBadgesEnabled && (
-                <span
-                  className={`phone-author-badge ${
-                    phoneMessagesById.get(phoneMessage.phoneMessageId)?.role === 'user' ? 'user' : 'ai'
-                  }`}
-                >
-                  {phoneMessagesById.get(phoneMessage.phoneMessageId)?.role === 'user' ? 'USER' : 'AI'}
-                </span>
-              )}
-              <span>sent message to</span>
-              <strong style={characterNameStyle(phoneMessage.to)}>{phoneMessage.to}</strong>
-            </>
-          );
-          const renderPhoneActionButton = (phoneMessage: EmbeddedPhoneMessageLink) => {
-            const timeParts = phoneMessageTimeParts(phoneMessage.phoneMessageId);
-            const linkedMessage = phoneMessagesById.get(phoneMessage.phoneMessageId);
-            const title = englishProcessingEnabled
-              ? linkedMessage?.translatedText ?? phoneMessage.translatedMessage ?? phoneMessage.message
-              : phoneMessage.message;
-            return (
-              <button
-                className="embedded-phone-link"
-                type="button"
-                key={phoneMessage.phoneMessageId}
-                onClick={() => onOpenEmbeddedPhoneMessage(phoneMessage)}
-                title={title}
-              >
-                {renderPhoneActionContent(phoneMessage)}
-                {timeParts && (
-                  <span className="embedded-phone-link-time">
-                    {timeParts.date}
-                    {'   '}
-                    {timeParts.time}
-                  </span>
-                )}
-              </button>
-            );
-          };
-	          const renderPhoneTimelineRow = (
-	            phoneMessage: EmbeddedPhoneMessageLink,
-	            badges: string[],
-            className: string,
-            ariaLabel: string,
-          ) => {
-            const timelineTimeParts = phoneMessageTimeParts(phoneMessage.phoneMessageId);
-            const linkedMessage = phoneMessagesById.get(phoneMessage.phoneMessageId);
-            const title = englishProcessingEnabled
-              ? linkedMessage?.translatedText ?? phoneMessage.translatedMessage ?? phoneMessage.message
-              : phoneMessage.message;
-            return (
-              <button
-                className={`message-timeline-row phone ${className}`}
-                style={{ fontSize: chatTextSize || defaultChatTextSize }}
-                type="button"
-                key={phoneMessage.phoneMessageId}
-                onClick={() => onOpenEmbeddedPhoneMessage(phoneMessage)}
-                title={title}
-                aria-label={ariaLabel}
-              >
-                {badges.map((badge) => (
-                  <span className={badgeClassName(badge)} key={badge}>{badge}</span>
-                ))}
-                <span className="embedded-phone-link timeline-phone-action">
-                  {renderPhoneActionContent(phoneMessage)}
-                </span>
-                {timelineTimeParts && (
-                  <span className="message-timeline-time">
-                    <span>{timelineTimeParts.date}</span>
-                    <span>{timelineTimeParts.time}</span>
-                  </span>
-                )}
-	              </button>
-	            );
-	          };
-	          const phoneConversationSignature = (phoneMessage: EmbeddedPhoneMessageLink) =>
-	            [phoneMessage.from, phoneMessage.to]
-              .map((name) => name.trim().toLocaleLowerCase())
-              .sort()
-              .join('::');
-          const phoneConversationSegments = (phoneMessages: EmbeddedPhoneMessageLink[]) =>
-            phoneMessages.reduce<EmbeddedPhoneMessageLink[][]>((segments, phoneMessage) => {
-              const currentSegment = segments[segments.length - 1];
-              const previousPhoneMessage = currentSegment?.[currentSegment.length - 1];
-              if (
-                !currentSegment ||
-                !previousPhoneMessage ||
-                phoneConversationSignature(previousPhoneMessage) !== phoneConversationSignature(phoneMessage)
-              ) {
-                segments.push([phoneMessage]);
-                return segments;
-              }
-              currentSegment.push(phoneMessage);
-              return segments;
-            }, []);
-          const phoneConversationCardTitle = (phoneMessage: EmbeddedPhoneMessageLink) => (
-            <h3 className="chat-phone-card-title">
-              <span style={characterNameStyle(phoneMessage.from)}>{phoneMessage.from}</span>
-              <span>and</span>
-              <span style={characterNameStyle(phoneMessage.to)}>{phoneMessage.to}</span>
-            </h3>
-          );
-          const renderPhoneBubbleStack = (
-            phoneMessages: EmbeddedPhoneMessageLink[],
-            embedded = false,
-          ) => {
-            const renderPhoneBubble = (
-              phoneMessage: EmbeddedPhoneMessageLink,
-              anchorSender: string,
-              showRouteLabel = false,
-            ) => {
-              const linkedMessage = phoneMessagesById.get(phoneMessage.phoneMessageId);
-              const repliedToMessage = linkedMessage?.replyToMessageId !== undefined
-                ? phoneMessagesById.get(linkedMessage.replyToMessageId)
-                : undefined;
-              const repliedToText = repliedToMessage
-                ? phoneReplyVisibleText(repliedToMessage, englishProcessingEnabled) || 'Image'
-                : '';
-              const text = linkedMessage
-                ? phoneMessageVisibleText(linkedMessage, englishProcessingEnabled)
-                : englishProcessingEnabled
-                  ? phoneMessage.translatedMessage ?? phoneMessage.message
-                  : phoneMessage.message;
-              const fromColor = characterColors.get(phoneMessage.from);
-              const toColor = characterColors.get(phoneMessage.to);
-              const outgoing = phoneMessage.from.trim().toLocaleLowerCase() === anchorSender;
-              const openPhoneMessage = () => onOpenEmbeddedPhoneMessage(phoneMessage);
-              const authorRole = linkedMessage?.role ?? 'output';
-              const authorBadge = phoneAuthorBadgesEnabled ? (
-                <span className={`phone-author-badge ${authorRole === 'user' ? 'user' : 'ai'}`}>
-                  {authorRole === 'user' ? 'USER' : 'AI'}
-                </span>
-              ) : null;
-              const imageAttachments =
-                linkedMessage?.imageAttachments ?? phoneMessage.previewImageAttachments;
-
-              return (
-                <div className="phone-message-row chat-phone-message-row" key={phoneMessage.phoneMessageId}>
-                  <div className={`phone-message-content ${outgoing ? 'outgoing' : 'incoming'}`}>
-                    <div
-                      className={`phone-bubble ${outgoing ? 'outgoing' : 'incoming'} chat-phone-bubble`}
-                      role="button"
-                      tabIndex={0}
-                      onClick={openPhoneMessage}
-                      onKeyDown={(event) => {
-                        if (event.key === 'Enter' || event.key === ' ') {
-                          event.preventDefault();
-                          openPhoneMessage();
-                        }
-                      }}
-                      style={{ fontSize: chatTextSize || defaultChatTextSize }}
-                    >
-                      {showRouteLabel ? (
-                        <span className="phone-bubble-sender chat-phone-bubble-route">
-                          <span style={fromColor ? { color: fromColor } : undefined}>{phoneMessage.from}</span>
-                          {authorBadge}
-                          <span>texts</span>
-                          <span style={toColor ? { color: toColor } : undefined}>{phoneMessage.to}</span>
-                        </span>
-                      ) : (
-                        <span
-                          className="phone-bubble-sender"
-                          style={fromColor ? { color: fromColor } : undefined}
-                        >
-                          {phoneMessage.from}
-                          {authorBadge}
-                        </span>
-                      )}
-                      {repliedToMessage && (
-                        <div className={`phone-bubble-reply-context${phoneReplySizeClass(repliedToText)}`}>
-                          {!!repliedToMessage.imageAttachments?.length && (
-                            <img
-                              src={repliedToMessage.imageAttachments[0]?.dataUrl}
-                              alt={repliedToMessage.imageAttachments[0]?.name ?? 'Replied image'}
-                              onLoad={onMessageContentLoaded}
-                            />
-                          )}
-                          <div className="phone-bubble-reply-copy">
-                            <strong>
-                              Reply to {repliedToMessage.phoneFrom || repliedToMessage.speakerName || 'Unknown'}
-                            </strong>
-                            <span>{repliedToText}</span>
-                          </div>
-                        </div>
-                      )}
-                      {!!imageAttachments?.length && (
-                        <div className="phone-bubble-images">
-                          {imageAttachments.map((image) => (
-                            <div className="phone-bubble-image" key={image.id}>
-                              <button
-                                className="phone-bubble-image-preview"
-                                type="button"
-                                onClick={(event) => {
-                                  event.stopPropagation();
-                                  onPreviewImage(image);
-                                }}
-                              >
-                                <img
-                                  src={image.dataUrl}
-                                  alt={image.name}
-                                  onLoad={onMessageContentLoaded}
-                                />
-                              </button>
-                              <ImageContextControl
-                                image={image}
-                                inContext={isImageInContext(image)}
-                                manuallySelected={isImageManuallySelected(image)}
-                                disabled={isRunning}
-                                contextEnabled={referenceImageContextEnabled}
-                                contextDisabledReason={referenceImageContextDisabledReason}
-                                onToggle={onToggleReferenceImage}
-                              />
-                            </div>
-                          ))}
-                        </div>
-                      )}
-                      {text && linkedMessage?.phoneVoiceMessage && dialogueVoiceSpeakerNames.has(phoneMessage.from) ? (
-                        <div
-                          onClick={(event) => event.stopPropagation()}
-                          onKeyDown={(event) => event.stopPropagation()}
-                        >
-                          <PhoneVoiceMessage
-                            text={text}
-                            clipDataUrl={phoneVoiceClipDataUrl(linkedMessage, phoneMessage.from, text)}
-                            disabled={isRunning}
-                            disabledReason="Voice messages are unavailable while the chat is running."
-                            onGenerateClip={() =>
-                              onGenerateVoiceMessageClip({
-                                messageId: linkedMessage.id,
-                                speakerName: phoneMessage.from,
-                                text,
-                              })
-                            }
-                          />
-                        </div>
-                      ) : text ? (
-                        <span><AccountLinkText text={text} bindings={linkedMessage?.accountLinks} /></span>
-                      ) : null}
-                      {linkedMessage?.phoneImageCaptionChange && (
-                        <button
-                          className="caption-change-chip"
-                          type="button"
-                          onClick={(event) => {
-                            event.stopPropagation();
-                            onPreviewImageCaptionChange(linkedMessage.phoneImageCaptionChange!);
-                          }}
-                        >
-                          Image Caption Updated
-                        </button>
-                      )}
-                      {rpTimeTrackingEnabled && renderPhoneRpTime(phoneMessage.phoneMessageId)}
-                    </div>
-                  </div>
-                </div>
-              );
-            };
-
-            if (embedded) {
-              const segments = phoneConversationSegments(phoneMessages);
-              return (
-                <section className="chat-social-message-stack" aria-label="WhatsUp messages">
-                  {segments.map((segment, segmentIndex) => {
-                    const first = segment[0];
-                    if (!first) {
-                      return null;
-                    }
-                    const anchorSender = first.from.trim().toLocaleLowerCase();
-                    return (
-                      <section
-                        className="chat-social-message-card whatsup"
-                        key={`${first.phoneMessageId}-${segmentIndex}`}
-                      >
-                        <header className="chat-social-message-header">
-                          <strong>WhatsUp</strong>
-                          <span>{first.from} and {first.to}</span>
-                        </header>
-                        <div className="chat-phone-card-messages">
-                          {segment.map((phoneMessage) =>
-                            renderPhoneBubble(phoneMessage, anchorSender)
-                          )}
-                        </div>
-                      </section>
-                    );
-                  })}
-                </section>
-              );
-            }
-
-            const segments = phoneConversationSegments(phoneMessages);
-            return (
-              <section className="chat-phone-bubble-stack" aria-label="Phone messages">
-                {segments.map((segment, segmentIndex) => {
-                  const anchorSender = segment[0]?.from.trim().toLocaleLowerCase() ?? '';
-                  return (
-                    <section
-                      className="chat-phone-card whatsup"
-                      key={`${segment[0]?.phoneMessageId ?? 'segment'}-${segmentIndex}`}
-                    >
-                      <header className="chat-social-message-header"><strong>WhatsUp</strong></header>
-                      {phoneBubbleHeadersEnabled && segment[0] && phoneConversationCardTitle(segment[0])}
-                      <div className="chat-phone-card-messages">
-                        {segment.map((phoneMessage, messageIndex) =>
-                          renderPhoneBubble(phoneMessage, anchorSender, messageIndex === 0)
-                        )}
-                      </div>
-                    </section>
-                  );
-                })}
-              </section>
-            );
-          };
-          const renderEmbeddedSocialMessages = (socialMessages: EmbeddedSocialMessageLink[]) => {
-            const segments = socialMessages.reduce<EmbeddedSocialMessageLink[][]>((groups, socialMessage) => {
-              const current = groups[groups.length - 1];
-              const first = current?.[0];
-              const sameConversation = first &&
-                first.app === socialMessage.app &&
-                (first.app === 'matchme'
-                  ? !!(socialMessagesById.get(first.socialMessageId) ?? first.previewMessage)?.matchId &&
-                    (socialMessagesById.get(first.socialMessageId) ?? first.previewMessage)?.matchId === (socialMessagesById.get(socialMessage.socialMessageId) ?? socialMessage.previewMessage)?.matchId
-                  : [first.from, first.to].map((name) => name.toLocaleLowerCase()).sort().join('::') ===
-                    [socialMessage.from, socialMessage.to].map((name) => name.toLocaleLowerCase()).sort().join('::'));
-              if (!current || !sameConversation) {
-                groups.push([socialMessage]);
-              } else {
-                current.push(socialMessage);
-              }
-              return groups;
-            }, []);
-            return (
-              <section className="chat-social-message-stack" aria-label="Social messenger messages">
-                {segments.map((segment, segmentIndex) => {
-                  const first = segment[0];
-                  if (!first) {
-                    return null;
-                  }
-                  const anchorSender = first.from.trim().toLocaleLowerCase();
-                  const appName = socialAppNames[first.app];
-                  const firstMessage = socialMessagesById.get(first.socialMessageId) ?? first.previewMessage;
-                  return (
-                    <section
-                      className={`chat-social-message-card ${first.app}`}
-                      key={`${first.socialMessageId}-${segmentIndex}`}
-                    >
-                      <header className="chat-social-message-header">
-                        <strong>{appName}{first.app === 'matchme' && <span aria-hidden="true"> ♥</span>}</strong>
-                        <span>{firstMessage
-                          ? `${socialDirectMessageParty(firstMessage, 'from', appCharacters, showProfileNames)} to ${socialDirectMessageParty(firstMessage, 'to', appCharacters, showProfileNames)}`
-                          : `${first.from} to ${first.to}`}</span>
-                      </header>
-                      <div className="chat-social-message-thread">
-                        {segment.map((socialMessage, messageIndex) => {
-                          const linkedMessage = socialMessagesById.get(socialMessage.socialMessageId) ?? socialMessage.previewMessage;
-                          const text = socialTimelineMessageText(socialMessage, linkedMessage, englishProcessingEnabled);
-                          const outgoing = first.app === 'matchme'
-                            ? linkedMessage?.fromAccountId === firstMessage?.fromAccountId
-                            : socialMessage.from.trim().toLocaleLowerCase() === anchorSender;
-                          const fromColor = characterColors.get(socialMessage.from);
-                          return (
-                            <div
-                              className={`chat-social-message-row ${outgoing ? 'outgoing' : 'incoming'}`}
-                              key={socialMessage.socialMessageId}
-                            >
-                              <div
-                                className="chat-social-message-bubble"
-                                role="button"
-                                tabIndex={0}
-                                onClick={() => onOpenEmbeddedSocialMessage(socialMessage)}
-                                onKeyDown={(event) => {
-                                  if (event.key === 'Enter' || event.key === ' ') {
-                                    event.preventDefault();
-                                    onOpenEmbeddedSocialMessage(socialMessage);
-                                  }
-                                }}
-                                style={{ fontSize: chatTextSize || defaultChatTextSize }}
-                              >
-                                <strong className={messageIndex === 0 ? 'chat-phone-bubble-route' : undefined}>
-                                  <span style={fromColor ? { color: fromColor } : undefined}>{linkedMessage ? socialDirectMessageParty(linkedMessage, 'from', appCharacters, showProfileNames) : socialMessage.from}</span>
-                                  {messageIndex === 0 && <>
-                                    <span>texts</span>
-                                    <span style={{ color: characterColors.get(socialMessage.to) }}>{linkedMessage ? socialDirectMessageParty(linkedMessage, 'to', appCharacters, showProfileNames) : socialMessage.to}</span>
-                                  </>}
-                                </strong>
-                                <span><AccountLinkText text={text} bindings={linkedMessage?.accountLinks} /></span>
-                              </div>
-                            </div>
-                          );
-                        })}
-                      </div>
-                    </section>
-                  );
-                })}
-              </section>
-            );
-          };
-          const renderOutputActionChoices = () => {
-            const choiceGroups = message.outputActionChoices ?? [];
-            if (choiceGroups.length === 0) {
-              return null;
-            }
-            return (
-              <div className="output-action-choice-stack" style={{ fontSize: chatTextSize || defaultChatTextSize }}>
-                {choiceGroups.map((group, groupIndex) => {
-                  return (
-                    <section className={`output-action-choice-group ${group.kind}`} key={groupIndex}>
-                      {group.prompt && <div className="output-action-choice-prompt">{group.prompt}</div>}
-                      <div className="output-action-choice-options">
-                        {group.options.map((option, optionIndex) => {
-                          const selection: InputActionSelection = {
-                            source: 'outputAction',
-                            kind: group.kind,
-                            messageId: message.id,
-                            groupId: group.id,
-                            groupIndex,
-                            optionId: option.id,
-                            optionIndex,
-                            prompt: group.prompt,
-                            label: option.label,
-                            value: option.value,
-                            text: option.text ?? group.text,
-                            player: option.player ?? group.player,
-                            messageFormat: option.messageFormat ?? group.messageFormat,
-                            turnMode: option.turnMode ?? group.turnMode,
-                            mode: option.mode ?? group.mode,
-                          };
-                          return (
-                            <button
-                              className="output-action-choice-button"
-                              type="button"
-                              disabled={isRunning}
-                              key={`${option.label}-${optionIndex}`}
-                              onClick={() => onOutputActionChoice(selection)}
-                              title={option.value}
-                            >
-                              {option.label}
-                            </button>
-                          );
-                        })}
-                      </div>
-                    </section>
-                  );
-                })}
-              </div>
-            );
-          };
-          const renderOutputActionDisplays = () => {
-            const infoBoxes = message.outputActionInfoBoxes ?? [];
-            const progressBars = message.outputActionProgressBars ?? [];
-            const contextCapacityBars = message.outputActionContextCapacityBars ?? [];
-            if (infoBoxes.length === 0 && progressBars.length === 0 && contextCapacityBars.length === 0) {
-              return null;
-            }
-            return (
-              <div className="output-action-display-stack" style={{ fontSize: chatTextSize || defaultChatTextSize }}>
-                {infoBoxes.map((box, boxIndex) => (
-                  <section className={`output-action-info-box ${box.tone ?? 'info'}`} key={`info-${boxIndex}`}>
-                    {box.title && <div className="output-action-info-title">{box.title}</div>}
-                    <div className="output-action-info-text">{box.text}</div>
-                  </section>
-                ))}
-                {progressBars.map((bar, barIndex) => {
-                  const percent = ((bar.value - bar.min) / (bar.max - bar.min)) * 100;
-                  return (
-                    <section className="output-action-progress-card" key={`progress-${barIndex}`}>
-                      <div className="output-action-progress-header">
-                        <span className="output-action-progress-title">{bar.title}</span>
-                        <span className="output-action-progress-value">
-                          {bar.value} / {bar.max}
-                        </span>
-                      </div>
-                      <div
-                        className="output-action-progress-track"
-                        role="progressbar"
-                        aria-label={bar.title}
-                        aria-valuemin={bar.min}
-                        aria-valuemax={bar.max}
-                        aria-valuenow={bar.value}
-                      >
-                        <div className="output-action-progress-fill" style={{ width: `${percent}%` }} />
-                      </div>
-                      {bar.label && <div className="output-action-progress-label">{bar.label}</div>}
-                    </section>
-                  );
-                })}
-                {contextCapacityBars.map((bar, barIndex) => (
-                  <section className="output-action-context-capacity-card" key={bar.id ?? `context-capacity-${barIndex}`}>
-                    <div className="output-action-context-capacity-header">
-                      <div className="output-action-context-capacity-title-row">
-                        <span className="output-action-progress-title">{bar.title}</span>
-                        {bar.showLegend && (
-                          <span className="output-action-context-capacity-legend">
-                            <span className="replaced">trimmed context</span>
-                            <span className="summary">summary</span>
-                            <span className="active">active</span>
-                            <span className="free">free</span>
-                          </span>
-                        )}
-                      </div>
-                      <span className="output-action-progress-value">{bar.activeTokens + bar.summaryTokens} / {bar.maxTokens}</span>
-                    </div>
-                    <div
-                      className="output-action-context-capacity"
-                      title={`Trimmed context ~${bar.replacedTokens} / summary ~${bar.summaryTokens} / active ~${bar.activeTokens} / max ~${bar.maxTokens} tokens`}
-                    >
-                      {bar.replacedPercent > 0 && <span className="compression-capacity-replaced" style={{ width: `${bar.replacedPercent}%` }} />}
-                      {bar.summaryPercent > 0 && <span className="compression-capacity-summary" style={{ width: `${bar.summaryPercent}%` }} />}
-                      {bar.activePercent > 0 && <span className="compression-capacity-active" style={{ width: `${bar.activePercent}%` }} />}
-                      {bar.freePercent > 0 && <span className="compression-capacity-free" style={{ width: `${bar.freePercent}%` }} />}
-                    </div>
-                    {bar.label && <div className="output-action-progress-label">{bar.label}</div>}
-                  </section>
-                ))}
-              </div>
-            );
-          };
-          const autoTurnMatch = message.originalText.match(
-            /^(.+?) moves the story forward with an action, dialogue, or decision\.$/,
-          );
-          const narratorAutoTurnMarker =
-            message.role === 'user' &&
-            message.speakerName === 'Narrator' &&
-            message.originalText.trim() === 'Narrator AutoTurn';
-          const compactAutoTurnMarker =
-            message.role === 'user' &&
-            !message.phoneMessage &&
-            !message.eventInput &&
-            message.speakerName === 'Narrator' &&
-            (!!autoTurnMatch || narratorAutoTurnMarker);
-          const eventTitle = message.eventInput && message.eventDisplayText
-            ? message.eventDisplayText.replace(/^Event:\s*/i, '').trim()
-            : '';
-          const compactEventMarker =
-            message.role === 'user' &&
-            message.eventInput &&
-            !!eventTitle;
-          const rpTimeParts =
-            effectiveMessageRpDateTime
-              ? formatRpDateTimeParts(
-                  effectiveMessageRpDateTime,
-                  rpDateTimeFormat,
-                  rpWeekdayLanguage,
-                )
-              : undefined;
-          const standaloneSocialMessages = socialTimeline.groups.get(message.id);
-          if (standaloneSocialMessages) {
-            return (
-              <Fragment key={message.id}>
-                {dayLabel && <div className="rp-day-divider chat-day-divider"><span>{dayLabel}</span></div>}
-                <section className="phone-timeline-bubbles">
-                  {renderEmbeddedSocialMessages(standaloneSocialMessages)}
-                </section>
-              </Fragment>
-            );
-          }
-          const phoneTimelineGroup = phoneTimelineGroupsByFirstMessageId.get(message.id);
-
-          if (phoneTimelineGroup?.entries.length) {
-            if (outsidePhoneDisplayMode === 'hide') {
-              return null;
-            }
-
-            const phoneTimelineEntries = phoneTimelineGroup.entries;
-            const groupKey = phoneTimelineGroup.messageIds.join('-');
-            const collapsed =
-              outsidePhoneDisplayMode === 'collapse' &&
-              phoneTimelineEntries.length >= 2 &&
-              expandedPhoneGroups[groupKey] !== true;
-            const groupedParticipantNames = Array.from(
-              new Set(
-                phoneTimelineEntries.flatMap((entry) => [
-                  entry.phoneMessage.from,
-                  entry.phoneMessage.to,
-                ]),
-              ),
-            ).filter(Boolean);
-            const rows = phoneTimelineEntries.map((entry) =>
-              renderPhoneTimelineRow(
-                entry.phoneMessage,
-                entry.badges,
-                entry.className,
-                entry.ariaLabel,
-              ),
-            );
-            const bubbleStack = renderPhoneBubbleStack(phoneTimelineEntries.map((entry) => entry.phoneMessage));
-
-            return (
-              <Fragment key={message.id}>
-                {dayLabel && <div className="rp-day-divider chat-day-divider"><span>{dayLabel}</span></div>}
-                {outsidePhoneDisplayMode === 'bubbles' ? (
-                  <section className="phone-timeline-bubbles">
-                    {bubbleStack}
-                  </section>
-                ) : phoneTimelineEntries.length >= 2 && outsidePhoneDisplayMode === 'collapse' ? (
-                  <section className="phone-timeline-group">
-                    <button
-                      className="phone-timeline-group-toggle"
-                      type="button"
-                      onClick={() =>
-                        setExpandedPhoneGroups((current) => ({
-                          ...current,
-                          [groupKey]: !current[groupKey],
-                        }))
-                      }
-                      aria-expanded={!collapsed}
-                    >
-                      <span className="phone-timeline-group-chevron" aria-hidden="true">
-                        {collapsed ? '>' : 'v'}
-                      </span>
-                      <span>
-                        {phoneTimelineEntries.length} phone {phoneTimelineEntries.length === 1 ? 'message' : 'messages'} with
-                      </span>
-                      <span className="phone-timeline-group-summary">
-                        {groupedParticipantNames.join(', ')}
-                      </span>
-                    </button>
-                    {!collapsed && <div className="phone-timeline-group-rows">{rows}</div>}
-                  </section>
-                ) : rows}
-              </Fragment>
-            );
-          }
-
-          if (compactAutoTurnMarker || compactEventMarker) {
-            return (
-              <Fragment key={message.id}>
-                {dayLabel && <div className="rp-day-divider chat-day-divider"><span>{dayLabel}</span></div>}
-                <div
-                  className={`message-timeline-row ${compactEventMarker ? 'event' : 'auto-turn'}${
-                    narratorAutoTurnMarker ? ' narrator-auto-turn' : ''
-                  }`}
-                  style={{ fontSize: chatTextSize || defaultChatTextSize }}
-                >
-                  {narratorAutoTurnMarker && (
-                    <span className={badgeClassName('NARRATOR')}>NARRATOR</span>
-                  )}
-                  <span className={badgeClassName(compactEventMarker ? 'EVENT' : 'AUTOTURN')}>
-                    {compactEventMarker ? 'EVENT' : 'AUTOTURN'}
-                  </span>
-                  {!narratorAutoTurnMarker && (
-                    <span className="message-timeline-label">
-                      {compactEventMarker ? eventTitle : autoTurnMatch?.[1]}
-                    </span>
-                  )}
-                  {rpTimeParts && (
-                    <span className="message-timeline-time">
-                      <span>{rpTimeParts.date}</span>
-                      <span>{rpTimeParts.time}</span>
-                    </span>
-                  )}
-                </div>
-              </Fragment>
-            );
-          }
-
-          if (message.bankTransfer) {
-            return (
-              <Fragment key={message.id}>
-                {dayLabel && <div className="rp-day-divider chat-day-divider"><span>{dayLabel}</span></div>}
-                <BankTransferCard
-                  transfer={message.bankTransfer}
-                  rpDateTime={rpTimeTrackingEnabled ? effectiveMessageRpDateTime : undefined}
-                  rpDateTimeFormat={rpDateTimeFormat}
-                  rpWeekdayLanguage={rpWeekdayLanguage}
-                  fontSize={chatTextSize || defaultChatTextSize}
-                />
-              </Fragment>
-            );
-          }
-
-          if (message.socialPost) {
-            const socialPost = message.socialPost;
-            const engagement = socialEngagementByApp[socialPost.app][socialPost.postId] ?? {
-              likeCount: 0,
-              commentCount: 0,
-            };
-            const authorCharacter = socialCharacterForPost(socialPost, appCharacters);
-            const authorColor = authorCharacter
-              ? characterColors.get(authorCharacter.name)
-              : undefined;
-            return (
-              <Fragment key={message.id}>
-                {dayLabel && <div className="rp-day-divider chat-day-divider"><span>{dayLabel}</span></div>}
-                <SocialPostCard
-                  post={socialPost}
-                  showProfileNames={showProfileNames}
-                  imageDataUrl={socialPost.imageId
-                    ? socialImageById(socialPost.imageId, socialPost.authorAccountId ?? socialPost.authorCharacterId)?.dataUrl
-                    : undefined}
-                  authorCharacter={authorCharacter}
-                  authorColor={authorColor}
-                  likeCount={engagement.likeCount}
-                  commentCount={engagement.commentCount}
-                  rpDateTime={rpTimeTrackingEnabled ? effectiveMessageRpDateTime : undefined}
-                  rpDateTimeFormat={rpDateTimeFormat}
-                  rpWeekdayLanguage={rpWeekdayLanguage}
-                  fontSize={chatTextSize || defaultChatTextSize}
-                  onOpen={() => onOpenSocialPost(socialPost)}
-                  onImageLoaded={onMessageContentLoaded}
-                />
-              </Fragment>
-            );
-          }
-
-          if (phoneAppCommandCardOnly) {
-            return (
-              <Fragment key={message.id}>
-                {dayLabel && <div className="rp-day-divider chat-day-divider"><span>{dayLabel}</span></div>}
-                <div className="phone-app-command-card-stack">
-                  {message.createdPhoneNote && (
-                    <CreatedPhoneNoteCard
-                      entry={message.createdPhoneNote}
-                      fontSize={chatTextSize || defaultChatTextSize}
-                    />
-                  )}
-                  {message.simulatedAiChat && (
-                    <SimulatedAiChatCard
-                      entry={message.simulatedAiChat}
-                      fontSize={chatTextSize || defaultChatTextSize}
-                    />
-                  )}
-                </div>
-              </Fragment>
-            );
-          }
-
-          return (
-            <Fragment key={message.id}>
-              {dayLabel && <div className="rp-day-divider chat-day-divider"><span>{dayLabel}</span></div>}
-              <article className={`message ${message.role} ${hasOutputActionUi ? 'has-output-action-ui' : ''}${isEditingMessage ? ' is-editing' : ''}`}>
-              {speakerLabelNames.length > 0 && (
-                <div className={`message-speakers${speakerLabelsPlaceholder ? ' is-placeholder' : ''}`}>
-                  {speakerLabelNames.map((speakerName) => {
-                    const isCharacter = storyCharacters.some(
-                      (character) => character.name === speakerName,
-                    );
-                    const color =
-                      isCharacter && dialogueHighlightEnabled
-                        ? message.speakerColors?.[speakerName] ?? characterColors.get(speakerName)
-                        : undefined;
-                    return (
-                      <span
-                        className="message-speaker"
-                        key={speakerName}
-                        style={color ? { color } : undefined}
-                      >
-                        {speakerName}
-                      </span>
-                    );
-                  })}
-                </div>
-              )}
-              <div className="message-body">
-                {canEditMessage && !isEditingMessage && (
-                  <button
-                    className="message-pencil-button"
-                    type="button"
-                    onClick={() => onBeginEditMessage(message, visibleText)}
-                    title="Edit the last user message"
-                    aria-label="Edit the last user message"
-                  >
-                    <svg aria-hidden="true" viewBox="0 0 24 24">
-                      <path d="m4 16.5-.8 4.3 4.3-.8L19.8 7.7a2.1 2.1 0 0 0 0-3l-.5-.5a2.1 2.1 0 0 0-3 0L4 16.5Zm10.8-10.8 3.5 3.5M3.2 20.8h17.6" />
-                    </svg>
-                  </button>
-                )}
-                <div className="message-text-stack">
-                  {isEditingMessage ? (
-                    <textarea
-                      className="message-edit-textarea"
-                      style={{ fontSize: chatTextSize || defaultChatTextSize }}
-                      value={editingDraft}
-                      onChange={(event) => onEditingDraftChange(event.target.value)}
-                      onKeyDown={(event) => {
-                        if (event.key === 'Enter' && !event.shiftKey && !event.ctrlKey) {
-                          event.preventDefault();
-                          onRegenerateEditedMessage();
-                        }
-                      }}
-                      rows={1}
-                      autoFocus
-                    />
-                  ) : (
-                    <>
-                      {(message.outputActionInfoBoxes?.length ?? 0) > 0 ||
-                      (message.outputActionProgressBars?.length ?? 0) > 0 ||
-                      (message.outputActionContextCapacityBars?.length ?? 0) > 0 ? (
-                        renderOutputActionDisplays()
-                      ) : (message.outputActionChoices?.length ?? 0) > 0 ? (
-                        renderOutputActionChoices()
-                      ) : (
-                        (message.embeddedPhoneMessages?.length ?? 0) > 0 ||
-                        (message.embeddedSocialMessages?.length ?? 0) > 0
-                      ) ? (
-                        <div
-                          className="message-composite-bubble"
-                          style={{ fontSize: chatTextSize || defaultChatTextSize }}
-                        >
-                          {compositeTextBefore && (
-                            <span className="message-composite-text chat-reading-stripes">
-                              {renderDialogueTextParts(stripRecognizedSpeakerLabels(compositeTextBefore, speakerNames), 'before')}
-                            </span>
-                          )}
-                          {embeddedMessengerGroups(message).map((group, groupIndex) => (
-                            <Fragment key={`embedded-messenger-group-${groupIndex}`}>
-                              {group.kind === 'phone' ? (
-                                outsidePhoneDisplayMode === 'bubbles' ? (
-                                  renderPhoneBubbleStack(group.phoneMessages, true)
-                                ) : (
-                                  <span className="embedded-phone-links inline" aria-label="Sent phone messages">
-                                    {group.phoneMessages.map((phoneMessage) => (
-                                      renderPhoneActionButton(phoneMessage)
-                                    ))}
-                                  </span>
-                                )
-                              ) : (
-                                renderEmbeddedSocialMessages(group.socialMessages)
-                              )}
-                            </Fragment>
-                          ))}
-                          {compositeTextAfter && (
-                            <span className="message-composite-text chat-reading-stripes">
-                              {renderDialogueTextParts(stripRecognizedSpeakerLabels(compositeTextAfter, speakerNames), 'after')}
-                            </span>
-                          )}
-                          {rpTimeTrackingEnabled &&
-                            !message.eventInput &&
-                            renderRpTime(message.rpDateTime, 'message-rp-time')}
-                        </div>
-                      ) : (visibleText || message.rpDateTime) && (
-                        <p style={{ fontSize: chatTextSize || defaultChatTextSize }}>
-                          <span className="chat-reading-stripes">
-                            {renderDialogueTextParts(visibleText, 'main')}
-                          </span>
-                          {rpTimeTrackingEnabled &&
-                            !message.eventInput &&
-                            renderRpTime(message.rpDateTime, 'message-rp-time')}
-                        </p>
-                      )}
-                    </>
-                  )}
-                  {!isEditingMessage && (message.createdPhoneNote || message.simulatedAiChat) && (
-                    <div className="phone-app-command-card-stack">
-                      {message.createdPhoneNote && (
-                        <CreatedPhoneNoteCard
-                          entry={message.createdPhoneNote}
-                          fontSize={chatTextSize || defaultChatTextSize}
-                        />
-                      )}
-                      {message.simulatedAiChat && (
-                        <SimulatedAiChatCard
-                          entry={message.simulatedAiChat}
-                          fontSize={chatTextSize || defaultChatTextSize}
-                        />
-                      )}
-                    </div>
-                  )}
-                  {isEditingMessage && (
-                    <div className="message-actions user-actions">
-                      <button
-                        className="message-action-button"
-                        type="button"
-                        onClick={onCancelEditMessage}
-                      >
-                        Cancel
-                      </button>
-                      <button
-                        className="message-action-button primary"
-                        type="button"
-                        onClick={onRegenerateEditedMessage}
-                        disabled={!editingDraft.trim()}
-                      >
-                        Regenerate
-                      </button>
-                    </div>
-                  )}
-                </div>
-                {!!message.imageAttachments?.length && (
-                  <div className="message-images">
-                    {message.imageAttachments.map((image) => (
-                      <div className="chat-image-shell" key={image.id}>
-                        <button
-                          className="chat-image-button"
-                          type="button"
-                          onClick={() => onPreviewImage(image)}
-                        >
-                          <img
-                            src={image.dataUrl}
-                            alt={image.name}
-                            onLoad={onMessageContentLoaded}
-                          />
-                        </button>
-                        <ImageContextControl
-                          image={image}
-                          inContext={isImageInContext(image)}
-                          manuallySelected={isImageManuallySelected(image)}
-                          disabled={isRunning}
-                          contextEnabled={referenceImageContextEnabled}
-                          contextDisabledReason={referenceImageContextDisabledReason}
-                          onToggle={onToggleReferenceImage}
-                        />
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-              </article>
-            </Fragment>
-          );
-        })}
+        {visibleMessages.map((message, index) => (
+          <MessageRow
+            key={message.id}
+            message={message}
+            previousDay={previousDays[index]}
+            englishProcessingEnabled={englishProcessingEnabled}
+            appCharacters={appCharacters}
+            showProfileNames={showProfileNames}
+            storyCharacters={storyCharacters}
+            characterColors={characterColors}
+            dialogueHighlightEnabled={dialogueHighlightEnabled}
+            dialogueVoiceSpeakerNames={dialogueVoiceSpeakerNames}
+            activeDialogueVoiceKey={activeDialogueVoiceKey}
+            onSpeakDialogue={onSpeakDialogue}
+            onGenerateVoiceMessageClip={onGenerateVoiceMessageClip}
+            chatColorIntensity={chatColorIntensity}
+            thoughtTextStyle={thoughtTextStyle}
+            chatTextSize={chatTextSize}
+            phoneAuthorBadgesEnabled={phoneAuthorBadgesEnabled}
+            rpTimeTrackingEnabled={rpTimeTrackingEnabled}
+            rpDateTimeFormat={rpDateTimeFormat}
+            rpWeekdayLanguage={rpWeekdayLanguage}
+            editingMessageId={editingMessageId}
+            editableUserMessageId={editableUserMessageId}
+            editingDraft={editingDraft}
+            isRunning={isRunning}
+            contextualReferenceImageIds={contextualReferenceImageIds}
+            selectedReferenceImageIds={selectedReferenceImageIds}
+            referenceImageContextEnabled={referenceImageContextEnabled}
+            referenceImageContextDisabledReason={referenceImageContextDisabledReason}
+            onBeginEditMessage={onBeginEditMessage}
+            onCancelEditMessage={onCancelEditMessage}
+            onRegenerateEditedMessage={onRegenerateEditedMessage}
+            onEditingDraftChange={onEditingDraftChange}
+            onPreviewImage={onPreviewImage}
+            onToggleReferenceImage={onToggleReferenceImage}
+            onPreviewImageCaptionChange={onPreviewImageCaptionChange}
+            onOpenEmbeddedPhoneMessage={onOpenEmbeddedPhoneMessage}
+            onOpenEmbeddedSocialMessage={onOpenEmbeddedSocialMessage}
+            onOpenSocialPost={onOpenSocialPost}
+            socialImageById={socialImageById}
+            onOutputActionChoice={onOutputActionChoice}
+            onMessageContentLoaded={onMessageContentLoaded}
+            phoneMessagesById={phoneMessagesById}
+            socialMessagesById={socialMessagesById}
+            socialTimeline={socialTimeline}
+            phoneTimelineGroupsByFirstMessageId={phoneTimelineGroupsByFirstMessageId}
+            skippedPhoneTimelineMessageIds={skippedPhoneTimelineMessageIds}
+            effectiveRpDateTime={effectiveRpDateTime}
+            outsidePhoneDisplayMode={outsidePhoneDisplayMode}
+            expandedPhoneGroups={expandedPhoneGroups}
+            setExpandedPhoneGroups={setExpandedPhoneGroups}
+            phoneBubbleHeadersEnabled={phoneBubbleHeadersEnabled}
+            socialEngagementByApp={socialEngagementByApp}
+          />
+        ))}
       </div>
       {isRunning ? (
         <RunProgressCard
