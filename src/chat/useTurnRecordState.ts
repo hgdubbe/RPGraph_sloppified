@@ -1,3 +1,4 @@
+import { createMessageStream } from './messageStream';
 import { bindAccountLinks } from './accountLinks';
 import { canonicalSocialDirectMessage } from './socialMessageValidation';
 import { matchMeMessageAllowed, matchMeState } from './matchMe';
@@ -62,6 +63,7 @@ export function useTurnRecordState({
   workflowVariablesRef,
   setWorkflowVariables,
 }: UseTurnRecordStateOptions) {
+  const [messageStream] = useState(createMessageStream);
   const [messages, setMessagesState] = useState<MessageRecord[]>([]);
   const [turns, setTurnsState] = useState<TurnRecord[]>([]);
   const [turnCheckpoints, setTurnCheckpointsState] = useState<TurnCheckpoint[]>([]);
@@ -78,6 +80,7 @@ export function useTurnRecordState({
     reconcileNpcMessages(next);
     messagesRef.current = next;
     setMessagesState(next);
+    messageStream.publish(next);
   }
 
   function setTurns(update: SetStateAction<TurnRecord[]>) {
@@ -223,14 +226,16 @@ export function useTurnRecordState({
       message.socialDirectMessage = { ...message.socialDirectMessage,
         accountLinks: bindAccountLinks(message.socialDirectMessage.text, appCharacters()) };
     }
-    captureNpcMessages([message]);
+    captureNpcMessages([...messagesRef.current, message]);
     if (collector) {
       const collectedMessages =
         collector.part === 'input' ? collector.inputMessages : collector.outputMessages;
       collectedMessages.push(message);
     }
     messagesRef.current = [...messagesRef.current, message];
-    setMessages(messagesRef.current);
+    // Appending can establish reciprocal contacts but cannot retract existing ones.
+    setMessagesState(messagesRef.current);
+    messageStream.publish(messagesRef.current);
     return id;
   }
 
@@ -270,33 +275,49 @@ export function useTurnRecordState({
     }
     const nextMessages = patchMessages(messagesRef.current);
     const updatedMessage = nextMessages.find((message) => message.id === messageId);
-    if (updatedMessage && !options?.streaming) captureNpcMessages([updatedMessage]);
+    if (updatedMessage && !options?.streaming) captureNpcMessages(nextMessages);
     messagesRef.current = nextMessages;
-    if (options?.streaming) setMessagesState(nextMessages);
+    // Stream only to the chat subscriber. App and its graph/phone/social
+    // derivations consume committed state, while refs and the collector stay live.
+    if (options?.streaming) messageStream.publish(nextMessages);
     else setMessages(nextMessages);
   }
 
   function updateHistoryMessageTimes(patches: Array<{ id: number; rpDateTime: string }>) {
     const timeById = new Map(patches.map((patch) => [patch.id, patch.rpDateTime]));
-    const patchMessages = (current: MessageRecord[]) =>
-      current.map((message) => {
+    const patchMessages = (current: MessageRecord[]) => {
+      let changed = false;
+      const next = current.map((message) => {
         const rpDateTime = timeById.get(message.id);
-        return rpDateTime ? { ...message, rpDateTime } : message;
+        if (!rpDateTime || rpDateTime === message.rpDateTime) return message;
+        changed = true;
+        return { ...message, rpDateTime };
       });
+      return changed ? next : current;
+    };
     const collector = activeTurnCollectorRef.current;
     if (collector) {
       collector.inputMessages = patchMessages(collector.inputMessages);
       collector.outputMessages = patchMessages(collector.outputMessages);
     }
-    const nextTurns = turnsRef.current.map((turn) => ({
-      ...turn,
-      input: { ...turn.input, messages: patchMessages(turn.input.messages) },
-      output: { ...turn.output, messages: patchMessages(turn.output.messages) },
-    }));
-    messagesRef.current = patchMessages(messagesRef.current);
-    turnsRef.current = nextTurns;
-    setTurns(nextTurns);
-    setMessages(messagesRef.current);
+    let turnsChanged = false;
+    const nextTurns = turnsRef.current.map((turn) => {
+      const input = patchMessages(turn.input.messages);
+      const output = patchMessages(turn.output.messages);
+      if (input === turn.input.messages && output === turn.output.messages) return turn;
+      turnsChanged = true;
+      return { ...turn, input: { ...turn.input, messages: input },
+        output: { ...turn.output, messages: output } };
+    });
+    if (turnsChanged) setTurns(nextTurns);
+    const nextMessages = patchMessages(messagesRef.current);
+    if (nextMessages !== messagesRef.current) {
+      messagesRef.current = nextMessages;
+      // A timestamp cannot add/remove NPC contacts. Avoid reconciling the whole
+      // history for this metadata-only change while the user is still scrolling.
+      setMessagesState(nextMessages);
+      messageStream.publish(nextMessages);
+    }
   }
 
   function updatePhoneImageDescriptions(descriptionsById: ReadonlyMap<string, string>) {
@@ -398,7 +419,7 @@ export function useTurnRecordState({
     }
     // Regeneration keeps input records without appending them again. Their
     // contacts must be reacquired after restoring the turn's before state.
-    captureNpcMessages([...collector.inputMessages, ...collector.outputMessages]);
+    captureNpcMessages([...messagesRef.current, ...collector.inputMessages, ...collector.outputMessages]);
     const turn: TurnRecord = {
       id: collector.turnId,
       number: collector.turnNumber,
@@ -492,6 +513,7 @@ export function useTurnRecordState({
   }
 
   return {
+    messageStream,
     messages,
     setMessages,
     messagesRef,

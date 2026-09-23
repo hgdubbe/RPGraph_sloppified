@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import {
   MarkerType,
   type Connection,
@@ -71,6 +72,39 @@ export function withSourceNodeStatusConnectionColors(edges: Edge[], nodes: Workf
   return edges.map((edge) =>
     withWorkflowConnectionColor(edge, workflowNodeStatusColor(nodeById.get(edge.source))),
   );
+}
+
+/** The only per-node fields that `removeEdgesConnectedToIncompatibleNodes` and
+ * `withSourceNodeStatusConnectionColors` read. Everything else on a node
+ * (text content, portrait images, runtime previews, ...) is irrelevant to
+ * edge rendering. */
+function edgeRelevantNode(node: WorkflowNode): WorkflowNode {
+  return { id: node.id, data: {
+    kind: node.data.kind, runPrepared: node.data.runPrepared, runCompleted: node.data.runCompleted,
+  } } as WorkflowNode;
+}
+
+/** Keeps a stable array reference across renders where no node's id, kind,
+ * or run-prepared/run-completed status changed — the fields edge coloring
+ * and incompatible-node filtering actually depend on. A keystroke or any
+ * other unrelated node-data edit therefore no longer forces `renderedEdges`
+ * to rebuild every edge in the graph. */
+export function createEdgeRelevantNodesSelector() {
+  let previous: WorkflowNode[] = [];
+  return (nodes: WorkflowNode[]) => {
+    if (previous.length !== nodes.length || nodes.some((node, index) => {
+      const before = previous[index];
+      return node.id !== before.id || node.data.kind !== before.data.kind ||
+        node.data.runPrepared !== before.data.runPrepared ||
+        node.data.runCompleted !== before.data.runCompleted;
+    })) previous = nodes.map(edgeRelevantNode);
+    return previous;
+  };
+}
+
+export function useEdgeRelevantNodes(nodes: WorkflowNode[]) {
+  const [select] = useState(createEdgeRelevantNodesSelector);
+  return select(nodes);
 }
 
 function wireLinkKey(node: WorkflowNode) {

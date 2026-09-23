@@ -1,7 +1,7 @@
 import { CharacterAvatar } from '../CharacterAvatar';
-import { datingAccountId, resolveDatingAccount, datingFirstName } from '../../chat/datingAccounts';
+import { datingAccountId, resolveDatingAccount, datingFirstName, datingAvatarDataUrl } from '../../chat/datingAccounts';
 import { matchMeDecision, matchMeLikePolicy, matchMeState, canSendMatchMeMessage, incomingMatchMeMessage } from '../../chat/matchMe';
-import type { MessageRecord, SocialDirectMessageRecord, SocialDmUnreadByHandle, SocialDirectMessageOpenRequest } from '../../types';
+import type { MessageRecord, RpDateTimeFormat, RpWeekdayLanguage, SocialDirectMessageRecord, SocialDmUnreadByHandle, SocialDirectMessageOpenRequest } from '../../types';
 import { MatchMeConversation } from './MatchMeConversation';
 import { useEffect, useRef, useState } from 'react';
 import type { ChatImageAttachment } from '../../types';
@@ -10,7 +10,6 @@ import { datingSeekingOrder, datingPhotoLimit, datingGenders, datingGenderLabels
 import { PhoneGalleryScreen } from '../PhoneGalleryScreen';
 import { NodeCustomSelect } from '../../nodes/shared/NodeCustomSelect';
 import matchMeMoonCloudsUrl from '../../assets/social/matchme/moon-clouds.png';
-import { phoneCharacterAvatarDataUrl } from '../../chat/phoneCharacters';
 import './phoneDating.css';
 
 type Props = {
@@ -25,17 +24,20 @@ type Props = {
   onSendMessage: (message: SocialDirectMessageRecord, characterId: string) => Promise<boolean>;
   emojiOptions: string[];
   recentlyUsedEmojis: string[];
+  rpTimeTrackingEnabled?: boolean;
+  rpDateTimeFormat?: RpDateTimeFormat;
+  rpWeekdayLanguage?: RpWeekdayLanguage;
   images: ChatImageAttachment[];
   onImportImage: (request: { owner: StorybookCharacter; image: ChatImageAttachment }) => Promise<ChatImageAttachment | undefined>;
   onSave: (owner: StorybookCharacter, profile: DatingProfile) => boolean;
   onBack: () => void;
 };
 
-export function PhoneDatingScreen({ profileOnly = false, unread, onMarkSeen, openRequest, characters, history, isRunning, onSendMessage, owner, images, onImportImage, onSave, onBack, emojiOptions, recentlyUsedEmojis }: Props) {
+export function PhoneDatingScreen({ profileOnly = false, unread, onMarkSeen, openRequest, characters, history, isRunning, onSendMessage, owner, images, onImportImage, onSave, onBack, emojiOptions, recentlyUsedEmojis, rpTimeTrackingEnabled = false, rpDateTimeFormat = 'eu', rpWeekdayLanguage = 'system' }: Props) {
   const [profile, setProfile] = useState(normalizeDatingProfile(owner?.social.plotTwist));
   const [editing, setEditing] = useState(profileOnly || !profile);
   const [tab, setTab] = useState<'discover' | 'likes' | 'profile'>('discover');
-  const [draft, setDraft] = useState<DatingProfile>(profile ?? normalizeDatingProfile({ ...owner?.apps?.matchme?.profile, name: owner?.apps?.matchme?.profileName ?? owner?.apps?.matchme?.profile?.name }, true) ?? { name: owner?.name ?? '', age: 18, seeking: [], bio: '', interests: '', photoIds: [], decisions: {} });
+  const [draft, setDraft] = useState<DatingProfile>(profile ?? normalizeDatingProfile({ ...owner?.apps?.matchme?.profile, name: owner?.apps?.matchme?.profileName ?? owner?.apps?.matchme?.profile?.name ?? owner?.name }, true) ?? { name: owner?.name ?? '', age: owner?.age && owner.age >= 18 && owner.age <= 120 ? owner.age : 18, gender: owner?.gender, seeking: [], bio: '', interests: '', photoIds: [], decisions: {} });
   const [interestDraft, setInterestDraft] = useState('');
   const [chatDrafts, setChatDrafts] = useState<Record<string, string>>({});
   const [recentEmojis, setRecentEmojis] = useState(recentlyUsedEmojis);
@@ -171,7 +173,8 @@ export function PhoneDatingScreen({ profileOnly = false, unread, onMarkSeen, ope
     if (message?.app !== 'matchme' || !((message.fromAccountId === ownerId && message.toAccountId === id) ||
       (message.toAccountId === ownerId && message.fromAccountId === id))) return [];
     return [{ id: message.messageId, matchId: id, sender: message.fromAccountId === ownerId ? 'owner' as const : 'match' as const,
-      text: message.displayText ?? message.text, accountLinks: message.accountLinks, sentAt: message.sentAt, demo: message.demo }];
+      text: message.displayText ?? message.text, accountLinks: message.accountLinks, sentAt: message.sentAt,
+      rpDateTime: entry.rpDateTime, demo: message.demo }];
   });
   async function send(id: string, retry = false) {
     if (!owner || isRunning || sending.current) return;
@@ -198,7 +201,7 @@ export function PhoneDatingScreen({ profileOnly = false, unread, onMarkSeen, ope
   const previewCandidate = previewCandidateId ? availableProfiles.find((entry) => entry.id === previewCandidateId) : undefined;
   const previewPhotoCount = previewCandidate?.photos?.length ?? 0;
   const allImages = [...images, ...imported];
-  const ownerAvatarDataUrl = phoneCharacterAvatarDataUrl(owner) ?? allImages.find((entry) => entry.id === profile?.photoIds[0])?.dataUrl;
+  const ownerAvatarDataUrl = datingAvatarDataUrl(owner, allImages, profile);
 
   function save(next: DatingProfile) {
     if (!owner || !onSave(owner, next)) { setError('Could not save your profile. Please try again.'); return false; }
@@ -299,7 +302,7 @@ export function PhoneDatingScreen({ profileOnly = false, unread, onMarkSeen, ope
           if (!draft.gender || !draft.seeking?.length) {
             setError('Choose your gender and at least one gender you would like to meet.'); return;
           }
-          const normalized = normalizeDatingProfile({ ...draft, name: owner.name });
+          const normalized = normalizeDatingProfile(draft);
           if (!normalized) { setError('Add a name, age (18–120), bio, and at least one photo.'); return; }
           if (save(normalized)) { setEditing(false); setTab('discover'); }
         }}>
@@ -360,12 +363,13 @@ export function PhoneDatingScreen({ profileOnly = false, unread, onMarkSeen, ope
               <button type="button" disabled={busy || draft.photoIds.length >= datingPhotoLimit} onClick={() => setGallery(true)}>▧ Character album</button></div>
             <input ref={uploadRef} type="file" accept="image/*" hidden onChange={(e) => { void upload(e.target.files?.[0]); e.target.value = ''; }} />
           </div>
-        </form> : selectedMatch && profile ? <MatchMeConversation key={selectedMatch.id}
+        </form> : selectedMatch && profile ? <MatchMeConversation key={selectedMatch.id} owner={owner} partner={characters.find((character) => character.id === selectedMatch.characterId)}
           name={datingFirstName(selectedMatch.name)} avatarDataUrl={selectedMatch.avatarDataUrl} age={selectedMatch.age} messages={conversationMessages(selectedMatch.id)}
           busy={busy || isRunning}
           draft={chatDrafts[selectedMatch.id] ?? ''}
           onDraftChange={(text) => setChatDrafts((current) => ({ ...current, [selectedMatch.id]: text }))}
           emojiOptions={emojiOptions} recentEmojis={recentEmojis}
+          rpTimeTrackingEnabled={rpTimeTrackingEnabled} rpDateTimeFormat={rpDateTimeFormat} rpWeekdayLanguage={rpWeekdayLanguage}
           onUseEmoji={(emoji) => setRecentEmojis((current) => [emoji, ...current.filter((entry) => entry !== emoji)].slice(0, 8))}
           onBack={() => { setSelectedMatchId(undefined); setPhoto(0); }}
           onSend={() => { void send(selectedMatch.id); }} /> : tab === 'discover' ? <div ref={discoverRef} className="pt-discover" style={{ maxWidth: `${Math.round(420 * discoverScale)}px` }}>
@@ -494,8 +498,7 @@ export function PhoneDatingScreen({ profileOnly = false, unread, onMarkSeen, ope
               {likedProfiles.map((entry) => {
                 const isMatch = canSendMatchMeMessage(ownerId, entry.id, state);
                 const decision = decisionFor(entry.id);
-                const entryCharacter = entry.characterId ? characters.find((c) => c.id === entry.characterId) : undefined;
-                const entryAvatar = (entryCharacter ? phoneCharacterAvatarDataUrl(entryCharacter) : undefined) ?? entry.avatarDataUrl ?? entry.photos?.[0]?.dataUrl;
+                const entryAvatar = entry.avatarDataUrl;
 
                 return (
                   <div className="pt-like" key={entry.id}>
@@ -563,12 +566,12 @@ export function PhoneDatingScreen({ profileOnly = false, unread, onMarkSeen, ope
           )
         ) : <div className="pt-profile-view">
           <div className="pt-profile-hero">
-            <CharacterAvatar className="pt-profile-avatar-large" name={datingFirstName(owner.name)}
+            <CharacterAvatar className="pt-profile-avatar-large" name={datingFirstName(profile?.name ?? owner.name)}
               profileImageDataUrl={ownerAvatarDataUrl}
-              fallback={datingFirstName(owner.name).slice(0, 1)} />
+              fallback={datingFirstName(profile?.name ?? owner.name).slice(0, 1)} />
             <div className="pt-profile-hero-meta">
               <span className="pt-eyebrow">YOUR PROFILE</span>
-              <h2>{datingFirstName(owner.name)}<span className="pt-profile-hero-age">, {profile?.age}</span></h2>
+              <h2>{datingFirstName(profile?.name ?? owner.name)}<span className="pt-profile-hero-age">, {profile?.age}</span></h2>
               <div className="pt-profile-badges">
                 <span className="pt-profile-badge">{profile?.gender ? datingGenderLabels[profile.gender] : 'Not specified'}</span>
                 <span className="pt-profile-badge">Seeking: {profile?.seeking?.length ? profile.seeking.map((gender) => datingSeekingLabels[gender]).join(', ') : 'Everyone'}</span>
@@ -631,9 +634,9 @@ export function PhoneDatingScreen({ profileOnly = false, unread, onMarkSeen, ope
         </div>
         <div className="pt-celebration-duo">
           <div className="pt-celebration-avatar-ring">
-            <CharacterAvatar className="pt-celebration-avatar" name={datingFirstName(owner?.name ?? 'You')}
+            <CharacterAvatar className="pt-celebration-avatar" name={datingFirstName(profile?.name ?? owner?.name ?? 'You')}
               profileImageDataUrl={ownerAvatarDataUrl}
-              fallback={datingFirstName(owner?.name ?? 'You').slice(0, 1)} />
+              fallback={datingFirstName(profile?.name ?? owner?.name ?? 'You').slice(0, 1)} />
           </div>
           <div className="pt-celebration-center-badge">
             {celebration.superlike ? (

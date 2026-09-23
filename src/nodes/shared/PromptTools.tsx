@@ -68,6 +68,9 @@ function promptActionTemplateVariableStatuses(
   config: PromptActionConfig,
   visionEnabled = true,
 ): Record<string, TemplateVariableStatus> {
+  if (config.actionId === 'getCharacterList') {
+    return { answer: 'active' };
+  }
   if (config.actionId === 'updatePhoneImageCaption') {
     return {
       actionId: 'active',
@@ -102,7 +105,8 @@ function promptActionTemplateVariableStatuses(
   return {
     actionId: 'active',
     characters: 'active',
-    tags: 'active',
+    tags: 'inactive',
+    answer: 'active',
     images: 'active',
     imageId: 'active',
     imageReference: imageReferenceStatus,
@@ -121,8 +125,11 @@ function promptActionInstructionVariableStatuses(
   config: PromptActionConfig,
 ): Record<string, TemplateVariableStatus> | undefined {
   const statuses: Record<string, TemplateVariableStatus> = {};
-  if (!config.runAfterReply && (config.actionId === 'getImageId' || config.actionId === 'createImage')) {
+  if (!config.runAfterReply && (config.actionId === 'getImageId' || config.actionId === 'createImage' || config.actionId === 'getCharacterList')) {
     statuses.plan = 'active';
+  }
+  if (config.actionId === 'getCharacterList' || config.actionId === 'getImageId') {
+    statuses.characterDirectory = 'active';
   }
   if (config.actionId === 'createImage') {
     statuses.availableCharacters = 'active';
@@ -769,7 +776,7 @@ export function PromptActionModal({
             </div>
             <div className="prompt-action-template-panel instruction-panel">
               <div className="prompt-action-template-header">
-                <label htmlFor={`${id}-action-instruction-template`}>LLM-VISIBLE ACTION TEMPLATE (FOLLOW-UP PASS)</label>
+                <label htmlFor={`${id}-action-instruction-template`}>{draft.actionId === 'getCharacterList' ? 'CHARACTER INFORMATION ASSISTANT PROMPT' : draft.actionId === 'getImageId' ? 'IMAGE SEARCH ASSISTANT PROMPT' : 'LLM-VISIBLE ACTION TEMPLATE (FOLLOW-UP PASS)'}</label>
               </div>
               <JsonSyntaxTextarea
                 id={`${id}-action-instruction-template`}
@@ -782,7 +789,7 @@ export function PromptActionModal({
             </div>
             <div className="prompt-action-template-panel result-panel">
               <div className="prompt-action-template-header">
-                <label htmlFor={`${id}-action-template`}>RESULT INSERTION TEMPLATE</label>
+                <label htmlFor={`${id}-action-template`}>{draft.actionId === 'getCharacterList' ? 'ASSISTANT ANSWER INSERTION TEMPLATE' : 'RESULT INSERTION TEMPLATE'}</label>
               </div>
               <JsonSyntaxTextarea
                 id={`${id}-action-template`}

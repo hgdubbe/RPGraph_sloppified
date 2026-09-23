@@ -24,7 +24,7 @@ function useConnectedTokenLimit(nodeId: string) {
       candidate.target === nodeId &&
       candidate.targetHandle === contextCompressionMaxTokensHandle,
   );
-  const source = edge ? view.nodes.find((candidate) => candidate.id === edge.source) : undefined;
+  const source = edge ? view.contentNodes.find((candidate) => candidate.id === edge.source) : undefined;
   const value =
     source?.data.nodeType === 'fixed-number'
       ? source.data.fixedNumberValue

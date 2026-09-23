@@ -49,7 +49,7 @@ function commandId() {
 
 function triggerAtCursor(value: string, cursor: number) {
   const beforeCursor = value.slice(0, cursor);
-  const match = beforeCursor.match(/(?:^|\s)(\/cmd|\/?time|\/act)$/i);
+  const match = beforeCursor.match(/(?:^|\s)(\/cmd|\/time|\/act)$/i);
   if (!match || match.index === undefined) {
     return undefined;
   }

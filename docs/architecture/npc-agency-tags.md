@@ -13,7 +13,20 @@ Extend NPC Character Containers with structured agency tags and explicit app acc
 - Provide an in-app candidate limit and independent toggles for description, personality, and speech style. These settings allow experiments with fewer, richer candidates.
 - NPCs do not autonomously publish posts in the initial scope. Reserve a separate publication action for future support; tagging a creator must not activate posting.
 
-## Current foundation
+## Troll roster extension
+
+Four characters from the eight-character troll plan are currently bundled:
+Joel Vance, posing as Chloe Vance on MatchMe (`catfish`, `comment_troll`), Tyler Briggs (`rage_baiter`,
+`boundary_tester`), Felix Miller (`shitposter`, `social_lurker`), and Simon
+Drake (`contrarian_debater`, `passive_aggressive`). Their enabled WhatsUp,
+Fotogram, and OnlyFriends accounts have explicit compatible tags. All four
+use privacy mode on both Fotogram and OnlyFriends.
+Only Joel has an active MatchMe profile, presenting Chloe as a 22-year-old woman. Joel is a 28-year-old man whose character portrait is the vintage camera. Tyler's MatchMe account remains
+disabled pending a suitable dating photo. The other four planned trolls and
+their images are not included. See the generated population report for current
+library totals.
+
+## Original foundation
 
 The bundled collection has 20 NPC containers in `resources/npc-characters`: all have enabled WhatsUp and Fotogram accounts, ten have OnlyFriends, and nine have MatchMe accounts. All have explicit agency assignments: 15 characters have one tag and five have two. Their existing `hiddenAgency` strings remain empty.
 
@@ -67,9 +80,9 @@ The original table below combines several meanings under `Post`. Replace that am
 
 A tag describes a tendency, not an obligation. A lurker can remain silent; a shy recipient can answer without becoming an eager initiator. Candidate count is not response count. Do not invent message delays or background scheduling from tags such as `quick_replier` or `sporadic_texter` in the initial implementation.
 
-The executable catalog in `shared/agency-tags.cjs` records app/role/action applicability for all 50 original tags. Original Fotogram `Post` entries support `react`; creator entries with `Post` additionally carry reserved `publish` metadata. `shy_user`, `social_lurker`, `slow_to_trust` and `good_listener` support replies but are not selected as initiators by this catalog. Other DM entries support replies and initiation. These are selection semantics for future tag-driven workflows, not restrictions imposed on existing direct conversations.
+The executable catalog in `shared/agency-tags.cjs` records app/role/action applicability for all 54 tags: the 50 original entries plus `comment_troll`, `rage_baiter`, `contrarian_debater`, and `shitposter`. Original Fotogram `Post` entries support `react`; creator entries with `Post` additionally carry reserved `publish` metadata. `shy_user`, `social_lurker`, `slow_to_trust` and `good_listener` support replies but are not selected as initiators by this catalog. Other DM entries support replies and initiation. These are selection semantics for future tag-driven workflows, not restrictions imposed on existing direct conversations.
 
-OnlyFriends requires a specific correction: the original table gives ordinary-user tags only DM applicability, leaving no user audience for comments. Implemented reaction-capable user tags are `social_lurker`, `loyal_supporter`, `respectful_admirer`, `parasocial_fan`, `genuine_user`, `friendly_regular`, `attention_seeker`, and `boundary_setter`. Other OnlyFriends user tags remain DM-only. Keep creator tags for creator DM behavior and later publication/creator interaction flows.
+OnlyFriends requires a specific correction: the original table gives ordinary-user tags only DM applicability, leaving no user audience for comments. Implemented reaction-capable user tags are `social_lurker`, `loyal_supporter`, `respectful_admirer`, `parasocial_fan`, `genuine_user`, `friendly_regular`, `attention_seeker`, `boundary_setter`, `comment_troll`, `rage_baiter`, and `shitposter`. Other OnlyFriends user tags, including `contrarian_debater`, remain DM-only. Keep creator tags for creator DM behavior and later publication/creator interaction flows.
 
 ## Candidate selection and prompt context
 
@@ -85,31 +98,11 @@ The implemented Fotogram/OnlyFriends post path builds candidates from the effect
 6. The runtime prompt instructs the LLM to use tags as private behavioral guidance for participation, tone, wording and intent. A tag is a tendency, so any listed account may stay silent. Tag labels and instructions must never appear in public comments.
 7. Following remains optional for this authored post-reaction flow. The existing structured-output validator still rejects invented or ambiguous identities.
 
-Comment threads also receive authored character tags. Their existing enabled-account eligibility is retained, including creator accounts and characters without public-reaction tags. DM context is unchanged.
+Post reactions randomly sample at most five eligible characters, including eligible Storybook characters within the same cap. There is no forced positive/neutral/negative mix. Each selected entry includes description, personality, speech style, hidden agency, character agency tags and their catalog meanings, the current account bio, and privacy mode. Empty authored fields are omitted. These are private authoring data, never public character knowledge or executable instructions. The guidance applies to both comments and post-triggered private messages; platform alone does not imply sexual interest or directness.
 
-Both post and thread prompts sample at most 20 eligible NPCs, plus eligible Storybook characters. The target mix is 10 positive, 5 neutral and 5 negative. `socialAgencyTone` in `src/characters/socialReactionAccounts.ts` explicitly classifies every catalog tag by its authored meaning: supportive traits are positive, manipulative/deceptive/conflict-oriented traits are negative, and other tendencies are neutral. A negative tag takes precedence over a positive tag; otherwise positive takes precedence over neutral. Untagged characters are neutral.
+Comment threads keep enabled existing commenters, including creator accounts and characters without public-reaction tags. They retain up to six distinct commenters by most recent appearance in the supplied comment history, then randomly add at most two new eligible accounts while keeping the commenter total at six. Once six have commented, no newcomers are selected. Old threads already exceeding six use the six most recently active distinct commenters. The enabled post author is provided separately, outside the six-commenter cap, so the author can answer. Disabled or missing accounts are never reintroduced. Selection changes membership; presentation retains registry order.
 
-The thread author and existing commenters are retained first, within the 20-NPC limit. If more than 20 are already involved, the author takes precedence followed by commenters in context order. Remaining candidates are randomly sampled toward the category targets; shortages are filled from any remaining eligible NPCs. Returning participants can therefore outweigh the target proportions. Sampling changes membership, while prompt presentation preserves registry order. Tags remain private LLM guidance, never public comment labels.
-
-Example default candidate context:
-
-```text
-- Chloe Lane (@afterglow.tempo) [NPC] [Agency tags: friendly_regular]
-- Nika Brooks (@silver.margin) [NPC] [Agency tags: boundary_setter]
-- Noah Blake (@quiet.compass) [NPC] [Agency tags: respectful_admirer]
-```
-
-These lines reflect the implemented OnlyFriends assignments. The public response must use the exact name and handle, while the bracketed metadata remains private prompt guidance.
-
-Do not automatically load biographies or full character profiles after selection: that would bypass the chosen context settings. Relevant event context and existing conversation context remain separate from optional candidate profile fields. Pass the actual post image when supported, or an available image description; do not claim image understanding from an image ID alone.
-
-The runtime supplies concise behavior instructions beside the account block and does not repeat full biographies or the complete catalog. It includes short examples for subtle tags such as `social_lurker`, `respectful_admirer` and `boundary_setter`; other tag IDs remain compact, readable cues. The authored workflow prompts retain their structured output contract.
-
-DM replies bind to the actual recipient instead of drawing a public audience. All one-to-one WhatsUp, Fotogram, OnlyFriends and MatchMe inputs include the recipient's description, personality, speech style, hidden agency, and authored character-level agency tags with their complete catalog meanings. These fields are private behavioral guidance and must not be disclosed in the reply. A character without authored tags remains a valid recipient and is identified as unclassified in this context.
-
-The account section is scoped to the active conversation app. Its public profile may be shown in full; other enabled apps are summarized only by account presence and their public name or handle, without unrelated biographies, posts, or photos. MatchMe still supplies both participants' public dating profiles because those profiles establish the dating conversation itself.
-
-Relationship context is selected per message rather than copying the recipient's complete contact directory. It includes authored descriptions in both directions between sender and recipient. It also includes both directions between the recipient and any uniquely resolved character whose first or last name appears as a complete word in the new message; a shared surname can intentionally select multiple characters. Unrelated relationships stay out of the prompt. Missing relationships are not invented.
+One-to-one DM context remains unchanged. The richer candidate data is supplied through the social action's input text by `socialReactionAccountContext`, not by an extra LLM search. The existing identity validator still rejects invented or ambiguous accounts. Public wording and DM initiation should follow each character's private characterization without disclosing it. Pass the actual post image when supported, or an available image description; do not claim image understanding from an image ID alone.
 
 ## In-app context controls
 
@@ -161,7 +154,7 @@ Roster lists, owner names and separate missing/repeated-tag tables are omitted.
 Identity conflicts remain visible in the validation section. Invalid containers stop generation without replacing the
 previous report. It never edits characters or launches the application.
 
-All 50 catalog tags should be represented at least once. Prefer missing tags for
+All 54 catalog tags should be represented at least once. Prefer missing tags for
 new characters; repeated tags have lower coverage priority but no numeric maximum.
 The documented social role counts remain examples, while the 80–90% user range
 remains the population guideline. The report's executable population targets live
@@ -279,7 +272,7 @@ Run targeted non-UI tests for catalog rules, serialization, persistence and filt
 
 ## Decisions still open for review
 
-- Confirm the proposed default of 20 candidates and rotation strategy. The hard cap and optional context fields are agreed requirements; these specific defaults are proposals.
+- Future configurable context controls must preserve the implemented five-candidate post sample and six-commenter thread default unless explicitly changed.
 - Confirm final roster and media availability before creating the 30 additional NPCs.
 
 ## Original agency tag reference
@@ -338,3 +331,7 @@ The following table is preserved from the original proposal. It is a vocabulary/
 | `Both · DM`    | `Both · Post+DM`    | `User · DM` | `Both · DM`         | `flirty_networker`    | Uses playful flirting to build connections, gain introductions, or expand their online social circle.                          |
 | `Both · DM`    | `Both · Post+DM`    | `User · DM` | `Both · DM`         | `ex_obsessed`         | Frequently discusses, monitors, compares others with, or attempts to reconnect with a former partner.                          |
 | `Both · DM`    | `Both · Post+DM`    | `User · DM` | `Both · DM`         | `rumor_spreader`      | Passes along questionable personal stories or gossip that can create mistrust and conflict between characters.                 |
+| `Both · DM`    | `Both · Post+DM`    | `User · DM` | `Both · DM`         | `comment_troll`       | Deliberately posts mocking, sarcastic, or disruptive comments under public posts to derail discussions and mock others.         |
+| `Both · DM`    | `Both · Post+DM`    | `User · DM` | `Both · DM`         | `rage_baiter`         | Intentionally drops provocative, absurd, or offensive hot takes designed to trigger angry replies and high-friction debates.   |
+| `Both · DM`    | `Both · Post+DM`    | `User · DM` | `User · DM`         | `contrarian_debater`  | Constantly contradicts others and initiates exhausting, pedantic arguments to prove intellectual superiority.                   |
+| `Both · DM`    | `Both · Post+DM`    | `User · DM` | `Both · DM`         | `shitposter`          | Derails conversations and posts with absurd humor, sarcastic memes, copypastas, or low-effort nonsense.                         |

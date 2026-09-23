@@ -8,12 +8,13 @@ import { appCharactersFromRegistry } from './appRuntime';
 import { buildCharacterRegistry, type CharacterRegistryEntry } from './registry';
 import { captureNpcParticipants, npcReferencesFromMessages, npcSnapshotEntries, type NpcParticipantSnapshots } from './npcParticipants';
 
-type ContactApp = Exclude<AccountLinkApp, 'matchme' | 'banking'>;
+type ContactApp = Exclude<AccountLinkApp, 'banking'>;
 type ContactGrant = { ownerId: string; targetId: string; app: ContactApp };
 
-/** A delivered DM connects its endpoints; a shared account belongs only to its recipient. */
+/** Reciprocal DMs connect their endpoints; a shared account belongs only to its recipient. */
 export function messageContactGrants(messages: MessageRecord[], characters: StorybookCharacter[]): ContactGrant[] {
   const grants: ContactGrant[] = [];
+  const directions = new Set<string>();
   const add = (ownerId: string, targetId: string, app: ContactApp) => {
     if (ownerId !== targetId && !grants.some((entry) => entry.ownerId === ownerId && entry.targetId === targetId && entry.app === app)) {
       grants.push({ ownerId, targetId, app });
@@ -24,12 +25,13 @@ export function messageContactGrants(messages: MessageRecord[], characters: Stor
     const dm = message.socialDirectMessage;
     if (!dm && !message.phoneMessage) continue;
     const app = dm?.app ?? 'whatsup';
-    if (app === 'matchme') continue;
     const sender = resolveMessageAccount(app, dm?.fromAccountId ?? message.phoneFromAccountId,
       dm?.fromHandle || dm?.from || message.phoneFrom, characters);
     const recipient = resolveMessageAccount(app, dm?.toAccountId ?? message.phoneToAccountId,
       dm?.toHandle || dm?.to || message.phoneTo, characters);
-    if (!sender || !recipient) continue;
+    if (!sender || !recipient || sender.characterId === recipient.characterId) continue;
+    directions.add(JSON.stringify([app, sender.accountId, recipient.accountId]));
+    if (!directions.has(JSON.stringify([app, recipient.accountId, sender.accountId]))) continue;
     add(sender.characterId, recipient.characterId, app);
     add(recipient.characterId, sender.characterId, app);
   }
@@ -79,6 +81,12 @@ export function acquireMessageContacts(nodes: WorkflowNode[], snapshots: NpcPart
   let changed = false;
   const nextNodes = nodes.map((node) => {
     if (!isStorybookSourceNode(node) || !node.data.storybookJson || storybookNeedsUpdate(node.data.storybookJson)) return node;
+    // Registry entries already contain the parsed authored characters. Inspect
+    // relationships there before reading the image-bearing raw JSON again.
+    // Keep raw parsing for actual writes so unrelated fields remain untouched.
+    const needsWrite = registryEntries.some((entry) => entry.tier === 'storybook' && entry.source === node.id &&
+      withMessageContacts(entry.character, grants) !== entry.character);
+    if (!needsWrite) return node;
     const book = JSON.parse(node.data.storybookJson) as { characters: Character[] };
     const characters = book.characters.map((character) => withMessageContacts(character, grants));
     if (characters.every((character, index) => character === book.characters[index])) return node;

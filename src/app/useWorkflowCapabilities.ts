@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { isComfyImageConnection, isComfyVoiceConnection } from '../comfy/connectionRole';
 import { isGeminiConnection, isOpenRouterConnection } from '../llm/providerKind';
 import {
@@ -44,6 +44,57 @@ function isLlmConnection(connection: ConnectionPreset) {
   return connection.kind !== 'comfyui';
 }
 
+/** The only per-node fields the capability scan below reads. Everything else
+ * on a node (text content beyond these, portrait images, storybookJson,
+ * runtime previews, ...) is irrelevant here. */
+function capabilityRelevantNode(node: WorkflowNode): WorkflowNode {
+  return { id: node.id, data: {
+    kind: node.data.kind,
+    ...(Object.prototype.hasOwnProperty.call(node.data, 'connectionId')
+      ? { connectionId: node.data.connectionId }
+      : {}),
+    nodeType: node.data.nodeType,
+    llmPromptActions: node.data.llmPromptActions,
+    llmPromptBefore: node.data.llmPromptBefore,
+    llmPromptAfter: node.data.llmPromptAfter,
+    llmPromptSwitchOutputTitles: node.data.llmPromptSwitchOutputTitles,
+    llmPromptSwitchPromptTitlesByOutput: node.data.llmPromptSwitchPromptTitlesByOutput,
+    llmPromptSwitchPromptBeforesByOutput: node.data.llmPromptSwitchPromptBeforesByOutput,
+    llmPromptSwitchPromptAftersByOutput: node.data.llmPromptSwitchPromptAftersByOutput,
+    runActive: node.data.runActive,
+    runVisionActive: node.data.runVisionActive,
+  } } as WorkflowNode;
+}
+
+const capabilityRelevantFields = [
+  'kind', 'connectionId', 'nodeType', 'llmPromptActions', 'llmPromptBefore', 'llmPromptAfter',
+  'llmPromptSwitchOutputTitles', 'llmPromptSwitchPromptTitlesByOutput', 'llmPromptSwitchPromptBeforesByOutput',
+  'llmPromptSwitchPromptAftersByOutput', 'runActive', 'runVisionActive',
+] as const;
+
+/** Keeps a stable array reference across renders where none of the fields
+ * above changed for any node - so a keystroke or other unrelated node-data
+ * edit doesn't force the capability scan (and every LLM node's prompt-action
+ * reparsing within it) to re-run over the whole graph. */
+export function createCapabilityRelevantNodesSelector() {
+  let previous: WorkflowNode[] = [];
+  return (nodes: WorkflowNode[]) => {
+    if (previous.length !== nodes.length || nodes.some((node, index) => {
+      const before = previous[index];
+      return node.id !== before.id ||
+        Object.prototype.hasOwnProperty.call(node.data, 'connectionId') !==
+          Object.prototype.hasOwnProperty.call(before.data, 'connectionId') ||
+        capabilityRelevantFields.some((field) => node.data[field] !== before.data[field]);
+    })) previous = nodes.map(capabilityRelevantNode);
+    return previous;
+  };
+}
+
+function useCapabilityRelevantNodes(nodes: WorkflowNode[]) {
+  const [select] = useState(createCapabilityRelevantNodesSelector);
+  return select(nodes);
+}
+
 export function useWorkflowCapabilities({
   nodes,
   connections,
@@ -56,6 +107,7 @@ export function useWorkflowCapabilities({
   imageGenerationActive,
   audioGenerationActive,
 }: UseWorkflowCapabilitiesOptions) {
+  const relevantNodes = useCapabilityRelevantNodes(nodes);
   return useMemo<WorkflowCapabilityIndicator[]>(() => {
     const llmConnectionIds = new Set<string>();
     const visionConnectionIds = new Set<string>();
@@ -75,7 +127,7 @@ export function useWorkflowCapabilities({
       return connection && isLlmConnection(connection) ? connection.id : connectionId;
     };
 
-    for (const node of nodes) {
+    for (const node of relevantNodes) {
       if (node.data.kind !== undefined) {
         continue;
       }
@@ -193,10 +245,10 @@ export function useWorkflowCapabilities({
             ),
           )
         : anyImageConnected);
-    const textActive = nodes.some(
+    const textActive = relevantNodes.some(
       (node) => node.data.kind === undefined && node.data.runActive === true,
     );
-    const visionActive = nodes.some(
+    const visionActive = relevantNodes.some(
       (node) => node.data.kind === undefined && node.data.runVisionActive === true,
     );
     const effectiveTextReady = llmConnectionIds.size > 0 ? textReady : anyTextConnected;
@@ -264,7 +316,7 @@ export function useWorkflowCapabilities({
     defaultConnectionId,
     dialogueVoiceMode,
     imageGenerationActive,
-    nodes,
+    relevantNodes,
     promptActionSettings,
     providerHealthById,
     resolvedNarratorProviderId,

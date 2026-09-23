@@ -70,7 +70,7 @@ function validChatGpdModel(value: unknown): ChatGpdModel {
     : defaultChatGpdModel;
 }
 const defaultSmoothChatAutoScrollEnabled = true;
-const defaultSmoothChatAutoScrollMinSpeed = 42;
+const defaultSmoothChatAutoScrollMinSpeed = 46;
 export const minSmoothChatAutoScrollMinSpeed = 32;
 export const maxSmoothChatAutoScrollMinSpeed = 60;
 export const defaultThoughtTextStyle = 'italic';
@@ -171,6 +171,12 @@ function validChatAppearancePercent(value: unknown, fallback: number) {
   return typeof value === 'number' && Number.isFinite(value)
     ? Math.min(100, Math.max(0, Math.round(value)))
     : fallback;
+}
+
+function validChatMessageAvatarSize(value?: number) {
+  return value !== undefined && Number.isFinite(value)
+    ? Math.min(130, Math.max(70, Math.round(value)))
+    : 100;
 }
 
 function validChatTextSize(value?: number) {
@@ -780,6 +786,13 @@ function isAppSettings(value: unknown): value is AppSettings {
     (settings.options.chatColorIntensity === undefined ||
       (typeof settings.options.chatColorIntensity === 'number' &&
         Number.isFinite(settings.options.chatColorIntensity))) &&
+    (settings.options.chatMessageAvatarSize === undefined ||
+      (typeof settings.options.chatMessageAvatarSize === 'number' &&
+        Number.isFinite(settings.options.chatMessageAvatarSize))) &&
+    (settings.options.appMessageAvatarsEnabled === undefined ||
+      typeof settings.options.appMessageAvatarsEnabled === 'boolean') &&
+    (settings.options.chatMessageAvatarsEnabled === undefined ||
+      typeof settings.options.chatMessageAvatarsEnabled === 'boolean') &&
     (settings.options.chatTextSize === undefined ||
       (typeof settings.options.chatTextSize === 'number' &&
         Number.isFinite(settings.options.chatTextSize) &&
@@ -873,6 +886,12 @@ type AppSettingsState = {
   setChatTextBrightness: Dispatch<SetStateAction<number>>;
   chatColorIntensity: number;
   setChatColorIntensity: Dispatch<SetStateAction<number>>;
+  chatMessageAvatarSize: number;
+  setChatMessageAvatarSize: Dispatch<SetStateAction<number>>;
+  appMessageAvatarsEnabled: boolean;
+  setAppMessageAvatarsEnabled: Dispatch<SetStateAction<boolean>>;
+  chatMessageAvatarsEnabled: boolean;
+  setChatMessageAvatarsEnabled: Dispatch<SetStateAction<boolean>>;
   chatTextSize: number;
   setChatTextSize: Dispatch<SetStateAction<number>>;
   phoneChatTextSize: number;
@@ -950,6 +969,9 @@ export function useAppSettings(): AppSettingsState {
   const [promptTextCustomPresets, setPromptTextCustomPresets] = useState<Record<string, string>>({});
   const [chatTextBrightness, setChatTextBrightness] = useState(defaultChatTextBrightness);
   const [chatColorIntensity, setChatColorIntensity] = useState(defaultChatColorIntensity);
+  const [chatMessageAvatarSize, setChatMessageAvatarSize] = useState(100);
+  const [appMessageAvatarsEnabled, setAppMessageAvatarsEnabled] = useState(false);
+  const [chatMessageAvatarsEnabled, setChatMessageAvatarsEnabled] = useState(true);
   const [chatTextSize, setChatTextSize] = useState(defaultChatTextSize);
   const [phoneChatTextSize, setPhoneChatTextSize] = useState(defaultPhoneChatTextSize);
   const [phoneDesktopLayout, setPhoneDesktopLayout] = useState(defaultPhoneDesktopLayout);
@@ -1054,6 +1076,9 @@ export function useAppSettings(): AppSettingsState {
         setPromptTextCustomPresets(workflowVariableRecord(result.settings.options.promptTextCustomPresets));
         setChatTextBrightness(validChatAppearancePercent(result.settings.options.chatTextBrightness, defaultChatTextBrightness));
         setChatColorIntensity(validChatAppearancePercent(result.settings.options.chatColorIntensity, defaultChatColorIntensity));
+        setChatMessageAvatarSize(validChatMessageAvatarSize(result.settings.options.chatMessageAvatarSize));
+        setAppMessageAvatarsEnabled(result.settings.options.appMessageAvatarsEnabled ?? false);
+        setChatMessageAvatarsEnabled(result.settings.options.chatMessageAvatarsEnabled ?? true);
         setChatTextSize(validChatTextSize(result.settings.options.chatTextSize));
         setPhoneChatTextSize(validPhoneChatTextSize(result.settings.options.phoneChatTextSize));
         setPhoneDesktopLayout(validPhoneDesktopLayout(result.settings.options.phoneDesktopLayout));
@@ -1146,6 +1171,9 @@ export function useAppSettings(): AppSettingsState {
         promptTextCustomPresets,
         chatTextBrightness: validChatAppearancePercent(chatTextBrightness, defaultChatTextBrightness),
         chatColorIntensity: validChatAppearancePercent(chatColorIntensity, defaultChatColorIntensity),
+        chatMessageAvatarSize: validChatMessageAvatarSize(chatMessageAvatarSize),
+        appMessageAvatarsEnabled,
+        chatMessageAvatarsEnabled,
         chatTextSize: validChatTextSize(chatTextSize),
         phoneChatTextSize: validPhoneChatTextSize(phoneChatTextSize),
         phoneDesktopLayout: validPhoneDesktopLayout(phoneDesktopLayout),
@@ -1210,6 +1238,9 @@ export function useAppSettings(): AppSettingsState {
     promptTextCustomPresets,
     chatTextBrightness,
     chatColorIntensity,
+    chatMessageAvatarSize,
+    appMessageAvatarsEnabled,
+    chatMessageAvatarsEnabled,
     chatTextSize,
     phoneChatTextSize,
     phoneDesktopLayout,
@@ -1270,7 +1301,13 @@ export function useAppSettings(): AppSettingsState {
     setChatTextBrightness,
     chatColorIntensity,
     setChatColorIntensity,
+    chatMessageAvatarSize,
+    appMessageAvatarsEnabled,
+    chatMessageAvatarsEnabled,
     chatTextSize,
+    setChatMessageAvatarSize,
+    setAppMessageAvatarsEnabled,
+    setChatMessageAvatarsEnabled,
     setChatTextSize,
     phoneChatTextSize,
     setPhoneChatTextSize,

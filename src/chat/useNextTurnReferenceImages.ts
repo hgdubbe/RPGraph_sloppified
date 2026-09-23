@@ -1,3 +1,4 @@
+import { useStorybookContentNodes } from '../storybook/useStorybookContentNodes';
 import { useCallback, useMemo, useRef, useState } from 'react';
 import type { ChatImageAttachment, MessageRecord, WorkflowNode } from '../types';
 import {
@@ -81,13 +82,14 @@ export function useNextTurnReferenceImages({
     () => ({ ...options, additionalImageIds }),
     [additionalImageIds, options],
   );
+  const storybookContentNodes = useStorybookContentNodes(nodes);
   const contextualImageIds = useMemo(
     () => new Set(
-      collectRecentReferenceImages({ messages, nodes, options: nextTurnOptions })
+      collectRecentReferenceImages({ messages, nodes: storybookContentNodes, options: nextTurnOptions })
         .map((reference) => reference.imageId)
         .filter(Boolean),
     ),
-    [messages, nextTurnOptions, nodes],
+    [messages, nextTurnOptions, storybookContentNodes],
   );
   const selectedImageIdSet = useMemo(() => new Set(selectedImageIds), [selectedImageIds]);
 

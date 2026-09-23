@@ -1,3 +1,4 @@
+import { AppMessageAvatar } from '../AppMessageAvatars';
 import { createPortal } from 'react-dom';
 import { AccountLinkInput } from '../AccountLinkInput';
 import { AccountLinkText } from '../AccountLinkText';
@@ -469,6 +470,9 @@ export function PhoneSocialDirectMessages({
         )}
         {origin?.commentText && (
           <div className={`phone-social-dm-message-row ${originOutgoing ? 'outgoing' : 'incoming'} origin-comment`}>
+            <AppMessageAvatar name={originOutgoing ? owner.name : participantIdentity(selectedParticipant).name}
+              character={originOutgoing ? owner : selectedParticipant.character}
+              hidePortrait={isAccountPrivacyMode(app, originOutgoing ? owner : selectedParticipant.character)} />
             <div className="phone-social-dm-bubble">
               <span>{origin.commentText}</span>
               <time>{originLabel}</time>
@@ -481,9 +485,9 @@ export function PhoneSocialDirectMessages({
           const rpTimeParts = rpTimeTrackingEnabled && rpDateTime
             ? formatRpDateTimeParts(rpDateTime, rpDateTimeFormat, rpWeekdayLanguage)
             : undefined;
-          const timeLabel = rpTimeTrackingEnabled
-            ? rpTimeParts?.time
-            : new Date(message.sentAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+          const timeLabel = !rpTimeTrackingEnabled
+            ? new Date(message.sentAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+            : undefined;
           const highlighted = message.messageId === highlightedMessageId;
           return (
             <div
@@ -493,13 +497,22 @@ export function PhoneSocialDirectMessages({
               data-social-message-id={message.messageId}
               key={`${message.messageId}-${highlighted ? highlightedMessagePulseKey : 'idle'}`}
             >
+              <AppMessageAvatar name={outgoing ? owner.name : participantIdentity(selectedParticipant).name}
+                character={outgoing ? owner : selectedParticipant.character}
+                hidePortrait={isAccountPrivacyMode(app, outgoing ? owner : selectedParticipant.character)} />
               <div className="phone-social-dm-bubble">
                 <span><AccountLinkText text={message.displayText ?? message.text} bindings={message.accountLinks} /></span>
                 <div className="phone-social-dm-footer">
                   {message.app === 'onlyfriends' && message.tip !== undefined && (
                     <span className="phone-social-dm-tip">{outgoing ? '−' : '+'}{formatBankingAmount(message.tip)} tip</span>
                   )}
-                  {timeLabel && <time dateTime={rpDateTime ?? message.sentAt}>{timeLabel}</time>}
+                  {rpTimeParts ? (
+                    <time dateTime={rpDateTime}>
+                      <span className="rp-time-date">{rpTimeParts.date}</span>
+                      {'   '}
+                      <span className="rp-time-clock">{rpTimeParts.time}</span>
+                    </time>
+                  ) : timeLabel ? <time dateTime={message.sentAt}>{timeLabel}</time> : null}
                 </div>
               </div>
             </div>

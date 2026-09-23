@@ -70,11 +70,11 @@ function jpegDimensions(dataUrl: string): [number, number] | undefined {
 
 /** A derived, square image for existing avatar consumers; never persisted in a container. */
 export function portraitDataUrl(image: Pick<RpStorybookCharacterImage, 'dataUrl' | 'width' | 'height'>, crop?: Crop): string {
-  if (!crop || ![crop.x, crop.y, crop.size].every(Number.isFinite) || crop.size <= 0 ||
-      !/^data:image\/jpeg;base64,[A-Za-z0-9+/]+={0,2}$/.test(image.dataUrl)) return image.dataUrl;
+  if (!crop || ![crop.x, crop.y, crop.size].every(Number.isFinite) || crop.size <= 0) return image.dataUrl;
   const variant = `${image.width ?? ''}:${image.height ?? ''}:${crop.x}:${crop.y}:${crop.size}`;
   const cached = cachedPortrait(image.dataUrl, variant);
   if (cached !== undefined) return cached;
+  if (!/^data:image\/jpeg;base64,[A-Za-z0-9+/]+={0,2}$/.test(image.dataUrl)) return image.dataUrl;
   const dimensions = image.width && image.height ? [image.width, image.height] : jpegDimensions(image.dataUrl);
   if (!dimensions) return image.dataUrl;
   const [width, height] = dimensions;
@@ -99,13 +99,21 @@ export function appAvatarDataUrl(
   return portraitDataUrl(image, character?.profileImage?.imageId === image.id ? character.profileImage.crop : undefined);
 }
 
-/** Keep apps following the previous portrait while preserving independently selected avatars. */
+/** Social album selections use the full image; only the portrait fallback uses its crop. */
+export function socialAvatarDataUrl(
+  character: Parameters<typeof appAvatarDataUrl>[0],
+  image?: Parameters<typeof appAvatarDataUrl>[1],
+) {
+  return image?.dataUrl ?? character?.profileImage?.dataUrl;
+}
+
+/** Keep legacy portrait followers while preserving explicit social album selections. */
 export function withCharacterPortrait<T extends { profileImage?: RpStorybookCharacterProfileImage; apps?: CharacterApps }>(
   character: T, profileImage: RpStorybookCharacterProfileImage | undefined,
 ): T {
   const previousId = character.profileImage?.imageId;
   const apps = character.apps && Object.fromEntries(Object.entries(character.apps).map(([app, account]) => [app,
-    previousId && account.avatarImageId === previousId
+    app !== 'fotogram' && app !== 'onlyfriends' && previousId && account.avatarImageId === previousId
       ? { ...account, avatarImageId: profileImage?.imageId }
       : account,
   ]));

@@ -6,6 +6,21 @@ Stage 6 uses `src/characters/creator.ts` for authored payloads and UI character
 exports. Both produce plain `rpgraph-character` 2.0.0 documents validated by
 `shared/character-container.cjs`. Storybook and node versions remain 3.0.0.
 
+## Received images in character exports
+
+The standalone character save dialog and Storybook export dialog offer **Include
+Received Images**, disabled whenever the save dialog opens. By default, exports
+omit gallery entries marked `receivedFrom` or `imageAccess`, including external
+images added for the character's own posts. Enabling the option embeds those
+images in the portable container and removes the RP-only access metadata.
+
+When images are excluded, posts retain their text without the image reference;
+portraits and app avatars referencing those images are cleared. MatchMe retains
+its remaining photos and becomes disabled if none remain. Export preparation
+never changes the active character or RP gallery. RP saves continue to preserve
+shared media through their media pool; promotion to playable retains RP access
+metadata and does not apply this portable-export filter.
+
 ## Create and revise
 
 From the repository root, with development dependencies installed:
@@ -199,12 +214,13 @@ The profile picker supports **Apply**, **Use Full Image**, and **Clear Profile
 Pic** in the gallery. Crops survive Character Container V2 exports, Storybook V3
 saves/imports and NPC snapshot projections. The runtime derives an SVG viewport
 around the embedded JPEG for avatar consumers; this generated preview is never
-stored in the portable container. App avatars that reference the same gallery
-image inherit the character crop. A different explicitly selected app image
-remains uncropped. Changing or clearing the character portrait also updates app
-avatar references that followed its previous image; independently selected app
-images are retained. Gallery images, feed photos and MatchMe discovery photos remain
-full images. MatchMe match and conversation avatars use the portrait too.
+stored in the portable container. Fotogram and OnlyFriends distinguish the portrait fallback (no `avatarImageId`)
+from an explicit album selection. The fallback uses the character crop; an album
+selection uses the full image, even when it is the same source photo. Explicit
+social album references remain unchanged when the character portrait changes or
+is cleared. Other app avatars using the portrait source inherit its crop and
+continue following portrait changes. Gallery images, feed photos and MatchMe discovery photos remain
+full images. MatchMe match and conversation avatars use the explicit MatchMe avatar or first dating photo; they inherit the portrait crop only when that same image is selected.
 
 Install the authoring-only detector once (Python with `venv` and pip required):
 
