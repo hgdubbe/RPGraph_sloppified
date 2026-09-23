@@ -1,3 +1,5 @@
+import { createPortal } from 'react-dom';
+import { PhoneStatusTrayContext } from './RoleplayPhoneDevice';
 import { AppMessageAvatar } from './AppMessageAvatars';
 import { AccountLinkContext } from '../chat/accountLinkContext';
 import { AccountLinkText } from './AccountLinkText';
@@ -653,7 +655,9 @@ export function PhonePanel({
   const [desktopSettingsOpen, setDesktopSettingsOpen] = useState(false);
   const [phoneMoodStatusOpen, setPhoneMoodStatusOpen] = useState(false);
   const [narrativeWidgetExpanded, setNarrativeWidgetExpanded] = useState(false);
-  const desktopSettingsRef = useRef<HTMLDivElement | null>(null);
+  const desktopSettingsButtonsRef = useRef<HTMLDivElement | null>(null);
+  const desktopSettingsMenusRef = useRef<HTMLDivElement | null>(null);
+  const phoneTray = useContext(PhoneStatusTrayContext);
   const desktopIconPx = Math.min(58, phoneDesktopIconSizePx[phoneDesktopIconSize]);
   const phoneDesktopOrientation = desktopLayout.orientation ?? 'portrait';
   const effectiveDesktopIconPx = phoneDesktopOrientation === 'landscape'
@@ -665,7 +669,11 @@ export function PhonePanel({
       return;
     }
     const closeMenu = (event: PointerEvent) => {
-      if (event.target instanceof Node && !desktopSettingsRef.current?.contains(event.target)) {
+      if (
+        event.target instanceof Node &&
+        !desktopSettingsButtonsRef.current?.contains(event.target) &&
+        !desktopSettingsMenusRef.current?.contains(event.target)
+      ) {
         setDesktopSettingsOpen(false);
         setPhoneMoodStatusOpen(false);
       }
@@ -1096,8 +1104,51 @@ export function PhonePanel({
     )?.dataUrl;
   }
 
-  const phoneSystemTrayControls = (
-    <div className="phone-desktop-settings" ref={desktopSettingsRef}>
+  // Two portals: trigger icons render inline in the status bar's tray slot
+  // (next to the battery readout), while their dropdown panels render into
+  // a full-device overlay layer so they're never clipped by whichever app
+  // screen is currently open underneath.
+  const phoneTrayButtons = phoneTray.icons ? createPortal(
+    <div className="phone-desktop-tray-buttons" ref={desktopSettingsButtonsRef}>
+      <button
+        className="phone-desktop-settings-button"
+        type="button"
+        onClick={() => {
+          setPhoneMoodStatusOpen(false);
+          setDesktopSettingsOpen((open) => !open);
+        }}
+        aria-label="Desktop settings"
+        aria-expanded={desktopSettingsOpen}
+        title="Desktop settings"
+      >
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+          <circle cx="12" cy="12" r="3" />
+          <path d="M19.4 15a1.7 1.7 0 0 0 .34 1.87l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.7 1.7 0 0 0-1.87-.34 1.7 1.7 0 0 0-1.03 1.56V21a2 2 0 1 1-4 0v-.09A1.7 1.7 0 0 0 8.98 19.4a1.7 1.7 0 0 0-1.87.34l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.7 1.7 0 0 0 .34-1.87 1.7 1.7 0 0 0-1.56-1.03H3a2 2 0 1 1 0-4h.09A1.7 1.7 0 0 0 4.6 8.98a1.7 1.7 0 0 0-.34-1.87l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.7 1.7 0 0 0 1.87.34h.02a1.7 1.7 0 0 0 1.02-1.56V3a2 2 0 1 1 4 0v.09a1.7 1.7 0 0 0 1.03 1.56 1.7 1.7 0 0 0 1.87-.34l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.7 1.7 0 0 0-.34 1.87v.02a1.7 1.7 0 0 0 1.56 1.02H21a2 2 0 1 1 0 4h-.09a1.7 1.7 0 0 0-1.56 1.03Z" />
+        </svg>
+      </button>
+      <button
+        className={`phone-mood-status-button${selectedPhoneMoodStatus.id === 'online' ? ' online' : ''}`}
+        type="button"
+        onClick={() => {
+          setDesktopSettingsOpen(false);
+          setPhoneMoodStatusOpen((open) => !open);
+        }}
+        aria-label={`Phone status: ${selectedPhoneMoodStatus.label}`}
+        aria-expanded={phoneMoodStatusOpen}
+        title={`Phone status: ${selectedPhoneMoodStatus.label}`}
+      >
+        {selectedPhoneMoodStatus.id === 'online' ? (
+          <span className="phone-mood-status-dot" aria-hidden="true" />
+        ) : (
+          <span aria-hidden="true">{selectedPhoneMoodStatus.symbol}</span>
+        )}
+      </button>
+    </div>,
+    phoneTray.icons,
+  ) : null;
+
+  const phoneTrayMenus = phoneTray.overlay ? createPortal(
+    <div className="phone-desktop-tray-menus" ref={desktopSettingsMenusRef}>
       {phoneMoodStatusOpen && (
         <div className="phone-mood-status-menu" role="menu" aria-label="Phone status">
           {phoneMoodStatuses.map((option) => (
@@ -1219,40 +1270,15 @@ export function PhonePanel({
           )}
         </div>
       )}
-      <button
-        className="phone-desktop-settings-button"
-        type="button"
-        onClick={() => {
-          setPhoneMoodStatusOpen(false);
-          setDesktopSettingsOpen((open) => !open);
-        }}
-        aria-label="Desktop settings"
-        aria-expanded={desktopSettingsOpen}
-        title="Desktop settings"
-      >
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-          <circle cx="12" cy="12" r="3" />
-          <path d="M19.4 15a1.7 1.7 0 0 0 .34 1.87l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.7 1.7 0 0 0-1.87-.34 1.7 1.7 0 0 0-1.03 1.56V21a2 2 0 1 1-4 0v-.09A1.7 1.7 0 0 0 8.98 19.4a1.7 1.7 0 0 0-1.87.34l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.7 1.7 0 0 0 .34-1.87 1.7 1.7 0 0 0-1.56-1.03H3a2 2 0 1 1 0-4h.09A1.7 1.7 0 0 0 4.6 8.98a1.7 1.7 0 0 0-.34-1.87l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.7 1.7 0 0 0 1.87.34h.02a1.7 1.7 0 0 0 1.02-1.56V3a2 2 0 1 1 4 0v.09a1.7 1.7 0 0 0 1.03 1.56 1.7 1.7 0 0 0 1.87-.34l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.7 1.7 0 0 0-.34 1.87v.02a1.7 1.7 0 0 0 1.56 1.02H21a2 2 0 1 1 0 4h-.09a1.7 1.7 0 0 0-1.56 1.03Z" />
-        </svg>
-      </button>
-      <button
-        className={`phone-mood-status-button${selectedPhoneMoodStatus.id === 'online' ? ' online' : ''}`}
-        type="button"
-        onClick={() => {
-          setDesktopSettingsOpen(false);
-          setPhoneMoodStatusOpen((open) => !open);
-        }}
-        aria-label={`Phone status: ${selectedPhoneMoodStatus.label}`}
-        aria-expanded={phoneMoodStatusOpen}
-        title={`Phone status: ${selectedPhoneMoodStatus.label}`}
-      >
-        {selectedPhoneMoodStatus.id === 'online' ? (
-          <span className="phone-mood-status-dot" aria-hidden="true" />
-        ) : (
-          <span aria-hidden="true">{selectedPhoneMoodStatus.symbol}</span>
-        )}
-      </button>
-    </div>
+    </div>,
+    phoneTray.overlay,
+  ) : null;
+
+  const phoneSystemTrayControls = (
+    <Fragment>
+      {phoneTrayButtons}
+      {phoneTrayMenus}
+    </Fragment>
   );
 
   if (screen === 'gallery' || screen === 'chat-gallery') {
@@ -1884,168 +1910,7 @@ export function PhonePanel({
           </button>
         </div>
       </div>
-        <div className="phone-desktop-settings" ref={desktopSettingsRef}>
-          {phoneMoodStatusOpen && (
-            <div className="phone-mood-status-menu" role="menu" aria-label="Phone status">
-              {phoneMoodStatuses.map((option) => (
-                <button
-                  className={`phone-mood-status-option${option.id === selectedPhoneMoodStatus.id ? ' active' : ''}`}
-                  type="button"
-                  key={option.id}
-                  onClick={() => {
-                    onPhoneMoodStatusChange(option.id);
-                    setPhoneMoodStatusOpen(false);
-                  }}
-                  role="menuitemradio"
-                  aria-checked={option.id === selectedPhoneMoodStatus.id}
-                >
-                  <span className="phone-mood-status-option-symbol" aria-hidden="true">
-                    {option.id === 'online' ? <span className="phone-mood-status-dot" /> : option.symbol}
-                  </span>
-                  <span>{option.label}</span>
-                </button>
-              ))}
-            </div>
-          )}
-          {desktopSettingsOpen && (
-            <div className="phone-desktop-settings-menu" role="menu" aria-label="Desktop settings">
-              <span className="phone-desktop-settings-grabber" aria-hidden="true" />
-              <span className="phone-desktop-settings-label">Wallpaper</span>
-              <div className="phone-desktop-wallpaper-options">
-                {defaultPhoneWallpapers.map((wallpaper) => (
-                  <button
-                    className={`phone-desktop-wallpaper-option${
-                      wallpaperImageId === wallpaper.id ? ' active' : ''
-                    }`}
-                    type="button"
-                    key={wallpaper.id}
-                    onClick={() => selectWallpaper(wallpaper)}
-                    title={`Use ${wallpaper.name}`}
-                    aria-label={`Use ${wallpaper.name}`}
-                  >
-                    <img src={wallpaper.dataUrl} alt={wallpaper.name} />
-                  </button>
-                ))}
-                <button
-                  className="phone-desktop-wallpaper-gallery"
-                  type="button"
-                  onClick={() => {
-                    setDesktopSettingsOpen(false);
-                    setScreen('gallery');
-                  }}
-                  aria-label="Select wallpaper from gallery"
-                  title="Select image from gallery"
-                >
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                    <rect x="3" y="5" width="18" height="14" rx="2" />
-                    <circle cx="8.5" cy="10" r="1.5" />
-                    <path d="m21 15-4.5-4.5L8 19" />
-                  </svg>
-                </button>
-              </div>
-              <span className="phone-desktop-settings-label">Icon Size</span>
-              <div className="phone-desktop-icon-size-options">
-                {(['medium', 'large'] as const).map((size) => (
-                  <button
-                    className={phoneDesktopIconSize === size ? 'active' : ''}
-                    type="button"
-                    key={size}
-                    onClick={() => onPhoneDesktopIconSizeChange(size)}
-                    aria-label={`${size === 'medium' ? 'Medium' : 'Large'} app icons`}
-                    title={`${size === 'medium' ? 'Medium' : 'Large'} app icons`}
-                  >
-                    <span
-                      className={`phone-settings-size-symbol ${size}`}
-                      aria-hidden="true"
-                    >
-                      <span />
-                      <span />
-                      <span />
-                      <span />
-                    </span>
-                  </button>
-                ))}
-              </div>
-              <span className="phone-desktop-settings-label">Orientation</span>
-              <div className="phone-desktop-icon-size-options">
-                {(['portrait', 'landscape'] as const).map((orientation) => (
-                  <button
-                    className={(desktopLayout.orientation ?? 'portrait') === orientation ? 'active' : ''}
-                    type="button"
-                    key={orientation}
-                    onClick={() => {
-                      const next = { ...desktopLayoutRef.current, orientation };
-                      desktopLayoutRef.current = next;
-                      setDesktopLayoutOverride(next);
-                      onPhoneDesktopLayoutChange(next);
-                    }}
-                    aria-label={`${orientation === 'portrait' ? 'Portrait' : 'Horizontal'} phone orientation`}
-                    title={`${orientation === 'portrait' ? 'Portrait' : 'Horizontal'} phone orientation`}
-                  >
-                    <span
-                      className={`phone-settings-orientation-symbol ${orientation}`}
-                      aria-hidden="true"
-                    />
-                  </button>
-                ))}
-              </div>
-              {
-                // eslint-disable-next-line react-hooks/refs -- reads `available` only, closures run in handlers
-                desktopWidgets.some((widget) => widget.available) && (
-                <>
-                  <span className="phone-desktop-settings-label">Widgets</span>
-                  <div className="phone-desktop-widget-options">
-                    {
-                      // eslint-disable-next-line react-hooks/refs -- reads `available`/`id` only, closures run in handlers
-                      desktopWidgets.filter((widget) => widget.available).map((widget) => (
-                      <button
-                        className={(desktopLayout.widgets?.[widget.id]?.enabled ?? true) ? 'active' : ''}
-                        type="button"
-                        key={widget.id}
-                        onClick={() => toggleDesktopWidget(widget.id)}
-                      >
-                        {widget.label}
-                      </button>
-                    ))}
-                  </div>
-                </>
-              )}
-            </div>
-          )}
-          <button
-            className="phone-desktop-settings-button"
-            type="button"
-            onClick={() => {
-              setPhoneMoodStatusOpen(false);
-              setDesktopSettingsOpen((open) => !open);
-            }}
-            aria-label="Desktop settings"
-            aria-expanded={desktopSettingsOpen}
-            title="Desktop settings"
-          >
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-              <circle cx="12" cy="12" r="3" />
-              <path d="M19.4 15a1.7 1.7 0 0 0 .34 1.87l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.7 1.7 0 0 0-1.87-.34 1.7 1.7 0 0 0-1.03 1.56V21a2 2 0 1 1-4 0v-.09A1.7 1.7 0 0 0 8.98 19.4a1.7 1.7 0 0 0-1.87.34l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.7 1.7 0 0 0 .34-1.87 1.7 1.7 0 0 0-1.56-1.03H3a2 2 0 1 1 0-4h.09A1.7 1.7 0 0 0 4.6 8.98a1.7 1.7 0 0 0-.34-1.87l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.7 1.7 0 0 0 1.87.34h.02a1.7 1.7 0 0 0 1.02-1.56V3a2 2 0 1 1 4 0v.09a1.7 1.7 0 0 0 1.03 1.56 1.7 1.7 0 0 0 1.87-.34l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.7 1.7 0 0 0-.34 1.87v.02a1.7 1.7 0 0 0 1.56 1.02H21a2 2 0 1 1 0 4h-.09a1.7 1.7 0 0 0-1.56 1.03Z" />
-            </svg>
-          </button>
-          <button
-            className={`phone-mood-status-button${selectedPhoneMoodStatus.id === 'online' ? ' online' : ''}`}
-            type="button"
-            onClick={() => {
-              setDesktopSettingsOpen(false);
-              setPhoneMoodStatusOpen((open) => !open);
-            }}
-            aria-label={`Phone status: ${selectedPhoneMoodStatus.label}`}
-            aria-expanded={phoneMoodStatusOpen}
-            title={`Phone status: ${selectedPhoneMoodStatus.label}`}
-          >
-            {selectedPhoneMoodStatus.id === 'online' ? (
-              <span className="phone-mood-status-dot" aria-hidden="true" />
-            ) : (
-              <span aria-hidden="true">{selectedPhoneMoodStatus.symbol}</span>
-            )}
-          </button>
-        </div>
+      {phoneSystemTrayControls}
       </Fragment>
     );
   }
