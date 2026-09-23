@@ -230,12 +230,9 @@ Three concrete changes address that message-delivery work:
   before parsing image-bearing raw storybook JSON. Established relationships no
   longer cause a full JSON parse for every delivered message. Actual new grants
   still use the original raw JSON for writes, preserving unrelated fields.
-- `portraitDataUrl` now caches the most recent crop per source image object in a
-  WeakMap. Repeated character/phone projections avoid rescanning JPEG Base64,
-  recovering dimensions and encoding the same image-bearing SVG. Source bytes,
-  dimensions and crop coordinates invalidate the cached result. This is not an
-  unbounded global collection of historical images; discarded source objects can
-  be garbage-collected.
+- `portraitDataUrl` initially cached the most recent crop per source image object
+  in a WeakMap. The PR #40 integration below replaces that cache with a bounded
+  content cache so recreated source objects can reuse the same encoded portrait.
 - Appending a message still captures its participant/contact additions, but no
   longer immediately reconciles every older message for contact retractions.
   Removal, replacement and ordinary edits retain reconciliation.
@@ -247,3 +244,60 @@ Related phone-image, account-link, character-runtime and roleplay-runtime tests
 also pass. These are avoided-work assertions, not a measured frame-rate result.
 The user's next manual check remains the same sound/message arrival while the
 chat is auto-scrolling; no application or UI test was launched here.
+
+## PR #40 integration on v0.6.0
+
+The performance work from PR #40 (head `9dec949`) was ported onto v0.6.0
+(`5481784`). The source commits are `318b4c9`, `b10390c`, `131cb5c`,
+`ed82540`, `1998d3f`, and `bf8611b`. Their findings are consolidated here
+rather than repeating the intermediate investigation states.
+
+- Portrait encoding is cached by source data URL, dimensions and crop, with a
+  maximum of 64 variants. This covers recreated character projections as well as
+  repeated access to the same object. Cache hits precede JPEG validation; misses
+  validate bytes before constructing the SVG. Evicted variants are recomputed.
+  The v0.6.0 distinction between social album selections and portrait fallback
+  crops is preserved.
+- Prompt cards commit raw text on change and retain JSON formatting on focus and
+  blur. Syntax highlighting uses a deferred value; editing, selection and undo
+  continue to use the actual value. Overlay scrolling is synchronized again when
+  the deferred text catches up, after its scrollable dimensions have changed.
+- Rendered graph edges depend on node IDs, compatibility kinds and run status,
+  rather than every node-data edit. Storybook endpoint and opening-situation
+  reads use the existing stable storybook-content selector.
+- The workflow capability scan projects only its inputs. Compared with the PR,
+  the projection additionally retains prompt-switch output titles, which control
+  which prompt rows are visible. It also preserves the distinction between an
+  absent connection ID and an explicitly present one; the scan uses property
+  presence to decide whether a node requires a text provider.
+- Dialogue parsing and the complete message render body are extracted into
+  memoized `DialogueText` and `MessageRow` components. The v0.6.0 avatars, avatar
+  sizing and visibility, account matching, messenger headers, and social message
+  timestamps are retained in the extracted render body.
+
+Row memoization also requires stable shared props. The original PR recreates
+phone/social maps, timeline groups, engagement counts and a timestamp function
+on each message snapshot, which defeats shallow memoization even when only an
+unrelated message's text changes. The integration retains equal timeline and
+engagement projections using a per-panel, single-snapshot cache. The comparison
+handles acyclic plain records, arrays, Maps and Sets and takes an identity fast
+path for unchanged immutable source records. It does not serialize image-bearing
+messages. Timestamp lookup is performed inside the row instead of passing a
+new closure on every snapshot.
+
+This still performs the panel's timeline derivation and comparison on each
+snapshot. Actual changes to shared phone/social data, display settings or
+handler identities can rerender multiple rows. This is not list virtualization
+and does not establish a measured frame-rate improvement.
+
+The independent fixes from `1a02273`, `2c1b997`, and `62676c8` are also
+included: the time trigger requires `/time`, the large gallery conversion test
+has a 20-second timeout, and local shared CommonJS modules are transformed for
+Vite development mode.
+
+Validation covers portrait reuse across recreated objects and cache eviction,
+edge filtering/coloring equivalence, capability projection dependencies, and
+stable chat projections with invalidation for message, date, grouping and like
+changes. Application, browser and UI/E2E checks remain manual. Check a long
+streaming conversation, WhatsUp/social bubbles and timestamps, avatar controls,
+editing and voice actions, and long prompt fields in the application.

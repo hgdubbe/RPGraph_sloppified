@@ -227,6 +227,7 @@ import { CharacterAssistantDialog } from './components/CharacterAssistantDialog'
 import { useNpcLibrary } from './characters/useNpcLibrary';
 import { WorkflowCapabilityStrip } from './components/WorkflowCapabilityStrip';
 import {
+  useEdgeRelevantNodes,
   withSourceNodeStatusConnectionColors,
   workflowEdgeType,
 } from './graph/edges';
@@ -934,8 +935,12 @@ function App() {
     clearTurnTraces,
   } = useTurnTraceState();
   const notifySystemRef = useRef<(level: 'info' | 'warning' | 'error', message: string) => void>(() => {});
-  const { characterStorybookNodes } = useMemo(() => findChatEndpoints(nodeViewNodes), [nodeViewNodes]);
   const storybookContentNodes = useStorybookContentNodes(nodeViewNodes);
+  // findChatEndpoints only filters to storybook-source nodes for this destructured
+  // field (its inputNode/outputNode are unused here), so the already-stable,
+  // narrower storybookContentNodes can stand in for nodeViewNodes: a keystroke in
+  // an unrelated node no longer produces a new characterStorybookNodes reference.
+  const { characterStorybookNodes } = useMemo(() => findChatEndpoints(storybookContentNodes), [storybookContentNodes]);
   const storybooksByNodeId = useMemo(() => {
     return new Map(
       storybookContentNodes.flatMap((node) => {
@@ -1667,9 +1672,11 @@ function App() {
   }, [edges]);
   const nodeTypes = useMemo(() => ({ workflow: WorkflowNodeRenderer }), []);
   const edgeTypes = useMemo<EdgeTypes>(() => ({ [workflowEdgeType]: WorkflowEdge }), []);
+  // storybookOpeningSituation only reads storybook-source nodes' storybookJson,
+  // exactly what storybookContentNodes already stably narrows nodeViewNodes to.
   const openingSituation = useMemo(
-    () => storybookOpeningSituation(nodeViewNodes),
-    [nodeViewNodes],
+    () => storybookOpeningSituation(storybookContentNodes),
+    [storybookContentNodes],
   );
   const {
     groupedNodePaletteItems,
@@ -5037,9 +5044,15 @@ function App() {
     setPromptTextCustomPresets,
     settingsValueDefinitions,
   ]);
+  // Edge coloring/compatibility only ever reads id/kind/runPrepared/runCompleted
+  // (see edgeRelevantNode in graph/edges.ts); keying this off that narrower,
+  // stable projection instead of nodeViewNodes means an unrelated node-data
+  // edit (a keystroke, a streamed status update elsewhere) no longer forces
+  // every edge in the graph to be rebuilt and re-diffed by React Flow.
+  const edgeRelevantNodes = useEdgeRelevantNodes(nodeViewNodes);
   const renderedEdges = useMemo(
-    () => withSourceNodeStatusConnectionColors(removeEdgesConnectedToIncompatibleNodes(nodeViewNodes, edges), nodeViewNodes),
-    [edges, nodeViewNodes],
+    () => withSourceNodeStatusConnectionColors(removeEdgesConnectedToIncompatibleNodes(edgeRelevantNodes, edges), edgeRelevantNodes),
+    [edges, edgeRelevantNodes],
   );
   const workflowCapabilityIndicators = useWorkflowCapabilities({
     nodes: nodeViewNodes,

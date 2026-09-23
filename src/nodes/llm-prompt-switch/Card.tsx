@@ -378,15 +378,18 @@ export function LlmPromptSwitchNodeCard({ id, data }: NodeProps<WorkflowNode>) {
 
   const maybeFormatJson = (value: string) => (autoFormatJson ? formatJsonValue(value) : value);
 
+  // Reformatting scans and JSON.parses/stringifies the whole field on every call;
+  // onFocus/onBlur below already reformat on settle, so live keystrokes commit the
+  // raw value instead of paying that cost on every character typed.
   const updatePromptBefore = (value: string) => {
     const nextRows = promptBeforeRows.map((row) => [...row]);
-    nextRows[selectedOutputChannel][selectedPromptSlot] = maybeFormatJson(value);
+    nextRows[selectedOutputChannel][selectedPromptSlot] = value;
     actions.updateData(id, { llmPromptSwitchPromptBeforesByOutput: nextRows });
   };
 
   const updatePromptAfter = (value: string) => {
     const nextRows = promptAfterRows.map((row) => [...row]);
-    nextRows[selectedOutputChannel][selectedPromptSlot] = maybeFormatJson(value);
+    nextRows[selectedOutputChannel][selectedPromptSlot] = value;
     actions.updateData(id, { llmPromptSwitchPromptAftersByOutput: nextRows });
   };
 

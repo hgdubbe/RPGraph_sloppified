@@ -97,7 +97,7 @@ it('reuses avatar encoding and invalidates for crop, dimensions and source edits
   try {
     const initial = portraitDataUrl(image, crop);
     for (let message = 0; message < 100; message++) {
-      expect(portraitDataUrl(image, { ...crop })).toBe(initial);
+      expect(portraitDataUrl({ ...image }, { ...crop })).toBe(initial);
     }
     expect(encode).toHaveBeenCalledTimes(1);
     crop.x = 10;
@@ -111,6 +111,19 @@ it('reuses avatar encoding and invalidates for crop, dimensions and source edits
   } finally { encode.mockRestore(); }
 });
 
+
+it('bounds the content cache and re-encodes evicted portraits', () => {
+  const image = { dataUrl: 'data:image/jpeg;base64,Y2FjaGUtYm91bmQ=', width: 800, height: 600 };
+  const crop = { x: 0, y: 0, size: 25 };
+  const encode = vi.spyOn(globalThis, 'btoa');
+  try {
+    const first = portraitDataUrl(image, crop);
+    for (let x = 1; x <= 64; x++) portraitDataUrl(image, { ...crop, x });
+    expect(encode).toHaveBeenCalledTimes(65);
+    expect(portraitDataUrl({ ...image }, crop)).toBe(first);
+    expect(encode).toHaveBeenCalledTimes(66);
+  } finally { encode.mockRestore(); }
+});
 
 it('distinguishes the social portrait crop from an explicit selection of the same album image', () => {
   const image = { id: 'photo', dataUrl: 'data:image/jpeg;base64,YQ==', width: 800, height: 1200 };

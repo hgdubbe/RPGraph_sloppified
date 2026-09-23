@@ -1,5 +1,6 @@
 /* eslint-disable react-refresh/only-export-components */
 import React, {
+  useDeferredValue,
   useEffect,
   useId,
   useLayoutEffect,
@@ -644,9 +645,14 @@ export function JsonSyntaxTextarea({
     }
   };
 
-  const segments = useMemo(() => findSegments(value), [value]);
+  // The highlight overlay is cosmetic and re-tokenizes the whole field on every
+  // change; deferring it keeps typing itself (value/selection/undo, all handled
+  // above via refs) instant even in large fields, letting the overlay catch up
+  // a frame later instead of blocking each keystroke on full-text JSON/regex parsing.
+  const highlightValue = useDeferredValue(value);
+  const segments = useMemo(() => findSegments(highlightValue), [highlightValue]);
   const jsonHighlightActive = useMemo(() => segments.some(s => s.type === 'json'), [segments]);
-  const workflowVariableHighlightActive = useMemo(() => /<([^<>\n]+)>/.test(value), [value]);
+  const workflowVariableHighlightActive = useMemo(() => /<([^<>\n]+)>/.test(highlightValue), [highlightValue]);
   const tokens = useMemo(() => {
     const result: JsonToken[] = [];
     if (jsonHighlightActive) {
@@ -658,7 +664,7 @@ export function JsonSyntaxTextarea({
         }
       }
     } else {
-      result.push({ kind: 'plain', text: value });
+      result.push({ kind: 'plain', text: highlightValue });
     }
     return result
       .flatMap((token) =>
@@ -669,16 +675,16 @@ export function JsonSyntaxTextarea({
       .flatMap(splitPromptCommands)
       .flatMap(splitPlanOutputs)
       .flatMap((token) => splitTemplateVariables(token, templateVariableStatuses));
-  }, [segments, jsonHighlightActive, value, workflowVariableDefinitions, workflowVariableValues, templateVariableStatuses]);
+  }, [segments, jsonHighlightActive, highlightValue, workflowVariableDefinitions, workflowVariableValues, templateVariableStatuses]);
 
   const promptActionHighlightActive = useMemo(
-    () => /@action(?::[^\n\r]+)?/.test(value) || /@command:[ \t]*[A-Za-z0-9_]+/i.test(value),
-    [value],
+    () => /@action(?::[^\n\r]+)?/.test(highlightValue) || /@command:[ \t]*[A-Za-z0-9_]+/i.test(highlightValue),
+    [highlightValue],
   );
-  const templateVariableHighlightActive = useMemo(() => !!templateVariableStatuses && /\{\{\s*[A-Za-z][A-Za-z0-9_]*\s*\}\}/.test(value), [templateVariableStatuses, value]);
+  const templateVariableHighlightActive = useMemo(() => !!templateVariableStatuses && /\{\{\s*[A-Za-z][A-Za-z0-9_]*\s*\}\}/.test(highlightValue), [templateVariableStatuses, highlightValue]);
   const stepHighlightActive = useMemo(
-    () => /@step:[ \t]*[A-Za-z0-9_-]+\b/i.test(value) || /@output:[A-Za-z0-9_-]+\b/i.test(value),
-    [value],
+    () => /@step:[ \t]*[A-Za-z0-9_-]+\b/i.test(highlightValue) || /@output:[A-Za-z0-9_-]+\b/i.test(highlightValue),
+    [highlightValue],
   );
   const highlightActive = highlightPlainText || jsonHighlightActive || workflowVariableHighlightActive || promptActionHighlightActive || templateVariableHighlightActive || stepHighlightActive;
 
@@ -750,8 +756,10 @@ export function JsonSyntaxTextarea({
   }, [value]);
 
   useLayoutEffect(() => {
+    // Deferred highlighting can grow after the textarea has already scrolled.
+    // Reapply the scroll position once the overlay has its updated dimensions.
     syncHighlightScroll();
-  }, [highlightActive, value]);
+  }, [highlightActive, highlightValue, value]);
 
   const rememberSelectionBeforeInput = (element: HTMLTextAreaElement) => {
     selectionBeforeInputRef.current = textSelectionSnapshot(element);
