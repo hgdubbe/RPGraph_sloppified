@@ -130,6 +130,8 @@ export function LlmPromptSwitchNodeCard({ id, data }: NodeProps<WorkflowNode>) {
   const promptBefores = llmPromptSwitchPromptBefores(data, selectedOutputChannel);
   const promptAfters = llmPromptSwitchPromptAfters(data, selectedOutputChannel);
   const selectedPromptSlot = llmPromptSwitchSelectedPromptSlot(data);
+  const visiblePromptBefore = promptBefores[selectedPromptSlot] ?? '';
+  const visiblePromptAfter = promptAfters[selectedPromptSlot] ?? '';
   const autoFormatJson = data.llmPromptSwitchAutoFormatJson ?? true;
   const storedActionConfigs = promptActionConfigs(data.llmPromptActions);
   const actionConfigs = withPromptActionRuntimeSettingsList(storedActionConfigs, view.promptActionSettings);
@@ -139,7 +141,7 @@ export function LlmPromptSwitchNodeCard({ id, data }: NodeProps<WorkflowNode>) {
   const comfyProviderIds = view.connections
     .filter((connection) => connection.kind === 'comfyui')
     .map((connection) => connection.id);
-  const createImageCharacters = storybookCreateImageCharactersFromNodes(view.nodes);
+  const createImageCharacters = storybookCreateImageCharactersFromNodes(view.contentNodes);
   const commandConfigs = promptCommandConfigs(data.llmPromptCommands);
   const promptCommandStatuses = Object.fromEntries(
     [...promptBeforeRows.flat(), ...promptAfterRows.flat()]
@@ -224,7 +226,9 @@ export function LlmPromptSwitchNodeCard({ id, data }: NodeProps<WorkflowNode>) {
 
   useLayoutEffect(() => {
     syncPromptTextareaHeights();
-  }, [promptAfters, promptBefores, selectedPromptSlot, syncPromptTextareaHeights]);
+  // Helpers return fresh arrays even for status-only renders. Measuring after
+  // resetting textarea heights forces layout; do it only for visible text edits.
+  }, [visiblePromptAfter, visiblePromptBefore, selectedPromptSlot, syncPromptTextareaHeights]);
 
   useLayoutEffect(() => {
     const fields = promptFieldsRef.current;
@@ -374,15 +378,18 @@ export function LlmPromptSwitchNodeCard({ id, data }: NodeProps<WorkflowNode>) {
 
   const maybeFormatJson = (value: string) => (autoFormatJson ? formatJsonValue(value) : value);
 
+  // Reformatting scans and JSON.parses/stringifies the whole field on every call;
+  // onFocus/onBlur below already reformat on settle, so live keystrokes commit the
+  // raw value instead of paying that cost on every character typed.
   const updatePromptBefore = (value: string) => {
     const nextRows = promptBeforeRows.map((row) => [...row]);
-    nextRows[selectedOutputChannel][selectedPromptSlot] = maybeFormatJson(value);
+    nextRows[selectedOutputChannel][selectedPromptSlot] = value;
     actions.updateData(id, { llmPromptSwitchPromptBeforesByOutput: nextRows });
   };
 
   const updatePromptAfter = (value: string) => {
     const nextRows = promptAfterRows.map((row) => [...row]);
-    nextRows[selectedOutputChannel][selectedPromptSlot] = maybeFormatJson(value);
+    nextRows[selectedOutputChannel][selectedPromptSlot] = value;
     actions.updateData(id, { llmPromptSwitchPromptAftersByOutput: nextRows });
   };
 
@@ -636,7 +643,7 @@ export function LlmPromptSwitchNodeCard({ id, data }: NodeProps<WorkflowNode>) {
             id={`${id}-before`}
             ref={promptBeforeRef}
             rows={3}
-            value={promptBefores[selectedPromptSlot] ?? ''}
+            value={visiblePromptBefore}
             highlightPlainText
             onChange={(value) => updatePromptBefore(value)}
             onFocus={formatCurrentPrompts}
@@ -659,7 +666,7 @@ export function LlmPromptSwitchNodeCard({ id, data }: NodeProps<WorkflowNode>) {
             id={`${id}-after`}
             ref={promptAfterRef}
             rows={3}
-            value={promptAfters[selectedPromptSlot] ?? ''}
+            value={visiblePromptAfter}
             highlightPlainText
             onChange={(value) => updatePromptAfter(value)}
             onFocus={formatCurrentPrompts}
@@ -743,7 +750,7 @@ export function LlmPromptSwitchNodeCard({ id, data }: NodeProps<WorkflowNode>) {
         setPromptActionSettings={view.setPromptActionSettings}
         visionEnabled={visionEnabled}
         connections={view.connections}
-        nodes={view.nodes}
+        nodes={view.contentNodes}
         providerHealthById={view.providerHealthById}
         onCheckProviderConnection={view.onCheckProviderConnection}
         onReplace={applyPromptActionDialog}

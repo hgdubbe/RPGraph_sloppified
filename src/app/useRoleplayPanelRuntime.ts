@@ -1,3 +1,5 @@
+import { useStorybookContentNodes } from '../storybook/useStorybookContentNodes';
+import { nextAutoScrollSpeed } from '../chat/autoScrollSpeed';
 import { bankingRecipientByName } from '../chat/bankingRecipients';
 import { hasAuthoredConnection } from '../characters/relationships';
 import { automaticAccountLinkGrants, resolveAccountLink, type AccountLinkTarget } from '../chat/accountLinks';
@@ -235,7 +237,9 @@ export function useRoleplayPanelRuntime({
   const chatThreadRef = useRef<HTMLDivElement | null>(null);
   const chatAutoFollowBottomRef = useRef(true);
   const chatAutoFollowAnimationFrameRef = useRef(0);
-  const chatAutoFollowAnimationTimeRef = useRef(0);
+  const chatScrollRequestFrameRef = useRef(0);
+  const chatScrollRequestBehaviorRef = useRef<ScrollBehavior | null>(null);
+  const chatAutoFollowAnimationTimeRef = useRef<number | null>(null);
   const chatAutoFollowAnimatingRef = useRef(false);
   const chatAutoFollowProgrammaticScrollRef = useRef(false);
   const chatAutoFollowProgrammaticClearFrameRef = useRef(0);
@@ -271,9 +275,10 @@ export function useRoleplayPanelRuntime({
     clearPhoneReply();
   }
 
+  const storybookContentNodes = useStorybookContentNodes(nodeViewNodes);
   const storyCharacters: StorybookCharacter[] = useMemo(
-    () => storyCharactersFromNodes(nodeViewNodes),
-    [nodeViewNodes],
+    () => storyCharactersFromNodes(storybookContentNodes),
+    [storybookContentNodes],
   );
   const playerCharacters = useMemo(
     () => storyCharacters.filter((character) => character.playerSelectable !== false),
@@ -1325,6 +1330,11 @@ export function useRoleplayPanelRuntime({
   ]);
 
   const cancelChatAutoFollowAnimation = useCallback(() => {
+    chatScrollRequestBehaviorRef.current = null;
+    if (chatScrollRequestFrameRef.current) {
+      cancelAnimationFrame(chatScrollRequestFrameRef.current);
+      chatScrollRequestFrameRef.current = 0;
+    }
     if (chatAutoFollowAnimationFrameRef.current) {
       cancelAnimationFrame(chatAutoFollowAnimationFrameRef.current);
       chatAutoFollowAnimationFrameRef.current = 0;
@@ -1335,7 +1345,7 @@ export function useRoleplayPanelRuntime({
     }
     chatAutoFollowProgrammaticScrollRef.current = false;
     chatAutoFollowAnimatingRef.current = false;
-    chatAutoFollowAnimationTimeRef.current = 0;
+    chatAutoFollowAnimationTimeRef.current = null;
   }, []);
 
   const markChatProgrammaticScroll = useCallback(() => {
@@ -1356,6 +1366,10 @@ export function useRoleplayPanelRuntime({
       return;
     }
 
+    // Keep fractional progress even when the browser rounds scrollTop writes.
+    let scrollPosition = thread.scrollTop;
+    const baseSpeed = validSmoothChatAutoScrollMinSpeed(smoothChatAutoScrollMinSpeed);
+    let pixelsPerSecond = baseSpeed;
     const step = (timestamp: number) => {
       const currentThread = chatThreadRef.current;
       if (!currentThread || !chatAutoFollowBottomRef.current) {
@@ -1372,14 +1386,18 @@ export function useRoleplayPanelRuntime({
         return;
       }
 
-      const previousTimestamp = chatAutoFollowAnimationTimeRef.current || timestamp;
-      const elapsedSeconds = Math.max(0, (timestamp - previousTimestamp) / 1000);
+      const previousTimestamp = chatAutoFollowAnimationTimeRef.current ?? timestamp;
+      // Do not catch up after a blocked frame or a background-tab pause.
+      const elapsedSeconds = Math.min(1 / 30, Math.max(0, (timestamp - previousTimestamp) / 1000));
       chatAutoFollowAnimationTimeRef.current = timestamp;
-      const pixelsPerSecond = validSmoothChatAutoScrollMinSpeed(smoothChatAutoScrollMinSpeed);
-      const delta = Math.max(0.25, pixelsPerSecond * elapsedSeconds);
+      pixelsPerSecond = nextAutoScrollSpeed(
+        pixelsPerSecond, baseSpeed, distance, currentThread.clientHeight, elapsedSeconds,
+      );
+      const delta = pixelsPerSecond * elapsedSeconds;
 
       markChatProgrammaticScroll();
-      currentThread.scrollTop = Math.min(targetTop, currentThread.scrollTop + delta);
+      scrollPosition = Math.min(targetTop, scrollPosition + delta);
+      currentThread.scrollTop = scrollPosition;
       chatAutoFollowAnimationFrameRef.current = requestAnimationFrame(step);
     };
 
@@ -1389,13 +1407,24 @@ export function useRoleplayPanelRuntime({
     }
   }, [cancelChatAutoFollowAnimation, markChatProgrammaticScroll, smoothChatAutoScrollMinSpeed]);
 
-  const scrollChatThreadToBottom = useCallback((behavior: ScrollBehavior = 'auto') => {
-    requestAnimationFrame(() => {
+  const scrollChatThreadToBottom = useCallback((behavior: ScrollBehavior = 'auto', onlyIfFollowing = false) => {
+    // Multiple image loads and streamed updates can arrive before the next frame.
+    // Keep one pending request, but never replace initial positioning with a
+    // smooth follow request: that would animate the entire restored history.
+    chatScrollRequestBehaviorRef.current =
+      chatScrollRequestBehaviorRef.current === 'auto' ? 'auto' : behavior;
+    if (chatScrollRequestFrameRef.current) {
+      cancelAnimationFrame(chatScrollRequestFrameRef.current);
+    }
+    chatScrollRequestFrameRef.current = requestAnimationFrame(() => {
+      chatScrollRequestFrameRef.current = 0;
+      const requestedBehavior = chatScrollRequestBehaviorRef.current;
+      chatScrollRequestBehaviorRef.current = null;
       const thread = chatThreadRef.current;
-      if (!thread) {
+      if (!thread || (onlyIfFollowing && !chatAutoFollowBottomRef.current)) {
         return;
       }
-      if (behavior === 'smooth') {
+      if (requestedBehavior === 'smooth') {
         if (!smoothChatAutoScrollEnabled) {
           cancelChatAutoFollowAnimation();
           markChatProgrammaticScroll();
@@ -1427,7 +1456,7 @@ export function useRoleplayPanelRuntime({
 
   const scrollChatThreadToBottomIfFollowing = useCallback((behavior: ScrollBehavior = 'smooth') => {
     if (chatAutoFollowBottomRef.current) {
-      scrollChatThreadToBottom(behavior);
+      scrollChatThreadToBottom(behavior, true);
     }
   }, [scrollChatThreadToBottom]);
 
@@ -1476,7 +1505,7 @@ export function useRoleplayPanelRuntime({
       chatAutoFollowBottomRef.current = true;
       scrollChatThreadToBottom();
     }
-  }, [chatVisible, scrollChatThreadToBottom]);
+  }, [chatPanelView, panelSessionRevision, scrollChatThreadToBottom]);
 
   useEffect(() => {
     if (chatVisible) {

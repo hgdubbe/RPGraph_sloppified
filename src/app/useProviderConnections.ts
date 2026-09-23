@@ -96,6 +96,7 @@ type AvailableComfyModels = {
 };
 
 const recommendedOpenRouterTtsModel = 'google/gemini-3.1-flash-tts-preview';
+const localProviderPollIntervalMs = 6000;
 
 function comfyConnectionCapabilities(connection: ConnectionPreset) {
   return comfyConnectionRole(connection) === 'voice' ? { voice: true } : { image: true };
@@ -141,6 +142,10 @@ type UseProviderConnectionsOptions = {
   defaultConnectionId: string;
   setDefaultConnectionId: (connectionId: string) => void;
   settingsLoadComplete: boolean;
+  // Whether a run/turn is currently active. The background health poll pauses
+  // while true and the connections dialog is closed (providers do not change
+  // mid-run).
+  isRunning: boolean;
   nodesRef: { current: WorkflowNode[] };
   setNodes: Dispatch<SetStateAction<WorkflowNode[]>>;
   notifySystem: (level: 'info' | 'warning' | 'error', text: string) => void;
@@ -152,6 +157,7 @@ export function useProviderConnections({
   defaultConnectionId,
   setDefaultConnectionId,
   settingsLoadComplete,
+  isRunning,
   nodesRef,
   setNodes,
   notifySystem,
@@ -197,6 +203,7 @@ export function useProviderConnections({
   const [llamaCppModelsByConnectionId, setLlamaCppModelsByConnectionId] = useState<Record<string, LlamaCppModelInfo[]>>({});
   const llamaCppModelsByConnectionIdRef = useRef<Record<string, LlamaCppModelInfo[]>>({});
   const startupProviderCheckCompleteRef = useRef(false);
+  const localProviderPollActiveRef = useRef(false);
   const characterComfyLoraCacheRef = useRef<Record<string, string[] | Promise<string[]>>>({});
   const [lmStudioModelActionActive, setLmStudioModelActionActive] = useState<'load' | 'unload' | null>(null);
   const [ollamaModelActionActive, setOllamaModelActionActive] = useState<'load' | 'unload' | null>(null);
@@ -1115,6 +1122,10 @@ export function useProviderConnections({
   const checkProviderConnectionsRef = useRef(checkProviderConnections);
   const inspectComfyWorkflowRef = useRef(inspectComfyWorkflow);
   const editingConnectionRef = useRef(editingConnection);
+  const isRunningRef = useRef(isRunning);
+  const showConnectionsRef = useRef(showConnections);
+  isRunningRef.current = isRunning;
+  showConnectionsRef.current = showConnections;
   const checkProviderConnectionByIdStable = useCallback(
     (connectionId: string, showStatus = false) => checkProviderConnectionByIdRef.current(connectionId, showStatus),
     [],
@@ -1133,6 +1144,36 @@ export function useProviderConnections({
     startupProviderCheckCompleteRef.current = true;
     void checkProviderConnectionsRef.current(connections);
   }, [connections, settingsLoadComplete]);
+
+  useEffect(() => {
+    if (!settingsLoadComplete || isRunning) {
+      return;
+    }
+    const checkLocalProviders = async () => {
+      // Skip the background health poll while a workflow is running — providers do
+      // not change mid-run, avoiding redundant round-trips and model queries.
+      if (isRunningRef.current) {
+        return;
+      }
+      if (localProviderPollActiveRef.current) {
+        return;
+      }
+      const localConnections = connections.filter(isLocalProviderConnection);
+      if (!localConnections.length) {
+        return;
+      }
+      localProviderPollActiveRef.current = true;
+      try {
+        await checkProviderConnectionsRef.current(localConnections, { markChecking: false });
+      } finally {
+        localProviderPollActiveRef.current = false;
+      }
+    };
+    const intervalId = window.setInterval(() => {
+      void checkLocalProviders();
+    }, localProviderPollIntervalMs);
+    return () => window.clearInterval(intervalId);
+  }, [connections, isRunning, settingsLoadComplete]);
 
   useEffect(() => {
     if (!showConnections) {

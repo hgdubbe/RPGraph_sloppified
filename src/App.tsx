@@ -1,3 +1,7 @@
+import { AppMessageAvatars } from './components/AppMessageAvatars';
+import { createNodeViewSnapshot } from './app/nodeViewSnapshot';
+import { useNodeViewContent } from './nodes/nodeViewContent';
+import { useStorybookContentNodes } from './storybook/useStorybookContentNodes';
 import { onlyFriendsWalletBalance } from './chat/onlyFriendsWallet';
 import { planNpcCopyEdit } from './characters/editNpcCopy';
 import { CharacterRemovalDialog } from './components/CharacterRemovalDialog';
@@ -42,6 +46,7 @@ import {
   type DebugSnapshotAssistantSection,
 } from './components/AssistantDialog';
 import { EdgeCharacterPicker } from './components/EdgeCharacterPicker';
+import { runProgress } from './chat/runProgress';
 import { ChatConversationPanel } from './components/ChatConversationPanel';
 import { EventsPanel } from './components/EventsPanel';
 import { ErrorBoundary } from './components/ErrorBoundary';
@@ -175,6 +180,7 @@ import {
 import { useStorybookActions } from './storybook/useStorybookActions';
 import { storybookImageIdsUsedByMessages } from './storybook/imageUsage';
 import storybookFormatVersions from './storybook/formatVersions.json';
+import { storybookDisplayName } from './storybook/displayName';
 import {
   openingHistoryEventsFromNodes,
   openingHistoryChatGpdChatsFromNodes,
@@ -236,6 +242,7 @@ import { CharacterAssistantDialog } from './components/CharacterAssistantDialog'
 import { useNpcLibrary } from './characters/useNpcLibrary';
 import { WorkflowCapabilityStrip } from './components/WorkflowCapabilityStrip';
 import {
+  useEdgeRelevantNodes,
   withSourceNodeStatusConnectionColors,
   workflowEdgeType,
 } from './graph/edges';
@@ -476,12 +483,12 @@ function displayStorybookName(
     return 'not loaded';
   }
   if (headerStorybookFileName) {
-    return headerStorybookFileName.replace(/\.json$/i, '');
+    return storybookDisplayName(headerStorybookFileName);
   }
   try {
     const storybook = parseRpStorybookJson(headerStorybookJson);
     const title = storybook.title || 'untitled';
-    return title;
+    return storybookDisplayName(title);
   } catch {
     return 'Untitled storybook';
   }
@@ -601,19 +608,6 @@ function textMentionsCharacter(text: string, character: StorybookCharacter) {
   });
 }
 
-function sameNodeViewNodes(left: WorkflowNode[], right: WorkflowNode[]) {
-  return left.length === right.length && left.every((node, index) => {
-    const other = right[index];
-    return (
-      !!other &&
-      node.id === other.id &&
-      node.type === other.type &&
-      node.data === other.data &&
-      node.style === other.style
-    );
-  });
-}
-
 function eventStoryCharacter(event: RpAppointment, characters: StorybookCharacter[]) {
   const explicitName = event.assignedTo ?? event.requestedBy;
   if (explicitName) {
@@ -696,13 +690,10 @@ function App() {
   useEffect(() => {
     nodesRef.current = nodes;
   }, [nodes]);
-  // Dragging recreates `nodes` every frame with only positions changed; keep a
-  // semantically-stable array so downstream memos only recompute on real changes.
-  // Guarded render-phase setState is React's sanctioned previous-render pattern.
-  const [nodeViewNodes, setNodeViewNodes] = useState(nodes);
-  if (!sameNodeViewNodes(nodeViewNodes, nodes)) {
-    setNodeViewNodes(nodes);
-  }
+  // Reuse content for position-only changes without an extra render-phase
+  // state update on every runtime node patch.
+  const [selectNodeViewSnapshot] = useState(createNodeViewSnapshot);
+  const nodeViewNodes = selectNodeViewSnapshot(nodes);
   const [showWelcome, setShowWelcome] = useState(() => {
     return window.localStorage.getItem('rpgraph.welcomeSeen') !== 'true';
   });
@@ -735,6 +726,12 @@ function App() {
     setChatTextBrightness,
     chatColorIntensity,
     setChatColorIntensity,
+    chatMessageAvatarSize,
+    setChatMessageAvatarSize,
+    appMessageAvatarsEnabled,
+    setAppMessageAvatarsEnabled,
+    chatMessageAvatarsEnabled,
+    setChatMessageAvatarsEnabled,
     chatTextSize,
     setChatTextSize,
     phoneChatTextSize,
@@ -981,6 +978,7 @@ function App() {
     };
   }, [topbarMenuOpen]);
   const {
+    messageStream,
     messages,
     setMessages,
     messagesRef,
@@ -1036,10 +1034,15 @@ function App() {
     clearTurnTraces,
   } = useTurnTraceState();
   const notifySystemRef = useRef<(level: 'info' | 'warning' | 'error', message: string) => void>(() => {});
-  const { characterStorybookNodes } = useMemo(() => findChatEndpoints(nodeViewNodes), [nodeViewNodes]);
+  const storybookContentNodes = useStorybookContentNodes(nodeViewNodes);
+  // findChatEndpoints only filters to storybook-source nodes for this destructured
+  // field (its inputNode/outputNode are unused here), so the already-stable,
+  // narrower storybookContentNodes can stand in for nodeViewNodes: a keystroke in
+  // an unrelated node no longer produces a new characterStorybookNodes reference.
+  const { characterStorybookNodes } = useMemo(() => findChatEndpoints(storybookContentNodes), [storybookContentNodes]);
   const storybooksByNodeId = useMemo(() => {
     return new Map(
-      nodeViewNodes.flatMap((node) => {
+      storybookContentNodes.flatMap((node) => {
         if (!isStorybookSourceNode(node) || !node.data.storybookJson) {
           return [];
         }
@@ -1051,7 +1054,7 @@ function App() {
         }
       }),
     );
-  }, [nodeViewNodes]);
+  }, [storybookContentNodes]);
   const {
     panelSessionRevision,
     resetPanelSession,
@@ -1324,6 +1327,7 @@ function App() {
     defaultConnectionId,
     setDefaultConnectionId,
     settingsLoadComplete,
+    isRunning: isRunning || workflowComfyGenerationActive,
     nodesRef,
     setNodes,
     notifySystem,
@@ -1509,6 +1513,8 @@ function App() {
     setChooseSaveLocation,
     characterSaveLocation,
     setCharacterSaveLocation,
+    includeCharacterReceivedImages,
+    setIncludeCharacterReceivedImages,
     includeCharacterOwnPosts,
     setIncludeCharacterOwnPosts,
     returnToFilesAfterSaveRef,
@@ -1774,9 +1780,11 @@ function App() {
   }, [edges]);
   const nodeTypes = useMemo(() => ({ workflow: WorkflowNodeRenderer }), []);
   const edgeTypes = useMemo<EdgeTypes>(() => ({ [workflowEdgeType]: WorkflowEdge }), []);
+  // storybookOpeningSituation only reads storybook-source nodes' storybookJson,
+  // exactly what storybookContentNodes already stably narrows nodeViewNodes to.
   const openingSituation = useMemo(
-    () => storybookOpeningSituation(nodeViewNodes),
-    [nodeViewNodes],
+    () => storybookOpeningSituation(storybookContentNodes),
+    [storybookContentNodes],
   );
   const {
     groupedNodePaletteItems,
@@ -5241,6 +5249,7 @@ function App() {
       break;
     }
   }
+  const nodeViewContent = useNodeViewContent(nodeViewNodes);
   const nodeViewValues = useMemo<NodeViewValues>(() => ({
     retainNodeEditor,
     connections,
@@ -5258,7 +5267,7 @@ function App() {
     setPromptActionSettings,
     promptTextCustomPresets,
     setPromptTextCustomPresets,
-    nodes: nodeViewNodes,
+    contentNodes: nodeViewContent,
     edges,
   }), [
     retainNodeEditor,
@@ -5266,7 +5275,7 @@ function App() {
     checkProviderConnectionById,
     connections,
     edges,
-    nodeViewNodes,
+    nodeViewContent,
     providerHealthById,
     promptActionCustomPresets,
     promptActionSettings,
@@ -5277,9 +5286,15 @@ function App() {
     setPromptTextCustomPresets,
     settingsValueDefinitions,
   ]);
+  // Edge coloring/compatibility only ever reads id/kind/runPrepared/runCompleted
+  // (see edgeRelevantNode in graph/edges.ts); keying this off that narrower,
+  // stable projection instead of nodeViewNodes means an unrelated node-data
+  // edit (a keystroke, a streamed status update elsewhere) no longer forces
+  // every edge in the graph to be rebuilt and re-diffed by React Flow.
+  const edgeRelevantNodes = useEdgeRelevantNodes(nodeViewNodes);
   const renderedEdges = useMemo(
-    () => withSourceNodeStatusConnectionColors(removeEdgesConnectedToIncompatibleNodes(nodeViewNodes, edges), nodeViewNodes),
-    [edges, nodeViewNodes],
+    () => withSourceNodeStatusConnectionColors(removeEdgesConnectedToIncompatibleNodes(edgeRelevantNodes, edges), edgeRelevantNodes),
+    [edges, edgeRelevantNodes],
   );
   const workflowCapabilityIndicators = useWorkflowCapabilities({
     nodes: nodeViewNodes,
@@ -6483,8 +6498,9 @@ function App() {
               key={panelSessionRevision}
               workspaceControls={roleplayComposerActions}
               appCharacters={npcParticipants.characters()}
-              runtimeNodes={nodes}
-              messages={messages}
+              {...runProgress(isRunning ? nodes : [])}
+              messageStream={messageStream}
+              onStreamContentChange={scrollChatThreadToBottomIfFollowing}
               storyCharacters={storyCharacters}
               characterColors={characterColors}
               selectedCharacter={selectedCharacter}
@@ -6552,6 +6568,8 @@ function App() {
               rpTimeTrackingEnabled={rpTimeTrackingEnabled}
               chatTextBrightness={chatTextBrightness}
               chatColorIntensity={chatColorIntensity}
+              chatMessageAvatarSize={chatMessageAvatarSize}
+              chatMessageAvatarsEnabled={chatMessageAvatarsEnabled}
               chatTextSize={chatTextSize}
               onChatTextSizeChange={setChatTextSize}
               phoneAuthorBadgesEnabled={phoneAuthorBadgesEnabled}
@@ -6620,12 +6638,13 @@ function App() {
               onDraftCommandsChange={setDraftCommands}
               onAddDraftImages={(files) => void addDraftImages(files)}
               onSelectDraftImages={() => void selectDraftImages()}
-              onMessageContentLoaded={() => scrollChatThreadToBottomIfFollowing('auto')}
+              onMessageContentLoaded={() => scrollChatThreadToBottomIfFollowing('smooth')}
             />
           </div>
           <RoleplayPhoneDevice owner={viewedPhoneCharacter?.name ?? 'Character'} orientation={phoneDesktopLayout.orientation} onHome={selectPhonePanelView} onFocus={() => {
             if (chatPanelView !== 'phone') selectChatPanelView('phone');
           }}>
+            <AppMessageAvatars enabled={appMessageAvatarsEnabled} size={chatMessageAvatarSize} colors={characterColors}>
             <PhonePanel
               key={panelSessionRevision}
               appCharacters={npcParticipants.characters()}
@@ -6898,6 +6917,7 @@ function App() {
               onUnloadImageAssistantComfyModel={unloadImageAssistantComfyModel}
               onRefreshImageAssistantModelState={(providerId) => void refreshImageAssistantModelState(providerId)}
             />
+            </AppMessageAvatars>
           </RoleplayPhoneDevice>
           {chatPanelView === 'events' && (
             <div className="roleplay-chat-pane">
@@ -7101,6 +7121,8 @@ function App() {
         settingsValues={resolvedWorkflowSettingsValues}
         chatTextBrightness={chatTextBrightness}
         chatColorIntensity={chatColorIntensity}
+        chatMessageAvatarSize={chatMessageAvatarSize}
+        chatMessageAvatarsEnabled={chatMessageAvatarsEnabled}
         chatTextSize={chatTextSize}
         phoneChatTextSize={phoneChatTextSize}
         smoothChatAutoScrollEnabled={smoothChatAutoScrollEnabled}
@@ -7131,6 +7153,10 @@ function App() {
         onSettingsValueRemove={removeWorkflowSettingsValue}
         onChatTextBrightnessChange={setChatTextBrightness}
         onChatColorIntensityChange={setChatColorIntensity}
+        onChatMessageAvatarSizeChange={setChatMessageAvatarSize}
+        appMessageAvatarsEnabled={appMessageAvatarsEnabled}
+        onAppMessageAvatarsEnabledChange={setAppMessageAvatarsEnabled}
+        onChatMessageAvatarsEnabledChange={setChatMessageAvatarsEnabled}
         onChatTextSizeChange={setChatTextSize}
         onPhoneChatTextSizeChange={setPhoneChatTextSize}
         onSmoothChatAutoScrollEnabledChange={setSmoothChatAutoScrollEnabled}
@@ -7251,6 +7277,8 @@ function App() {
         workflowSaveScope={workflowSaveScope}
         chooseSaveLocation={chooseSaveLocation}
         characterSaveLocation={characterSaveLocation}
+        includeCharacterReceivedImages={includeCharacterReceivedImages}
+        onIncludeCharacterReceivedImagesChange={setIncludeCharacterReceivedImages}
         includeCharacterOwnPosts={includeCharacterOwnPosts}
         onCloseSessionPassword={() => {
           if (sessionPasswordAction === 'load-character') {
@@ -7438,9 +7466,9 @@ function App() {
           snapshot={npcLibrary.snapshot}
           activeRegistry={npcParticipants.registry()}
           participants={npcParticipants.current()}
-          activity={[messages, turns, socialLikesByAccount, persistedSocialConnectionsByCharacter,
-            phoneNotesByCharacter, chatGpdChatsByCharacter,
-            nodes.filter(isStorybookSourceNode).map((node) => parseNodeStorybookJson(node.data.storybookJson)?.openingHistory)]}
+          activity={[nodes.filter(isStorybookSourceNode).map((node) => parseNodeStorybookJson(node.data.storybookJson)?.openingHistory),
+            turns, messages, socialLikesByAccount, persistedSocialConnectionsByCharacter,
+            phoneNotesByCharacter, chatGpdChatsByCharacter]}
           onRemove={(characterId, nodeId) => setCharacterRemoval({ nodeId, characterId })}
           busy={isRunning}
           dismissOnEscape={!characterRemoval}

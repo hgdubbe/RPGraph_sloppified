@@ -100,7 +100,7 @@ export function LlmPromptNodeCard({ id, data }: NodeProps<WorkflowNode>) {
   const comfyProviderIds = view.connections
     .filter((connection) => connection.kind === 'comfyui')
     .map((connection) => connection.id);
-  const createImageCharacters = storybookCreateImageCharactersFromNodes(view.nodes);
+  const createImageCharacters = storybookCreateImageCharactersFromNodes(view.contentNodes);
   const [commandDialog, setCommandDialog] = useState<{
     name: string;
     config?: PromptCommandConfig;
@@ -197,12 +197,15 @@ export function LlmPromptNodeCard({ id, data }: NodeProps<WorkflowNode>) {
 
   const maybeFormatJson = (value: string) => (autoFormatJson ? formatJsonValue(value) : value);
 
+  // Reformatting scans and JSON.parses/stringifies the whole field on every call;
+  // onFocus/onBlur below already reformat on settle, so live keystrokes commit the
+  // raw value instead of paying that cost on every character typed.
   const updatePromptBefore = (value: string) => {
-    actions.updateData(id, { llmPromptBefore: maybeFormatJson(value) });
+    actions.updateData(id, { llmPromptBefore: value });
   };
 
   const updatePromptAfter = (value: string) => {
-    actions.updateData(id, { llmPromptAfter: maybeFormatJson(value) });
+    actions.updateData(id, { llmPromptAfter: value });
   };
 
   const formatCurrentPrompts = () => {
@@ -470,7 +473,7 @@ export function LlmPromptNodeCard({ id, data }: NodeProps<WorkflowNode>) {
         setPromptActionSettings={view.setPromptActionSettings}
         visionEnabled={visionEnabled}
         connections={view.connections}
-        nodes={view.nodes}
+        nodes={view.contentNodes}
         providerHealthById={view.providerHealthById}
         onCheckProviderConnection={view.onCheckProviderConnection}
         onReplace={applyPromptActionConfig}

@@ -1,11 +1,14 @@
-import { useContext } from 'react';
+import { useContext, useMemo } from 'react';
 import { AccountLinkContext } from '../chat/accountLinkContext';
 import { parseAccountLinks, type AccountLink } from '../chat/accountLinks';
 import './account-links.css';
 
 export function AccountLinkText({ text, bindings }: { text: string; bindings?: AccountLink[] }) {
   const context = useContext(AccountLinkContext);
-  const links = parseAccountLinks(text, context.characters, bindings);
+  const links = useMemo(
+    () => parseAccountLinks(text, context.characters, bindings),
+    [text, context.characters, bindings],
+  );
   const content = links.flatMap((link, index) => {
     const before = text.slice(index ? links[index - 1].end : 0, link.start);
     const own = context.owner?.sourceId === link.characterId;

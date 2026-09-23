@@ -613,7 +613,7 @@
 }
 @media (max-width: 480px) {
   .social-profile-preview { padding: 16px; gap: 14px; }
-  .social-profile-avatar { flex-basis: 60px; height: 60px; }
+  .social-profile-avatar { flex-basis: 60px; width: 60px; height: 60px; }
   .social-profile-editor--onlyfriends .social-profile-avatar { flex-basis: 168px; width: 168px; height: 168px; }
   .social-profile-editor--onlyfriends .social-profile-avatar > * { font-size: 56px; }
   .social-profile-actions button { flex: 1; }
