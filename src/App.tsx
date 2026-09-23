@@ -1,3 +1,4 @@
+import { AppMessageAvatars } from './components/AppMessageAvatars';
 import { createNodeViewSnapshot } from './app/nodeViewSnapshot';
 import { useNodeViewContent } from './nodes/nodeViewContent';
 import { useStorybookContentNodes } from './storybook/useStorybookContentNodes';
@@ -170,6 +171,7 @@ import {
 import { useStorybookActions } from './storybook/useStorybookActions';
 import { storybookImageIdsUsedByMessages } from './storybook/imageUsage';
 import storybookFormatVersions from './storybook/formatVersions.json';
+import { storybookDisplayName } from './storybook/displayName';
 import {
   openingHistoryEventsFromNodes,
   openingHistoryChatGpdChatsFromNodes,
@@ -463,12 +465,12 @@ function displayStorybookName(
     return 'not loaded';
   }
   if (headerStorybookFileName) {
-    return headerStorybookFileName.replace(/\.json$/i, '');
+    return storybookDisplayName(headerStorybookFileName);
   }
   try {
     const storybook = parseRpStorybookJson(headerStorybookJson);
     const title = storybook.title || 'untitled';
-    return title;
+    return storybookDisplayName(title);
   } catch {
     return 'Untitled storybook';
   }
@@ -663,6 +665,12 @@ function App() {
     setChatTextBrightness,
     chatColorIntensity,
     setChatColorIntensity,
+    chatMessageAvatarSize,
+    setChatMessageAvatarSize,
+    appMessageAvatarsEnabled,
+    setAppMessageAvatarsEnabled,
+    chatMessageAvatarsEnabled,
+    setChatMessageAvatarsEnabled,
     chatTextSize,
     setChatTextSize,
     phoneChatTextSize,
@@ -1392,6 +1400,8 @@ function App() {
     setChooseSaveLocation,
     characterSaveLocation,
     setCharacterSaveLocation,
+    includeCharacterReceivedImages,
+    setIncludeCharacterReceivedImages,
     includeCharacterOwnPosts,
     setIncludeCharacterOwnPosts,
     returnToFilesAfterSaveRef,
@@ -5683,6 +5693,8 @@ function App() {
               rpTimeTrackingEnabled={rpTimeTrackingEnabled}
               chatTextBrightness={chatTextBrightness}
               chatColorIntensity={chatColorIntensity}
+              chatMessageAvatarSize={chatMessageAvatarSize}
+              chatMessageAvatarsEnabled={chatMessageAvatarsEnabled}
               chatTextSize={chatTextSize}
               onChatTextSizeChange={setChatTextSize}
               phoneAuthorBadgesEnabled={phoneAuthorBadgesEnabled}
@@ -5753,6 +5765,7 @@ function App() {
               onMessageContentLoaded={() => scrollChatThreadToBottomIfFollowing('auto')}
             />
           ) : chatPanelView === 'phone' ? (
+            <AppMessageAvatars enabled={appMessageAvatarsEnabled} size={chatMessageAvatarSize} colors={characterColors}>
             <PhonePanel
               key={panelSessionRevision}
               appCharacters={npcParticipants.characters()}
@@ -6010,6 +6023,7 @@ function App() {
               onUnloadImageAssistantComfyModel={unloadImageAssistantComfyModel}
               onRefreshImageAssistantModelState={(providerId) => void refreshImageAssistantModelState(providerId)}
             />
+            </AppMessageAvatars>
           ) : (
             <EventsPanel
               key={panelSessionRevision}
@@ -6209,6 +6223,8 @@ function App() {
         settingsValues={resolvedWorkflowSettingsValues}
         chatTextBrightness={chatTextBrightness}
         chatColorIntensity={chatColorIntensity}
+        chatMessageAvatarSize={chatMessageAvatarSize}
+        chatMessageAvatarsEnabled={chatMessageAvatarsEnabled}
         chatTextSize={chatTextSize}
         phoneChatTextSize={phoneChatTextSize}
         smoothChatAutoScrollEnabled={smoothChatAutoScrollEnabled}
@@ -6238,6 +6254,10 @@ function App() {
         onSettingsValueRemove={removeWorkflowSettingsValue}
         onChatTextBrightnessChange={setChatTextBrightness}
         onChatColorIntensityChange={setChatColorIntensity}
+        onChatMessageAvatarSizeChange={setChatMessageAvatarSize}
+        appMessageAvatarsEnabled={appMessageAvatarsEnabled}
+        onAppMessageAvatarsEnabledChange={setAppMessageAvatarsEnabled}
+        onChatMessageAvatarsEnabledChange={setChatMessageAvatarsEnabled}
         onChatTextSizeChange={setChatTextSize}
         onPhoneChatTextSizeChange={setPhoneChatTextSize}
         onSmoothChatAutoScrollEnabledChange={setSmoothChatAutoScrollEnabled}
@@ -6357,6 +6377,8 @@ function App() {
         workflowSaveScope={workflowSaveScope}
         chooseSaveLocation={chooseSaveLocation}
         characterSaveLocation={characterSaveLocation}
+        includeCharacterReceivedImages={includeCharacterReceivedImages}
+        onIncludeCharacterReceivedImagesChange={setIncludeCharacterReceivedImages}
         includeCharacterOwnPosts={includeCharacterOwnPosts}
         onCloseSessionPassword={() => {
           if (sessionPasswordAction === 'load-character') {
@@ -6536,9 +6558,9 @@ function App() {
           snapshot={npcLibrary.snapshot}
           activeRegistry={npcParticipants.registry()}
           participants={npcParticipants.current()}
-          activity={[messages, turns, socialLikesByAccount, persistedSocialConnectionsByCharacter,
-            phoneNotesByCharacter, chatGpdChatsByCharacter,
-            nodes.filter(isStorybookSourceNode).map((node) => parseNodeStorybookJson(node.data.storybookJson)?.openingHistory)]}
+          activity={[nodes.filter(isStorybookSourceNode).map((node) => parseNodeStorybookJson(node.data.storybookJson)?.openingHistory),
+            turns, messages, socialLikesByAccount, persistedSocialConnectionsByCharacter,
+            phoneNotesByCharacter, chatGpdChatsByCharacter]}
           onRemove={(characterId, nodeId) => setCharacterRemoval({ nodeId, characterId })}
           busy={isRunning}
           dismissOnEscape={!characterRemoval}

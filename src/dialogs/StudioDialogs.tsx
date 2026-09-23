@@ -75,6 +75,7 @@ import { copyTextToClipboard } from '../utils/clipboard';
 import { StorybookReadonlyPreview } from '../components/StorybookReadonlyPreview';
 import { normalizeRpStorybook, type RpStorybook } from '../nodes/rp-storybook/model';
 import type { CharacterImportChoice } from '../storybook/useStorybookActions';
+import { storybookDisplayName } from '../storybook/displayName';
 
 type ComfyModelLists = {
   checkpoints: string[];
@@ -144,6 +145,12 @@ type StudioDialogsProps = {
   settingsValues: Record<string, string>;
   chatTextBrightness: number;
   chatColorIntensity: number;
+  chatMessageAvatarSize: number;
+  onChatMessageAvatarSizeChange: (value: number) => void;
+  appMessageAvatarsEnabled: boolean;
+  onAppMessageAvatarsEnabledChange: (enabled: boolean) => void;
+  chatMessageAvatarsEnabled: boolean;
+  onChatMessageAvatarsEnabledChange: (enabled: boolean) => void;
   chatTextSize: number;
   phoneChatTextSize: number;
   smoothChatAutoScrollEnabled: boolean;
@@ -223,6 +230,8 @@ type StudioDialogsProps = {
   workflowSaveScope: 'workflow' | 'workflow-storybook';
   chooseSaveLocation: boolean;
   characterSaveLocation: CharacterSaveLocation;
+  includeCharacterReceivedImages: boolean;
+  onIncludeCharacterReceivedImagesChange: (value: boolean) => void;
   includeCharacterOwnPosts: boolean;
   onCloseSessionPassword: () => void;
   onSessionNameChange: (name: string) => void;
@@ -795,6 +804,12 @@ export function StudioDialogs({
   settingsValues,
   chatTextBrightness,
   chatColorIntensity,
+  chatMessageAvatarSize,
+  onChatMessageAvatarSizeChange,
+  appMessageAvatarsEnabled,
+  onAppMessageAvatarsEnabledChange,
+  chatMessageAvatarsEnabled,
+  onChatMessageAvatarsEnabledChange,
   chatTextSize,
   phoneChatTextSize,
   smoothChatAutoScrollEnabled,
@@ -874,6 +889,8 @@ export function StudioDialogs({
   workflowSaveScope,
   chooseSaveLocation,
   characterSaveLocation,
+  includeCharacterReceivedImages,
+  onIncludeCharacterReceivedImagesChange,
   includeCharacterOwnPosts,
   onCloseSessionPassword,
   onSessionNameChange,
@@ -1882,6 +1899,34 @@ export function StudioDialogs({
                       <p>Normal Chat + Phone Chat formatting and interface scaling</p>
                     </div>
                     <div className="options-tab-body">
+                      <label className="option-toggle">
+                        <input
+                          type="checkbox"
+                          checked={chatMessageAvatarsEnabled}
+                          onChange={(event) => onChatMessageAvatarsEnabledChange(event.target.checked)}
+                        />
+                        <span>Character faces beside chat messages</span>
+                      </label>
+                      <label className="option-toggle">
+                        <input type="checkbox" checked={appMessageAvatarsEnabled}
+                          onChange={(event) => onAppMessageAvatarsEnabledChange(event.target.checked)} />
+                        <span>Character faces beside app messages</span>
+                      </label>
+                      <label className="option-avatar-size" htmlFor="chat-message-avatar-size">
+                        <span>Face size</span>
+                        <input
+                          id="chat-message-avatar-size"
+                          type="range"
+                          min={70}
+                          max={130}
+                          step={1}
+                          value={chatMessageAvatarSize}
+                          disabled={!chatMessageAvatarsEnabled && !appMessageAvatarsEnabled}
+                          onChange={(event) => onChatMessageAvatarSizeChange(Number(event.target.value))}
+                          aria-valuetext={`${chatMessageAvatarSize}%`}
+                        />
+                        <output htmlFor="chat-message-avatar-size">{chatMessageAvatarSize}%</output>
+                      </label>
                       <label className="option-field chat-text-size-field" htmlFor="ui-scale">
                         <span className="option-label-row">
                           UI SCALE
@@ -2585,7 +2630,7 @@ export function StudioDialogs({
                       <span className="saved-file-summary">
                         <strong className="saved-file-name-container">
                           <span className="file-type-badge storybook">Storybook</span>
-                          <span className="saved-file-name-text">{file.name}</span>
+                          <span className="saved-file-name-text">{storybookDisplayName(file.name)}</span>
                           {file.protection === 'encrypted' && (
                             <svg
                               width="12"
@@ -3089,7 +3134,7 @@ export function StudioDialogs({
                     </div>
                   )}
                   {isSavingCharacter && (
-                    <CharacterSaveOptions includePosts={includeCharacterOwnPosts} onIncludePostsChange={onIncludeCharacterOwnPostsChange}
+                    <CharacterSaveOptions includeReceivedImages={includeCharacterReceivedImages} onIncludeReceivedImagesChange={onIncludeCharacterReceivedImagesChange} includePosts={includeCharacterOwnPosts} onIncludePostsChange={onIncludeCharacterOwnPostsChange}
                       destination={characterSaveLocation} onDestinationChange={onCharacterSaveLocationChange}
                       destinations={[
                         { value: 'npc-characters', label: 'NPC Library Folder' },

@@ -1,3 +1,4 @@
+import { maximumCharacterSearchCandidates, selectCharacterSearchCandidates, characterSearchDirectory, characterSearchPrompt, characterSearchResult } from '../../characters/search';
 import {
   promptWithImageAttachmentMarkers,
   promptWithReferenceImageMarkers,
@@ -15,6 +16,8 @@ import {
 } from '../../data-management/historyStore';
 import type { ExecuteContext } from '../types';
 import {
+  phoneImageSearchContext,
+  phoneImageSearchResult,
   configForPromptActionToken,
   executePromptAction,
   knownPromptActionId,
@@ -60,7 +63,6 @@ import {
 } from '../../chat/socialMessageValidation';
 import { stripPlanBlocks, stripPlanBlocksFromStream } from '../../chat/messageFormats';
 import { readableRuntimeName } from '../../llm/callDisplay';
-import { matchMeContext, matchMeState } from '../../chat/matchMe';
 
 export type PromptPreviewPart = {
   text: string;
@@ -356,14 +358,6 @@ export async function runActionAwarePrompt({
     stepOutputInsertions.set(step, insertions);
   };
   const socialCharacters = context.appCharacters ?? storyCharactersFromNodes(context.nodes);
-  // Direct replies already carry their conversation-scoped context in the input.
-  const matchContext = context.matchMeDirectMessage ? ''
-    : matchMeContext(matchMeState(socialCharacters, context.historyMessages));
-  const matchContextSections = matchContext ? [{
-    label: 'MatchMe Application Context',
-    text: matchContext,
-    parts: [{ text: matchContext }],
-  }] : [];
   const promptSectionValue = (value: string) =>
     replacePromptCommandTokensWithHints(
       replacePromptActionTokensWithInstructions(
@@ -441,12 +435,22 @@ export async function runActionAwarePrompt({
     }
     return historySegmentsCache.get(textInput);
   };
+  // Images persist across steps; keep their selection rationale and metadata with them,
+  // even when a later authored step has no copy of the consumed action marker.
+  const imageResultSections = (before: string, after: string) => actionConfigs
+    .filter((config) => config.actionId === 'getImageId')
+    .flatMap((config) => {
+      const result = actionResults.get(promptActionKey(config.title));
+      return result && !before.includes(result) && !after.includes(result)
+        ? [{ label: 'Image selection result', text: result, parts: [{ text: result, actionInserted: true }] }]
+        : [];
+    });
   const buildPromptSections = (textInput = inputValue) => {
     const before = promptSectionValue(promptBefore);
     const after = promptSectionValue(promptAfter);
     const historySegments = cachedHistorySegments(textInput);
     return [
-      ...matchContextSections,
+      ...imageResultSections(before, after),
       {
         label: 'Prompt Before Input',
         text: before,
@@ -466,7 +470,7 @@ export async function runActionAwarePrompt({
     ];
   };
   const buildCombinedPrompt = (textInput = inputValue) => [
-    matchContext,
+    ...imageResultSections(promptSectionValue(promptBefore), promptSectionValue(promptAfter)).map((section) => section.text),
     promptSectionValue(promptBefore),
     textInput,
     promptSectionValue(promptAfter),
@@ -482,6 +486,70 @@ export async function runActionAwarePrompt({
       name: image.name,
       source,
     }));
+  const runCharacterSearch = async (config: PromptActionConfig, plan: string, label: string) => {
+    const characters = context.appCharacters ?? storyCharactersFromNodes(context.nodes);
+    const selected = selectCharacterSearchCandidates(characters, plan);
+    const directory = selected.length
+      ? characterSearchDirectory(selected, context.historyMessages, characters)
+      : 'No characters matched the name/profile or #keyword selectors. This is an empty selection, not proof that no such character exists.';
+    const instructions = `${config.instructionTemplate}\nThe directory contains at most ${maximumCharacterSearchCandidates} ranked characters: explicit identities first, then more matching distinct #keywords. Lower-ranked matches may be omitted; absence is not proof that no such character exists.`;
+    const prompt = characterSearchPrompt(instructions, plan, directory);
+    const summary = `(${selected.length} characters searched; selected from ${characters.length} available; character context: approximately ${context.textMetrics.measure(directory).tokens.toLocaleString('en-US')} tokens; directory omitted)`;
+    const diagnosticPrompt = characterSearchPrompt(instructions, plan, summary);
+    recordPromptPass({
+      label, images: [],
+      sections: [{ label: 'Character information assistant', text: diagnosticPrompt, parts: [{ text: diagnosticPrompt, actionInserted: true }] }],
+    });
+    context.updateRuntimeData(node.id, { preview: 'Looking up character information ...' });
+    // This assistant is intentionally isolated from story prompts, chat history, and images.
+    const response = await context.llm.complete({
+      connectionId: node.data.connectionId, nodeId: node.id, label,
+      stage: { kind: 'action', name: config.title }, prompt, diagnosticPrompt, images: [],
+      contributesToTokenCalibration, useConnectionSampling: true,
+    });
+    recordOutputPass({ label: `${label} output`, text: response.text });
+    const answer = response.text.trim();
+    if (!answer) {
+      context.reportWarning(`${node.data.label}: Character information assistant returned an empty answer.`);
+      return false;
+    }
+    const result = characterSearchResult(config.resultTemplate, answer);
+    actionResults.set(promptActionKey(config.title), result);
+    actionResultTexts.push(result);
+    context.updateRuntimeData(node.id, { preview: 'Character information resolved; replaying prompt ...' });
+    return true;
+  };
+
+  const runImageSearch = async (config: PromptActionConfig, plan: string, label: string) => {
+    const { directory, candidates, characterCount } = phoneImageSearchContext(context, plan);
+    const searchImages = visionEnabled ? candidates.slice(0, 8).map((image) => image.attachment) : [];
+    const imageMapping = searchImages.length
+      ? 'Attached candidate images (attachment order):\n' + searchImages.map((image, index) =>
+        `Image ${index + 1}: ${image.id}`).join('\n')
+      : 'No candidate images are attached. Select using the captions and recorded usage.';
+    const instructions = `${config.instructionTemplate}\nMaximum selection count: ${config.maxReturnedImages}\n${imageMapping}`;
+    const prompt = characterSearchPrompt(instructions, plan, directory);
+    const diagnosticPrompt = characterSearchPrompt(instructions, plan,
+      `(${characterCount} characters; ${candidates.length} images; approximately ${context.textMetrics.measure(directory).tokens} tokens; directory omitted)`);
+    recordPromptPass({ label, images: imagePreviewItems(searchImages.map((image) => ({ image, source: 'action' }))), sections: [{ label: 'Image search assistant', text: diagnosticPrompt, parts: [{ text: diagnosticPrompt, actionInserted: true }] }] });
+    context.updateRuntimeData(node.id, { preview: 'Selecting character images ...' });
+    const response = await context.llm.complete({
+      connectionId: node.data.connectionId, nodeId: node.id, label,
+      stage: { kind: 'action', name: config.title }, prompt, diagnosticPrompt, images: searchImages,
+      contributesToTokenCalibration, useConnectionSampling: true,
+    });
+    recordOutputPass({ label: `${label} output`, text: response.text });
+    const result = phoneImageSearchResult(config, candidates, response.text, visionEnabled, plan);
+    if (!result) {
+      context.reportWarning(`${node.data.label}: Image search assistant returned an invalid selection.`);
+      return false;
+    }
+    actionResults.set(promptActionKey(config.title), result.text);
+    actionResultTexts.push(result.text);
+    actionImages.push(...result.images);
+    return true;
+  };
+
   const currentImagePass = () => promptImagePass({
     actionReplay: actionImages.length > 0,
     actionImages,
@@ -571,7 +639,7 @@ export async function runActionAwarePrompt({
         label: passLabel,
         images: previewImagesForPass(stepImagePass),
         sections: [
-          ...matchContextSections,
+          ...imageResultSections(stepBefore, stepAfter),
           ...(stepBefore
             ? [{
                 label: 'Step Prompt Before Input',
@@ -604,7 +672,7 @@ export async function runActionAwarePrompt({
         nodeId: node.id,
         label: `${callLabel(0)} / ${passLabel}`,
         stage: { kind: 'step', name: step.name, replay: stepReplayCount || undefined },
-        prompt: [matchContext, stepBefore, stepTextInput, stepAfter].filter(Boolean).join('\n\n'),
+        prompt: [...imageResultSections(stepBefore, stepAfter).map((section) => section.text), stepBefore, stepTextInput, stepAfter].filter(Boolean).join('\n\n'),
         images: stepImagePass.images,
         contributesToTokenCalibration,
         useConnectionSampling: true,
@@ -629,6 +697,14 @@ export async function runActionAwarePrompt({
       if (stepPassIndex === maxStepPasses) {
         context.reportWarning(`${node.data.label}: Step ${step.name} action replay limit reached.`);
         break;
+      }
+      if (actionConfig.actionId === 'getImageId') {
+        if (!await runImageSearch(actionConfig, actionRequest.plan, `${callLabel(0)} / Step ${step.name} image search`)) break;
+        continue;
+      }
+      if (actionConfig.actionId === 'getCharacterList') {
+        if (!await runCharacterSearch(actionConfig, actionRequest.plan, `${callLabel(0)} / Step ${step.name} character information`)) break;
+        continue;
       }
       const followUpInstruction = promptActionInstructionText(
         actionConfig,
@@ -832,8 +908,8 @@ export async function runActionAwarePrompt({
       );
       const requestedAction = commandStyleRequest?.requests
         .map((request) => ({ plan: request.plan, actionId: knownPromptActionId(request.name) }))
-        .find((entry): entry is { plan: string; actionId: 'getImageId' | 'createImage' } =>
-          (entry.actionId === 'getImageId' || entry.actionId === 'createImage') &&
+        .find((entry): entry is { plan: string; actionId: 'getImageId' | 'createImage' | 'getCharacterList' } =>
+          (entry.actionId === 'getImageId' || entry.actionId === 'createImage' || entry.actionId === 'getCharacterList') &&
           preReplyActionConfigs.some(
             (candidate) =>
               candidate.actionId === entry.actionId &&
@@ -866,6 +942,18 @@ export async function runActionAwarePrompt({
         );
         generatedText = '';
         break;
+      }
+
+      if (actionConfig.actionId === 'getCharacterList' || actionConfig.actionId === 'getImageId') {
+        const search = actionConfig.actionId === 'getImageId' ? runImageSearch : runCharacterSearch;
+        const resolved = await search(actionConfig, actionRequest.plan, `${callLabel(actionReplayCount)} / ${actionConfig.title}`);
+        generatedText = '';
+        if (!resolved) break;
+        if (passIndex === maxActionPasses) {
+          context.reportWarning(`${node.data.label}: Prompt action replay limit reached.`);
+          break;
+        }
+        continue;
       }
 
       const followUpImagePass = currentImagePass();
@@ -1035,7 +1123,6 @@ export async function runActionAwarePrompt({
         label: `Command: ${commandNames}`,
         images: previewImagesForPass(commandImagePass),
         sections: [
-          ...matchContextSections,
           {
             label: 'Text Input',
             text: commandTextInput,
@@ -1057,7 +1144,7 @@ export async function runActionAwarePrompt({
         nodeId: node.id,
         label: `${callLabel(0)} / Command: ${commandNames}`,
         stage: { kind: 'command', name: commandNames },
-        prompt: [matchContext, commandTextInput, instruction].filter(Boolean).join('\n\n'),
+        prompt: [commandTextInput, instruction].filter(Boolean).join('\n\n'),
         images: commandImagePass.images,
         onChunk: streamCommandOutput,
         contributesToTokenCalibration,

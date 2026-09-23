@@ -26,12 +26,12 @@ export type RpCharacterCard = {
 };
 
 export function rpCharacterCardForCharacter(character: RpStorybookCharacter, options?: {
-  includePosts?: boolean; posts?: SocialPostRecord[]; gallery?: RpStorybookCharacter['images'];
+  includePosts?: boolean; includeReceivedImages?: boolean; posts?: SocialPostRecord[]; gallery?: RpStorybookCharacter['images'];
 }): RpCharacterCard {
   const exported = options?.includePosts
     ? withPublicationSnapshot(character, options.posts ?? [], options.gallery ?? character.images)
     : structuredClone(character);
-  return createCharacterContainer(exported, options?.includePosts);
+  return createCharacterContainer(exported, options?.includePosts, options?.includeReceivedImages);
 }
 
 export type CharacterCardImportPlan = {
@@ -93,15 +93,19 @@ export function planCharacterCardImport(
   const replacesIndex = matchingIdIndex >= 0 ? matchingIdIndex : matchingNameIndex;
 
   const usedImageIds = new Set<string>();
+  const usedImageDataUrls = new Map<string, string>();
   storybook.characters.forEach((existing, index) => {
     if (index === replacesIndex) {
       return;
     }
-    existing.images.forEach((image) => usedImageIds.add(image.id));
+    existing.images.forEach((image) => {
+      usedImageIds.add(image.id);
+      usedImageDataUrls.set(image.id, image.dataUrl);
+    });
   });
 
   const targetIndex = replacesIndex >= 0 ? replacesIndex : storybook.characters.length;
-  const character = normalizeRpStorybookCharacter({ ...sourceCharacter, relationships: sourceCharacter.relationships ?? [], playable: true }, targetIndex, usedImageIds);
+  const character = normalizeRpStorybookCharacter({ ...sourceCharacter, relationships: sourceCharacter.relationships ?? [], playable: true }, targetIndex, usedImageIds, usedImageDataUrls);
 
   const existingAccount = replacesIndex >= 0 ? storybook.characters[replacesIndex].apps?.matchme : undefined;
   const importedAccount = character.apps?.matchme;

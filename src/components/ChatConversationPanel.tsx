@@ -1,3 +1,8 @@
+import { accountHandleMatches } from '../characters/character';
+import { datingAccountMatches } from '../chat/datingAccounts';
+import { CharacterAvatar } from './CharacterAvatar';
+import { phoneCharacterAvatarDataUrl } from '../chat/phoneCharacters';
+import { phoneNamesMatch } from '../chat/phoneMessages';
 import type { MessageStream } from '../chat/messageStream';
 import { socialDirectMessageDisplayText, socialDirectMessageParty } from '../chat/socialMedia';
 import { socialTimelineGroups, socialTimelineMessageText } from '../chat/socialTimeline';
@@ -94,7 +99,6 @@ import type { AutoplayMode } from '../chat/useAutoplay';
 import { RunProgressCard } from '../chat/RunProgressCard';
 
 const outsidePhoneDisplayModeStorageKey = 'rpgraph-chat-phone-display-mode';
-const phoneBubbleHeadersStorageKey = 'rpgraph-chat-phone-bubble-headers-enabled';
 const composerAutoCollapseStorageKey = 'rpgraph-chat-composer-auto-collapse-enabled';
 
 function isStandaloneEmbeddedPhoneOutput(message: MessageRecord) {
@@ -240,6 +244,8 @@ type ChatConversationPanelProps = {
   rpTimeTrackingEnabled: boolean;
   chatTextBrightness: number;
   chatColorIntensity: number;
+  chatMessageAvatarSize?: number;
+  chatMessageAvatarsEnabled?: boolean;
   chatTextSize: number;
   onChatTextSizeChange: (value: number) => void;
   phoneAuthorBadgesEnabled: boolean;
@@ -331,6 +337,8 @@ export function ChatConversationPanel({
   rpTimeTrackingEnabled,
   chatTextBrightness,
   chatColorIntensity,
+  chatMessageAvatarSize = 100,
+  chatMessageAvatarsEnabled = true,
   chatTextSize,
   onChatTextSizeChange,
   phoneAuthorBadgesEnabled,
@@ -416,15 +424,6 @@ export function ChatConversationPanel({
   const [voicePlaybackDialogOpen, setVoicePlaybackDialogOpen] = useState(false);
   const outsidePhoneMenuRef = useRef<HTMLDivElement | null>(null);
   const [expandedPhoneGroups, setExpandedPhoneGroups] = useState<Record<string, boolean>>({});
-  const [phoneBubbleHeadersEnabled, setPhoneBubbleHeadersEnabled] = useState(() => {
-    try {
-      return window.localStorage.getItem(phoneBubbleHeadersStorageKey) === 'true';
-    } catch {
-      return false;
-    }
-  });
-
-
   const [isComposerFocused, setIsComposerFocused] = useState(false);
   const [isComposerHovered, setIsComposerHovered] = useState(false);
   const [scrollCollapsed, setScrollCollapsed] = useState(false);
@@ -575,15 +574,6 @@ export function ChatConversationPanel({
     }
   }, [outsidePhoneDisplayMode]);
 
-  function changePhoneBubbleHeadersEnabled(enabled: boolean) {
-    setPhoneBubbleHeadersEnabled(enabled);
-    try {
-      window.localStorage.setItem(phoneBubbleHeadersStorageKey, String(enabled));
-    } catch {
-      // Non-critical UI preference.
-    }
-  }
-
   function changeComposerAutoCollapseEnabled(enabled: boolean) {
     setComposerAutoCollapseEnabled(enabled);
     try {
@@ -595,13 +585,20 @@ export function ChatConversationPanel({
 
   const badgeClassName = (badge: string) =>
     `entry-channel-badge badge-${badge.toLocaleLowerCase()}`;
-  const { phoneMessagesById, socialMessagesById, visibleMessages, socialTimeline,
+  const { phoneMessagesById, socialMessagesById, socialMessageRpDateTimeById, visibleMessages, socialTimeline,
     phoneTimelineGroupsByFirstMessageId, skippedPhoneTimelineMessageIds,
     effectiveRpDateTime, previousDays } = useMemo(() => {
     const phoneMessagesById = selectPhoneMessagesById(messages);
     const socialMessagesById = new Map(
       messages.flatMap((message) =>
         message.socialDirectMessage ? [[message.id, message.socialDirectMessage] as const] : []
+      ),
+    );
+    const socialMessageRpDateTimeById = new Map(
+      messages.flatMap((message) =>
+        message.socialDirectMessage && message.rpDateTime
+          ? [[message.id, message.rpDateTime] as const]
+          : [],
       ),
     );
     const isNarratorPhoneAutoTurnInstruction = (message: MessageRecord) =>
@@ -756,7 +753,7 @@ export function ChatConversationPanel({
       previousDays.push(previousDay);
       previousDay = effectiveRpDateTime(message)?.slice(0, 10) || previousDay;
     }
-    return { phoneMessagesById, socialMessagesById, visibleMessages, socialTimeline,
+    return { phoneMessagesById, socialMessagesById, socialMessageRpDateTimeById, visibleMessages, socialTimeline,
       phoneTimelineGroupsByFirstMessageId, skippedPhoneTimelineMessageIds,
       effectiveRpDateTime, previousDays };
   }, [messages, englishProcessingEnabled]);
@@ -768,6 +765,7 @@ export function ChatConversationPanel({
         ref={chatThreadRef}
         aria-live="polite"
         style={{
+          '--chat-message-avatar-scale': chatMessageAvatarSize / 100,
           '--chat-reading-color': chatReadingColor(chatTextBrightness),
         } as CSSProperties}
       >
@@ -1094,13 +1092,23 @@ export function ChatConversationPanel({
               currentSegment.push(phoneMessage);
               return segments;
             }, []);
-          const phoneConversationCardTitle = (phoneMessage: EmbeddedPhoneMessageLink) => (
-            <h3 className="chat-phone-card-title">
-              <span style={characterNameStyle(phoneMessage.from)}>{phoneMessage.from}</span>
-              <span>and</span>
-              <span style={characterNameStyle(phoneMessage.to)}>{phoneMessage.to}</span>
-            </h3>
-          );
+          const renderMessageAvatar = (name: string, accountId?: string, app: 'whatsup' | 'fotogram' | 'onlyfriends' | 'matchme' = 'whatsup') => {
+            const matches = accountId
+              ? appCharacters.filter((character) => app === 'matchme'
+                ? datingAccountMatches(character, accountId)
+                : character.apps?.[app]?.accountId === accountId ||
+                  character.identityAliases?.accountIds?.[app]?.includes(accountId))
+              : appCharacters.filter((character) => phoneNamesMatch(character.name, name) ||
+                accountHandleMatches(character.apps?.[app], name));
+            const character = matches.length === 1 ? matches[0] : undefined;
+            return <CharacterAvatar
+              className="chat-message-avatar"
+              style={{ borderColor: characterColors.get(character?.name ?? name) ?? '#ffffff' }}
+              name={name}
+              fallback={name.trim().slice(0, 2).toUpperCase() || '?'}
+              profileImageDataUrl={phoneCharacterAvatarDataUrl(character)}
+            />;
+          };
           const renderPhoneBubbleStack = (
             phoneMessages: EmbeddedPhoneMessageLink[],
             embedded = false,
@@ -1137,7 +1145,8 @@ export function ChatConversationPanel({
 
               return (
                 <div className="phone-message-row chat-phone-message-row" key={phoneMessage.phoneMessageId}>
-                  <div className={`phone-message-content ${outgoing ? 'outgoing' : 'incoming'}`}>
+                  <div className={`phone-message-content ${outgoing ? 'outgoing' : 'incoming'}${chatMessageAvatarsEnabled ? ' with-message-avatar' : ''}`}>
+                    {chatMessageAvatarsEnabled && renderMessageAvatar(phoneMessage.from, linkedMessage?.phoneFromAccountId)}
                     <div
                       className={`phone-bubble ${outgoing ? 'outgoing' : 'incoming'} chat-phone-bubble`}
                       role="button"
@@ -1155,7 +1164,7 @@ export function ChatConversationPanel({
                         <span className="phone-bubble-sender chat-phone-bubble-route">
                           <span style={fromColor ? { color: fromColor } : undefined}>{phoneMessage.from}</span>
                           {authorBadge}
-                          <span>texts</span>
+                          <span className="chat-message-route-verb">texts</span>
                           <span style={toColor ? { color: toColor } : undefined}>{phoneMessage.to}</span>
                         </span>
                       ) : (
@@ -1273,7 +1282,7 @@ export function ChatConversationPanel({
                       >
                         <header className="chat-social-message-header">
                           <strong>WhatsUp</strong>
-                          <span>{first.from} and {first.to}</span>
+                          <span>{first.from} to {first.to}</span>
                         </header>
                         <div className="chat-phone-card-messages">
                           {segment.map((phoneMessage) =>
@@ -1297,8 +1306,10 @@ export function ChatConversationPanel({
                       className="chat-phone-card whatsup"
                       key={`${segment[0]?.phoneMessageId ?? 'segment'}-${segmentIndex}`}
                     >
-                      <header className="chat-social-message-header"><strong>WhatsUp</strong></header>
-                      {phoneBubbleHeadersEnabled && segment[0] && phoneConversationCardTitle(segment[0])}
+                      <header className="chat-social-message-header">
+                        <strong>WhatsUp</strong>
+                        {segment[0] && <span>{segment[0].from} to {segment[0].to}</span>}
+                      </header>
                       <div className="chat-phone-card-messages">
                         {segment.map((phoneMessage, messageIndex) =>
                           renderPhoneBubble(phoneMessage, anchorSender, messageIndex === 0)
@@ -1359,9 +1370,10 @@ export function ChatConversationPanel({
                           const fromColor = characterColors.get(socialMessage.from);
                           return (
                             <div
-                              className={`chat-social-message-row ${outgoing ? 'outgoing' : 'incoming'}`}
+                              className={`chat-social-message-row ${outgoing ? 'outgoing' : 'incoming'}${chatMessageAvatarsEnabled ? ' with-message-avatar' : ''}`}
                               key={socialMessage.socialMessageId}
                             >
+                              {chatMessageAvatarsEnabled && renderMessageAvatar(socialMessage.from, linkedMessage?.fromAccountId, first.app)}
                               <div
                                 className="chat-social-message-bubble"
                                 role="button"
@@ -1378,11 +1390,15 @@ export function ChatConversationPanel({
                                 <strong className={messageIndex === 0 ? 'chat-phone-bubble-route' : undefined}>
                                   <span style={fromColor ? { color: fromColor } : undefined}>{linkedMessage ? socialDirectMessageParty(linkedMessage, 'from', appCharacters, showProfileNames) : socialMessage.from}</span>
                                   {messageIndex === 0 && <>
-                                    <span>texts</span>
+                                    <span className="chat-message-route-verb">texts</span>
                                     <span style={{ color: characterColors.get(socialMessage.to) }}>{linkedMessage ? socialDirectMessageParty(linkedMessage, 'to', appCharacters, showProfileNames) : socialMessage.to}</span>
                                   </>}
                                 </strong>
                                 <span><AccountLinkText text={text} bindings={linkedMessage?.accountLinks} /></span>
+                                {rpTimeTrackingEnabled && renderRpTime(
+                                  socialMessageRpDateTimeById.get(socialMessage.socialMessageId),
+                                  'phone-bubble-time',
+                                )}
                               </div>
                             </div>
                           );
@@ -2092,18 +2108,6 @@ export function ChatConversationPanel({
                         {phoneAuthorBadgesEnabled ? '✓' : ''}
                       </span>
                       <span>Show AI/User badges</span>
-                    </button>
-                    <button
-                      className={`phone-display-checkbox${phoneBubbleHeadersEnabled ? ' active' : ''}`}
-                      type="button"
-                      role="menuitemcheckbox"
-                      aria-checked={phoneBubbleHeadersEnabled}
-                      onClick={() => changePhoneBubbleHeadersEnabled(!phoneBubbleHeadersEnabled)}
-                    >
-                      <span className="phone-display-check" aria-hidden="true">
-                        {phoneBubbleHeadersEnabled ? '✓' : ''}
-                      </span>
-                      <span>Show bubble headers</span>
                     </button>
                   </div>
                   <div className="phone-display-popover-section">
