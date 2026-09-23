@@ -46,7 +46,6 @@ import type {
   RpWeekdayLanguage,
   SocialDirectMessageRecord,
   SocialPostRecord,
-  WorkflowNode,
 } from '../types';
 import {
   defaultChatTextSize,
@@ -102,6 +101,8 @@ import {
 } from '../chat/phoneAppsSessions';
 import { AutoplayControl } from '../chat/AutoplayControl';
 import type { AutoplayMode } from '../chat/useAutoplay';
+import { useStableEventHandlers } from '../app/useStableEventHandlers';
+import type { RunProgress } from '../chat/runProgress';
 import { RunProgressCard } from '../chat/RunProgressCard';
 
 const outsidePhoneDisplayModeStorageKey = 'rpgraph-chat-phone-display-mode';
@@ -1313,7 +1314,10 @@ const MessageRow = memo(function MessageRow({
       {dayLabel && <div className="rp-day-divider chat-day-divider"><span>{dayLabel}</span></div>}
       <article className={`message ${message.role} ${hasOutputActionUi ? 'has-output-action-ui' : ''}${isEditingMessage ? ' is-editing' : ''}`}>
       {speakerLabelNames.length > 0 && (
-        <div className={`message-speakers${speakerLabelsPlaceholder ? ' is-placeholder' : ''}`}>
+        <div
+          className={`message-speakers${speakerLabelsPlaceholder ? ' is-placeholder' : ''}`}
+          aria-hidden={speakerLabelsPlaceholder ? 'true' : undefined}
+        >
           {speakerLabelNames.map((speakerName) => {
             const isCharacter = storyCharacters.some(
               (character) => character.name === speakerName,
@@ -1493,10 +1497,9 @@ const MessageRow = memo(function MessageRow({
   );
 });
 
-type ChatConversationPanelProps = {
+type ChatConversationPanelProps = RunProgress & {
   chatMessageAvatarSize?: number;
   chatMessageAvatarsEnabled?: boolean;
-  runtimeNodes: WorkflowNode[];
   messageStream: MessageStream;
   onStreamContentChange: () => void;
   storyCharacters: StorybookCharacter[];
@@ -1595,10 +1598,52 @@ type ChatConversationPanelProps = {
   onMessageContentLoaded: () => void;
 };
 
-export function ChatConversationPanel({
+// Event handlers retain their identity while observing the latest committed App state.
+// Render-time data resolvers (such as socialImageById) remain ordinary reactive props.
+export function ChatConversationPanel(props: ChatConversationPanelProps) {
+  const handlers = useStableEventHandlers({
+    onStreamContentChange: props.onStreamContentChange,
+    onCancelRun: props.onCancelRun,
+    onSpeakDialogue: props.onSpeakDialogue,
+    onGenerateVoiceMessageClip: props.onGenerateVoiceMessageClip,
+    onDialogueVoiceModeChange: props.onDialogueVoiceModeChange,
+    onNarratorProviderChange: props.onNarratorProviderChange,
+    onCloneVoiceProviderChange: props.onCloneVoiceProviderChange,
+    onConfigureOpenRouterTts: props.onConfigureOpenRouterTts,
+    onStopVoiceReadAloud: props.onStopVoiceReadAloud,
+    onChatTextSizeChange: props.onChatTextSizeChange,
+    onPhoneAuthorBadgesEnabledChange: props.onPhoneAuthorBadgesEnabledChange,
+    onChatReadsPhoneAppsEnabledChange: props.onChatReadsPhoneAppsEnabledChange,
+    onAutoplayEnabledChange: props.onAutoplayEnabledChange,
+    onAutoplayModeChange: props.onAutoplayModeChange,
+    onAutoplayRunModeNow: props.onAutoplayRunModeNow,
+    onBeginEditMessage: props.onBeginEditMessage,
+    onCancelEditMessage: props.onCancelEditMessage,
+    onRegenerateEditedMessage: props.onRegenerateEditedMessage,
+    onEditingDraftChange: props.onEditingDraftChange,
+    onPreviewImage: props.onPreviewImage,
+    onToggleReferenceImage: props.onToggleReferenceImage,
+    onPreviewImageCaptionChange: props.onPreviewImageCaptionChange,
+    onRemoveDraftImage: props.onRemoveDraftImage,
+    onOpenEmbeddedPhoneMessage: props.onOpenEmbeddedPhoneMessage,
+    onOpenEmbeddedSocialMessage: props.onOpenEmbeddedSocialMessage,
+    onOpenSocialPost: props.onOpenSocialPost,
+    onOutputActionChoice: props.onOutputActionChoice,
+    onSubmitMessage: props.onSubmitMessage,
+    onDraftChange: props.onDraftChange,
+    onDraftCommandsChange: props.onDraftCommandsChange,
+    onAddDraftImages: props.onAddDraftImages,
+    onSelectDraftImages: props.onSelectDraftImages,
+    onMessageContentLoaded: props.onMessageContentLoaded,
+  });
+  return <MemoizedChatConversationPanel {...props} {...handlers} />;
+}
+
+const MemoizedChatConversationPanel = memo(function ChatConversationPanelContent({
   chatMessageAvatarSize = 100,
   chatMessageAvatarsEnabled = true,
-  runtimeNodes,
+  activity,
+  reasoningTokens,
   messageStream,
   onStreamContentChange,
   storyCharacters,
@@ -2125,7 +2170,8 @@ export function ChatConversationPanel({
       {isRunning ? (
         <RunProgressCard
           isRunning
-          nodes={runtimeNodes}
+          activity={activity}
+          reasoningTokens={reasoningTokens}
           runStartTimeMs={runStartTimeMs}
           onCancel={onCancelRun}
         />
@@ -2414,4 +2460,4 @@ export function ChatConversationPanel({
       )}
     </>
   );
-}
+});

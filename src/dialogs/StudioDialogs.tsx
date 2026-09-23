@@ -2007,6 +2007,7 @@ export function StudioDialogs({
                         <div className="option-range-row">
                           <input
                             id="smooth-chat-auto-scroll-min-speed"
+                            title="Base scroll speed. Long output increases it gradually, up to 1.75 times this value."
                             min={minSmoothChatAutoScrollMinSpeed}
                             max={maxSmoothChatAutoScrollMinSpeed}
                             step={1}

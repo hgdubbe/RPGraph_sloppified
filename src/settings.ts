@@ -70,7 +70,7 @@ function validChatGpdModel(value: unknown): ChatGpdModel {
     : defaultChatGpdModel;
 }
 const defaultSmoothChatAutoScrollEnabled = true;
-const defaultSmoothChatAutoScrollMinSpeed = 42;
+const defaultSmoothChatAutoScrollMinSpeed = 46;
 export const minSmoothChatAutoScrollMinSpeed = 32;
 export const maxSmoothChatAutoScrollMinSpeed = 60;
 export const defaultThoughtTextStyle = 'italic';

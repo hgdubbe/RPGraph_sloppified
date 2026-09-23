@@ -88,6 +88,89 @@ it('coalesces queued automatic scrolls from streaming and image loads', () => {
   expect(scrollTo).toHaveBeenCalledExactlyOnceWith({ top: 500, behavior: 'auto' });
 });
 
+it.each([60, 144, 240])('gently accelerates for long output without frame catch-up at %s Hz', (refreshRate) => {
+  const frames = new Map<number, FrameRequestCallback>();
+  let nextFrame = 0;
+  vi.stubGlobal('requestAnimationFrame', (callback: FrameRequestCallback) => {
+    frames.set(++nextFrame, callback);
+    return nextFrame;
+  });
+  vi.stubGlobal('cancelAnimationFrame', (id: number) => frames.delete(id));
+  const tick = (time: number) => {
+    const pending = [...frames.values()];
+    frames.clear();
+    pending.forEach((callback) => callback(time));
+  };
+  const { render, options } = harness();
+  options.smoothChatAutoScrollEnabled = true;
+  options.smoothChatAutoScrollMinSpeed = 42;
+  const runtime = render();
+  let actualScrollTop = 0;
+  const thread = {
+    scrollHeight: 500, clientHeight: 300,
+    get scrollTop() { return actualScrollTop; },
+    set scrollTop(value: number) { actualScrollTop = Math.round(value); },
+  };
+  runtime.chatThreadRef.current = thread as HTMLDivElement;
+  runtime.scrollChatThreadToBottomIfFollowing();
+  tick(0); tick(0);
+  for (let frame = 1; frame <= refreshRate; frame++) tick(frame * 1000 / refreshRate);
+  expect(thread.scrollTop).toBe(42);
+  thread.scrollHeight += 10000;
+  runtime.scrollChatThreadToBottomIfFollowing();
+  for (let frame = 1; frame <= refreshRate; frame++) tick(1000 + frame * 1000 / refreshRate);
+  expect(thread.scrollTop).toBeGreaterThan(84);
+  expect(thread.scrollTop).toBeLessThanOrEqual(89);
+  const beforePause = thread.scrollTop;
+  tick(12000);
+  expect(thread.scrollTop - beforePause).toBeLessThanOrEqual(2);
+  expect(thread.scrollTop).toBeGreaterThanOrEqual(beforePause);
+});
+
+it('positions restored history immediately before smoothly following later media loads', () => {
+  const frames = new Map<number, FrameRequestCallback>();
+  let nextFrame = 0;
+  vi.stubGlobal('requestAnimationFrame', (callback: FrameRequestCallback) => {
+    frames.set(++nextFrame, callback);
+    return nextFrame;
+  });
+  vi.stubGlobal('cancelAnimationFrame', (id: number) => frames.delete(id));
+  const tick = (time: number) => {
+    const pending = [...frames.values()];
+    frames.clear();
+    pending.forEach((callback) => callback(time));
+  };
+  const { render, options } = harness();
+  options.smoothChatAutoScrollEnabled = true;
+  options.smoothChatAutoScrollMinSpeed = 42;
+  const runtime = render();
+  const thread = {
+    scrollHeight: 5000, clientHeight: 300, scrollTop: 0,
+    scrollTo: vi.fn(({ top }: ScrollToOptions) => {
+      thread.scrollTop = Math.min(top!, thread.scrollHeight - thread.clientHeight);
+    }),
+    addEventListener: vi.fn(), removeEventListener: vi.fn(),
+  };
+  runtime.chatThreadRef.current = thread as unknown as HTMLDivElement;
+  const cleanups = hooks.effects.map((effect) => effect());
+  // Image load events can supersede the mount effects before their frame runs.
+  runtime.scrollChatThreadToBottomIfFollowing('smooth');
+  runtime.scrollChatThreadToBottomIfFollowing('smooth');
+  tick(16); tick(32);
+  expect(thread.scrollTo).toHaveBeenCalledExactlyOnceWith({ top: 5000, behavior: 'auto' });
+  expect(thread.scrollTop).toBe(4700);
+  expect(frames.size).toBe(0);
+
+  thread.scrollHeight += 200;
+  runtime.scrollChatThreadToBottomIfFollowing('smooth');
+  tick(48); tick(64); tick(80);
+  expect(thread.scrollTop).toBeGreaterThan(4700);
+  expect(thread.scrollTop).toBeLessThan(4900);
+  expect(thread.scrollTo).toHaveBeenCalledTimes(1);
+  cleanups.forEach((cleanup) => cleanup?.());
+  expect(frames.size).toBe(0);
+});
+
 it.each([false, true])('cancels a pending follow request on user input (smooth=%s)', (smooth) => {
   const frames = new Map<number, FrameRequestCallback>();
   let nextFrame = 0;

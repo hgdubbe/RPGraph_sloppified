@@ -83,6 +83,7 @@ type AvailableComfyModels = {
 };
 
 const recommendedOpenRouterTtsModel = 'google/gemini-3.1-flash-tts-preview';
+const localProviderPollIntervalMs = 6000;
 
 function comfyConnectionCapabilities(connection: ConnectionPreset) {
   return comfyConnectionRole(connection) === 'voice' ? { voice: true } : { image: true };
@@ -989,6 +990,8 @@ export function useProviderConnections({
   const editingConnectionRef = useRef(editingConnection);
   const isRunningRef = useRef(isRunning);
   const showConnectionsRef = useRef(showConnections);
+  isRunningRef.current = isRunning;
+  showConnectionsRef.current = showConnections;
   const checkProviderConnectionByIdStable = useCallback(
     (connectionId: string, showStatus = false) => checkProviderConnectionByIdRef.current(connectionId, showStatus),
     [],
@@ -1011,16 +1014,13 @@ export function useProviderConnections({
   }, [connections, settingsLoadComplete]);
 
   useEffect(() => {
-    if (!settingsLoadComplete) {
+    if (!settingsLoadComplete || isRunning) {
       return;
     }
     const checkLocalProviders = async () => {
-      // Skip the background health poll while a turn is running AND the
-      // connections dialog is closed — providers do not change mid-run, so this
-      // avoids redundant check-connection round-trips (and the list-models +
-      // settings-save churn they cascade into) during generation. When the dialog
-      // is open the user may be tuning a provider, so keep polling to reflect it.
-      if (isRunningRef.current && !showConnectionsRef.current) {
+      // Skip the background health poll while a workflow is running — providers do
+      // not change mid-run, avoiding redundant round-trips and model queries.
+      if (isRunningRef.current) {
         return;
       }
       if (localProviderPollActiveRef.current) {
@@ -1039,9 +1039,9 @@ export function useProviderConnections({
     };
     const intervalId = window.setInterval(() => {
       void checkLocalProviders();
-    }, 2000);
+    }, localProviderPollIntervalMs);
     return () => window.clearInterval(intervalId);
-  }, [connections, settingsLoadComplete]);
+  }, [connections, isRunning, settingsLoadComplete]);
 
   useEffect(() => {
     if (!showConnections) {

@@ -45,6 +45,7 @@ import {
   type DebugSnapshotAssistantSection,
 } from './components/AssistantDialog';
 import { EdgeCharacterPicker } from './components/EdgeCharacterPicker';
+import { runProgress } from './chat/runProgress';
 import { ChatConversationPanel } from './components/ChatConversationPanel';
 import { EventsPanel } from './components/EventsPanel';
 import { ErrorBoundary } from './components/ErrorBoundary';
@@ -1224,7 +1225,7 @@ function App() {
     defaultConnectionId,
     setDefaultConnectionId,
     settingsLoadComplete,
-    isRunning,
+    isRunning: isRunning || workflowComfyGenerationActive,
     nodesRef,
     setNodes,
     notifySystem,
@@ -5637,7 +5638,7 @@ function App() {
             <ChatConversationPanel
               key={panelSessionRevision}
               appCharacters={npcParticipants.characters()}
-              runtimeNodes={nodes}
+              {...runProgress(isRunning ? nodes : [])}
               messageStream={messageStream}
               onStreamContentChange={scrollChatThreadToBottomIfFollowing}
               storyCharacters={storyCharacters}
@@ -5775,7 +5776,7 @@ function App() {
               onDraftCommandsChange={setDraftCommands}
               onAddDraftImages={(files) => void addDraftImages(files)}
               onSelectDraftImages={() => void selectDraftImages()}
-              onMessageContentLoaded={() => scrollChatThreadToBottomIfFollowing('auto')}
+              onMessageContentLoaded={() => scrollChatThreadToBottomIfFollowing('smooth')}
             />
           ) : chatPanelView === 'phone' ? (
             <AppMessageAvatars enabled={appMessageAvatarsEnabled} size={chatMessageAvatarSize} colors={characterColors}>

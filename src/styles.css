@@ -10918,7 +10918,9 @@ input[type="number"]::-webkit-outer-spin-button {
 }
 
 .message-speakers.is-placeholder {
-  display: none;
+  visibility: hidden;
+  user-select: none;
+  pointer-events: none;
 }
 
 .message-speaker {
