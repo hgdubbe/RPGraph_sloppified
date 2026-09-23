@@ -119,21 +119,26 @@ export type PhoneAppOpenRequest = {
 const phoneDesktopAppIds: readonly PhoneDesktopAppId[] =
   ['whatsup', 'gallery', 'camera', 'banking', 'fotogram', 'onlyfriends', 'notes', 'ai', 'plottwist'];
 
+// Passive display-only widgets (gallery/chat/notes/social/banking) show at
+// most a label + one value line + a 2-line-clamped detail — a 4-column span
+// read as an oversized card relative to that content, so their default
+// footprint is trimmed to 3 columns. `narrative` holds an actual textarea
+// (plus label/actions) and stays at its wider footprint.
 const phoneDesktopWidgetLandscapeFallbacks: Record<PhoneDesktopWidgetId, PhoneDesktopWidgetLayout> = {
-  gallery: { column: 5, row: 1, width: 4, height: 2, enabled: true },
-  chat: { column: 5, row: 1, width: 4, height: 2, enabled: true },
-  notes: { column: 5, row: 3, width: 4, height: 2, enabled: true },
+  gallery: { column: 5, row: 1, width: 3, height: 2, enabled: true },
+  chat: { column: 5, row: 1, width: 3, height: 2, enabled: true },
+  notes: { column: 5, row: 3, width: 3, height: 2, enabled: true },
   social: { column: 9, row: 1, width: 2, height: 2, enabled: true },
   banking: { column: 9, row: 3, width: 2, height: 2, enabled: true },
   narrative: { column: 1, row: 3, width: 4, height: 2, enabled: true },
 };
 
 const phoneDesktopWidgetPortraitFallbacks: Record<PhoneDesktopWidgetId, PhoneDesktopWidgetLayout> = {
-  gallery: { column: 1, row: 7, width: 4, height: 2, enabled: true },
-  chat: { column: 1, row: 7, width: 4, height: 2, enabled: true },
-  notes: { column: 1, row: 9, width: 4, height: 2, enabled: true },
-  social: { column: 1, row: 9, width: 4, height: 2, enabled: true },
-  banking: { column: 1, row: 11, width: 4, height: 2, enabled: true },
+  gallery: { column: 1, row: 7, width: 3, height: 2, enabled: true },
+  chat: { column: 1, row: 7, width: 3, height: 2, enabled: true },
+  notes: { column: 1, row: 9, width: 3, height: 2, enabled: true },
+  social: { column: 1, row: 9, width: 3, height: 2, enabled: true },
+  banking: { column: 1, row: 11, width: 3, height: 2, enabled: true },
   narrative: { column: 1, row: 11, width: 4, height: 2, enabled: true },
 };
 
@@ -721,8 +726,14 @@ export function PhonePanel({
   const desktopStyle = wallpaperImage?.dataUrl
     ? { backgroundImage: `url("${wallpaperImage.dataUrl}")` }
     : undefined;
+  // Landscape column count matches the 12 columns the landscape `.phone-desktop`
+  // grid override in phone-device.css actually fits at --phone-cell-w:58px/
+  // --phone-grid-gap:10px across the 932px design width (auto-fill computed);
+  // this used to say 10 while the CSS was hardcoded to a fixed 8-column grid,
+  // a mismatch that left the grid narrower than the screen and widgets unable
+  // to use the columns this bound nominally allowed.
   const desktopWidgetBounds = phoneDesktopOrientation === 'landscape'
-    ? { columns: 10, rows: 4 }
+    ? { columns: 12, rows: 4 }
     : { columns: phoneDesktopGridColumns, rows: 10 };
 
   function desktopWidgetFallback(widgetId: PhoneDesktopWidgetId, orientation = phoneDesktopOrientation) {
@@ -935,7 +946,7 @@ export function PhonePanel({
       Math.max(1, Math.floor((localHeight - paddingY - parseFloat(style.paddingBottom) + gapY) / pitchY)),
     );
     return {
-      column: Math.min(fitColumns, Math.max(1, Math.floor(((clientX - bounds.left) / scale - paddingX - (localWidth - paddingX * 2 - fitColumns * pitchX + gapX) / 2) / pitchX) + 1)),
+      column: Math.min(fitColumns, Math.max(1, Math.floor(((clientX - bounds.left) / scale - paddingX) / pitchX) + 1)),
       row: Math.min(fitRows, Math.max(1, Math.floor(((clientY - bounds.top) / scale - paddingY) / pitchY) + 1)),
       fitColumns,
       fitRows,

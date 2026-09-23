@@ -556,14 +556,6 @@
   filter: brightness(.7);
 }
 
-.roleplay-phone-device.landscape .phone-desktop {
-  --phone-grid-gap: 12px;
-  --phone-cell-w: calc(var(--phone-icon) + 8px);
-  --phone-cell-h: calc(var(--phone-icon) + 20px);
-  justify-content: start;
-  padding: 50px 34px 30px;
-}
-
 .roleplay-phone-device.landscape .phone-clock-widget strong {
   font-size: 42px;
 }
@@ -573,24 +565,25 @@
   font-size: 12px;
 }
 
-.roleplay-phone-device.landscape .phone-desktop-settings-menu {
-  width: auto;
-  max-height: calc(100% - 62px);
-  gap: 10px;
-  padding: 12px 14px 14px;
-  border-radius: 24px;
-  transform: none;
-  transform-origin: top right;
-}
-
+/* Single consolidated landscape override (previously two back-to-back blocks
+   targeting the same selector, several properties re-declared with different
+   values between them — leftover from an incomplete edit). The overlay layer
+   this menu portals into is `inset: 5px` on the 430px-tall landscape device,
+   i.e. a 420px-tall box; top:32px + max-height:calc(100% - 62px) = 358px
+   keeps the menu's own box bottom edge at 390px, inside that 420px box, so
+   it's never clipped by `.roleplay-phone-device { overflow: hidden; }`. The
+   menu's real content (wallpaper grid + icon-size control + orientation
+   control + widget-visibility list) runs taller than the 358px box, which is
+   why `overflow-y: auto` (inherited from the base rule) is load-bearing here
+   — content scrolls inside the menu rather than being clipped by the device. */
 .roleplay-phone-device.landscape .phone-desktop-settings-menu {
   top: 32px;
   right: 14px;
   left: auto;
-  grid-template-columns: repeat(4, 48px);
-  gap: 8px;
   width: 232px;
   max-height: calc(100% - 62px);
+  grid-template-columns: repeat(4, 48px);
+  gap: 8px;
   padding: 10px;
   border-radius: 22px;
   background:
@@ -719,17 +712,31 @@
   border-radius: 39px;
 }
 
+/* Grid vars solved against the real 932x430 landscape design canvas instead
+   of guessed: screen content width at this size is 846px (device 932 minus
+   its own 5px padding/2px border per side, minus the screen's own 12px side
+   padding, minus this rule's own 24px side padding) and content height is
+   310px (device height 430 minus device chrome, minus the screen's 34/12px
+   top/bottom padding, minus this rule's own 12/14px top/bottom padding).
+   With --phone-cell-w:58px / --phone-grid-gap:10px, auto-fill packs 12
+   columns into 846px (806px used, 40px symmetric slack) instead of the
+   previous fixed `repeat(8, ...)` — which only filled 562px, leaving ~280px
+   of dead space down the right side, AND disagreed with `desktopWidgetBounds`
+   in PhonePanel.tsx (which already assumed 10 usable columns, itself now
+   updated to match these 12). At --phone-cell-h:70px the same gap fits
+   exactly 4 rows into 310px (280 + 30 = 310) instead of overflowing past the
+   available height as the old 14px gap did (280 + 42 = 322, i.e. clipped by
+   `.phone-desktop`'s own `overflow: hidden`). */
 .roleplay-phone-device.landscape .roleplay-phone-screen .phone-desktop {
   --phone-icon: 46px;
-  --phone-grid-gap: 14px;
+  --phone-grid-gap: 10px;
   --phone-cell-w: 58px;
   --phone-cell-h: 70px;
-  grid-template-columns: repeat(8, var(--phone-cell-w));
   grid-auto-columns: var(--phone-cell-w);
   grid-auto-rows: var(--phone-cell-h);
   justify-content: center;
   align-content: start;
-  padding: 18px 28px 26px;
+  padding: 12px 24px 14px;
 }
 
 .roleplay-phone-device.landscape .phone-desktop-app {
@@ -758,6 +765,6 @@
 }
 
 .roleplay-phone-device.landscape .phone-desktop-widget {
-  padding: 9px 10px;
+  padding: 7px 9px;
   border-radius: 14px;
 }
