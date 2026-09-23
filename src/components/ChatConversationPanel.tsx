@@ -197,6 +197,9 @@ function rpTimePlaceholderParts(format: RpDateTimeFormat) {
   return { date: '00.00.00 WWW', time: '00:00' };
 }
 
+// Share the empty fallback so unrelated row updates do not invalidate text parsing.
+const emptyDialogue: ChatDialogueQuote[] = [];
+
 type DialogueTextProps = {
   text: string;
   keyPrefix: string;
@@ -435,8 +438,8 @@ const MessageRow = memo(function MessageRow({
     !!phoneAppCommandHistoryText &&
     visibleText.trim() === phoneAppCommandHistoryText.trim();
   const dialogue = englishProcessingEnabled
-    ? message.translatedDialogue ?? []
-    : message.originalDialogue ?? [];
+    ? message.translatedDialogue ?? emptyDialogue
+    : message.originalDialogue ?? emptyDialogue;
   const llmDialogueHighlightActive =
     (message.role === 'output' || message.role === 'user') &&
     dialogueHighlightEnabled;

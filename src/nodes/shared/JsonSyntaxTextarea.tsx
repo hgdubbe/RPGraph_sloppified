@@ -650,6 +650,7 @@ export function JsonSyntaxTextarea({
   // above via refs) instant even in large fields, letting the overlay catch up
   // a frame later instead of blocking each keystroke on full-text JSON/regex parsing.
   const highlightValue = useDeferredValue(value);
+  const highlightPending = highlightValue !== value;
   const segments = useMemo(() => findSegments(highlightValue), [highlightValue]);
   const jsonHighlightActive = useMemo(() => segments.some(s => s.type === 'json'), [segments]);
   const workflowVariableHighlightActive = useMemo(() => /<([^<>\n]+)>/.test(highlightValue), [highlightValue]);
@@ -959,7 +960,7 @@ export function JsonSyntaxTextarea({
   };
 
   return (
-    <div className={`json-syntax-textarea${highlightActive ? ' active' : ''}`}>
+    <div className={`json-syntax-textarea${highlightActive ? ' active' : ''}${highlightPending ? ' highlight-pending' : ''}`}>
       <textarea
         className={className}
         id={textareaId}

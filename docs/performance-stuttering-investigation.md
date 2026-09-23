@@ -262,6 +262,9 @@ rather than repeating the intermediate investigation states.
   blur. Syntax highlighting uses a deferred value; editing, selection and undo
   continue to use the actual value. Overlay scrolling is synchronized again when
   the deferred text catches up, after its scrollable dimensions have changed.
+  While the overlay is stale, it is hidden and the current textarea text remains
+  visible. Active font/layout rules remain in place to avoid changing wrapping
+  or caret positions when switching between plain and highlighted text.
 - Rendered graph edges depend on node IDs, compatibility kinds and run status,
   rather than every node-data edit. Storybook endpoint and opening-situation
   reads use the existing stable storybook-content selector.
@@ -274,6 +277,8 @@ rather than repeating the intermediate investigation states.
   memoized `DialogueText` and `MessageRow` components. The v0.6.0 avatars, avatar
   sizing and visibility, account matching, messenger headers, and social message
   timestamps are retained in the extracted render body.
+  Messages without dialogue annotations share a stable empty list, so unrelated
+  row updates do not invalidate the dialogue component's parsing memo.
 
 Row memoization also requires stable shared props. The original PR recreates
 phone/social maps, timeline groups, engagement counts and a timestamp function

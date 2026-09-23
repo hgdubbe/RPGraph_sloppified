@@ -1613,19 +1613,25 @@ input[type="radio"]:focus-visible {
   tab-size: 2;
 }
 
-.json-syntax-textarea.active textarea {
+/* Keep the current input visible until the deferred overlay catches up.
+   Retain the active layout/font rules so wrapping and caret positions stay stable. */
+.json-syntax-textarea.highlight-pending .json-syntax-highlight {
+  visibility: hidden;
+}
+
+.json-syntax-textarea.active:not(.highlight-pending) textarea {
   color: transparent;
   -webkit-text-fill-color: transparent;
   caret-color: #edf1ff;
 }
 
-.json-syntax-textarea.active textarea::selection {
+.json-syntax-textarea.active:not(.highlight-pending) textarea::selection {
   background-color: rgba(104, 154, 255, 0.42);
   color: transparent;
   -webkit-text-fill-color: transparent;
 }
 
-.json-syntax-textarea.active textarea::-moz-selection {
+.json-syntax-textarea.active:not(.highlight-pending) textarea::-moz-selection {
   background-color: rgba(104, 154, 255, 0.42);
   color: transparent;
 }
