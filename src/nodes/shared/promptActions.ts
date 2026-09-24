@@ -431,7 +431,7 @@ const previousPhoneOwnerSubjectCreateImageInstruction = [
 ].join('\n');
 
 const finishedImageViewRule =
-  '- Write the prompt from the finished image\'s point of view. Describe only what the camera captures. Do not narrate who takes the photo, how they approach, why the photo is discreet, or what happens outside the frame. The photographer is invisible unless their body or reflection must actually appear in the final image.';
+  '- Write the prompt from the finished image\'s point of view. Describe only what the camera captures. Do not narrate who takes the photo, how they approach, why the photo is discreet, or what happens outside the frame. Keep the photographer out of the description unless the established camera vantage point puts part of them in view.';
 
 export const createImageInstruction = [
   'Action follow-up: generate a character phone image',
@@ -466,6 +466,7 @@ export const createImageInstruction = [
   '- Do not use Storybook-only character names, private fictional place names, or other story-specific proper nouns in the prompt. Replace them with unambiguous visual identifiers such as "the young woman", "the seated man", or "the woman on the left".',
   '- For multiple people, describe each person separately and distinguish them through position, age when known, appearance, clothing, hairstyle, pose, and visible action. Avoid ambiguous pronouns.',
   '- Order the paragraph clearly: visible subjects and clothing first; then positions, poses, expressions, actions, and interaction; then setting and background objects; then camera angle, framing, composition, lighting, time of day, and visible atmosphere.',
+  '- Derive the camera angle and framing from who or what is actually capturing the image in the story context: the phone owner photographing themselves, the phone owner photographing someone else, another character taking the picture, a device left recording on its own, or any other setup the story establishes. Do not default to a habitual framing when the context implies a different one.',
   '- Preserve all reliable visual continuity from the Text Input, story context, and plan.',
   '',
   'Now output exactly one JSON object and nothing else:',

@@ -272,7 +272,7 @@ function fixtureTextSignature(text: string) {
 }
 
 const previousPromptActionDefaultSignatures = [
-  'create-image-instruction-1:4493:bcb6b611',
+  'create-image-instruction-1:4883:5fb1e019',
   'create-image-instruction-2:3697:2586555d',
   'create-image-instruction-3:4199:797b306a',
   'create-image-instruction-4:1148:edbb0e3c',
@@ -4038,7 +4038,8 @@ export function verifyWorkflowValidationFixtures() {
       createImageFollowUp.includes('Only one character LoRA can be used per image') &&
       createImageFollowUp.includes('State every visible person\'s age in the prompt whenever their age is known') &&
       createImageFollowUp.includes('Write the prompt from the finished image\'s point of view') &&
-      createImageFollowUp.includes('The photographer is invisible unless their body or reflection must actually appear') &&
+      createImageFollowUp.includes('Keep the photographer out of the description unless the established camera vantage point puts part of them in view') &&
+      createImageFollowUp.includes('Derive the camera angle and framing from who or what is actually capturing the image in the story context') &&
       createImageFollowUp.includes('roughly 80 to 120 words') &&
       createImageFollowUp.includes('one frozen visual snapshot') &&
       createImageFollowUp.includes('latest established state of every person, garment, object, and location') &&
