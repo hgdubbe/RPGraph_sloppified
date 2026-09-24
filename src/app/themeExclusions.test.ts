@@ -6,7 +6,6 @@ import { describe, expect, it } from 'vitest';
  * retheme'd. This guards against a future edit accidentally wiring a
  * `--theme-*` reference into any of their stylesheets. */
 const EXCLUDED_STYLESHEETS = [
-  'src/styles/phone-widgets.css',
   'src/components/phone-dating/phoneDating.css',
 ];
 

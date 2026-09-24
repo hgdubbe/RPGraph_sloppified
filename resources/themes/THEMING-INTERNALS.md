@@ -24,6 +24,7 @@ bite you if you're not careful."
 | One-shot literal-extraction CLI for migrating a CSS file onto the engine | `scripts/extract-raw-theme-tokens.mjs` |
 | Consuming CSS | effectively every stylesheet under `src/` except the excluded ones (see below) |
 | Independently-themable phone-app screens (their own token namespace, see below) | `src/styles/phone-{notes,chatgpd,banking,gallery,social}.css` |
+| Independently-themable phone home screen/dock (`phoneHome.*`, see below) | `src/styles/phone-widgets.css` |
 
 Regression tests: `src/app/themeTokens.test.ts` (resolver correctness — derivation,
 `base` fallback, category-collision, exercised against the real shipped `theme.json`
@@ -196,13 +197,16 @@ an existing category.
 polygon, a full `box-shadow`, a `var(...)` reference. There is no `{value, unit}`
 tagging; every leaf is a plain string, matched 1:1 to what you'd write in a stylesheet.
 
-## Independent per-app tokens (`phoneNotes.*`, `phoneChatgpd.*`, `phoneBanking.*`, `phoneGallery.*`, `phoneSocial.*`)
+## Independent per-app tokens (`phoneNotes.*`, `phoneChatgpd.*`, `phoneBanking.*`, `phoneGallery.*`, `phoneSocial.*`, `phoneHome.*`)
 
 A third kind of token category, distinct from both the guaranteed/derived tier
 (`color.*`, `graph.*`, `storybook.*`, `app.*`, `shell.*`) and `raw.*`. These back the
 five simulated phone-app screens, each split into its own file under `src/styles/`
 (`phone-notes.css`, `phone-chatgpd.css`, `phone-banking.css`, `phone-gallery.css`,
-`phone-social.css`). Like `raw.*`, they have **no `base.json` entry and no
+`phone-social.css`) — plus a sixth, `phoneHome.*`, added later for the phone's own
+home screen/launcher (icon grid, clock, widgets, favorites dock) and living in
+`phone-widgets.css` instead of a same-named file (see the note at the end of this
+section for why). Like `raw.*`, they have **no `base.json` entry and no
 `DERIVATION_RULES` entry** — a theme that doesn't explicitly set one gets that app's
 own fixed default look, not something derived from `color.*`. Unlike `raw.*`, their
 names are hand-picked and meaningful (`phoneBanking.accent`, not `raw.v3b82f6`),
@@ -234,9 +238,30 @@ fork's own functional in-roleplay phone apps, which are supposed to be reskinnab
 just through their own namespace instead of the shared `app.*` palette. None of these
 five files are in `themeExclusions.test.ts`'s `EXCLUDED_STYLESHEETS`/`MIXED_STYLESHEETS`
 lists, which is what actually keeps that test from flagging their `--theme-*`
-references — if you add a sixth independently-themed phone app, follow the same
-pattern (own file, own token prefix, not in either exclusion list) rather than adding
-it to `phone-widgets.css` or another already-excluded file.
+references — if you add another independently-themed phone screen, follow the same
+pattern (own token prefix, not in either exclusion list) rather than adding it to an
+already-excluded file.
+
+**`phoneHome.*` bends that "own file" rule, deliberately.** The home screen's
+*unthemed* markup — `.phone-desktop`, the icon grid, the clock, the app-icon buttons —
+isn't split out into its own file the way the five apps above are: it's split across
+upstream-shared `src/styles.css` (bulk of `.phone-desktop*`) and the fork-owned
+`phone-device.css` (bezel-adjacent bits), both of which are `MIXED_STYLESHEETS` entries
+whose brace-depth scan forbids *any* `--theme-` reference inside a block matching the
+`.phone-` exclusion prefix, full stop — there's no "but this one has its own namespace"
+carve-out at that scan's granularity, unlike the flat per-file check used for fully
+excluded files. So every `phoneHome.*`-driven declaration, including ones that override
+a rule whose unthemed base lives in one of those two files, was collected into
+`phone-widgets.css` instead (a same-name `phone-home.css` would still have needed this,
+since the *unthemed* rules were staying in place per the "don't move fork content out
+of upstream-shared files" convention below) — cascade order in `src/styles/index.css`
+puts `phone-widgets.css` after both source files, so same-specificity declarations
+there win. `phone-widgets.css` was previously one of the fully-excluded
+`EXCLUDED_STYLESHEETS` entries (nothing themeable used to live there); it was removed
+from that list specifically to allow `phoneHome.*` to live there. If you add a seventh
+independently-themed phone surface whose unthemed markup is *also* stuck inside a
+`MIXED_STYLESHEETS` file, this is the pattern to repeat — don't add your new file to
+either exclusion list, and don't try to theme the block in place.
 
 ## The `raw.*` category
 
@@ -312,21 +337,24 @@ both the excluded `.phone-*` simulated content and the in-scope `.roleplay-phone
 device bezel/casing — the bezel is chrome, not handcrafted content, so it *is* themed).
 
 The five phone-app screens (`phone-notes.css`, `phone-chatgpd.css`,
-`phone-banking.css`, `phone-gallery.css`, `phone-social.css`) are a deliberate,
-narrow exception: their selectors also match the `.phone-` prefix, but they're wired
-to their *own* independent token namespace instead of the shared palette (see above) —
-that's a different, additive mechanism, not a breach of this boundary. The test below
-doesn't actually distinguish "own namespace" from "shared palette" by content — it's a
-plain `--theme-` substring check — so what keeps it from flagging these five files is
-simply that **they are not listed** in `EXCLUDED_STYLESHEETS`/`MIXED_STYLESHEETS`
-below; the test never inspects them at all. If one of these five files were ever added
-to either list by mistake, the test would immediately fail on its own legitimate
-`--theme-phone-{app}-*` references — that failure means "remove it from the exclusion
-list," not "strip the theming back out."
+`phone-banking.css`, `phone-gallery.css`, `phone-social.css`), plus `phone-widgets.css`
+for `phoneHome.*`, are a deliberate, narrow exception: their selectors also match the
+`.phone-` prefix, but they're wired to their *own* independent token namespace instead
+of the shared palette (see above) — that's a different, additive mechanism, not a
+breach of this boundary. The test below doesn't actually distinguish "own namespace"
+from "shared palette" by content — it's a plain `--theme-` substring check — so what
+keeps it from flagging these files is simply that **they are not listed** in
+`EXCLUDED_STYLESHEETS`/`MIXED_STYLESHEETS` below; the test never inspects them at all.
+(`phone-widgets.css` used to be in `EXCLUDED_STYLESHEETS` back when nothing themeable
+lived there — it was removed from that list when `phoneHome.*` was added.) If one of
+these files were ever added to either list by mistake, the test would immediately fail
+on its own legitimate `--theme-phone-{app}-*`/`--theme-phone-home-*` references — that
+failure means "remove it from the exclusion list," not "strip the theming back out."
 
 `src/app/themeExclusions.test.ts` enforces this two ways: a flat "never contains
 `--theme-`" check for stylesheets that are excluded in their entirety
-(`phone-widgets.css`, `phoneDating.css`), and a brace-depth-tracking scan for files that
+(currently just `phoneDating.css` — `phone-widgets.css` was removed from this list when
+`phoneHome.*` was added, see above), and a brace-depth-tracking scan for files that
 legitimately mix both (`phone-device.css`, `src/styles.css`) — it walks selector text
 per nested block and flags any `--theme-` reference found inside a block whose selector
 matched the exclusion regex. Run this test after any bulk literal-substitution pass

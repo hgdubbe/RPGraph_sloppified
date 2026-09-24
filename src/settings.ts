@@ -34,7 +34,10 @@ export const defaultPhoneChatTextSize = 14;
 export const phoneDesktopGridColumns = 8;
 export const phoneDesktopGridRows = 12;
 const defaultPhoneDesktopLayout: PhoneDesktopLayout = {
-  clock: { column: 2, row: 6, width: 5, height: 2 },
+  // column: 1, not 2 — the portrait desktop grid has exactly 5 real columns
+  // (see --phone-columns in styles.css), so a width-5 clock can only start at
+  // column 1 without part of it landing on a track that doesn't exist.
+  clock: { column: 1, row: 6, width: 5, height: 2 },
   apps: {
     whatsup: { column: 1, row: 1 },
     gallery: { column: 2, row: 1 },

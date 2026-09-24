@@ -126,6 +126,18 @@
       "transitionDuration": "170ms",
       "transitionEasing": "cubic-bezier(0.2, 0.8, 0.2, 1)",
       "hoverScale": "1.015"
+    },
+    "phoneHome": {
+      "scrim": "#2b1322",
+      "accent": "#e96eae",
+      "accentStrong": "#a3487a",
+      "clockBackground": "#3a273f",
+      "clockText": "#fff8fd",
+      "widgetBackground": "#3a273f",
+      "label": "#fff8fd",
+      "badge": "#e96eae",
+      "badgeBanking": "#c44b88",
+      "online": "#65b58c"
     }
   }
 }

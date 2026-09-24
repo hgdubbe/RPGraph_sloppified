@@ -21,7 +21,6 @@ import {
 } from 'react';
 import {
   defaultPhoneChatTextSize,
-  phoneDesktopGridColumns,
   phoneDesktopGridRows,
 } from '../settings';
 import type { StorybookCharacter } from '../storybook/runtime';
@@ -726,15 +725,30 @@ export function PhonePanel({
   const desktopStyle = wallpaperImage?.dataUrl
     ? { backgroundImage: `url("${wallpaperImage.dataUrl}")` }
     : undefined;
-  // Landscape column count matches the 12 columns the landscape `.phone-desktop`
-  // grid override in phone-device.css actually fits at --phone-cell-w:58px/
-  // --phone-grid-gap:10px across the 932px design width (auto-fill computed);
-  // this used to say 10 while the CSS was hardcoded to a fixed 8-column grid,
-  // a mismatch that left the grid narrower than the screen and widgets unable
-  // to use the columns this bound nominally allowed.
+  // These column counts are the one true source of truth for how many grid
+  // tracks exist, matching --phone-columns in styles.css/phone-device.css
+  // exactly (5 portrait, 12 landscape) — `.phone-desktop` renders
+  // `grid-template-columns: repeat(var(--phone-columns), 1fr)`, so CSS can
+  // never independently generate a different number of columns than this.
+  // (phoneDesktopGridColumns, 8, stays a separate generous *validation* bound
+  // in settings.ts for deserializing old saved layouts, not the real one.)
   const desktopWidgetBounds = phoneDesktopOrientation === 'landscape'
     ? { columns: 12, rows: 4 }
-    : { columns: phoneDesktopGridColumns, rows: 10 };
+    : { columns: 5, rows: 10 };
+  // Mirrors fitDesktopWidgetLayout's clamp but typed for the clock's own shape
+  // (it has no `enabled` field, unlike PhoneDesktopWidgetLayout) — re-clamps a
+  // saved clock position (e.g. from before the portrait bound was 5 columns)
+  // back onto real, visible tracks instead of leaving it stuck off-grid.
+  const effectiveClockLayout = (() => {
+    const width = Math.max(2, Math.min(desktopLayout.clock.width, desktopWidgetBounds.columns));
+    const height = Math.max(1, Math.min(desktopLayout.clock.height, desktopWidgetBounds.rows));
+    return {
+      width,
+      height,
+      column: Math.max(1, Math.min(desktopLayout.clock.column, desktopWidgetBounds.columns - width + 1)),
+      row: Math.max(1, Math.min(desktopLayout.clock.row, desktopWidgetBounds.rows - height + 1)),
+    };
+  })();
 
   function desktopWidgetFallback(widgetId: PhoneDesktopWidgetId, orientation = phoneDesktopOrientation) {
     return orientation === 'landscape'
@@ -933,14 +947,16 @@ export function PhonePanel({
     const pitchX = cellWidth + gapX;
     const pitchY = cellHeight + gapY;
     const scale = bounds.width / (desktopRef.current?.offsetWidth || bounds.width);
-    const localWidth = bounds.width / scale;
     const localHeight = bounds.height / scale;
     const paddingX = parseFloat(style.paddingLeft);
     const paddingY = parseFloat(style.paddingTop);
-    const fitColumns = Math.min(
-      desktopWidgetBounds.columns,
-      Math.max(1, Math.floor((localWidth - paddingX - parseFloat(style.paddingRight) + gapX) / pitchX)),
-    );
+    // `.phone-desktop` always renders `grid-template-columns: repeat(N, 1fr)`
+    // with N == desktopWidgetBounds.columns (see styles.css/phone-device.css) —
+    // fr tracks can never overflow their container, so the real column count
+    // is this bound by construction; no need to re-derive it from geometry
+    // (a previous version tried to and could be fooled by a still-oversized
+    // saved layout forcing extra implicit tracks off the visible screen).
+    const fitColumns = desktopWidgetBounds.columns;
     const fitRows = Math.min(
       phoneDesktopGridRows,
       Math.max(1, Math.floor((localHeight - paddingY - parseFloat(style.paddingBottom) + gapY) / pitchY)),
@@ -1533,10 +1549,10 @@ export function PhonePanel({
       >
         <div className="phone-desktop-scrim" />
         <div
-          className={`phone-clock-widget phone-clock-widget-${desktopLayout.clock.width}x${desktopLayout.clock.height}`}
+          className={`phone-clock-widget phone-clock-widget-${effectiveClockLayout.width}x${effectiveClockLayout.height}`}
           style={{
-            gridColumn: `${desktopLayout.clock.column} / span ${desktopLayout.clock.width}`,
-            gridRow: `${desktopLayout.clock.row} / span ${desktopLayout.clock.height}`,
+            gridColumn: `${effectiveClockLayout.column} / span ${effectiveClockLayout.width}`,
+            gridRow: `${effectiveClockLayout.row} / span ${effectiveClockLayout.height}`,
           }}
           onPointerDown={(event) => beginDesktopInteraction(event, { kind: 'clock' })}
         >
@@ -1682,7 +1698,7 @@ export function PhonePanel({
             </span>{phoneAppNotificationCounts.matchme > 0 && <span className="phone-desktop-app-badge" aria-hidden="true">{desktopBadgeLabel(phoneAppNotificationCounts.matchme)}</span>}<span>MatchMe</span>
           </button>
           <button
-            className="phone-desktop-app"
+            className={`phone-desktop-app${launchingApp === 'whatsup' ? ' phone-desktop-app-launching' : ''}`}
             type="button"
             style={{
               gridColumn: desktopLayout.apps.whatsup.column,
@@ -1713,7 +1729,7 @@ export function PhonePanel({
             <span>WhatsUp</span>
           </button>
           <button
-            className="phone-desktop-app"
+            className={`phone-desktop-app${launchingApp === 'gallery' ? ' phone-desktop-app-launching' : ''}`}
             type="button"
             style={{
               gridColumn: desktopLayout.apps.gallery.column,
@@ -1739,7 +1755,7 @@ export function PhonePanel({
             <span>Gallery</span>
           </button>
           <button
-            className="phone-desktop-app"
+            className={`phone-desktop-app${launchingApp === 'camera' ? ' phone-desktop-app-launching' : ''}`}
             type="button"
             style={{
               gridColumn: desktopLayout.apps.camera.column,
@@ -1764,7 +1780,7 @@ export function PhonePanel({
             <span>Camera</span>
           </button>
           <button
-            className="phone-desktop-app"
+            className={`phone-desktop-app${launchingApp === 'banking' ? ' phone-desktop-app-launching' : ''}`}
             type="button"
             style={{
               gridColumn: desktopLayout.apps.banking.column,
@@ -1798,7 +1814,7 @@ export function PhonePanel({
             <span>Banking</span>
           </button>
           <button
-            className="phone-desktop-app"
+            className={`phone-desktop-app${launchingApp === 'fotogram' ? ' phone-desktop-app-launching' : ''}`}
             type="button"
             style={{
               gridColumn: desktopLayout.apps.fotogram.column,
@@ -1831,7 +1847,7 @@ export function PhonePanel({
             <span>Fotogram</span>
           </button>
           <button
-            className="phone-desktop-app"
+            className={`phone-desktop-app${launchingApp === 'onlyfriends' ? ' phone-desktop-app-launching' : ''}`}
             type="button"
             style={{
               gridColumn: desktopLayout.apps.onlyfriends.column,
@@ -1860,7 +1876,7 @@ export function PhonePanel({
             <span>OnlyFriends</span>
           </button>
           <button
-            className="phone-desktop-app"
+            className={`phone-desktop-app${launchingApp === 'notes' ? ' phone-desktop-app-launching' : ''}`}
             type="button"
             style={{
               gridColumn: desktopLayout.apps.notes.column,
@@ -1893,7 +1909,7 @@ export function PhonePanel({
             <span>Notes</span>
           </button>
           <button
-            className="phone-desktop-app"
+            className={`phone-desktop-app${launchingApp === 'ai' ? ' phone-desktop-app-launching' : ''}`}
             type="button"
             style={{
               gridColumn: desktopLayout.apps.ai.column,
@@ -1918,6 +1934,75 @@ export function PhonePanel({
               </span>
             )}
             <span>ChatGPD</span>
+          </button>
+        </div>
+        <div className="phone-desktop-dock" aria-label="Favorites">
+          <button
+            className="phone-desktop-dock-app"
+            type="button"
+            onClick={() => launchDesktopApp('whatsup')}
+            aria-label={unreadWhatsUpCount > 0
+              ? `Open WhatsUp, ${unreadWhatsUpCount} unread`
+              : 'Open WhatsUp'}
+          >
+            <span className="phone-whatsup-icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M18.8 5.2A8.9 8.9 0 0 0 4.7 15.9L3.4 20.4l4.7-1.2A8.9 8.9 0 1 0 18.8 5.2Z" />
+              </svg>
+            </span>
+            {unreadWhatsUpCount > 0 && (
+              <span className="phone-desktop-app-badge" aria-hidden="true">
+                {desktopBadgeLabel(unreadWhatsUpCount)}
+              </span>
+            )}
+          </button>
+          <button
+            className="phone-desktop-dock-app"
+            type="button"
+            onClick={() => launchDesktopApp('camera')}
+            aria-label="Open Camera"
+          >
+            <span className="phone-camera-icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M4 7h3l1.2-2h7.6L17 7h3a1 1 0 0 1 1 1v10a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a1 1 0 0 1 1-1Z" />
+                <circle cx="12" cy="13" r="4" />
+              </svg>
+            </span>
+          </button>
+          <button
+            className="phone-desktop-dock-app"
+            type="button"
+            onClick={() => launchDesktopApp('gallery')}
+            aria-label="Open Gallery"
+          >
+            <span className="phone-gallery-icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                <rect x="3" y="3" width="18" height="18" rx="4" />
+                <circle cx="8.5" cy="8.5" r="1.4" />
+                <path d="m4.5 18 5.5-5.5 3.2 3.2 2.1-2.1 4.2 4.4" />
+              </svg>
+            </span>
+          </button>
+          <button
+            className="phone-desktop-dock-app"
+            type="button"
+            onClick={() => launchDesktopApp('notes')}
+            aria-label={phoneAppNotificationCounts.notes > 0
+              ? `Open Notes, ${phoneAppNotificationCounts.notes} new`
+              : 'Open Notes'}
+          >
+            <span className="phone-notes-icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M5 3h11l3 3v15a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1Z" />
+                <path d="M15 3v4h4" />
+                <path d="M8 11h8M8 15h8M8 19h5" />
+              </svg>
+            </span>
+            {phoneAppNotificationCounts.notes > 0 && (
+              <span className="phone-desktop-app-badge" aria-hidden="true">
+                {desktopBadgeLabel(phoneAppNotificationCounts.notes)}
+              </span>
+            )}
           </button>
         </div>
       </div>

@@ -518,7 +518,16 @@
 .roleplay-phone-screen .phone-desktop-scrim::before,
 .roleplay-phone-screen .phone-desktop-scrim::after { display: none; }
 
-.roleplay-phone-screen .phone-desktop { padding-top: 46px; overflow: visible; }
+/* Side padding trimmed from the base 32px to 16px so the 5 explicit `1fr`
+   columns (see --phone-columns in styles.css) each resolve to ~57-58px —
+   matching the previous fixed icon size almost exactly, but now with a real
+   5th column instead of 4 plus dead wallpaper margin. `overflow: hidden`
+   (the base value) is kept rather than `visible`: with fr-based tracks the
+   grid can no longer overflow its own box in normal use, so hidden is purely
+   a safety net for stale saved layouts, not a mask for expected overflow.
+   Bottom padding grows from 32px to 112px to reserve room for the fixed
+   .phone-desktop-dock bar (see styles.css) below the widget column. */
+.roleplay-phone-screen .phone-desktop { padding: 46px 16px 112px; }
 
 .roleplay-phone-screen .phone-surface { display: flex; flex-direction: column; }
 
@@ -762,6 +771,15 @@
   bottom: 50%;
   left: auto;
   transform: translateY(50%);
+}
+
+/* The dock's fixed padding/positioning is solved against the portrait canvas
+   only; landscape's own tighter, separately-solved grid (see the comment on
+   `--phone-columns`/`--phone-cell-w` above) has no reserved room for it, so
+   it's hidden here rather than rendered mis-sized until it gets a real
+   landscape layout of its own. */
+.roleplay-phone-device.landscape .phone-desktop-dock {
+  display: none;
 }
 
 .roleplay-phone-device.landscape .phone-desktop-widget {

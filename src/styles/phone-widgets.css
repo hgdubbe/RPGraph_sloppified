@@ -1,3 +1,47 @@
+/* ============================================================
+   Home screen — phoneHome.* token namespace
+   ------------------------------------------------------------
+   Independently-themable, same pattern as phoneBanking.* and
+   phoneSocial.* etc: own namespace, no base.json entry, no
+   derivation rule, every var() carries a real literal fallback
+   so an un-opted-in theme renders identically to before this
+   pass. This file is deliberately NOT in themeExclusions.test.ts's
+   EXCLUDED_STYLESHEETS/MIXED_STYLESHEETS lists (see THEMING-
+   INTERNALS.md) — phone-device.css (still MIXED) cannot carry
+   these refs inside any .phone-desktop* block without tripping
+   that test, so every themed home-screen declaration below,
+   including overrides of rules whose *unthemed* base lives in
+   phone-device.css or upstream's styles.css, is collected here
+   instead of split across files by "which screen region." Cascade
+   order (src/styles/index.css) puts this file after both of those,
+   so same-specificity declarations here win. */
+
+.phone-desktop-scrim {
+  background:
+    linear-gradient(180deg,
+      color-mix(in srgb, var(--theme-phone-home-scrim, #05060a) 58%, transparent) 0%,
+      color-mix(in srgb, var(--theme-phone-home-scrim, #05060a) 18%, transparent) 32%,
+      color-mix(in srgb, var(--theme-phone-home-scrim, #05060a) 30%, transparent) 78%,
+      color-mix(in srgb, var(--theme-phone-home-scrim, #05060a) 62%, transparent) 100%);
+}
+
+.phone-clock-widget {
+  padding: 16px 24px;
+  border: 1px solid color-mix(in srgb, var(--theme-phone-home-accent, #b8a8ea) 22%, rgba(255, 255, 255, 0.16));
+  border-radius: 24px;
+  background:
+    linear-gradient(160deg, rgba(255, 255, 255, 0.1), transparent 60%),
+    color-mix(in srgb, var(--theme-phone-home-clock-background, #0a0b12) 46%, transparent);
+  box-shadow:
+    0 18px 38px -14px color-mix(in srgb, var(--theme-phone-home-accent-strong, #4c3d7a) 60%, transparent),
+    inset 0 1px 0 rgba(255, 255, 255, 0.14);
+  backdrop-filter: blur(14px) saturate(1.2);
+}
+
+.phone-clock-widget strong {
+  color: var(--theme-phone-home-clock-text, #ffffff);
+}
+
 .phone-desktop-widget {
   position: relative;
   display: flex;
@@ -14,14 +58,16 @@
   flex-direction: column;
   justify-content: flex-start;
   gap: 4px;
-  padding: 8px 10px;
-  border: 1px solid rgba(255, 255, 255, 0.16);
-  border-radius: 16px;
+  padding: 12px 16px;
+  border: 1px solid color-mix(in srgb, var(--theme-phone-home-accent, #b8a8ea) 16%, rgba(255, 255, 255, 0.16));
+  border-radius: 20px;
   color: rgba(255, 255, 255, 0.96);
   background:
     linear-gradient(145deg, rgba(255, 255, 255, 0.2), rgba(10, 13, 27, 0.22)),
-    rgba(0, 0, 0, 0.12);
-  box-shadow: 0 12px 28px rgba(0, 0, 0, 0.28);
+    color-mix(in srgb, var(--theme-phone-home-widget-background, #05070d) 12%, transparent);
+  box-shadow:
+    0 14px 30px -12px color-mix(in srgb, var(--theme-phone-home-accent-strong, #4c3d7a) 55%, transparent),
+    0 2px 8px rgba(0, 0, 0, 0.24);
   text-align: left;
   text-shadow: 0 1px 8px rgba(0, 0, 0, 0.58);
   backdrop-filter: blur(18px) saturate(1.35);
@@ -29,21 +75,30 @@
   touch-action: none;
   user-select: none;
   overflow: hidden;
+  transition: transform 180ms cubic-bezier(0.34, 1.56, 0.64, 1), border-color 180ms ease, box-shadow 180ms ease, background-color 180ms ease;
 }
 
 .phone-desktop-widget:hover,
 .phone-desktop-widget:focus-visible {
-  border-color: rgba(255, 255, 255, 0.38);
+  border-color: color-mix(in srgb, var(--theme-phone-home-accent, #b8a8ea) 46%, rgba(255, 255, 255, 0.2));
   background:
     linear-gradient(145deg, rgba(255, 255, 255, 0.28), rgba(18, 23, 45, 0.3)),
-    rgba(0, 0, 0, 0.14);
+    color-mix(in srgb, var(--theme-phone-home-widget-background, #05070d) 16%, transparent);
+  box-shadow:
+    0 18px 36px -12px color-mix(in srgb, var(--theme-phone-home-accent-strong, #4c3d7a) 65%, transparent),
+    0 2px 8px rgba(0, 0, 0, 0.28);
+  transform: translateY(-2px);
   outline: none;
+}
+
+.phone-desktop-widget:active {
+  transform: translateY(0) scale(0.98);
 }
 
 .phone-desktop-widget strong {
   overflow: hidden;
   color: #ffffff;
-  font-size: 14px;
+  font-size: 15px;
   font-weight: 900;
   line-height: 1.1;
   text-overflow: ellipsis;
@@ -100,9 +155,9 @@
   width: 46px;
   height: 46px;
   flex: 0 0 auto;
-  border-radius: 10px;
+  border-radius: 12px;
   object-fit: cover;
-  box-shadow: 0 5px 14px rgba(0, 0, 0, 0.3);
+  box-shadow: 0 5px 14px -2px color-mix(in srgb, var(--theme-phone-home-accent-strong, #4c3d7a) 45%, rgba(0, 0, 0, 0.3));
 }
 
 .phone-widget-resize-handle {
@@ -152,8 +207,11 @@
 }
 
 .phone-narrative-widget textarea:focus {
-  border-color: rgba(125, 211, 252, 0.72);
+  border-color: color-mix(in srgb, var(--theme-phone-home-accent, #b8a8ea) 62%, rgba(125, 211, 252, 0.72));
   background: rgba(3, 5, 12, 0.74);
+  box-shadow:
+    inset 0 1px 8px rgba(0, 0, 0, 0.32),
+    0 0 0 3px color-mix(in srgb, var(--theme-phone-home-accent, #b8a8ea) 22%, transparent);
 }
 
 .roleplay-phone-device.landscape .phone-narrative-widget textarea {
@@ -184,7 +242,7 @@
 }
 
 .phone-narrative-widget-actions button {
-  min-height: 30px;
+  min-height: 32px;
   border: 1px solid rgba(255, 255, 255, 0.16);
   border-radius: 11px;
   color: #eef5ff;
@@ -192,11 +250,20 @@
   font-size: 12px;
   font-weight: 850;
   cursor: pointer;
+  transition: transform 140ms cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 180ms ease, border-color 180ms ease;
 }
 
 .phone-narrative-widget-actions button[type="submit"] {
-  border-color: rgba(125, 211, 252, 0.45);
-  background: linear-gradient(135deg, rgba(14, 165, 233, 0.84), rgba(79, 70, 229, 0.76));
+  border-color: color-mix(in srgb, var(--theme-phone-home-accent, #b8a8ea) 55%, rgba(125, 211, 252, 0.45));
+  background: linear-gradient(135deg, var(--theme-phone-home-accent, #8a73c9), var(--theme-phone-home-accent-strong, #4c3d7a));
+}
+
+.phone-narrative-widget-actions button[type="submit"]:not(:disabled) {
+  box-shadow: 0 8px 18px -6px color-mix(in srgb, var(--theme-phone-home-accent, #8a73c9) 65%, transparent);
+}
+
+.phone-narrative-widget-actions button[type="submit"]:not(:disabled):active {
+  transform: scale(0.96);
 }
 
 .phone-narrative-widget-actions button:disabled {
@@ -284,3 +351,99 @@
   pointer-events: none;
 }
 
+/* ------------------------------------------------------------
+   App icon grid — label hierarchy, notification badges, and a
+   peak-moment launch glow (per the mobile-app-ui-design skill's
+   "design the peak" guidance for the primary action on this
+   screen: opening an app). */
+
+.phone-desktop-app > span:last-child {
+  color: var(--theme-phone-home-label, rgba(255, 255, 255, 0.94));
+  font-weight: 700;
+  letter-spacing: 0.01em;
+}
+
+.phone-desktop-app-badge {
+  border-color: rgba(255, 255, 255, 0.92);
+  background: var(--theme-phone-home-badge, #ef4444);
+  box-shadow:
+    0 3px 9px rgba(0, 0, 0, 0.45),
+    0 0 0 3px color-mix(in srgb, var(--theme-phone-home-badge, #ef4444) 28%, transparent);
+  animation: phone-home-badge-pop 360ms cubic-bezier(0.34, 1.56, 0.64, 1) both;
+}
+
+.phone-desktop-app-badge.banking {
+  background: var(--theme-phone-home-badge-banking, #f43f5e);
+  box-shadow:
+    0 3px 9px rgba(0, 0, 0, 0.45),
+    0 0 0 3px color-mix(in srgb, var(--theme-phone-home-badge-banking, #f43f5e) 28%, transparent);
+}
+
+@keyframes phone-home-badge-pop {
+  0% { transform: scale(0.4); opacity: 0; }
+  65% { transform: scale(1.14); opacity: 1; }
+  100% { transform: scale(1); opacity: 1; }
+}
+
+.roleplay-phone-screen .phone-desktop-app.phone-desktop-app-launching {
+  filter:
+    drop-shadow(0 0 10px color-mix(in srgb, var(--theme-phone-home-accent, #8a73c9) 70%, transparent))
+    drop-shadow(0 0 22px color-mix(in srgb, var(--theme-phone-home-accent, #8a73c9) 40%, transparent));
+  animation: phone-home-app-launch 260ms cubic-bezier(0.34, 1.56, 0.64, 1) both;
+}
+
+@keyframes phone-home-app-launch {
+  0% { transform: scale(1); }
+  40% { transform: scale(0.86); }
+  100% { transform: scale(1.05); }
+}
+
+/* ------------------------------------------------------------
+   Settings tray — retint the accent-driven active/selected
+   states (icon size segment, widget toggle knob, wallpaper
+   active ring, status menu selection) through the same token
+   the rest of the home screen uses, instead of the fixed
+   --phone-ui-accent purple every other phone-app screen ignores. */
+
+.roleplay-phone-screen .phone-desktop-wallpaper-option.active {
+  border-color: var(--theme-phone-home-accent, var(--accent));
+}
+
+.phone-desktop-icon-size-options button.active {
+  background: var(--theme-phone-home-accent, var(--accent));
+  box-shadow: 0 4px 14px color-mix(in srgb, var(--theme-phone-home-accent, var(--accent)) 55%, transparent);
+}
+
+.phone-desktop-widget-options button.active::after {
+  background:
+    radial-gradient(circle 6.5px at 21.5px 9px, #fff 98%, transparent 100%),
+    var(--theme-phone-home-accent, var(--accent));
+}
+
+.phone-mood-status-option:hover,
+.phone-mood-status-option.active {
+  box-shadow:
+    inset 0 0 0 1px color-mix(in srgb, var(--theme-phone-home-accent, #b8a8ea) 45%, rgba(255, 255, 255, 0.18)),
+    0 8px 18px rgba(0, 0, 0, 0.18);
+}
+
+.phone-mood-status-button.online .phone-mood-status-dot {
+  box-shadow:
+    0 0 0 1px rgba(255, 255, 255, 0.25),
+    0 0 8px color-mix(in srgb, var(--theme-phone-home-online, #34d058) 75%, transparent);
+}
+
+.phone-desktop-dock {
+  border-color: color-mix(in srgb, var(--theme-phone-home-accent, #b8a8ea) 20%, rgba(255, 255, 255, 0.18));
+  background: color-mix(in srgb, var(--theme-phone-home-widget-background, #05070d) 55%, transparent);
+}
+
+.phone-desktop-dock-app:active .phone-whatsup-icon,
+.phone-desktop-dock-app:active .phone-camera-icon,
+.phone-desktop-dock-app:active .phone-gallery-icon,
+.phone-desktop-dock-app:active .phone-notes-icon {
+  box-shadow:
+    0 6px 16px rgba(0, 0, 0, 0.35),
+    inset 0 1px 1px rgba(255, 255, 255, 0.25),
+    0 0 0 2px color-mix(in srgb, var(--theme-phone-home-accent, #b8a8ea) 55%, transparent);
+}

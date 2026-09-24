@@ -149,6 +149,11 @@ Phone apps keep their own visual identities by default. They do not automaticall
 inherit `color.primary`, so changing the Studio accent does not unexpectedly repaint
 an in-world banking or social app. You can opt in to each app independently:
 
+- `phoneHome`: the phone's home screen/launcher (icon grid, clock, widgets, the
+  bottom favorites dock) — `scrim`, `accent`, `accentStrong`, `clockBackground`,
+  `clockText`, `widgetBackground`, `label`, `badge`, `badgeBanking`, and `online`.
+  The favorites dock reuses `widgetBackground` and `accent`; it has no tokens of
+  its own.
 - `phoneNotes`: `background`, `text`, `textStrong`, `accent`, `accentLight`,
   `accentStrong`, `accentDeep`, `danger`, and the eight RGB-triplet note tints
   `tintNeutral`, `tintSand`, `tintCoral`, `tintPeach`, `tintMint`, `tintSky`,
