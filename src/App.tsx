@@ -1173,6 +1173,7 @@ function App() {
     ollamaModelActionActive,
     editingConnectionCapabilities,
     editingConnectionArchitecture,
+    editingConnectionReasoning,
     editingConnectionSupportedVoices,
     editingConnectionSupportedParameters,
     comfyWorkflowRepairStatus,
@@ -1470,6 +1471,9 @@ function App() {
   const nodeLlm = useNodeLlmApi({
     resolveConnection,
     recordCall: recordNodeLlmCall,
+    onReasoningActivity: (nodeId, active) => {
+      updateRuntimeNode(nodeId, { runReasoningActive: active });
+    },
     onReasoningTokens: (nodeId, tokenCount) => {
       updateRuntimeNode(nodeId, { llmActiveReasoningTokens: tokenCount });
     },
@@ -6477,6 +6481,7 @@ function App() {
         connectionDraftPending={connectionDraftPending}
         editingConnectionCapabilities={editingConnectionCapabilities}
         editingConnectionArchitecture={editingConnectionArchitecture}
+        editingConnectionReasoning={editingConnectionReasoning}
         editingConnectionSupportedVoices={editingConnectionSupportedVoices}
         editingConnectionSupportedParameters={editingConnectionSupportedParameters}
         providerHealthById={providerHealthById}

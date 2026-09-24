@@ -1,3 +1,4 @@
+import { reasoningActivation, normalizeReasoningEffort, supportsReasoningEffort, type ReasoningCapabilities } from '../../shared/reasoning.cjs';
 import type { StorybookCharacter } from '../storybook/runtime';
 import {
   useCallback,
@@ -256,6 +257,7 @@ type StudioDialogsProps = {
   connectionDraftPending: boolean;
   editingConnectionCapabilities?: ProviderConnectionCapabilities;
   editingConnectionArchitecture?: string;
+  editingConnectionReasoning?: ReasoningCapabilities;
   editingConnectionSupportedVoices: string[];
   editingConnectionSupportedParameters: string[];
   providerHealthById: Record<string, ProviderConnectionHealth>;
@@ -431,6 +433,7 @@ type OptionsTabId = typeof OPTIONS_TABS[number]['id'];
 type ProviderCapabilityKind = keyof ProviderConnectionCapabilities;
 
 const providerCapabilityLabels: Record<ProviderCapabilityKind, string> = {
+  reasoning: 'Reasoning',
   text: 'Text',
   vision: 'Vision',
   tools: 'Tools',
@@ -439,6 +442,14 @@ const providerCapabilityLabels: Record<ProviderCapabilityKind, string> = {
 };
 
 function ProviderCapabilityIcon({ kind }: { kind: ProviderCapabilityKind }) {
+  if (kind === 'reasoning') {
+    return (
+      <svg viewBox="0 0 24 24" aria-hidden="true">
+        <path d="M12 5a3 3 0 0 0-5.8-1A4 4 0 0 0 3 10a4 4 0 0 0 1 7.5A4 4 0 0 0 12 19V5Z" />
+        <path d="M12 5a3 3 0 0 1 5.8-1A4 4 0 0 1 21 10a4 4 0 0 1-1 7.5A4 4 0 0 1 12 19M7 4v3M3 10h4l2 2M4 17.5 8 16M17 4v3M21 10h-4l-2 2M20 17.5 16 16" />
+      </svg>
+    );
+  }
   if (kind === 'text') {
     return <span className="provider-capability-text-mark" aria-hidden="true">TXT</span>;
   }
@@ -479,10 +490,12 @@ function ProviderCapabilityBadges({
   capabilities,
   kinds,
   showInactive = false,
+  reasoningEnabled,
 }: {
   capabilities?: ProviderConnectionCapabilities;
   kinds: ProviderCapabilityKind[];
   showInactive?: boolean;
+  reasoningEnabled?: boolean;
 }) {
   const badges = kinds.flatMap((kind) => {
     const active = capabilities?.[kind] === true;
@@ -490,12 +503,20 @@ function ProviderCapabilityBadges({
       return [];
     }
     const label = providerCapabilityLabels[kind];
+    const isReasoning = kind === 'reasoning';
+    const state = isReasoning && active
+      ? reasoningEnabled === true ? 'active' : 'available'
+      : active ? 'active' : 'inactive';
+    const description = isReasoning && active
+      ? reasoningEnabled === true ? 'enabled' : reasoningEnabled === false
+        ? 'supported, disabled' : 'supported, activation unknown'
+      : active ? 'available' : 'not detected';
     return (
       <span
         key={kind}
-        className={`provider-capability-badge ${active ? 'active' : 'inactive'}`}
-        data-tooltip={`${label}: ${active ? 'available' : 'not detected'}`}
-        aria-label={`${label}: ${active ? 'available' : 'not detected'}`}
+        className={`provider-capability-badge ${state}`}
+        data-tooltip={`${label}: ${description}`}
+        aria-label={`${label}: ${description}`}
       >
         <ProviderCapabilityIcon kind={kind} />
       </span>
@@ -590,6 +611,7 @@ const providerPresets = [
 const connectionReasoningLabels = {
   auto: 'Auto / provider default',
   none: 'Off',
+  on: 'On',
   minimal: 'Minimal',
   low: 'Low',
   medium: 'Medium',
@@ -915,6 +937,7 @@ export function StudioDialogs({
   connectionDraftPending,
   editingConnectionCapabilities,
   editingConnectionArchitecture,
+  editingConnectionReasoning,
   editingConnectionSupportedVoices,
   editingConnectionSupportedParameters,
   providerHealthById,
@@ -1060,14 +1083,18 @@ export function StudioDialogs({
   const comfyOnboardingMemory = comfyOnboardingMemoryInfo(editingComfyRole);
   const editingProviderKind = llmProviderKind(editingConnection);
   const isMuseGlimmerReasoning =
-    editingProviderKind === 'lm-studio' && (
+    editingProviderKind === 'lm-studio' && !editingConnectionReasoning && (
       editingConnectionArchitecture === 'muse_glimmer' ||
       /muse[-_ ]glimmer/i.test(editingConnection.model)
     );
   const museGlimmerReasoningEfforts = ['low', 'medium', 'high', 'xhigh'] as const;
   const reasoningEfforts = isMuseGlimmerReasoning
     ? museGlimmerReasoningEfforts
-    : connectionReasoningEfforts;
+    : editingProviderKind === 'gemini' ? ['auto'] as const
+    : connectionReasoningEfforts.filter((effort) =>
+      (editingProviderKind === 'lm-studio' || editingProviderKind === 'ollama') && editingConnectionReasoning
+        ? supportsReasoningEffort(effort, editingConnectionReasoning)
+        : effort !== 'on');
   const selectedReasoningEffort = isMuseGlimmerReasoning
     ? editingConnection.reasoningEffort === 'medium' ||
       editingConnection.reasoningEffort === 'high' ||
@@ -1078,7 +1105,8 @@ export function StudioDialogs({
         : editingConnection.reasoningEffort === 'auto' || editingConnection.reasoningEffort === undefined
           ? 'high'
           : 'low'
-    : editingConnection.reasoningEffort ?? 'none';
+    : editingProviderKind === 'gemini' ? 'auto'
+    : normalizeReasoningEffort(editingConnection.reasoningEffort, editingConnectionReasoning);
   const comfyLoraSlots = validComfyLoraSlots(editingConnection.comfyLoraSlots ?? defaultComfyLoraSlots);
   const [comfyRepairProviderId, setComfyRepairProviderId] = useState('');
   const llmConnections = connections.filter((connection) => connection.kind !== 'comfyui');
@@ -3786,65 +3814,21 @@ export function StudioDialogs({
                           onOpenOptions={onRefreshConnectionModels}
                         />
                       </div>
-                      {!isVoiceOnlyModel && <div className="connection-field">
-                        <div className="connection-field-label-row">
-                          <label htmlFor="reasoning-effort">
-                            {isMuseGlimmerReasoning ? 'REASONING (MUSE GLIMMER)' : 'REASONING'}
-                          </label>
-                          {isMuseGlimmerReasoning ? (
-                            <button
-                              type="button"
-                              className="node-info-button connection-reasoning-help"
-                              data-tooltip="Muse Glimmer always uses reasoning and does not support Off. RPGraph sends the selected Low, Medium, High, or Very high strength through the model's chat template."
-                              aria-label="About Muse Glimmer reasoning"
-                            >
-                              ?
-                            </button>
-                          ) : null}
-                        </div>
-                        <NodeCustomSelect
-                          id="reasoning-effort"
-                          value={selectedReasoningEffort}
-                          onChange={(effort) => onEditConnection('reasoningEffort', String(effort))}
-                          options={reasoningEfforts.map((effort) => ({
-                            value: effort,
-                            label: connectionReasoningLabels[effort],
-                          }))}
-                        />
-                      </div>}
-                      <div className="connection-field connection-field-api-key">
-                        <label htmlFor="api-key">API KEY (OPTIONAL)</label>
-                        <div className="secret-input-row">
-                          <input
-                            id="api-key"
-                            type={apiKeyVisible ? 'text' : 'password'}
-                            placeholder="Local providers can usually stay empty"
-                            value={editingConnection.apiKey}
-                            onChange={(event) => onEditConnection('apiKey', event.target.value)}
-                          />
-                          <button
-                            type="button"
-                            className="secret-input-toggle"
-                            aria-label={apiKeyVisible ? 'Hide API key' : 'Show API key'}
-                            aria-pressed={apiKeyVisible}
-                            onClick={() => setApiKeyVisible((visible) => !visible)}
-                          >
-                            <EyeIcon hidden={!apiKeyVisible} />
-                          </button>
-                        </div>
-                      </div>
                       {modelCapabilitiesSourceLabel ? (
                         <div className="connection-field connection-field-capabilities">
                           <label>CAPABILITIES</label>
                           <div className="connection-detected-capabilities">
                             <ProviderCapabilityBadges
                               capabilities={editingConnectionCapabilities}
+                              reasoningEnabled={reasoningActivation(selectedReasoningEffort, editingConnectionReasoning)}
                               kinds={
                                 lmStudioToolsAvailable || ollamaToolsAvailable
-                                  ? ['text', 'vision', 'tools']
+                                  ? ['text', 'reasoning', 'vision', 'tools']
                                   : llamaCppToolsAvailable
                                     ? ['text', 'vision']
-                                  : ['text', 'vision', 'image', 'voice']
+                                  : editingProviderKind === 'openrouter'
+                                    ? ['text', 'reasoning', 'vision', 'image', 'voice']
+                                    : ['text', 'vision', 'image', 'voice']
                               }
                               showInactive
                             />
@@ -3875,6 +3859,63 @@ export function StudioDialogs({
                           </span>
                         </div>
                       )}
+                      <div className="connection-field connection-field-api-key">
+                        <label htmlFor="api-key">API KEY (OPTIONAL)</label>
+                        <div className="secret-input-row">
+                          <input
+                            id="api-key"
+                            type={apiKeyVisible ? 'text' : 'password'}
+                            placeholder="Local providers can usually stay empty"
+                            value={editingConnection.apiKey}
+                            onChange={(event) => onEditConnection('apiKey', event.target.value)}
+                          />
+                          <button
+                            type="button"
+                            className="secret-input-toggle"
+                            aria-label={apiKeyVisible ? 'Hide API key' : 'Show API key'}
+                            aria-pressed={apiKeyVisible}
+                            onClick={() => setApiKeyVisible((visible) => !visible)}
+                          >
+                            <EyeIcon hidden={!apiKeyVisible} />
+                          </button>
+                        </div>
+                      </div>
+                      {!isVoiceOnlyModel && <div className="connection-field connection-field-reasoning">
+                        <div className="connection-field-label-row">
+                          <label htmlFor="reasoning-effort">
+                            {isMuseGlimmerReasoning ? 'REASONING (MUSE GLIMMER)' : 'REASONING'}
+                          </label>
+                          {isMuseGlimmerReasoning ? (
+                            <button
+                              type="button"
+                              className="node-info-button connection-reasoning-help"
+                              data-tooltip="Muse Glimmer always uses reasoning and does not support Off. RPGraph sends the selected Low, Medium, High, or Very high strength through the model's chat template."
+                              aria-label="About Muse Glimmer reasoning"
+                            >
+                              ?
+                            </button>
+                          ) : null}
+                        </div>
+                        <NodeCustomSelect
+                          id="reasoning-effort"
+                          disabled={editingProviderKind === 'gemini'}
+                          value={selectedReasoningEffort}
+                          onChange={(effort) => onEditConnection('reasoningEffort', String(effort))}
+                          options={reasoningEfforts.map((effort) => ({
+                            value: effort,
+                            label: connectionReasoningLabels[effort] + (
+                              !supportsReasoningEffort(effort, editingConnectionReasoning)
+                                ? ' (not supported)'
+                                : effort === 'auto' && editingConnectionReasoning?.defaultEnabled === false
+                                  ? ' (Off)'
+                                  : effort === 'auto' && editingConnectionReasoning?.defaultEffort
+                                    ? ` (${connectionReasoningLabels[editingConnectionReasoning.defaultEffort]})`
+                                    : ''
+                            ),
+                            disabled: !supportsReasoningEffort(effort, editingConnectionReasoning),
+                          }))}
+                        />
+                      </div>}
                       {isVoiceOnlyModel && (
                         <div className={`connection-tts-section${supportsTtsTemperature ? ' has-temperature' : ''}`}>
                           <div className="connection-field connection-tts-voice-field">

@@ -1,3 +1,5 @@
+import { reasoningActivation, fastTaskReasoningEffort, normalizeReasoningEffort } from '../../shared/reasoning.cjs';
+import { isOpenRouterConnection, isLmStudioConnection, isOllamaConnection, isGeminiConnection } from './providerKind';
 import type { ConnectionPreset, LlmCallStage, LlmCallStats } from '../types';
 import type { CalibrationSample, NodeLlmRequest, NodeLlmResult } from './types';
 
@@ -32,6 +34,7 @@ type NodeLlmApiOptions = {
   ) => void;
   onCallEnd?: (nodeId: string) => void;
   onReasoningTokens?: (nodeId: string, tokenCount: number) => void;
+  onReasoningActivity?: (nodeId: string, active: boolean) => void;
   signal?: AbortSignal;
 };
 
@@ -109,6 +112,12 @@ export class NodeLlmApi {
     const observe = this.options.observeRequest ?? (signal ? this.requestObservers.get(signal) : undefined);
     const observer = observe?.(request, startedAtMs);
     let cleanupAbort: (() => void) | undefined;
+    let reasoningActive = false;
+    const setReasoningActive = (active: boolean) => {
+      if (reasoningActive === active) return;
+      reasoningActive = active;
+      if (request.nodeId) this.options.onReasoningActivity?.(request.nodeId, active);
+    };
     try {
       if (signal?.aborted) throw new Error('The LLM request was cancelled.');
       const connection = await this.options.resolveConnection(
@@ -117,9 +126,16 @@ export class NodeLlmApi {
         signal,
       );
       if (signal?.aborted) throw new Error('The LLM request was cancelled.');
-      const requestConnection = request.fastTask
-        ? { ...connection, reasoningEffort: 'none' as const }
-        : connection;
+      const requestConnection = {
+        ...connection,
+        reasoningEffort: isGeminiConnection(connection) ? 'auto' as const
+          : isOpenRouterConnection(connection) || isOllamaConnection(connection) ||
+          (isLmStudioConnection(connection) && !!connection.reasoningCapabilities)
+          ? request.fastTask
+            ? fastTaskReasoningEffort(connection.reasoningCapabilities)
+            : normalizeReasoningEffort(connection.reasoningEffort, connection.reasoningCapabilities)
+          : request.fastTask ? 'none' as const : connection.reasoningEffort,
+      };
       const images = connection.vision ? request.images : undefined;
       if (request.nodeId) {
         this.options.onCallStart?.(request.nodeId, {
@@ -139,11 +155,17 @@ export class NodeLlmApi {
             frequencyPenalty: connection.frequencyPenalty,
           }
         : { temperature: request.temperature };
+      let hasOutputText = false;
+      const reasoningEnabled = reasoningActivation(requestConnection.reasoningEffort,
+        requestConnection.reasoningCapabilities) === true;
       let latestReasoningTokens = 0;
       let lastReasoningUpdateMs = -Infinity;
       const onReasoningTokens = request.nodeId
         ? (tokenCount: number) => {
             if (signal?.aborted) return;
+            if (reasoningEnabled && !hasOutputText && tokenCount > latestReasoningTokens) {
+              setReasoningActive(true);
+            }
             latestReasoningTokens = tokenCount;
             const now = performance.now();
             if (now - lastReasoningUpdateMs >= 200) {
@@ -179,6 +201,10 @@ export class NodeLlmApi {
             },
             (text) => {
               if (signal?.aborted) return;
+              if (text) {
+                hasOutputText = true;
+                setReasoningActive(false);
+              }
               observer?.streamed?.(text);
               request.onChunk?.(text);
             },
@@ -226,6 +252,7 @@ export class NodeLlmApi {
       observer?.failed?.(error instanceof Error ? error.message : String(error), !!signal?.aborted);
       throw error instanceof Error ? error : new Error(String(error));
     } finally {
+      setReasoningActive(false);
       cleanupAbort?.();
       if (request.nodeId) {
         this.options.onCallEnd?.(request.nodeId);

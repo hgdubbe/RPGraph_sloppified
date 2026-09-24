@@ -370,6 +370,7 @@ export const defaultComfyLoraSlots: ComfyLoraSlot[] = [
 ];
 export const connectionReasoningEfforts = [
   'auto',
+  'on',
   'none',
   'minimal',
   'low',

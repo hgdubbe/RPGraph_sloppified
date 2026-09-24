@@ -1,3 +1,4 @@
+const { normalizeReasoningCapabilities, normalizeReasoningEffort, normalizeLmStudioReasoning, normalizeOllamaReasoning, ollamaReasoningOptions } = require('../shared/reasoning.cjs');
 const { safeWorkflowBaseName, safeStorybookBaseName, safeCharacterCardBaseName } = require('./fileNames.cjs');
 const { bundledJsonFilesByFormat } = require('./bundledJsonFiles.cjs');
 const { app, BrowserWindow, Menu, dialog, ipcMain, safeStorage, shell } = require('electron');
@@ -1442,6 +1443,7 @@ function lmStudioNormalizedModel(model) {
     id: id.trim(),
     name: lmStudioModelDisplayName(model, id).trim(),
     type,
+    reasoning: normalizeLmStudioReasoning(capabilities.reasoning),
     architecture,
     vision: capabilities.vision === true || type === 'vlm',
     trainedForToolUse: capabilities.trained_for_tool_use === true,
@@ -1460,7 +1462,7 @@ function ollamaModelId(model) {
     ?.trim() ?? '';
 }
 
-function ollamaNormalizedModel(model, capabilities) {
+function ollamaNormalizedModel(model, capabilities, thinking) {
   const id = ollamaModelId(model);
   if (!id) {
     return null;
@@ -1473,6 +1475,8 @@ function ollamaNormalizedModel(model, capabilities) {
   return {
     id,
     name: typeof model?.name === 'string' && model.name.trim() ? model.name.trim() : id,
+    reasoning: normalizeOllamaReasoning(thinking),
+    thinkingSupported: capabilities.includes('thinking'),
     vision: capabilities.includes('vision'),
     trainedForToolUse: capabilities.includes('tools'),
   };
@@ -1499,6 +1503,7 @@ function openRouterNormalizedModel(model) {
     outputModalities,
     supportedVoices: stringArray(model?.supported_voices),
     supportedParameters: stringArray(model?.supported_parameters),
+    reasoning: normalizeReasoningCapabilities(model?.reasoning),
     contextLength: Number.isFinite(model?.context_length) ? model.context_length : undefined,
     pricing: model?.pricing,
   };
@@ -1895,7 +1900,18 @@ const supportedReasoningEfforts = new Set([
 ]);
 
 function chatCompletionReasoningOptions(connection) {
-  const effort = connection?.reasoningEffort;
+  if (connection?.providerKind === 'ollama') {
+    return ollamaReasoningOptions(connection.reasoningEffort, connection.reasoningCapabilities);
+  }
+  const isOpenRouter = connection?.providerKind === 'openrouter' ||
+    connection?.baseUrl?.includes('openrouter.ai');
+  const capabilities = isOpenRouter
+    ? openRouterReasoningByEndpoint.get(endpoint(connection.baseUrl, 'models'))?.get(connection.model)
+      ?? connection?.reasoningCapabilities
+    : undefined;
+  const effort = capabilities
+    ? normalizeReasoningEffort(connection?.reasoningEffort, capabilities)
+    : connection?.reasoningEffort;
   if (!supportedReasoningEfforts.has(effort)) {
     return {};
   }
@@ -3636,6 +3652,8 @@ ipcMain.handle('llamacpp:unload-models', async (_event, request) => {
   }
 });
 
+const openRouterReasoningByEndpoint = new Map();
+
 ipcMain.handle('openrouter:list-models', async (_event, request) => {
   const connection = request?.connection ?? request;
   const abort = createLlmAbortController(request);
@@ -3652,6 +3670,8 @@ ipcMain.handle('openrouter:list-models', async (_event, request) => {
     const models = Array.isArray(result.data)
       ? result.data.map(openRouterNormalizedModel).filter(Boolean)
       : [];
+    openRouterReasoningByEndpoint.set(endpoint(connection.baseUrl, 'models'),
+      new Map(models.map((model) => [model.id, model.reasoning])));
     const seen = new Set();
     return models.filter((model) => {
       if (seen.has(model.id)) {
@@ -3914,27 +3934,27 @@ ipcMain.handle('ollama:list-models', async (_event, request) => {
       }
       const digest = typeof model?.digest === 'string' ? model.digest : '';
       const cacheKey = `${ollamaBaseUrl(connection)}|${id}|${digest}`;
-      let capabilities = ollamaCapabilitiesByModelDigest.get(cacheKey);
-      if (!capabilities) {
+      let metadata = ollamaCapabilitiesByModelDigest.get(cacheKey);
+      if (!metadata) {
         try {
           const info = await requestOllamaJson(connection, 'show', {
             method: 'POST',
             body: JSON.stringify({ model: id }),
           }, abort);
-          capabilities = stringArray(info?.capabilities);
+          metadata = { capabilities: stringArray(info?.capabilities), thinking: info?.thinking };
           if (ollamaCapabilitiesByModelDigest.size > 500) {
             ollamaCapabilitiesByModelDigest.clear();
           }
-          ollamaCapabilitiesByModelDigest.set(cacheKey, capabilities);
+          ollamaCapabilitiesByModelDigest.set(cacheKey, metadata);
         } catch (error) {
           if (abort.signal.aborted) {
             throw error;
           }
           // /api/show can fail per model without invalidating the list.
-          capabilities = [];
+          metadata = { capabilities: [] };
         }
       }
-      return ollamaNormalizedModel(model, capabilities);
+      return ollamaNormalizedModel(model, metadata.capabilities, metadata.thinking);
     }));
     const seen = new Set();
     return models.filter((model) => {

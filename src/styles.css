@@ -20642,6 +20642,10 @@ button.message-timeline-row.phone:focus-visible {
 }
 
 .connection-field-capabilities {
+  grid-column: span 4;
+}
+
+.connection-field-reasoning {
   grid-column: span 3;
 }
 
@@ -20684,6 +20688,7 @@ button.message-timeline-row.phone:focus-visible {
 }
 
 .connection-detected-capabilities {
+  min-width: 0;
   display: flex;
   align-items: center;
   min-height: 38px;
@@ -21411,6 +21416,7 @@ button.message-timeline-row.phone:focus-visible {
   .connection-field,
   .connection-field-api-key,
   .connection-field-capabilities,
+  .connection-field-reasoning,
   .comfy-lora-grid,
   .connection-provider-tools {
     grid-column: 1 / -1;
@@ -26830,4 +26836,10 @@ button.message-timeline-row.phone:focus-visible {
 .app-message-avatars-enabled .phone-message-content.outgoing .phone-bubble,
 .app-message-avatars-enabled .phone-social-dm-message-row.outgoing .phone-social-dm-bubble {
   border-radius: 18px 18px 18px 6px;
+}
+
+.connection-detected-capabilities .provider-capability-badge.available,
+.connection-detected-capabilities .provider-capability-badge.available svg {
+  color: #6eafff;
+  stroke: currentColor;
 }

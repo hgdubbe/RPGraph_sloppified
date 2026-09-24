@@ -52,3 +52,14 @@ describe('createCapabilityRelevantNodesSelector', () => {
     expect(active[0].data.runActive).toBe(true);
   });
 });
+
+it('updates the capability scan when actual reasoning starts and stops', () => {
+  const select = createCapabilityRelevantNodesSelector();
+  const initial = select([llmPromptNode]);
+  const thinking = select([{ ...llmPromptNode, data: { ...llmPromptNode.data, runReasoningActive: true } }]);
+  expect(thinking).not.toBe(initial);
+  expect(thinking[0].data.runReasoningActive).toBe(true);
+  const done = select([{ ...llmPromptNode, data: { ...llmPromptNode.data, runReasoningActive: false } }]);
+  expect(done).not.toBe(thinking);
+  expect(done[0].data.runReasoningActive).toBe(false);
+});

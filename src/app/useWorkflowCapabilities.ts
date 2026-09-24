@@ -1,3 +1,4 @@
+import { reasoningActivation } from '../../shared/reasoning.cjs';
 import { useMemo, useState } from 'react';
 import { isComfyImageConnection, isComfyVoiceConnection } from '../comfy/connectionRole';
 import { isGeminiConnection, isOpenRouterConnection } from '../llm/providerKind';
@@ -21,7 +22,7 @@ import {
 } from '../workflow';
 
 export type WorkflowCapabilityIndicator = {
-  kind: 'text' | 'vision' | 'image' | 'audio';
+  kind: 'text' | 'reasoning' | 'vision' | 'image' | 'audio';
   tone: 'ready' | 'missing';
   active: boolean;
   label: string;
@@ -63,13 +64,14 @@ function capabilityRelevantNode(node: WorkflowNode): WorkflowNode {
     llmPromptSwitchPromptAftersByOutput: node.data.llmPromptSwitchPromptAftersByOutput,
     runActive: node.data.runActive,
     runVisionActive: node.data.runVisionActive,
+    runReasoningActive: node.data.runReasoningActive,
   } } as WorkflowNode;
 }
 
 const capabilityRelevantFields = [
   'kind', 'connectionId', 'nodeType', 'llmPromptActions', 'llmPromptBefore', 'llmPromptAfter',
   'llmPromptSwitchOutputTitles', 'llmPromptSwitchPromptTitlesByOutput', 'llmPromptSwitchPromptBeforesByOutput',
-  'llmPromptSwitchPromptAftersByOutput', 'runActive', 'runVisionActive',
+  'llmPromptSwitchPromptAftersByOutput', 'runActive', 'runVisionActive', 'runReasoningActive',
 ] as const;
 
 /** Keeps a stable array reference across renders where none of the fields
@@ -264,6 +266,19 @@ export function useWorkflowCapabilities({
             : 'Text: required, but no used LLM provider is connected',
       },
     ];
+    const reasoningConnections = connections.filter((connection) =>
+      isLlmConnection(connection) &&
+      (llmConnectionIds.size === 0 || llmConnectionIds.has(connection.id)) &&
+      reasoningActivation(connection.reasoningEffort, connection.reasoningCapabilities) === true);
+    if (reasoningConnections.length > 0) {
+      const reasoningActive = relevantNodes.some((node) =>
+        node.data.kind === undefined && node.data.runReasoningActive === true &&
+        reasoningConnections.some((connection) => connection.id === connectionIdForNode(node)));
+      indicators.push({
+        kind: 'reasoning', tone: 'ready', active: reasoningActive,
+        label: reasoningActive ? 'Reasoning: thinking' : 'Reasoning: enabled',
+      });
+    }
     if (usesVision || anyVisionConnected || visionActive) {
       const ready = usesVision ? visionReady : anyVisionConnected;
       indicators.push({
