@@ -20153,6 +20153,53 @@ button.message-timeline-row.phone:focus-visible {
   height: 38px;
 }
 
+.connection-field input[type="range"] {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 100%;
+  height: 6px;
+  padding: 0;
+  border: 0;
+  border-radius: 999px;
+  background: var(--theme-app-line, #384152);
+  accent-color: var(--theme-primary, #79d7ef);
+}
+
+.connection-field input[type="range"]::-webkit-slider-runnable-track {
+  height: 6px;
+  border-radius: 999px;
+  background: var(--theme-app-line, #384152);
+}
+
+.connection-field input[type="range"]::-moz-range-track {
+  height: 6px;
+  border-radius: 999px;
+  background: var(--theme-app-line, #384152);
+}
+
+.connection-field input[type="range"]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 16px;
+  height: 16px;
+  margin-top: -5px;
+  border: 0;
+  border-radius: 50%;
+  background: var(--theme-primary, #79d7ef);
+}
+
+.connection-field input[type="range"]::-moz-range-thumb {
+  width: 16px;
+  height: 16px;
+  border: 0;
+  border-radius: 50%;
+  background: var(--theme-primary, #79d7ef);
+}
+
+.connection-field input[type="range"]:disabled {
+  opacity: 0.45;
+}
+
 .connection-tts-stream-container {
   grid-column: 1 / -1;
 }
@@ -20583,7 +20630,7 @@ button.message-timeline-row.phone:focus-visible {
   font-size: 10px;
 }
 
-.connection-field input:not([type="checkbox"]):not([type="radio"]),
+.connection-field input:not([type="checkbox"]):not([type="radio"]):not([type="range"]),
 .connection-field select {
   width: 100%;
   min-width: 0;

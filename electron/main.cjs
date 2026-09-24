@@ -2257,6 +2257,32 @@ function failedLlmIpcResult(error) {
   };
 }
 
+// ComfyUI's /prompt validation failures put the actionable detail (which node
+// and which input is invalid) in `node_errors`, separate from the generic
+// top-level `error.message` ("Prompt outputs failed validation"). Without
+// this, the app only ever surfaces that generic message and the specific
+// cause is lost.
+function comfyNodeErrorDetails(nodeErrors) {
+  if (!nodeErrors || typeof nodeErrors !== 'object') {
+    return '';
+  }
+  const parts = [];
+  for (const [nodeId, nodeError] of Object.entries(nodeErrors)) {
+    const classType = typeof nodeError?.class_type === 'string' ? nodeError.class_type : '';
+    const label = classType ? `${classType} (node ${nodeId})` : `node ${nodeId}`;
+    const errors = Array.isArray(nodeError?.errors) ? nodeError.errors : [];
+    for (const err of errors) {
+      const message = typeof err?.message === 'string' ? err.message.trim() : '';
+      const details = typeof err?.details === 'string' ? err.details.trim() : '';
+      const text = [message, details].filter(Boolean).join(' - ');
+      if (text) {
+        parts.push(`${label}: ${text}`);
+      }
+    }
+  }
+  return parts.join('; ');
+}
+
 function providerJsonErrorMessage(message) {
   const trimmed = String(message ?? '').trim();
   if (!trimmed.startsWith('{')) {
@@ -2264,9 +2290,14 @@ function providerJsonErrorMessage(message) {
   }
   try {
     const parsed = JSON.parse(trimmed);
-    return typeof parsed?.error?.message === 'string'
+    const baseMessage = typeof parsed?.error?.message === 'string'
       ? parsed.error.message.trim()
       : '';
+    if (!baseMessage) {
+      return '';
+    }
+    const nodeErrorDetails = comfyNodeErrorDetails(parsed?.node_errors);
+    return nodeErrorDetails ? `${baseMessage}: ${nodeErrorDetails}` : baseMessage;
   } catch {
     return '';
   }
@@ -3117,6 +3148,9 @@ function comfyWorkflowVariables(request) {
     steps: typeof request?.steps === 'number' && Number.isFinite(request.steps) && request.steps > 0
       ? Math.min(150, Math.max(1, Math.round(request.steps)))
       : 4,
+    cfg: typeof request?.cfg === 'number' && Number.isFinite(request.cfg) && request.cfg > 0
+      ? Math.min(30, Math.max(0.1, Math.round(request.cfg * 10) / 10))
+      : 1,
     sampler: typeof request?.sampler === 'string' && request.sampler.trim() ? request.sampler.trim() : 'euler',
     scheduler: typeof request?.scheduler === 'string' && request.scheduler.trim() ? request.scheduler.trim() : 'simple',
     ...loraVariables,
@@ -5209,6 +5243,32 @@ ipcMain.handle('comfy:list-models', async (_event, request) => {
     }
     if (isComfyConnectionUnavailable(error)) {
       return [];
+    }
+    throw normalizeLlmError(error);
+  } finally {
+    abort.dispose();
+  }
+});
+
+ipcMain.handle('comfy:list-sampler-schedulers', async (_event, request) => {
+  const abort = createLlmAbortController(request);
+  try {
+    // KSampler's node schema enumerates every sampler/scheduler ComfyUI supports as the
+    // first element of its input options tuple, e.g. { sampler_name: [["euler", ...]] }.
+    const result = await requestComfyJson(request?.baseUrl, 'object_info/KSampler', {}, abort);
+    const required = result?.KSampler?.input?.required ?? {};
+    const samplerOptions = Array.isArray(required.sampler_name?.[0]) ? required.sampler_name[0] : [];
+    const schedulerOptions = Array.isArray(required.scheduler?.[0]) ? required.scheduler[0] : [];
+    return {
+      samplers: samplerOptions.filter((name) => typeof name === 'string'),
+      schedulers: schedulerOptions.filter((name) => typeof name === 'string'),
+    };
+  } catch (error) {
+    if (abort.signal.aborted) {
+      return cancelledLlmIpcResult();
+    }
+    if (isComfyConnectionUnavailable(error)) {
+      return { samplers: [], schedulers: [] };
     }
     throw normalizeLlmError(error);
   } finally {

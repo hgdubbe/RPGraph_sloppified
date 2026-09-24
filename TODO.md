@@ -48,6 +48,15 @@ into it.
   replace the free-text sampler/scheduler fields with dropdowns populated from supported values.
 - Add the established encryption/decryption mechanism to rotating autosaves, with an
   explicit user option to enable it.
+- Model unload ordering: **confirmed bug, not just a risk** — the LLM sometimes hits an
+  OOM when loading right after an image generation, so ComfyUI's model isn't actually
+  fully unloaded/freed from VRAM by the time the LLM tries to load. The main paths
+  already await `freeComfyMemoryForLocalLlm` (`electron/main.cjs`) before loading, with a
+  settle delay (`comfyFreeSettleMs`), so that existing guard isn't sufficient on its own —
+  needs a real fix (e.g. verifying freed VRAM via ComfyUI's system stats instead of a
+  fixed delay, or retrying the LLM load on OOM), not just a revisit. Also check for a path
+  that triggers an implicit/JIT LLM load without going through `freeComfyMemoryForLocalLlm`
+  at all.
 - Glass mode for node display (`.studio.glass-design-active .workflow-node`/
   `.wire-link-shape`/`.react-flow__handle`, ~src/styles.css:21100) needs its own
   separate theming pass. It uses `rgba(r, g, b, var(--glass-opacity, N))` — the RGB

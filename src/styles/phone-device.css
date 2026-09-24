@@ -1,11 +1,45 @@
-.phone-mood-status-button {
-  order: 0;
+/* System tray: the status bar's own tray slot holds just the trigger icons,
+   laid out inline next to the battery readout like real phone chrome. Their
+   dropdown panels render separately into the device's overlay layer (see
+   .roleplay-phone-overlay-layer) so they're never clipped by an app screen. */
+
+.roleplay-phone-status-tray {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+
+/* Both wrappers collapse to nothing (display: contents) so the mood and
+   settings buttons become direct flex items of .roleplay-phone-status-tray
+   above — letting `order` place the settings button after the battery
+   readout while the mood icon stays before it. */
+.roleplay-phone-status-tray-icons,
+.phone-desktop-tray-buttons {
+  display: contents;
+}
+
+.roleplay-phone-status-battery {
+  order: 2;
+}
+
+.roleplay-phone-overlay-layer {
   position: absolute;
-  top: 7px;
-  right: 104px;
+  inset: 5px;
+  z-index: 70;
+  pointer-events: none;
+}
+
+.phone-desktop-tray-menus {
+  position: relative;
+  width: 100%;
+  height: 100%;
+}
+
+.phone-mood-status-button {
+  order: 1;
   display: grid;
-  width: 22px;
-  height: 22px;
+  width: 19px;
+  height: 19px;
   place-items: center;
   padding: 0;
   border: 0;
@@ -16,27 +50,19 @@
   cursor: pointer;
   pointer-events: auto;
   font-family: "Segoe UI Emoji", "Apple Color Emoji", "Noto Color Emoji", sans-serif;
-  font-size: 17px;
+  font-size: 14px;
   font-weight: 400;
   line-height: 1;
-  transition: transform 0.14s ease, background-color 0.18s ease, box-shadow 0.18s ease;
+  transition: background-color 0.18s ease, box-shadow 0.18s ease;
 }
 
 .phone-mood-status-button:hover {
   background: rgba(255, 255, 255, 0.08);
   box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.1);
-  transform: translateY(-1px);
 }
 
 .phone-mood-status-button.online {
   background: transparent;
-}
-
-.roleplay-phone-device.landscape .phone-mood-status-button {
-  top: 7px;
-  right: 104px;
-  width: 22px;
-  height: 22px;
 }
 
 .phone-mood-status-dot {
@@ -53,7 +79,7 @@
 .phone-mood-status-menu {
   position: absolute;
   top: 38px;
-  right: 66px;
+  right: 14px;
   display: grid;
   grid-template-columns: repeat(4, 1fr);
   gap: 8px;
@@ -73,8 +99,8 @@
 }
 
 .roleplay-phone-device.landscape .phone-mood-status-menu {
-  top: 42px;
-  right: 66px;
+  top: 32px;
+  right: 14px;
   width: 236px;
   grid-template-columns: repeat(4, 1fr);
   gap: 7px;
@@ -137,6 +163,32 @@
   font-size: 21px;
 }
 
+/* Grouped-list divider: each labeled group reads as a section of one card,
+   separated by a hairline rule, instead of floating label+control pairs. */
+.phone-desktop-settings-label {
+  position: relative;
+  margin-top: 6px;
+  padding-top: 10px;
+}
+
+.phone-desktop-settings-label:first-of-type {
+  margin-top: 0;
+  padding-top: 0;
+}
+
+.phone-desktop-settings-label:not(:first-of-type)::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: -12px;
+  right: -12px;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.roleplay-phone-screen .phone-desktop-wallpaper-option.active {
+  border-color: var(--accent);
+}
+
 .phone-desktop-settings-grabber {
   grid-column: 1 / -1;
   justify-self: center;
@@ -153,63 +205,149 @@
   margin-bottom: 0;
 }
 
-.phone-desktop-widget-options {
-  grid-column: 1 / -1;
+/* Settings trigger lives inline in the status bar's tray slot, next to the
+   mood icon and the battery readout — real system-tray chrome, not a
+   floating action button over the wallpaper. */
+.phone-desktop-settings-button {
+  order: 3;
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 9px;
-}
-
-.phone-desktop-icon-size-options button,
-.phone-desktop-widget-options button {
-  min-height: 48px;
-  padding: 8px;
+  width: 19px;
+  height: 19px;
+  place-items: center;
+  padding: 0;
   border: 0;
-  border-radius: 18px;
-  color: var(--soft-white);
-  background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.13), rgba(255, 255, 255, 0.05)),
-    rgba(255, 255, 255, 0.1);
-  font-size: 11px;
-  font-weight: 700;
-  text-align: center;
+  border-radius: 50%;
+  color: rgba(255, 255, 255, 0.94);
+  background: transparent;
+  box-shadow: none;
   cursor: pointer;
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.14);
-  transition: background-color 0.18s ease, transform 0.18s ease;
 }
 
-.phone-desktop-widget-options button {
-  min-height: 48px;
-  padding-inline: 8px;
+.phone-desktop-settings-button:hover {
+  background: rgba(255, 255, 255, 0.08);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.1);
 }
 
-.phone-desktop-icon-size-options button:hover,
-.phone-desktop-widget-options button:hover {
-  background: rgba(255, 255, 255, 0.16);
-  transform: translateY(-1px);
+.phone-desktop-settings-button svg {
+  width: 13px;
+  height: 13px;
 }
 
-.phone-desktop-icon-size-options button.active,
-.phone-desktop-widget-options button.active {
-  background:
-    linear-gradient(180deg, rgba(106, 129, 255, 0.82), rgba(59, 88, 210, 0.76)),
-    rgba(66, 91, 202, 0.72);
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.34),
-    0 8px 20px rgba(76, 84, 255, 0.24);
+.phone-desktop-settings-menu {
+  position: absolute;
+  top: 38px;
+  right: 14px;
+  max-height: calc(100% - 60px);
+  overflow-y: auto;
+  pointer-events: auto;
 }
 
-.roleplay-phone-device.landscape .phone-desktop-widget-options {
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 7px;
+/* Icon Size / Orientation: a single pill track with segments, not separate
+   button cards — matches the mutually-exclusive-choice control phone OSes
+   use (segmented control), rather than a grid of standalone buttons. */
+.phone-desktop-icon-size-options {
+  grid-column: 1 / -1;
+  display: flex;
+  gap: 2px;
+  padding: 3px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.06);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.08);
 }
 
-.roleplay-phone-device.landscape .phone-desktop-icon-size-options button,
-.roleplay-phone-device.landscape .phone-desktop-widget-options button {
+.phone-desktop-icon-size-options button {
+  flex: 1;
+  display: grid;
+  place-items: center;
   min-height: 38px;
   padding: 6px;
+  border: 0;
+  border-radius: 999px;
+  color: var(--soft-white);
+  background: transparent;
+  cursor: pointer;
+  box-shadow: none;
+  transition: background-color 0.18s ease, color 0.18s ease;
+}
+
+.phone-desktop-icon-size-options button:hover {
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.phone-desktop-icon-size-options button.active {
+  color: #fff;
+  background: var(--accent);
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.28);
+}
+
+/* Widgets: independent booleans, so each is a labeled row with a real
+   toggle switch (::after track + radial-gradient knob) instead of a grid
+   of filled pill buttons. */
+.phone-desktop-widget-options {
+  grid-column: 1 / -1;
+  display: flex;
+  flex-direction: column;
   border-radius: 14px;
-  font-size: 10px;
+  background: rgba(255, 255, 255, 0.04);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.06);
+  overflow: hidden;
+}
+
+.phone-desktop-widget-options button {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  width: 100%;
+  min-height: 40px;
+  padding: 9px 12px;
+  border: 0;
+  border-radius: 0;
+  color: var(--soft-white);
+  background: transparent;
+  font-size: 12px;
+  font-weight: 600;
+  text-align: left;
+  cursor: pointer;
+  box-shadow: none;
+  transition: background-color 0.18s ease;
+}
+
+.phone-desktop-widget-options button:not(:last-child) {
+  box-shadow: inset 0 -1px 0 rgba(255, 255, 255, 0.08);
+}
+
+.phone-desktop-widget-options button:hover {
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.phone-desktop-widget-options button::after {
+  content: "";
+  flex: none;
+  width: 30px;
+  height: 18px;
+  border-radius: 999px;
+  background:
+    radial-gradient(circle 6.5px at 8.5px 9px, #fff 98%, transparent 100%),
+    rgba(255, 255, 255, 0.18);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.12);
+  transition: background-color 0.18s ease;
+}
+
+.phone-desktop-widget-options button.active::after {
+  background:
+    radial-gradient(circle 6.5px at 21.5px 9px, #fff 98%, transparent 100%),
+    var(--accent);
+}
+
+.roleplay-phone-device.landscape .phone-desktop-widget-options button {
+  min-height: 36px;
+  padding: 8px 10px;
+  font-size: 11px;
+}
+
+.roleplay-phone-device.landscape .phone-desktop-icon-size-options button {
+  min-height: 34px;
 }
 
 .phone-settings-size-symbol {
@@ -333,7 +471,7 @@
   position: absolute;
   inset: 0;
   z-index: 29;
-  background-image: url("./assets/phone/phone-glass-reflection.png");
+  background-image: url("../assets/phone/phone-glass-reflection.png");
   background-repeat: no-repeat;
   background-position: center;
   background-size: 100% 100%;
@@ -348,7 +486,7 @@
   inset: 0;
   z-index: 30;
   border-radius: inherit;
-  background-image: url("./assets/phone/phone-glass-details.png");
+  background-image: url("../assets/phone/phone-glass-details.png");
   background-repeat: no-repeat;
   background-position: center;
   background-size: 100% 100%;
@@ -418,14 +556,6 @@
   filter: brightness(.7);
 }
 
-.roleplay-phone-device.landscape .phone-desktop {
-  --phone-grid-gap: 12px;
-  --phone-cell-w: calc(var(--phone-icon) + 8px);
-  --phone-cell-h: calc(var(--phone-icon) + 20px);
-  justify-content: start;
-  padding: 50px 34px 30px;
-}
-
 .roleplay-phone-device.landscape .phone-clock-widget strong {
   font-size: 42px;
 }
@@ -435,36 +565,25 @@
   font-size: 12px;
 }
 
+/* Single consolidated landscape override (previously two back-to-back blocks
+   targeting the same selector, several properties re-declared with different
+   values between them — leftover from an incomplete edit). The overlay layer
+   this menu portals into is `inset: 5px` on the 430px-tall landscape device,
+   i.e. a 420px-tall box; top:32px + max-height:calc(100% - 62px) = 358px
+   keeps the menu's own box bottom edge at 390px, inside that 420px box, so
+   it's never clipped by `.roleplay-phone-device { overflow: hidden; }`. The
+   menu's real content (wallpaper grid + icon-size control + orientation
+   control + widget-visibility list) runs taller than the 358px box, which is
+   why `overflow-y: auto` (inherited from the base rule) is load-bearing here
+   — content scrolls inside the menu rather than being clipped by the device. */
 .roleplay-phone-device.landscape .phone-desktop-settings-menu {
-  width: auto;
-  max-height: calc(100% - 62px);
-  gap: 10px;
-  padding: 12px 14px 14px;
-  border-radius: 24px;
-  transform: none;
-  transform-origin: top right;
-}
-
-.roleplay-phone-device.landscape .phone-desktop-settings {
-  top: 0;
-  right: 0;
-  left: 0;
-  bottom: 0;
-}
-
-.roleplay-phone-device.landscape .phone-desktop-settings-button {
-  width: 22px;
-  height: 22px;
-}
-
-.roleplay-phone-device.landscape .phone-desktop-settings-menu {
-  top: 42px;
-  right: 18px;
+  top: 32px;
+  right: 14px;
   left: auto;
-  grid-template-columns: repeat(4, 48px);
-  gap: 8px;
   width: 232px;
   max-height: calc(100% - 62px);
+  grid-template-columns: repeat(4, 48px);
+  gap: 8px;
   padding: 10px;
   border-radius: 22px;
   background:
@@ -476,8 +595,14 @@
 }
 
 .roleplay-phone-device.landscape .phone-desktop-settings-label {
-  margin-top: 0;
+  margin-top: 4px;
+  padding-top: 6px;
   font-size: 9px;
+}
+
+.roleplay-phone-device.landscape .phone-desktop-settings-label:first-of-type {
+  margin-top: 0;
+  padding-top: 0;
 }
 
 .roleplay-phone-device.landscape .phone-desktop-wallpaper-options {
@@ -495,11 +620,6 @@
 .roleplay-phone-device.landscape .phone-desktop-wallpaper-gallery svg {
   width: 18px;
   height: 18px;
-}
-
-.roleplay-phone-device.landscape .phone-desktop-icon-size-options {
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 7px;
 }
 
 .roleplay-phone-device {
@@ -566,7 +686,7 @@
 
 .roleplay-phone-device.landscape .roleplay-phone-status {
   height: 34px;
-  padding: 6px 50px 6px 28px;
+  padding: 6px 16px 6px 28px;
   border-radius: 38px 38px 0 0;
   font-size: 11px;
 }
@@ -577,13 +697,13 @@
 }
 
 .roleplay-phone-device.landscape .roleplay-phone-screen::after {
-  background-image: url("./assets/phone/phone-glass-details-landscape.png");
+  background-image: url("../assets/phone/phone-glass-details-landscape.png");
   mix-blend-mode: lighten;
   opacity: 0.62;
 }
 
 .roleplay-phone-device.landscape .roleplay-phone-screen::before {
-  background-image: url("./assets/phone/phone-glass-reflection-landscape.png");
+  background-image: url("../assets/phone/phone-glass-reflection-landscape.png");
   opacity: 0.52;
 }
 
@@ -592,17 +712,31 @@
   border-radius: 39px;
 }
 
+/* Grid vars solved against the real 932x430 landscape design canvas instead
+   of guessed: screen content width at this size is 846px (device 932 minus
+   its own 5px padding/2px border per side, minus the screen's own 12px side
+   padding, minus this rule's own 24px side padding) and content height is
+   310px (device height 430 minus device chrome, minus the screen's 34/12px
+   top/bottom padding, minus this rule's own 12/14px top/bottom padding).
+   With --phone-cell-w:58px / --phone-grid-gap:10px, auto-fill packs 12
+   columns into 846px (806px used, 40px symmetric slack) instead of the
+   previous fixed `repeat(8, ...)` — which only filled 562px, leaving ~280px
+   of dead space down the right side, AND disagreed with `desktopWidgetBounds`
+   in PhonePanel.tsx (which already assumed 10 usable columns, itself now
+   updated to match these 12). At --phone-cell-h:70px the same gap fits
+   exactly 4 rows into 310px (280 + 30 = 310) instead of overflowing past the
+   available height as the old 14px gap did (280 + 42 = 322, i.e. clipped by
+   `.phone-desktop`'s own `overflow: hidden`). */
 .roleplay-phone-device.landscape .roleplay-phone-screen .phone-desktop {
   --phone-icon: 46px;
-  --phone-grid-gap: 14px;
+  --phone-grid-gap: 10px;
   --phone-cell-w: 58px;
   --phone-cell-h: 70px;
-  grid-template-columns: repeat(8, var(--phone-cell-w));
   grid-auto-columns: var(--phone-cell-w);
   grid-auto-rows: var(--phone-cell-h);
   justify-content: center;
   align-content: start;
-  padding: 18px 28px 26px;
+  padding: 12px 24px 14px;
 }
 
 .roleplay-phone-device.landscape .phone-desktop-app {
@@ -631,6 +765,6 @@
 }
 
 .roleplay-phone-device.landscape .phone-desktop-widget {
-  padding: 9px 10px;
+  padding: 7px 9px;
   border-radius: 14px;
 }

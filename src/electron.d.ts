@@ -308,6 +308,9 @@ declare global {
           | 'controlnet'
           | 'upscale_models';
       }) => Promise<string[]>;
+      listComfySamplersAndSchedulers: (request: {
+        baseUrl: string;
+      }) => Promise<{ samplers: string[]; schedulers: string[] }>;
       inspectComfyWorkflow: (request: {
         workflowPath: string;
         role?: 'image' | 'voice';
@@ -375,6 +378,7 @@ declare global {
         vaeName?: string;
         textEncoderName?: string;
         steps?: number;
+        cfg?: number;
         sampler?: string;
         scheduler?: string;
         loraSlots?: Array<{

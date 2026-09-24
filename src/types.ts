@@ -77,6 +77,7 @@ export type ConnectionPreset = {
   comfyTextEncoderName?: string;
   comfyLoraSlots?: ComfyLoraSlot[];
   comfySteps?: number;
+  comfyCfg?: number;
   comfySampler?: string;
   comfyScheduler?: string;
   reasoningEffort?: ConnectionReasoningEffort;

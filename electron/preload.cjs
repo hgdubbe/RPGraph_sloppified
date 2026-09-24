@@ -212,6 +212,7 @@ contextBridge.exposeInMainWorld('rpgraph', {
   freeComfyMemory: (request) => ipcRenderer.invoke('comfy:free-memory', request),
   checkComfyConnection: (request) => ipcRenderer.invoke('comfy:check-connection', request),
   listComfyModels: (request) => ipcRenderer.invoke('comfy:list-models', request),
+  listComfySamplersAndSchedulers: (request) => ipcRenderer.invoke('comfy:list-sampler-schedulers', request),
   inspectComfyWorkflow: (request) => ipcRenderer.invoke('comfy:inspect-workflow', request),
   repairComfyWorkflow: (request) => ipcRenderer.invoke('comfy:repair-workflow', request),
   applyComfyWorkflowRepair: (request) => ipcRenderer.invoke('comfy:apply-workflow-repair', request),

@@ -56,6 +56,7 @@ import {
   defaultComfyHeight,
   defaultComfyLoraSlots,
   defaultComfyPrompt,
+  defaultComfyCfg,
   defaultComfySampler,
   defaultComfyScheduler,
   defaultComfySteps,
@@ -93,6 +94,8 @@ type AvailableComfyModels = {
   vae: string[];
   text_encoders: string[];
   diffusion_models: string[];
+  samplers: string[];
+  schedulers: string[];
 };
 
 const recommendedOpenRouterTtsModel = 'google/gemini-3.1-flash-tts-preview';
@@ -176,6 +179,8 @@ export function useProviderConnections({
     vae: [],
     text_encoders: [],
     diffusion_models: [],
+    samplers: [],
+    schedulers: [],
   });
   const [comfyWorkflowInspection, setComfyWorkflowInspection] = useState<ComfyWorkflowInspection | null>(null);
   const [pendingComfyWorkflowRepair, setPendingComfyWorkflowRepair] = useState<{
@@ -290,6 +295,8 @@ export function useProviderConnections({
       vae: [],
       text_encoders: [],
       diffusion_models: [],
+      samplers: [],
+      schedulers: [],
     });
     setComfyWorkflowInspection(null);
     setPendingComfyWorkflowRepair(null);
@@ -336,6 +343,8 @@ export function useProviderConnections({
       vae: [],
       text_encoders: [],
       diffusion_models: [],
+      samplers: [],
+      schedulers: [],
     });
     setComfyWorkflowInspection(null);
     setPendingComfyWorkflowRepair(null);
@@ -367,6 +376,8 @@ export function useProviderConnections({
       vae: [],
       text_encoders: [],
       diffusion_models: [],
+      samplers: [],
+      schedulers: [],
     });
     setComfyWorkflowInspection(null);
     setPendingComfyWorkflowRepair(null);
@@ -426,6 +437,8 @@ export function useProviderConnections({
       vae: [],
       text_encoders: [],
       diffusion_models: [],
+      samplers: [],
+      schedulers: [],
     });
     setComfyWorkflowInspection(null);
     setPendingComfyWorkflowRepair(null);
@@ -1524,12 +1537,14 @@ export function useProviderConnections({
         vae,
         textEncoders,
         diffusionModels,
+        samplerSchedulerOptions,
       ] = await Promise.all([
         window.rpgraph.listComfyModels({ baseUrl: connection.baseUrl, category: 'checkpoints' }),
         window.rpgraph.listComfyModels({ baseUrl: connection.baseUrl, category: 'loras' }),
         window.rpgraph.listComfyModels({ baseUrl: connection.baseUrl, category: 'vae' }),
         window.rpgraph.listComfyModels({ baseUrl: connection.baseUrl, category: 'text_encoders' }),
         window.rpgraph.listComfyModels({ baseUrl: connection.baseUrl, category: 'diffusion_models' }),
+        window.rpgraph.listComfySamplersAndSchedulers({ baseUrl: connection.baseUrl }),
       ]);
       setAvailableComfyModels({
         checkpoints,
@@ -1537,6 +1552,8 @@ export function useProviderConnections({
         vae,
         text_encoders: textEncoders,
         diffusion_models: diffusionModels,
+        samplers: samplerSchedulerOptions.samplers,
+        schedulers: samplerSchedulerOptions.schedulers,
       });
       setEditingConnection(connection);
       const total = checkpoints.length + loras.length + vae.length + textEncoders.length + diffusionModels.length;
@@ -1568,6 +1585,8 @@ export function useProviderConnections({
         vae: [],
         text_encoders: [],
         diffusion_models: [],
+        samplers: [],
+        schedulers: [],
       });
       updateProviderHealth(connection.id, {
         status: 'offline',
@@ -1830,6 +1849,7 @@ export function useProviderConnections({
         vaeName: connection.comfyVaeName ?? defaultComfyVaeName,
         textEncoderName: connection.comfyTextEncoderName ?? defaultComfyTextEncoderName,
         steps: connection.comfySteps ?? defaultComfySteps,
+        cfg: connection.comfyCfg ?? defaultComfyCfg,
         sampler: connection.comfySampler ?? defaultComfySampler,
         scheduler: connection.comfyScheduler ?? defaultComfyScheduler,
         loraSlots: runtimeComfyLoraSlots(connection.comfyLoraSlots ?? defaultComfyLoraSlots),
@@ -1936,6 +1956,7 @@ export function useProviderConnections({
       vaeName: connection.comfyVaeName ?? defaultComfyVaeName,
       textEncoderName: connection.comfyTextEncoderName ?? defaultComfyTextEncoderName,
       steps: connection.comfySteps ?? defaultComfySteps,
+      cfg: connection.comfyCfg ?? defaultComfyCfg,
       sampler: connection.comfySampler ?? defaultComfySampler,
       scheduler: connection.comfyScheduler ?? defaultComfyScheduler,
       loraSlots: characterComfyLoraSlots(connection.comfyLoraSlots ?? defaultComfyLoraSlots, request.loraName),
@@ -2003,6 +2024,7 @@ export function useProviderConnections({
           vaeName: connection.comfyVaeName ?? defaultComfyVaeName,
           textEncoderName: connection.comfyTextEncoderName ?? defaultComfyTextEncoderName,
           steps: connection.comfySteps ?? defaultComfySteps,
+          cfg: connection.comfyCfg ?? defaultComfyCfg,
           sampler: connection.comfySampler ?? defaultComfySampler,
           scheduler: connection.comfyScheduler ?? defaultComfyScheduler,
           loraSlots: characterComfyLoraSlots(
@@ -2517,6 +2539,8 @@ export function useProviderConnections({
       vae: [],
       text_encoders: [],
       diffusion_models: [],
+      samplers: [],
+      schedulers: [],
     });
     setComfyWorkflowInspection(null);
     setPendingComfyWorkflowRepair(null);
@@ -2624,6 +2648,8 @@ export function useProviderConnections({
         vae: [],
         text_encoders: [],
         diffusion_models: [],
+        samplers: [],
+        schedulers: [],
       });
       setComfyWorkflowInspection(null);
       setPendingComfyWorkflowRepair(null);

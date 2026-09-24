@@ -8,8 +8,24 @@
   background: transparent;
 }
 
+/* Landscape phone: wide and short, so it wastes width sitting beside a
+   narrow chat column. Stack it above the chat pane instead — full width,
+   height driven by the landscape aspect ratio against the container's
+   width rather than its height. */
 .studio-shell-play .roleplay-dual-pane:has(.roleplay-phone-stage.landscape) {
-  grid-template-columns: minmax(0, min(58%, calc(100cqh * 932 / 430))) minmax(0, 1fr);
+  grid-template-columns: 1fr;
+  grid-template-rows: minmax(0, min(62%, calc(100cqw * 430 / 932))) minmax(0, 1fr);
+  gap: 14px;
+}
+
+.studio-shell-play .roleplay-dual-pane:has(.roleplay-phone-stage.landscape) .roleplay-phone-stage {
+  grid-column: 1;
+  grid-row: 1;
+}
+
+.studio-shell-play .roleplay-dual-pane:has(.roleplay-phone-stage.landscape) .roleplay-chat-pane {
+  grid-column: 1;
+  grid-row: 2;
 }
 
 .roleplay-phone-stage {
@@ -33,7 +49,7 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 9px 58px 9px 24px;
+  padding: 9px 14px 9px 24px;
   height: 43px;
   box-sizing: border-box;
   font: 600 12px system-ui;

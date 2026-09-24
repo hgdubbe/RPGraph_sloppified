@@ -363,6 +363,7 @@ export const defaultComfyDiffusionModelName = '';
 export const defaultComfyVaeName = '';
 export const defaultComfyTextEncoderName = '';
 export const defaultComfySteps = 0;
+export const defaultComfyCfg = 0;
 export const defaultComfySampler = '';
 export const defaultComfyScheduler = '';
 export const comfyCharacterLoraName = 'Character LoRA';
@@ -454,6 +455,13 @@ function validComfySteps(value: unknown, fallback: number) {
     return fallback;
   }
   return Math.min(150, Math.max(1, Math.round(value)));
+}
+
+function validComfyCfg(value: unknown, fallback: number) {
+  if (typeof value !== 'number' || !Number.isFinite(value) || value <= 0) {
+    return fallback;
+  }
+  return Math.min(30, Math.max(0.1, Math.round(value * 10) / 10));
 }
 
 function validComfyStrength(value: unknown, fallback = 1) {
@@ -591,6 +599,9 @@ function normalizedConnectionPreset(connection: ConnectionPreset): ConnectionPre
       : undefined,
     comfySteps: isComfyImage
       ? validComfySteps(connection.comfySteps, defaultComfySteps)
+      : undefined,
+    comfyCfg: isComfyImage
+      ? validComfyCfg(connection.comfyCfg, defaultComfyCfg)
       : undefined,
     comfySampler: isComfyImage
       ? validComfyModelName(connection.comfySampler, defaultComfySampler)
