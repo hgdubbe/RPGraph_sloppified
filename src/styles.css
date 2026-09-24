@@ -5447,7 +5447,7 @@ input[type="number"]::-webkit-outer-spin-button {
 }
 
 .npc-library-dialog h2, .npc-library-dialog h3, .npc-library-dialog p { margin: 0; }
-.npc-library-dialog button, .npc-library-dialog select {
+.npc-library-dialog button, .npc-library-dialog select, .npc-library-dialog input {
   border: 1px solid var(--line);
   border-radius: 8px;
   padding: 9px 12px;
@@ -5460,7 +5460,7 @@ input[type="number"]::-webkit-outer-spin-button {
 .npc-library-dialog button:hover:not(:disabled):not([aria-disabled="true"]) { background: #263149; border-color: var(--accent); }
 .npc-library-dialog .primary { border-color: color-mix(in srgb, var(--accent) 55%, var(--line)); background: color-mix(in srgb, var(--accent) 10%, var(--surface)); }
 .npc-library-dialog button:disabled, .npc-library-dialog [aria-disabled="true"] { opacity: 0.45; cursor: default; }
-.npc-library-dialog :is(button, select, summary):focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
+.npc-library-dialog :is(button, input, select, summary):focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
 
 .npc-library-dialog button.npc-library-playable-button {
   display: inline-flex;
@@ -5585,6 +5585,10 @@ input[type="number"]::-webkit-outer-spin-button {
 .npc-library-sidebar h2 { font-size: 22px; }
 .npc-library-sidebar h3 { font-size: 12px; margin-bottom: 14px; }
 .npc-library-sidebar p { font-size: 11px; color: var(--muted); line-height: 1.6; margin-top: 6px; }
+.npc-library-search { display: grid; gap: 7px; }
+.npc-library-search label { color: #aeb9cf; font-size: 11px; font-weight: 700; }
+.npc-library-search input { width: 100%; min-width: 0; cursor: text; }
+.npc-library-search small { color: var(--muted); font-size: 10px; }
 .npc-library-dialog .dialog-close { padding: 0 2px; background: transparent; border: 0; font-size: 24px; line-height: 1; color: var(--muted); }
 .npc-library-actions { display: grid; gap: 9px; }
 .npc-library-statistics { border-top: 1px solid var(--line); padding-top: 22px; }
@@ -20196,6 +20200,23 @@ button.message-timeline-row.phone:focus-visible {
   border-radius: 18px;
   background: #111722;
   box-shadow: 0 22px 80px rgba(0, 0, 0, 0.55);
+}
+
+.text-dialog.node-text-dialog:not(.compression-text-dialog, .history-text-dialog, .character-stats-chart-text-dialog) {
+  width: min(864px, calc(100vw - 40px));
+  max-height: calc(100vh - 40px);
+  display: flex;
+  flex-direction: column;
+}
+
+.text-dialog.node-text-dialog:not(.compression-text-dialog, .history-text-dialog, .character-stats-chart-text-dialog) .text-form {
+  min-height: 0;
+}
+
+.text-dialog.node-text-dialog:not(.compression-text-dialog, .history-text-dialog, .character-stats-chart-text-dialog) .text-form textarea {
+  field-sizing: content;
+  max-height: calc(100vh - 210px);
+  overflow-y: auto;
 }
 
 .compression-text-dialog {

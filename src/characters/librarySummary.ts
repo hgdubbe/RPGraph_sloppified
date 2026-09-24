@@ -1,4 +1,4 @@
-import { normalizeCharacterApps, type Character } from './character';
+import { migratedProfileName, normalizeCharacterApps, type Character } from './character';
 import { withPublicationSnapshot } from './publications';
 import { characterContentEqual } from './contentComparison';
 import type { SocialPostRecord } from '../types';
@@ -58,6 +58,28 @@ export function characterLibrarySummary(character: Character) {
   const words = character.name.trim().split(/\s+/).filter(Boolean);
   const initials = [words[0]?.[0], words.length > 1 ? words[words.length - 1]?.[0] : ''].join('').toUpperCase() || '?';
   return { apps, used, unused: galleryIds.size - used, initials };
+}
+
+function normalizedLibrarySearchValue(value: string) {
+  return value.normalize('NFKC').trim().replace(/^@+/, '').toLocaleLowerCase();
+}
+
+/** Match the authored character name or any current and legacy social profile name. */
+export function characterMatchesLibrarySearch(character: Character, query: string) {
+  const needle = normalizedLibrarySearchValue(query);
+  if (!needle) return true;
+  const apps = characterLibrarySummary(character).apps;
+  const aliases = [
+    character.name,
+    ...Object.values(apps).flatMap((account) => account ? [
+      migratedProfileName(account, character.name),
+      account.profileName,
+      account.username,
+      account.displayName,
+      ...(account.legacyHandles ?? []),
+    ] : []),
+  ];
+  return aliases.some((alias) => normalizedLibrarySearchValue(alias ?? '').includes(needle));
 }
 
 /** Display the same whole-container winner as the registry; retain ambiguous files for diagnostics. */

@@ -1673,7 +1673,7 @@ export function StudioDialogs({
         >
           <section
             ref={activeDialog === 'text' ? activeDialogRef : undefined}
-            className={`text-dialog${isCompressionDialog ? ' compression-text-dialog' : ''}${isHistoryDialog ? ' history-text-dialog' : ''}${isCharacterStatsChartDialog ? ' character-stats-chart-text-dialog' : ''}`}
+            className={`text-dialog node-text-dialog${isCompressionDialog ? ' compression-text-dialog' : ''}${isHistoryDialog ? ' history-text-dialog' : ''}${isCharacterStatsChartDialog ? ' character-stats-chart-text-dialog' : ''}`}
             role="dialog"
             aria-modal={activeDialog === 'text'}
             aria-hidden={activeDialog !== 'text'}
