@@ -383,6 +383,9 @@ type PhonePanelProps = {
   onSetImageAssistantLlmModelLoaded: (providerId: string, loaded: boolean) => Promise<void>;
   onUnloadImageAssistantComfyModel: (providerId: string) => Promise<void>;
   onRefreshImageAssistantModelState: (providerId: string) => void;
+  phoneThemeOptions: Array<{ id: string; label: string }>;
+  activePhoneThemeId: string;
+  onPhoneThemeChange: (themeId: string) => void;
 };
 
 export function PhonePanel({
@@ -514,6 +517,9 @@ export function PhonePanel({
   onSetImageAssistantLlmModelLoaded,
   onUnloadImageAssistantComfyModel,
   onRefreshImageAssistantModelState,
+  phoneThemeOptions,
+  activePhoneThemeId,
+  onPhoneThemeChange,
 }: PhonePanelProps) {
   const { request: accountLinkRequest } = useContext(AccountLinkContext);
   const accountLinkScreen = accountLinkRequest?.app === 'matchme' ? 'plottwist' : accountLinkRequest?.app;
@@ -1274,6 +1280,21 @@ export function PhonePanel({
               </button>
             ))}
           </div>
+          <span className="phone-desktop-settings-label">Theme</span>
+          <label className="phone-desktop-theme-row">
+            <select
+              className="phone-desktop-theme-select"
+              aria-label="Theme"
+              value={activePhoneThemeId}
+              onChange={(event) => onPhoneThemeChange(event.target.value)}
+            >
+              {phoneThemeOptions.map((theme) => (
+                <option key={theme.id} value={theme.id}>
+                  {theme.label}
+                </option>
+              ))}
+            </select>
+          </label>
           {
             // eslint-disable-next-line react-hooks/refs -- reads `available` only, closures run in handlers
             desktopWidgets.some((widget) => widget.available) && (

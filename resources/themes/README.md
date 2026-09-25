@@ -177,7 +177,7 @@ not complete colors. This is the one place where the value format is unusual.
 ### `tokens.raw`
 
 The `raw` namespace exposes repeated, low-level CSS literals that do not have a
-semantic role, such as a rare overlay or a physical phone-bezel highlight. Their names
+semantic role, such as a rare overlay or focus-outline tint. Their names
 look like `vrgba255255255005` or `v131b28`, because they are generated from the original
 literal. They are optional and preserve the original CSS fallback when omitted. Use
 them only when you deliberately want to retint one of those fixed details; prefer the

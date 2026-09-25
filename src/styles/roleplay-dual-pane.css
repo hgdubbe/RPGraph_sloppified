@@ -40,6 +40,11 @@
   min-height: 0;
 }
 
+/* Status bar and home button are phone hardware, like the bezel in
+   phone-device.css — plain literals, not var(--theme-raw-...) wrappers, so
+   nothing in a theme.json can ever repaint them (see the note on
+   .roleplay-phone-device in phone-device.css for how these var() wrappers
+   got here in the first place). */
 .roleplay-phone-status {
   position: absolute;
   top: 5px;
@@ -55,8 +60,8 @@
   font: 600 12px system-ui;
   border-radius: 48px 48px 0 0;
   background:
-    linear-gradient(180deg, var(--theme-raw-vrgba2552552550045, rgba(255, 255, 255, 0.045)), transparent 68%),
-    var(--theme-raw-v020203, #020203);
+    linear-gradient(180deg, rgba(255, 255, 255, 0.045), transparent 68%),
+    #020203;
 }
 
 .roleplay-phone-status i {
@@ -64,12 +69,12 @@
   height: 26px;
   border-radius: 22px;
   background:
-    radial-gradient(circle at 78% 50%, var(--theme-raw-vrgba283554095, rgba(28, 35, 54, 0.95)) 0 4px, transparent 5px),
-    linear-gradient(90deg, var(--theme-raw-v000, #000), var(--theme-raw-v030304, #030304) 60%, var(--theme-raw-v111116, #111116));
+    radial-gradient(circle at 78% 50%, rgba(28, 35, 54, 0.95) 0 4px, transparent 5px),
+    linear-gradient(90deg, #000, #030304 60%, #111116);
   box-shadow:
-    inset 0 1px 1px var(--theme-raw-vrgba2552552550045, rgba(255, 255, 255, 0.045)),
-    inset -12px 0 0 -7px var(--theme-raw-v171821, #171821),
-    0 0 0 1px var(--theme-raw-vrgba2552552550035, rgba(255, 255, 255, 0.035));
+    inset 0 1px 1px rgba(255, 255, 255, 0.045),
+    inset -12px 0 0 -7px #171821,
+    0 0 0 1px rgba(255, 255, 255, 0.035);
 }
 
 .roleplay-phone-home {
@@ -94,13 +99,13 @@
   width: 10px;
   height: 10px;
   border-radius: 50%;
-  background: var(--theme-raw-vrgba25525525509, rgba(255, 255, 255, 0.9));
-  box-shadow: 0 0 0 6px var(--theme-raw-vrgba255255255008, rgba(255, 255, 255, 0.08));
+  background: rgba(255, 255, 255, 0.9);
+  box-shadow: 0 0 0 6px rgba(255, 255, 255, 0.08);
   transition: transform 150ms ease, box-shadow 150ms ease;
 }
 
 .roleplay-phone-home:active span {
-  box-shadow: 0 0 0 9px var(--theme-raw-vrgba255255255013, rgba(255, 255, 255, 0.13));
+  box-shadow: 0 0 0 9px rgba(255, 255, 255, 0.13);
   transform: scale(0.82);
 }
 

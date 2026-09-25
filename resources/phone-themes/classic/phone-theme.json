@@ -1,0 +1,20 @@
+{
+  "id": "classic",
+  "label": "Classic",
+  "extends": "base",
+  "order": 1,
+  "tokens": {
+    "phoneHome": {
+      "scrim": "#050710",
+      "accent": "#79d8ef",
+      "accentStrong": "#a277ff",
+      "clockBackground": "#101421",
+      "clockText": "#f4f7ff",
+      "widgetBackground": "#101421",
+      "label": "#f4f7ff",
+      "badge": "#f15bb5",
+      "badgeBanking": "#ff6b6b",
+      "online": "#68e08e"
+    }
+  }
+}

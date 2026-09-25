@@ -18,6 +18,7 @@ import type { RpCharacterCard } from './storybook/characterCard';
 import type { RpgraphSessionV2 } from './data-management/types';
 import type { NpcLibrarySnapshot } from './characters/npcLibrary';
 import type { ThemeLibrarySnapshot } from './app/themeLibrary.browser';
+import type { PhoneHomeThemeLibrarySnapshot } from './app/phoneHomeThemeLibrary.browser';
 
 type SelectedImageFile = {
   name: string;
@@ -123,6 +124,10 @@ declare global {
       reloadThemeLibrary: () => Promise<ThemeLibrarySnapshot>;
       onThemeLibraryChanged: (callback: () => void) => () => void;
       openThemeLibraryFolder: () => Promise<{ path: string }>;
+      getPhoneHomeThemeLibrary: () => Promise<PhoneHomeThemeLibrarySnapshot>;
+      reloadPhoneHomeThemeLibrary: () => Promise<PhoneHomeThemeLibrarySnapshot>;
+      onPhoneHomeThemeLibraryChanged: (callback: () => void) => () => void;
+      openPhoneHomeThemeLibraryFolder: () => Promise<{ path: string }>;
       saveNamedWorkflow: (
         name: string,
         workflow: WorkflowFile,

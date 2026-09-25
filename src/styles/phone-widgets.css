@@ -28,7 +28,7 @@
 .phone-clock-widget {
   padding: 16px 24px;
   border: 1px solid color-mix(in srgb, var(--theme-phone-home-accent, #b8a8ea) 22%, rgba(255, 255, 255, 0.16));
-  border-radius: 24px;
+  border-radius: var(--theme-phone-home-card-radius, 24px);
   background:
     linear-gradient(160deg, rgba(255, 255, 255, 0.1), transparent 60%),
     color-mix(in srgb, var(--theme-phone-home-clock-background, #0a0b12) 46%, transparent);
@@ -60,7 +60,7 @@
   gap: 4px;
   padding: 12px 16px;
   border: 1px solid color-mix(in srgb, var(--theme-phone-home-accent, #b8a8ea) 16%, rgba(255, 255, 255, 0.16));
-  border-radius: 20px;
+  border-radius: var(--theme-phone-home-card-radius, 20px);
   color: rgba(255, 255, 255, 0.96);
   background:
     linear-gradient(145deg, rgba(255, 255, 255, 0.2), rgba(10, 13, 27, 0.22)),
@@ -357,6 +357,85 @@
    "design the peak" guidance for the primary action on this
    screen: opening an app). */
 
+/* Icon shape/coloring overrides below all use the `.phone-desktop-app >
+   .phone-X-icon` / `.phone-desktop-dock-app > .phone-X-icon` compound form
+   (covering both the main icon grid and the bottom dock, which reuses the
+   same icon glyph classes), NOT the bare `.phone-X-icon` class alone. Five
+   of these nine classes — gallery/banking/fotogram/notes/chatgpd — collide
+   with a same-named, differently-scoped rule in that app's OWN stylesheet
+   (`phone-gallery.css`, `phone-banking.css`, `phone-social.css`,
+   `phone-notes.css`, `phone-chatgpd.css` each define their own
+   `.phone-<app>-icon` background/border, tied to that app's *own*
+   `phoneBanking.*`/etc in-app-theme namespace — a real, pre-existing,
+   coincidental class-name reuse, not a bug to "fix" there). Those files
+   load after this one in `src/styles/index.css`, so at equal specificity
+   they would silently win and this override would never visibly apply —
+   confirmed by hand while building this feature. The two-class compound
+   selector has higher specificity than their plain one-class selector,
+   which settles it regardless of import order, past or future. */
+
+/* Shape: every app icon shares one radius, so this is a single override
+   with a literal fallback (28%, the shipped default). */
+.phone-desktop-app > .phone-whatsup-icon,
+.phone-desktop-dock-app > .phone-whatsup-icon,
+.phone-desktop-app > .phone-gallery-icon,
+.phone-desktop-dock-app > .phone-gallery-icon,
+.phone-desktop-app > .phone-camera-icon,
+.phone-desktop-dock-app > .phone-camera-icon,
+.phone-desktop-app > .phone-banking-icon,
+.phone-desktop-app > .phone-fotogram-icon,
+.phone-desktop-app > .phone-onlyfriends-icon,
+.phone-desktop-app > .phone-matchme-icon,
+.phone-desktop-app > .phone-notes-icon,
+.phone-desktop-dock-app > .phone-notes-icon,
+.phone-desktop-app > .phone-chatgpd-icon {
+  border-radius: var(--theme-phone-home-icon-radius, 28%);
+}
+
+/* Coloring: OPTIONAL, unlike everything else in this file. Five apps
+   (gallery/banking/fotogram/notes/chatgpd) ship with no background at all
+   (transparent glass, shared 0.28-alpha white border); whatsup, camera, and
+   matchme+onlyfriends each ship their own hand-picked gradient/border. Each
+   group's fallback below reproduces its own shipped default exactly, so an
+   un-opted-in theme (`iconBackground`/`iconBorder` both absent — the
+   default for every theme.json here, including base) looks byte-for-byte
+   identical to before this pass. A theme that sets both flattens every one
+   of the nine icons to that single background/border, because all four
+   rules below read the same two custom properties — this is what makes a
+   monochrome icon set a real, one-line-per-theme capability instead of
+   requiring nine hand-authored per-app overrides. Deliberately not
+   guaranteed/base-backed (see phoneHomeThemeTokens.ts) — there is no
+   universal single-color default that would make sense here, only "don't
+   flatten them," which is what the per-app fallbacks already express. */
+.phone-desktop-app > .phone-gallery-icon,
+.phone-desktop-dock-app > .phone-gallery-icon,
+.phone-desktop-app > .phone-banking-icon,
+.phone-desktop-app > .phone-fotogram-icon,
+.phone-desktop-app > .phone-notes-icon,
+.phone-desktop-dock-app > .phone-notes-icon,
+.phone-desktop-app > .phone-chatgpd-icon {
+  background: var(--theme-phone-home-icon-background, transparent);
+  border-color: var(--theme-phone-home-icon-border, rgba(255, 255, 255, 0.28));
+}
+
+.phone-desktop-app > .phone-whatsup-icon,
+.phone-desktop-dock-app > .phone-whatsup-icon {
+  background: var(--theme-phone-home-icon-background, linear-gradient(135deg, rgba(34, 197, 94, 0.35), rgba(21, 128, 61, 0.18)));
+  border-color: var(--theme-phone-home-icon-border, rgba(34, 197, 94, 0.5));
+}
+
+.phone-desktop-app > .phone-camera-icon,
+.phone-desktop-dock-app > .phone-camera-icon {
+  background: var(--theme-phone-home-icon-background, linear-gradient(135deg, rgba(148, 163, 184, 0.35), rgba(71, 85, 105, 0.18)));
+  border-color: var(--theme-phone-home-icon-border, rgba(148, 163, 184, 0.45));
+}
+
+.phone-desktop-app > .phone-matchme-icon,
+.phone-desktop-app > .phone-onlyfriends-icon {
+  background: var(--theme-phone-home-icon-background, linear-gradient(135deg, rgba(236, 72, 153, 0.44), rgba(225, 29, 72, 0.26)));
+  border-color: var(--theme-phone-home-icon-border, rgba(244, 114, 182, 0.58));
+}
+
 .phone-desktop-app > span:last-child {
   color: var(--theme-phone-home-label, rgba(255, 255, 255, 0.94));
   font-weight: 700;
@@ -436,6 +515,7 @@
 .phone-desktop-dock {
   border-color: color-mix(in srgb, var(--theme-phone-home-accent, #b8a8ea) 20%, rgba(255, 255, 255, 0.18));
   background: color-mix(in srgb, var(--theme-phone-home-widget-background, #05070d) 55%, transparent);
+  border-radius: var(--theme-phone-home-card-radius, 28px);
 }
 
 .phone-desktop-dock-app:active .phone-whatsup-icon,

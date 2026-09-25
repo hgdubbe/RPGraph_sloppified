@@ -1,4 +1,6 @@
 import { createContext, useLayoutEffect, useRef, useState, type ReactNode } from 'react';
+import type { PhoneHomeThemeManifest } from '../app/phoneHomeThemeTokens';
+import { useAppliedPhoneHomeTheme } from '../app/useAppliedPhoneHomeTheme';
 
 export type PhoneStatusTray = {
   // Small inline slot inside the status bar, next to the battery readout —
@@ -13,14 +15,24 @@ export type PhoneStatusTray = {
 export const PhoneStatusTrayContext = createContext<PhoneStatusTray>({ icons: null, overlay: null });
 
 // Lay out apps at a stable handset resolution, then scale the whole device.
-export function RoleplayPhoneDevice({ children, owner, onHome, onFocus, orientation = 'portrait' }: {
+export function RoleplayPhoneDevice({
+  children, owner, onHome, onFocus, orientation = 'portrait', phoneHomeThemeId, phoneHomeThemeManifests,
+}: {
   children: ReactNode;
   owner: string;
   onHome: () => void;
   onFocus: () => void;
   orientation?: 'portrait' | 'landscape';
+  // The phone's own OS-chrome theme — its own manifest-driven engine (see
+  // src/app/phoneHomeTheme{Tokens,Resolver,Registry}.ts and
+  // useAppliedPhoneHomeTheme.ts), deliberately independent of the Studio
+  // theme registry/resolver.
+  phoneHomeThemeId: string;
+  phoneHomeThemeManifests: PhoneHomeThemeManifest[];
 }) {
   const stage = useRef<HTMLDivElement>(null);
+  const deviceRef = useRef<HTMLDivElement>(null);
+  useAppliedPhoneHomeTheme(deviceRef, phoneHomeThemeId, phoneHomeThemeManifests);
   const [scale, setScale] = useState(1);
   const isLandscape = orientation === 'landscape';
   const designWidth = isLandscape ? 932 : 430;
@@ -44,6 +56,7 @@ export function RoleplayPhoneDevice({ children, owner, onHome, onFocus, orientat
     <div className={`roleplay-phone-stage ${isLandscape ? 'landscape' : 'portrait'}`} ref={stage}>
       <div style={{ width: designWidth * scale, height: designHeight * scale }}>
         <div className={`roleplay-phone-device ${isLandscape ? 'landscape' : 'portrait'}`} aria-label={`${owner}'s phone`}
+          ref={deviceRef}
           style={{ width: designWidth, height: designHeight, transform: `scale(${scale})` }} onFocusCapture={onFocus}>
           <div className="roleplay-phone-status">
             <span aria-hidden="true">5G</span>

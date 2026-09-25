@@ -1,0 +1,22 @@
+{
+  "id": "hardcore",
+  "label": "Hardcore",
+  "extends": "base",
+  "order": 2,
+  "tokens": {
+    "phoneHome": {
+      "scrim": "#040302",
+      "accent": "#ff7626",
+      "accentStrong": "#ed263c",
+      "clockBackground": "#151618",
+      "clockText": "#fff3f3",
+      "widgetBackground": "#151618",
+      "label": "#fff3f3",
+      "badge": "#ed263c",
+      "badgeBanking": "#ff2e46",
+      "online": "#e7ff28",
+      "iconRadius": "12%",
+      "cardRadius": "6px"
+    }
+  }
+}

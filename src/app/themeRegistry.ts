@@ -4,6 +4,12 @@ import { browserThemeLibrarySnapshot } from './themeLibrary.browser';
 
 export const studioThemeStorageKey = 'rpgraph.studioTheme' as const;
 
+// The phone's own OS-chrome theme selection (`phoneHomeThemeStorageKey`)
+// used to live here too, back when it was a plain CSS class switch with no
+// registry of its own. It's now its own fully independent manifest-driven
+// engine — see `src/app/phoneHomeThemeRegistry.ts` and
+// resources/themes/PHONE-HOME-THEME-INTERNALS.md.
+
 /** Kept as the initial/fallback selection so behavior matches today's
  * shipped look while the registry loads asynchronously. "classic" (not
  * "studio-night") is the default specifically because it's the one theme

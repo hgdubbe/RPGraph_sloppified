@@ -11,15 +11,27 @@ const EXCLUDED_STYLESHEETS = [
 
 /** Files that legitimately mix in-scope and out-of-scope rules -- checked
  * with the brace-tracking scan below instead of a blanket "no --theme-*
- * anywhere" assertion. phone-device.css holds both the .phone-* simulated
- * app content (excluded) and the .roleplay-phone-* device bezel/casing
- * (in scope: it's chrome, not handcrafted content). */
+ * anywhere" assertion. phone-device.css and roleplay-dual-pane.css each
+ * hold the .phone-* simulated app content plus the phone's own hardware
+ * chrome (.roleplay-phone-device bezel, .roleplay-phone-status bar,
+ * .roleplay-phone-home button, .roleplay-phone-stage/-overlay-layer — all
+ * excluded, since the phone is its own product surface, never the Studio
+ * theme's) alongside genuine Studio UI (.roleplay-chat-pane and friends in
+ * roleplay-dual-pane.css; nothing else in phone-device.css), which *is* in
+ * scope. .roleplay-phone-screen is the one exception among the
+ * .roleplay-phone- names: it deliberately defines --theme- and --accent
+ * variables from --phone-ui- ones (see the "resets inherited Studio colors"
+ * test below),
+ * which is the reset mechanism that keeps everything inside it isolated —
+ * excluding it here would make this scanner flag that reset's own
+ * definitions as if they were violations. */
 const MIXED_STYLESHEETS = [
   'src/styles/phone-device.css',
+  'src/styles/roleplay-dual-pane.css',
   'src/styles.css',
 ];
 
-const EXCLUDE_SELECTOR_RE = /\.phone-|\.pt-|\.social-profile-/;
+const EXCLUDE_SELECTOR_RE = /\.phone-|\.pt-|\.social-profile-|\.roleplay-phone-(?!screen\b)/;
 
 /** Walks a CSS file tracking brace depth and whether the selector that
  * opened the current block matched an exclusion pattern; returns every

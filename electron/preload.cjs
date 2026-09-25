@@ -185,6 +185,14 @@ contextBridge.exposeInMainWorld('rpgraph', {
     return () => ipcRenderer.removeListener('theme-library:changed', listener);
   },
   openThemeLibraryFolder: () => ipcRenderer.invoke('theme-library:open-folder'),
+  getPhoneHomeThemeLibrary: () => ipcRenderer.invoke('phone-home-theme-library:get'),
+  reloadPhoneHomeThemeLibrary: () => ipcRenderer.invoke('phone-home-theme-library:reload'),
+  onPhoneHomeThemeLibraryChanged: (callback) => {
+    const listener = () => callback();
+    ipcRenderer.on('phone-home-theme-library:changed', listener);
+    return () => ipcRenderer.removeListener('phone-home-theme-library:changed', listener);
+  },
+  openPhoneHomeThemeLibraryFolder: () => ipcRenderer.invoke('phone-home-theme-library:open-folder'),
   saveNamedWorkflow: (name, workflow, protection, password, overwrite = false) =>
     ipcRenderer.invoke('workflow:save-named', { name, workflow, protection, password, overwrite }),
   saveRpgraphFileToPath: (request) =>

@@ -136,6 +136,7 @@ import {
 } from './app/debugSnapshot';
 import { isStudioMode, studioModeStorageKey, type StudioMode } from './app/studioMode';
 import { defaultThemeId, studioThemeStorageKey, useThemeRegistry } from './app/themeRegistry';
+import { defaultPhoneHomeThemeId, phoneHomeThemeStorageKey, usePhoneHomeThemeRegistry } from './app/phoneHomeThemeRegistry';
 import { useAppliedTheme } from './app/useAppliedTheme';
 import { useTurnTraceState } from './app/useTurnTraceState';
 import { createWorkflowAssistantSnapshotJson } from './assistant/workflowSnapshot';
@@ -682,6 +683,32 @@ function App() {
     ? defaultThemeId
     : studioTheme;
   useAppliedTheme(studioRootRef, effectiveThemeId, themeRegistry.manifests);
+  // Independent of the Studio theme above and of the theme.json-driven
+  // in-phone-app-theme namespaces — its own manifest-driven engine (see
+  // src/app/phoneHomeThemeRegistry.ts), applied only to
+  // .roleplay-phone-device (see useAppliedPhoneHomeTheme.ts), never to
+  // document.documentElement.
+  const [phoneHomeTheme, setPhoneHomeThemeState] = useState<string>(() => {
+    if (typeof window === 'undefined') {
+      return defaultPhoneHomeThemeId;
+    }
+    // Optimistic, same reasoning as `studioTheme` above: validated
+    // synchronously against `phoneHomeThemeRegistry.isKnownThemeId` once the
+    // registry has loaded (see `effectivePhoneHomeThemeId`).
+    return window.localStorage.getItem(phoneHomeThemeStorageKey) || defaultPhoneHomeThemeId;
+  });
+  const setPhoneHomeTheme = useCallback((theme: string) => {
+    setPhoneHomeThemeState(theme);
+    try {
+      window.localStorage.setItem(phoneHomeThemeStorageKey, theme);
+    } catch {
+      // localStorage can be unavailable in hardened environments; the UI still works for this session.
+    }
+  }, []);
+  const phoneHomeThemeRegistry = usePhoneHomeThemeRegistry();
+  const effectivePhoneHomeThemeId = phoneHomeThemeRegistry.loaded && !phoneHomeThemeRegistry.isKnownThemeId(phoneHomeTheme)
+    ? defaultPhoneHomeThemeId
+    : phoneHomeTheme;
   const nodesRef = useRef(nodes);
   const commitNodes = useCallback((nextNodes: WorkflowNode[]) => {
     nodesRef.current = nextNodes;
@@ -6641,7 +6668,10 @@ function App() {
               onMessageContentLoaded={() => scrollChatThreadToBottomIfFollowing('smooth')}
             />
           </div>
-          <RoleplayPhoneDevice owner={viewedPhoneCharacter?.name ?? 'Character'} orientation={phoneDesktopLayout.orientation} onHome={selectPhonePanelView} onFocus={() => {
+          <RoleplayPhoneDevice owner={viewedPhoneCharacter?.name ?? 'Character'} orientation={phoneDesktopLayout.orientation}
+            phoneHomeThemeId={effectivePhoneHomeThemeId}
+            phoneHomeThemeManifests={phoneHomeThemeRegistry.manifests}
+            onHome={selectPhonePanelView} onFocus={() => {
             if (chatPanelView !== 'phone') selectChatPanelView('phone');
           }}>
             <AppMessageAvatars enabled={appMessageAvatarsEnabled} size={chatMessageAvatarSize} colors={characterColors}>
@@ -6916,6 +6946,9 @@ function App() {
               onSetImageAssistantLlmModelLoaded={setImageAssistantLlmModelLoaded}
               onUnloadImageAssistantComfyModel={unloadImageAssistantComfyModel}
               onRefreshImageAssistantModelState={(providerId) => void refreshImageAssistantModelState(providerId)}
+              phoneThemeOptions={phoneHomeThemeRegistry.selectable}
+              activePhoneThemeId={effectivePhoneHomeThemeId}
+              onPhoneThemeChange={setPhoneHomeTheme}
             />
             </AppMessageAvatars>
           </RoleplayPhoneDevice>

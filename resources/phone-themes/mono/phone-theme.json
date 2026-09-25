@@ -1,0 +1,24 @@
+{
+  "id": "mono",
+  "label": "Mono",
+  "extends": "base",
+  "order": 4,
+  "tokens": {
+    "phoneHome": {
+      "scrim": "#000000",
+      "accent": "#e8e8ec",
+      "accentStrong": "#9a9aa2",
+      "clockBackground": "#0c0c0e",
+      "clockText": "#f4f4f6",
+      "widgetBackground": "#0c0c0e",
+      "label": "#f4f4f6",
+      "badge": "#e8e8ec",
+      "badgeBanking": "#9a9aa2",
+      "online": "#c8c8cf",
+      "iconRadius": "10%",
+      "cardRadius": "4px",
+      "iconBackground": "rgba(232, 232, 236, 0.14)",
+      "iconBorder": "rgba(232, 232, 236, 0.38)"
+    }
+  }
+}

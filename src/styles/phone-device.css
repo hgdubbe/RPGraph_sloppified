@@ -280,6 +280,32 @@
   box-shadow: 0 4px 14px rgba(0, 0, 0, 0.28);
 }
 
+.phone-desktop-theme-row {
+  grid-column: 1 / -1;
+  display: flex;
+}
+
+.phone-desktop-theme-select {
+  flex: 1;
+  min-height: 38px;
+  padding: 6px 12px;
+  border: 0;
+  border-radius: 999px;
+  color: var(--soft-white);
+  background: rgba(255, 255, 255, 0.06);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.08);
+  font: inherit;
+  cursor: pointer;
+}
+
+.phone-desktop-theme-select:hover {
+  background: rgba(255, 255, 255, 0.09);
+}
+
+.phone-desktop-theme-select option {
+  color: #111;
+}
+
 /* Widgets: independent booleans, so each is a labeled row with a real
    toggle switch (::after track + radial-gradient knob) instead of a grid
    of filled pill buttons. */
@@ -631,6 +657,15 @@
   height: 18px;
 }
 
+/* The device casing/bezel is phone hardware, not Studio chrome — it must
+   render identically under every Studio theme. These used to be wrapped in
+   var(--theme-raw-<literal>, <literal>) purely because a repo-wide CSS
+   migration pass wrapped every literal it found, `raw.*` included; no
+   theme.json has ever set one of these specific raw keys, so nothing
+   visible changed, but the wrapping left the door open for a future theme
+   author to accidentally (or a well-meaning "completeness" pass to
+   deliberately) start repainting the bezel via `tokens.raw`. Plain literals
+   close that door structurally instead of relying on no one ever using it. */
 .roleplay-phone-device {
   width: 430px;
   height: 932px;
@@ -641,20 +676,20 @@
   flex-direction: column;
   overflow: hidden;
   padding: 5px;
-  border: 2px solid var(--theme-raw-v1d1e22, #1d1e22);
+  border: 2px solid #1d1e22;
   border-radius: 56px;
   background:
-    linear-gradient(90deg, var(--theme-raw-v030304, #030304), var(--theme-raw-v2b2d32, #2b2d32) 2%, var(--theme-raw-v0b0b0d, #0b0b0d) 5%, var(--theme-raw-v0b0b0e, #0b0b0e) 95%, var(--theme-raw-v3c3d42, #3c3d42) 98%, var(--theme-raw-v030304, #030304)),
-    linear-gradient(180deg, var(--theme-raw-v1e1f24, #1e1f24), var(--theme-raw-v050506, #050506) 18% 82%, var(--theme-raw-v202126, #202126)),
-    var(--theme-raw-v070708, #070708);
-  color: var(--theme-raw-vfff, #fff);
+    linear-gradient(90deg, #030304, #2b2d32 2%, #0b0b0d 5%, #0b0b0e 95%, #3c3d42 98%, #030304),
+    linear-gradient(180deg, #1e1f24, #050506 18% 82%, #202126),
+    #070708;
+  color: #fff;
   box-shadow:
-    inset 0 0 0 1px var(--theme-raw-vrgba255255255018, rgba(255, 255, 255, 0.18)),
-    inset 2px 0 2px var(--theme-raw-vrgba255255255016, rgba(255, 255, 255, 0.16)),
-    inset -2px 0 3px var(--theme-raw-vrgba000082, rgba(0, 0, 0, 0.82)),
-    0 0 0 1px var(--theme-raw-vrgba13013214007, rgba(130, 132, 140, 0.7)),
-    0 2px 0 var(--theme-raw-vrgba255255255018, rgba(255, 255, 255, 0.18)),
-    0 18px 34px var(--theme-raw-vrgba000048, rgba(0, 0, 0, 0.48));
+    inset 0 0 0 1px rgba(255, 255, 255, 0.18),
+    inset 2px 0 2px rgba(255, 255, 255, 0.16),
+    inset -2px 0 3px rgba(0, 0, 0, 0.82),
+    0 0 0 1px rgba(130, 132, 140, 0.7),
+    0 2px 0 rgba(255, 255, 255, 0.18),
+    0 18px 34px rgba(0, 0, 0, 0.48);
   isolation: isolate;
 }
 
@@ -669,17 +704,17 @@
 }
 
 .roleplay-phone-device::before {
-  border: 1px solid var(--theme-raw-vrgba255255255012, rgba(255, 255, 255, 0.12));
+  border: 1px solid rgba(255, 255, 255, 0.12);
   box-shadow:
-    inset 0 0 0 1px var(--theme-raw-vrgba000072, rgba(0, 0, 0, 0.72)),
-    inset 10px 0 18px var(--theme-raw-vrgba2552552550035, rgba(255, 255, 255, 0.035)),
-    inset -12px 0 16px var(--theme-raw-vrgba000052, rgba(0, 0, 0, 0.52));
+    inset 0 0 0 1px rgba(0, 0, 0, 0.72),
+    inset 10px 0 18px rgba(255, 255, 255, 0.035),
+    inset -12px 0 16px rgba(0, 0, 0, 0.52);
 }
 
 .roleplay-phone-device::after {
   background:
-    linear-gradient(104deg, transparent 0 6%, var(--theme-raw-vrgba255255255008, rgba(255, 255, 255, 0.08)) 8%, transparent 15%),
-    linear-gradient(284deg, transparent 0 7%, var(--theme-raw-vrgba2552552550075, rgba(255, 255, 255, 0.075)) 10%, transparent 18%);
+    linear-gradient(104deg, transparent 0 6%, rgba(255, 255, 255, 0.08) 8%, transparent 15%),
+    linear-gradient(284deg, transparent 0 7%, rgba(255, 255, 255, 0.075) 10%, transparent 18%);
   mix-blend-mode: screen;
   opacity: 0.82;
 }

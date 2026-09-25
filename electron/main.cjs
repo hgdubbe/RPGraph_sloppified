@@ -75,6 +75,7 @@ const { chat: lmStudioAdapterChat } = require('./providers/lmStudioAdapter.cjs')
 const { reasoningTextFromChatMessage } = require('./reasoningStream.cjs');
 const { createNpcLibraryService, npcLibraryRoots } = require('./npcLibrary.cjs');
 const { createThemeLibraryService, themeLibraryRoots } = require('./themeLibrary.cjs');
+const { createPhoneHomeThemeLibraryService, phoneHomeThemeLibraryRoots } = require('./phoneHomeThemeLibrary.cjs');
 const workspaceProtection = require('./workspaceProtection.cjs').createWorkspaceProtection();
 
 const developmentUrl = 'http://localhost:5173';
@@ -252,6 +253,22 @@ const themeLibraryService = createThemeLibraryService({
   },
 });
 let themeLibraryReadyPromise = themeLibraryService.reload();
+
+const phoneHomeThemeLibraryService = createPhoneHomeThemeLibraryService({
+  roots: phoneHomeThemeLibraryRoots({
+    isPackaged: app.isPackaged,
+    resourcesPath: process.resourcesPath,
+    projectRootPath,
+    userDataPath: app.getPath('userData'),
+  }),
+  openPath: (directory) => shell.openPath(directory),
+  onChanged: () => {
+    for (const window of BrowserWindow.getAllWindows()) {
+      if (!window.isDestroyed()) window.webContents.send('phone-home-theme-library:changed');
+    }
+  },
+});
+let phoneHomeThemeLibraryReadyPromise = phoneHomeThemeLibraryService.reload();
 
 function normalizedWorkflowPath(filePath) {
   if (
@@ -5373,6 +5390,18 @@ ipcMain.handle('theme-library:reload', async () => {
 });
 
 ipcMain.handle('theme-library:open-folder', async () => themeLibraryService.openUserDirectory());
+
+ipcMain.handle('phone-home-theme-library:get', async () => {
+  await phoneHomeThemeLibraryReadyPromise;
+  return phoneHomeThemeLibraryService.current();
+});
+
+ipcMain.handle('phone-home-theme-library:reload', async () => {
+  phoneHomeThemeLibraryReadyPromise = phoneHomeThemeLibraryService.reload();
+  return phoneHomeThemeLibraryReadyPromise;
+});
+
+ipcMain.handle('phone-home-theme-library:open-folder', async () => phoneHomeThemeLibraryService.openUserDirectory());
 
 ipcMain.handle('workflow:save-named', async (_event, request) => {
   workspaceProtection.require(request);

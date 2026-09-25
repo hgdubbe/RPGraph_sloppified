@@ -1,0 +1,21 @@
+{
+  "id": "base",
+  "label": "Base (internal fallback)",
+  "hidden": true,
+  "tokens": {
+    "phoneHome": {
+      "scrim": "#05060a",
+      "accent": "#b8a8ea",
+      "accentStrong": "#4c3d7a",
+      "clockBackground": "#0a0b12",
+      "clockText": "#ffffff",
+      "widgetBackground": "#05070d",
+      "label": "rgba(255, 255, 255, 0.94)",
+      "badge": "#ef4444",
+      "badgeBanking": "#f43f5e",
+      "online": "#34d058",
+      "iconRadius": "28%",
+      "cardRadius": "20px"
+    }
+  }
+}

@@ -1,0 +1,120 @@
+// This file is a commented JSONC reference for the SIX phone-app namespaces only.
+// It is not a complete theme.json — copy the "tokens" object's contents into an
+// existing theme's own "tokens" object (see rpgraph-theme-designer-skill's
+// references/example.json for a full theme, including phoneNotes/phoneChatgpd/
+// phoneBanking/phoneGallery/phoneSocial with these same values for consistency).
+// Every value below is a CSS value string, except the phoneNotes tints, which are
+// bare "R, G, B" triplets (no "#", no "rgb()").
+{
+  "tokens": {
+    // Not registered in CORE_TOKEN_KEYS, unlike its five siblings below (see
+    // phone-capability-map.md) — still a real, working namespace; every leaf here
+    // has a matching var(--theme-phone-home-<kebab-leaf>, ...) in phone-widgets.css.
+    // Backs the wallpaper scrim, clock widget, desktop widgets, app-icon labels,
+    // notification badges, the mood-status dot, and the bottom favorites dock
+    // (the dock has no leaf of its own — it reuses widgetBackground/accent).
+    "phoneHome": {
+      "scrim": "#0d0f11",
+      "accent": "#e5a84f",
+      "accentStrong": "#c27d21",
+      "clockBackground": "#171512",
+      "clockText": "#fff8e9",
+      "widgetBackground": "#171512",
+      "label": "#f7ead2",
+      "badge": "#e78888",
+      "badgeBanking": "#e78383",
+      "online": "#83d39b"
+    },
+
+    // Phone apps are independent on purpose. These retint Notes only.
+    "phoneNotes": {
+      "background": "#171512",
+      "text": "#f7ead2",
+      "textStrong": "#fff8e9",
+      "accent": "#e5a84f",
+      "accentLight": "#f4c875",
+      "accentStrong": "#c27d21",
+      "accentDeep": "#754b12",
+      "danger": "#e78888",
+      "tintNeutral": "196, 196, 196",
+      "tintSand": "224, 193, 139",
+      "tintCoral": "224, 145, 137",
+      "tintPeach": "229, 172, 126",
+      "tintMint": "135, 201, 171",
+      "tintSky": "137, 183, 218",
+      "tintLavender": "178, 158, 216",
+      "tintRose": "218, 154, 180"
+    },
+
+    "phoneChatgpd": {
+      "background": "#101817",
+      "panelStrong": "#19302c",
+      "glass": "#d8fff5",
+      "text": "#dff4ed",
+      "textStrong": "#f3fff9",
+      "textOnAccent": "#06221c",
+      "accent": "#55c7ae",
+      "accentLight": "#8de4d0",
+      "accentDeep": "#17866f",
+      "accentBright": "#b2f6e4",
+      "danger": "#f0a2a2"
+    },
+
+    "phoneBanking": {
+      "background": "#101820",
+      "panel": "#1a2935",
+      "line": "#3b5563",
+      "text": "#dcebf0",
+      "textStrong": "#f5fbff",
+      "muted": "#91aab4",
+      "accent": "#51b6c9",
+      "accentStrong": "#247f9a",
+      "accentDeep": "#174d61",
+      "success": "#83d39b",
+      "danger": "#e78383"
+    },
+
+    "phoneGallery": {
+      "background": "#151718",
+      "panel": "#252b2d",
+      "stage": "#090b0c",
+      "line": "#4b5759",
+      "text": "#e9efec",
+      "textStrong": "#ffffff",
+      "muted": "#9ba9a5",
+      "badge": "#d3b5f2",
+      "success": "#83d39b",
+      "danger": "#e78383"
+    },
+
+    // Shared social chrome plus independent Fotogram and OnlyFriends branding.
+    // Keep the two brands' *Accent/*AccentStrong/*Card values distinguishable
+    // from each other, not just from the shared chrome, if both are in scope.
+    "phoneSocial": {
+      "background": "#111519",
+      "panel": "#1b2328",
+      "panelAlt": "#273238",
+      "panelDeep": "#0c1012",
+      "bubbleIncoming": "#29343a",
+      "glass": "#ffffff",
+      "line": "#a9c0bb",
+      "text": "#dce9e5",
+      "textStrong": "#ffffff",
+      "muted": "#91a29e",
+      "tip": "#e5a84f",
+      "tipText": "#251808",
+      "success": "#83d39b",
+      "danger": "#e78383",
+      "dangerBg": "#432126",
+      "fotogramAccent": "#d58af0",
+      "fotogramAccentStrong": "#8068df",
+      "fotogramCard": "#28213a",
+      "onlyfriendsAccent": "#f27b95",
+      "onlyfriendsAccentStrong": "#d94a70",
+      "onlyfriendsGlow": "#e98cc0",
+      "onlyfriendsBackground": "#1d101c",
+      "onlyfriendsCard": "#382034",
+      "onlyfriendsBubbleIncoming": "#3b2637"
+    }
+  }
+}

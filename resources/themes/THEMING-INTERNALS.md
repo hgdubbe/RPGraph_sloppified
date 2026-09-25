@@ -15,6 +15,7 @@ bite you if you're not careful."
 | Pure resolution algorithm (extends chain, derivation, base fallback, flatten) | `src/app/themeResolver.ts` |
 | Loads manifests (dev glob / packaged IPC), exposes picker helpers | `src/app/themeRegistry.ts` |
 | Applies resolved tokens to the DOM (`element.style.setProperty`) | `src/app/useAppliedTheme.ts` |
+| The phone's own OS-chrome theme — a second, independent manifest-driven engine, see below and `resources/themes/PHONE-HOME-THEME-INTERNALS.md` | `src/app/phoneHomeTheme{Tokens,Resolver,Registry}.ts`, `resources/phone-themes/<id>/phone-theme.json` |
 | Browser/dev-mode loader (`import.meta.glob`), bundled tier only | `src/app/themeLibrary.browser.ts` |
 | Packaged-mode loader: scans both tiers, merges by id | `electron/themeLibrary.cjs` |
 | IPC registration (`theme-library:get/reload/open-folder`, `:changed` push) | `electron/main.cjs` |
@@ -263,6 +264,45 @@ independently-themed phone surface whose unthemed markup is *also* stuck inside 
 `MIXED_STYLESHEETS` file, this is the pattern to repeat — don't add your new file to
 either exclusion list, and don't try to theme the block in place.
 
+## The phone's own OS-chrome theme is a third, completely separate system
+
+There are three independent theming systems in this app, not two — don't conflate them:
+
+1. **The Studio theme** — `theme.json`/`themeResolver.ts`/`themeRegistry.ts`, selected in
+   the main menu ("Theme"), covers Play mode, Graph mode, Storybook, dialogs.
+2. **The in-phone-app themes** — the `phoneNotes`/`phoneChatgpd`/`phoneBanking`/
+   `phoneGallery`/`phoneSocial`/`phoneHome` token blocks documented above. Still
+   `theme.json`-authored, still resolved by the same engine, just their own independent
+   namespace within it (a theme author can set these in any theme's `tokens`).
+3. **The phone's own OS-chrome theme** — its own "Theme" control, in the phone's own
+   settings tray. This is now its own **second, fully independent manifest-driven theme
+   engine** — same architecture as system 1 (its own token types, resolver, registry,
+   bundled+user dual-tier Electron loader, DOM-application hook), scoped one level down
+   to just the phone's home screen. See `resources/themes/PHONE-HOME-THEME-INTERNALS.md`
+   for the full writeup. It covers exactly what `phoneHome.*` (system 2) covers
+   visually — wallpaper scrim, clock widget, desktop widgets, app-icon labels,
+   notification badges, the mood-status dot, the bottom dock — but through a completely
+   separate mechanism (its own `resources/phone-themes/<id>/phone-theme.json` manifests,
+   not `theme.json`), and it is what actually backs the phone's own "Theme" picker;
+   system 2's `phoneHome.*` remains available for anyone hand-authoring a `theme.json`
+   who wants that route instead, but nothing wires the two together.
+
+Both engine 1 and engine 3 compile to the same custom property *names*
+(`--theme-phone-home-scrim`, `--theme-phone-home-accent`, etc.) that
+`phone-widgets.css`'s home-screen rules already consume — this is a reuse of
+vocabulary, not a merge of mechanisms, and it means `phone-widgets.css` needed zero
+edits for engine 3 either. The critical isolation property engine 3 preserves: its
+`useAppliedPhoneHomeTheme` hook (mirroring engine 1's `useAppliedTheme`) writes
+`element.style.setProperty` **only** onto the `.roleplay-phone-device` element it's
+given a ref to — deliberately never onto `document.documentElement` the way engine 1's
+hook does (engine 1 needs that second write to reach portaled dropdowns that escape its
+own root's subtree; `.roleplay-phone-device` doesn't have that problem, since its own
+portaled tray menus render as literal DOM descendants of it rather than via
+`createPortal(..., document.body)`). Writing to `document.documentElement` from engine 3
+would leak the phone's theme choice back out to the rest of the Studio and defeat the
+entire point of keeping this system separate — never add that write if you touch this
+engine.
+
 ## The `raw.*` category
 
 `raw.*` holds auto-extracted, one-off color literals that were wrapped in
@@ -332,9 +372,21 @@ simulated OS chrome — must never be retheme'd via the shared palette; their vi
 identity is the point. The boundary is enforced by selector prefix, not by file: any
 CSS rule whose selector matches `.phone-`, `.pt-`, or `.social-profile-` is out of
 scope for the shared `color.*`/`app.*`/etc. palette, in *any* stylesheet, including
-ones that otherwise mix in-scope and out-of-scope rules (e.g. `phone-device.css` holds
-both the excluded `.phone-*` simulated content and the in-scope `.roleplay-phone-*`
-device bezel/casing — the bezel is chrome, not handcrafted content, so it *is* themed).
+ones that otherwise mix in-scope and out-of-scope rules.
+
+The phone's own hardware chrome — the `.roleplay-phone-device` bezel/casing,
+`.roleplay-phone-status` bar, `.roleplay-phone-home` button, `.roleplay-phone-stage`
+and `.roleplay-phone-overlay-layer` — is excluded too, in `phone-device.css` and
+`src/styles/roleplay-dual-pane.css`, even though none of those selectors start with
+`.phone-`. This used to be the one deliberate gap in the boundary (an earlier version
+of this document said "the bezel is chrome, not handcrafted content, so it *is*
+themed"): the phone is meant to be its own product surface end to end, hardware
+included, never inheriting the Studio theme just because its casing happens to be
+CSS-drawn rather than a hand-placed asset. `EXCLUDE_SELECTOR_RE` in
+`themeExclusions.test.ts` matches every `.roleplay-phone-` selector except
+`.roleplay-phone-screen` itself — that one is the boundary's *reset mechanism* (see
+below), not chrome, so excluding it would make the scanner flag its own legitimate
+`--theme-*: var(--phone-ui-*)` definitions as violations.
 
 The five phone-app screens (`phone-notes.css`, `phone-chatgpd.css`,
 `phone-banking.css`, `phone-gallery.css`, `phone-social.css`), plus `phone-widgets.css`
@@ -355,7 +407,8 @@ failure means "remove it from the exclusion list," not "strip the theming back o
 `--theme-`" check for stylesheets that are excluded in their entirety
 (currently just `phoneDating.css` — `phone-widgets.css` was removed from this list when
 `phoneHome.*` was added, see above), and a brace-depth-tracking scan for files that
-legitimately mix both (`phone-device.css`, `src/styles.css`) — it walks selector text
+legitimately mix both (`phone-device.css`, `src/styles/roleplay-dual-pane.css`,
+`src/styles.css`) — it walks selector text
 per nested block and flags any `--theme-` reference found inside a block whose selector
 matched the exclusion regex. Run this test after any bulk literal-substitution pass
 across `src/styles.css` — a broad regex substitution can accidentally leak a

@@ -1,0 +1,22 @@
+{
+  "id": "calm",
+  "label": "Calm",
+  "extends": "base",
+  "order": 3,
+  "tokens": {
+    "phoneHome": {
+      "scrim": "#020203",
+      "accent": "#d8dde3",
+      "accentStrong": "#9299a2",
+      "clockBackground": "#101216",
+      "clockText": "#f3f4f6",
+      "widgetBackground": "#101216",
+      "label": "#f3f4f6",
+      "badge": "#c9cdd3",
+      "badgeBanking": "#92b89b",
+      "online": "#92b89b",
+      "iconRadius": "34%",
+      "cardRadius": "26px"
+    }
+  }
+}
