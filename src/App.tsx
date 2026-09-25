@@ -1,3 +1,4 @@
+import { highlightingSpeakerReferences, type HighlightingSpeakerContext } from './nodes/output/speakerSelection';
 import { textEffectsStyle } from './chat/textEffects';
 import { CharacterName } from './components/CharacterName';
 import { AppMessageAvatars } from './components/AppMessageAvatars';
@@ -267,7 +268,7 @@ import {
   type RpStorybook,
 } from './nodes/rp-storybook/model';
 import {
-  buildOutputSpeakerPrompt,
+  buildOutputSpeakerPromptPreview,
   outputSpeakerFormatInstructions,
   outputSpeakerResponseFormat,
   parseOutputSpeakerResponse,
@@ -1015,6 +1016,7 @@ function App() {
     dynamicSocialUsers,
     setDynamicSocialUsers,
     socialConnectionsByCharacter,
+    interactedCharacterIds,
     persistedSocialConnectionsByCharacter,
     savedSocialConnectionsByCharacter,
     setSocialConnectionsByCharacter,
@@ -3147,6 +3149,8 @@ function App() {
     highlightingContext: string,
     signal?: AbortSignal,
     onFormatResult?: (result: ExecuteTraceFormatResult) => void,
+    sourceText = text,
+    speakerContext?: HighlightingSpeakerContext,
   ): Promise<OutputAttribution> {
     if (!outputNode.data.speakerAnalysisEnabled) {
       return { speakerNames: [], dialogue: [] };
@@ -3154,10 +3158,9 @@ function App() {
 
     const highlightDialogue = outputNode.data.dialogueHighlightEnabled ?? false;
     const extractedQuotes = highlightDialogue ? extractDialogueQuotes(text) : [];
-    const speakerReferences = cast.map((character, index) => ({
-      speakerId: index + 1,
-      name: character.name,
-    }));
+    const selection = highlightingSpeakerReferences(cast, interactedCharacterIds, `${sourceText}\n${text}`, speakerContext);
+    cast = selection.map((entry) => entry.character);
+    const speakerReferences = selection.map(({ speakerId, name, details }) => ({ speakerId, name, details }));
     const speakerFormat = outputSpeakerResponseFormat(outputNode.data.outputSpeakerResponseFormat);
     const numberedQuotedPassages = extractedQuotes.map((quote) => ({
       quoteId: quote.index + 1,
@@ -3185,6 +3188,8 @@ function App() {
     if (highlightDialogue && extractedQuotes.length === 0) {
       const attribution = { speakerNames: [], dialogue: [] };
       updateRuntimeNode(outputNode.id, {
+        outputHighlightingPrompt: '',
+        outputHighlightingPromptParts: [],
         outputHighlightingInputToon: highlightingInputToon,
         outputHighlightingResponseToon: '',
         outputHighlightingResultToon: encode({
@@ -3197,7 +3202,7 @@ function App() {
       });
       return attribution;
     }
-    const prompt = buildOutputSpeakerPrompt(outputNode.data.outputSpeakerPrompt, {
+    const { prompt, parts } = buildOutputSpeakerPromptPreview(outputNode.data.outputSpeakerPrompt, {
       OutputFormatInstructions: outputSpeakerFormatInstructions(
         speakerFormat,
         highlightDialogue,
@@ -3212,6 +3217,12 @@ function App() {
         : '',
       ResponseText: text,
       ExpectedShape: analysisShape,
+    });
+    updateRuntimeNode(outputNode.id, {
+      outputHighlightingPrompt: prompt,
+      outputHighlightingPromptParts: parts,
+      outputHighlightingResponseToon: '',
+      outputHighlightingResultToon: '',
     });
     let lastResponseText = '';
     const attemptSpeakerAnalysis = async () => {

@@ -316,6 +316,12 @@ function isWorkflowNodeData(value: unknown): value is WorkflowNodeData {
     (value.llmDecisionBoolResults !== undefined && !isBooleanArray(value.llmDecisionBoolResults)) ||
     (value.llmDecisionTextResults !== undefined && !isStringArray(value.llmDecisionTextResults)) ||
     (value.llmDecisionNumberResults !== undefined && !isNumberArray(value.llmDecisionNumberResults)) ||
+    !isOptionalString(value.outputHighlightingPrompt) ||
+    (value.outputHighlightingPromptParts !== undefined &&
+      (!Array.isArray(value.outputHighlightingPromptParts) ||
+        !value.outputHighlightingPromptParts.every((part: unknown) =>
+          isRecord(part) && typeof part.text === 'string' &&
+          (part.actionInserted === undefined || typeof part.actionInserted === 'boolean')))) ||
     !isOptionalString(value.outputHighlightingInputToon) ||
     !isOptionalString(value.outputHighlightingResponseToon) ||
     !isOptionalString(value.outputHighlightingResultToon) ||

@@ -1,5 +1,5 @@
 import type { HistoryRpTimePromptSettings } from '../../types';
-import { fastTaskPrompt } from '../../llm/fastTaskPrompt';
+import { fastTaskReasoningStart, fastTaskReasoningEnd } from '../../llm/fastTaskPrompt';
 
 export const historyRpTimePromptVariables = [
   '<PreviousRpTimeOrNone>',
@@ -11,6 +11,8 @@ export const historyRpTimePromptVariables = [
 ];
 
 export const defaultHistoryRpTimePromptText = [
+  fastTaskReasoningStart,
+  '',
   'Maintain a fictional RP clock. Return exactly one compact JSON object and nothing else.',
   'Do not add prose, markdown fences, comments, labels, or a second JSON object.',
   'Use local timestamps YYYY-MM-DDTHH:mm.',
@@ -54,6 +56,8 @@ export const defaultHistoryRpTimePromptText = [
   '',
   'RETURN ONLY THIS SHAPE:',
   '{"t":"YYYY-MM-DDTHH:mm","m":[[123,"YYYY-MM-DDTHH:mm"]]}',
+  '',
+  fastTaskReasoningEnd,
 ].join('\n');
 
 export function defaultHistoryRpTimePromptSettings(): HistoryRpTimePromptSettings {
@@ -85,7 +89,7 @@ export function buildHistoryRpTimePrompt(
   const template = normalized.mode === 'custom'
     ? normalized.customText ?? ''
     : defaultHistoryRpTimePromptText;
-  return fastTaskPrompt(Object.entries(variables)
+  return Object.entries(variables)
     .reduce((text, [key, value]) => text.split(`<${key}>`).join(value), template)
-    .trim());
+    .trim();
 }

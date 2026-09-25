@@ -1,3 +1,4 @@
+import { fastTaskReasoningStart, fastTaskReasoningEnd } from '../llm/fastTaskPrompt';
 import { usePanelNavigationOverlay } from '../navigation/usePanelNavigation';
 import { useSliderPreview } from './useSliderPreview';
 import { TextEffectOptions } from '../components/TextEffectOptions';
@@ -44,6 +45,7 @@ import {
   normalizeEventAppointments,
 } from '../data-management/eventStore';
 import { NodeCustomSelect } from '../nodes/shared/NodeCustomSelect';
+import { PromptPreviewBlock } from '../nodes/shared/PromptTools';
 import { HighlightedPreviewText } from '../nodes/shared/HighlightedPreviewText';
 import { providerOption } from '../nodes/shared/providerHealthLabels';
 import { llmProviderKind } from '../llm/providerKind';
@@ -715,6 +717,8 @@ function characterStatsPromptOverview(node: WorkflowNode) {
     }`,
     '',
     'MAIN TRACKER PROMPT TEMPLATE',
+    fastTaskReasoningStart,
+    '',
     'You maintain compact roleplay character stats.',
     'Return TOON only.',
     'Character stats belong to one character.',
@@ -735,6 +739,8 @@ function characterStatsPromptOverview(node: WorkflowNode) {
     '<currentStateBlock>',
     '',
     '<INITIAL CONTEXT or LAST MESSAGE>',
+    '',
+    fastTaskReasoningEnd,
     '',
     'ACTION SHAPES',
     'Initial run:',
@@ -1415,14 +1421,11 @@ export function StudioDialogs({
   const textDialogContent =
     isOutputHighlightingDialog
         ? [
-            'HIGHLIGHTING INPUT (INTERNAL DEBUG TOON)',
-            textDialogNode.data.outputHighlightingInputToon ?? '',
+            'PROMPT SENT TO MODEL',
+            textDialogNode.data.outputHighlightingPrompt ?? '',
             '',
-            `MODEL RESPONSE ${(textDialogNode.data.outputSpeakerResponseFormat === 'json' ? 'JSON' : 'TOON')}`,
+            'MODEL OUTPUT',
             textDialogNode.data.outputHighlightingResponseToon ?? '',
-            '',
-            'NORMALIZED MARKED TEXT TOON',
-            textDialogNode.data.outputHighlightingResultToon ?? '',
           ].join('\n')
       : isCharacterStatsContextDialog
         ? textDialogNode.data.characterStatsContextText ?? ''
@@ -1687,7 +1690,7 @@ export function StudioDialogs({
         >
           <section
             ref={activeDialog === 'text' ? activeDialogRef : undefined}
-            className={`text-dialog node-text-dialog${isCompressionDialog ? ' compression-text-dialog' : ''}${isHistoryDialog ? ' history-text-dialog' : ''}${isCharacterStatsChartDialog ? ' character-stats-chart-text-dialog' : ''}`}
+            className={`text-dialog node-text-dialog${isOutputHighlightingDialog ? ' highlighting-text-dialog' : ''}${isCompressionDialog ? ' compression-text-dialog' : ''}${isHistoryDialog ? ' history-text-dialog' : ''}${isCharacterStatsChartDialog ? ' character-stats-chart-text-dialog' : ''}`}
             role="dialog"
             aria-modal={activeDialog === 'text'}
             aria-hidden={activeDialog !== 'text'}
@@ -1718,7 +1721,7 @@ export function StudioDialogs({
                 </h2>
                 <p>
                   {isOutputHighlightingDialog
-                      ? 'TOON speaker analysis input, raw model response, and normalized marked passages'
+                      ? 'Last sent prompt: white template text, yellow inserted content, and green model output'
                     : isCharacterStatsContextDialog
                       ? 'Exact output for the Context + Stats port'
                     : isCharacterStatsResponseDialog
@@ -1743,7 +1746,15 @@ export function StudioDialogs({
               </button>
             </div>
             <div className="text-form">
-              {isCharacterStatsChartDialog ? (
+              {isOutputHighlightingDialog ? (
+                <div className="prompt-preview-blocks">
+                  {textDialogNode.data.outputHighlightingPrompt
+                    ? <PromptPreviewBlock label="Prompt Sent to Model" text={textDialogNode.data.outputHighlightingPrompt}
+                        parts={textDialogNode.data.outputHighlightingPromptParts} />
+                    : <p>No recorded prompt. Run speaker analysis to capture the exact request.</p>}
+                  <PromptPreviewBlock label="Model Output" text={textDialogNode.data.outputHighlightingResponseToon ?? ''} tone="output" />
+                </div>
+              ) : isCharacterStatsChartDialog ? (
                 <CharacterStatsChartDialog node={textDialogNode} nodes={nodes} />
               ) : isHistoryDialog ? (
                 <div className="history-inspection">

@@ -1,11 +1,11 @@
 {
   "format": "rpgraph-workflow",
   "formatVersion": "1.2",
-  "savedAt": "2026-09-08T21:12:09.921Z",
+  "savedAt": "2026-09-25T09:47:11.578Z",
   "viewport": {
-    "x": 591.1108794133017,
-    "y": 527.6421907520548,
-    "zoom": 0.41179550863378633
+    "x": 652.0919090124679,
+    "y": 539.5346760849375,
+    "zoom": 0.4117955086337855
   },
   "nodes": [
     {
@@ -198,8 +198,8 @@
       "id": "settings-value-1779837628451-14",
       "type": "workflow",
       "position": {
-        "x": -992.3017589184223,
-        "y": 190.6257994489598
+        "x": -991.6176758323913,
+        "y": 206.04634827981988
       },
       "data": {
         "nodeType": "settings-value",
@@ -252,8 +252,8 @@
       "id": "rp-storybook-1780769514774-25",
       "type": "workflow",
       "position": {
-        "x": -491.68804883769417,
-        "y": -742.4817443706825
+        "x": -493.9616236874598,
+        "y": -756.1231934692761
       },
       "style": {
         "width": 365
@@ -272,39 +272,15 @@
           "scenario": true,
           "characters": true,
           "openingHistory": true,
-          "characterImages": false
+          "characterImages": false,
+          "relationships": true,
+          "hiddenAgency": false
         },
         "nodeDataVersion": "3.0.0"
       },
       "measured": {
         "width": 365,
         "height": 584
-      },
-      "selected": false,
-      "dragging": false
-    },
-    {
-      "id": "combiner-copy-1780779304296-21",
-      "type": "workflow",
-      "position": {
-        "x": -4.520277985408484,
-        "y": 145.7034300078516
-      },
-      "data": {
-        "nodeType": "combiner",
-        "label": "Text Combiner",
-        "description": "Merge ordered text inputs",
-        "preview": "Waiting for 2 inputs ...",
-        "combinerInputCount": 2,
-        "combinerPrefixes": [
-          "",
-          ""
-        ],
-        "nodeDataVersion": "1.0.0"
-      },
-      "measured": {
-        "width": 365,
-        "height": 489
       },
       "selected": false,
       "dragging": false
@@ -471,64 +447,6 @@
       "dragging": false
     },
     {
-      "id": "memory-slot-34d735ba-b035-44ea-b122-9c14998d63d3",
-      "type": "workflow",
-      "position": {
-        "x": 680.6114242366323,
-        "y": 742.5864972003872
-      },
-      "style": {
-        "width": 97,
-        "height": 50
-      },
-      "data": {
-        "nodeType": "memory-slot",
-        "label": "Wire Link",
-        "description": "Store and reuse text through a linked pair",
-        "preview": "No stored text yet",
-        "memorySlotName": "01",
-        "memorySlotText": "",
-        "memorySlotMode": "input",
-        "fullText": "",
-        "nodeDataVersion": "1.0.0"
-      },
-      "measured": {
-        "width": 97,
-        "height": 50
-      },
-      "selected": false,
-      "dragging": false
-    },
-    {
-      "id": "memory-slot-cb65593c-3a95-44d6-aa0d-43e5574cdd6f",
-      "type": "workflow",
-      "position": {
-        "x": 759.9323573556749,
-        "y": 742.9241623108343
-      },
-      "style": {
-        "width": 97,
-        "height": 50
-      },
-      "data": {
-        "nodeType": "memory-slot",
-        "label": "Wire Link",
-        "description": "Store and reuse text through a linked pair",
-        "preview": "No stored text yet",
-        "memorySlotName": "01",
-        "memorySlotText": "",
-        "memorySlotMode": "output",
-        "fullText": "",
-        "nodeDataVersion": "1.0.0"
-      },
-      "measured": {
-        "width": 97,
-        "height": 50
-      },
-      "selected": false,
-      "dragging": false
-    },
-    {
       "id": "memory-slot-68192f0a-02cf-4da7-b937-287c4307486e",
       "type": "workflow",
       "position": {
@@ -590,8 +508,8 @@
       "id": "phone-apps",
       "type": "workflow",
       "position": {
-        "x": 967.3935070814778,
-        "y": -469.06190841457874
+        "x": 3.756927343872121,
+        "y": 140.6964208472394
       },
       "style": {
         "width": 365
@@ -682,42 +600,6 @@
         "strokeWidth": 2
       },
       "id": "xy-edge__rp-storybook-1780769514774-25formatted-text-text-combiner-1779617525442-2input-a",
-      "selected": false,
-      "type": "workflow",
-      "animated": false
-    },
-    {
-      "source": "chat-history",
-      "sourceHandle": "last-turns",
-      "target": "combiner-copy-1780779304296-21",
-      "targetHandle": "input-b",
-      "markerEnd": {
-        "type": "arrowclosed",
-        "color": "#64d1ff"
-      },
-      "style": {
-        "stroke": "#64d1ff",
-        "strokeWidth": 2
-      },
-      "id": "xy-edge__chat-historylast-turns-combiner-copy-1780779304296-21input-b",
-      "selected": false,
-      "type": "workflow",
-      "animated": false
-    },
-    {
-      "source": "rp-storybook-1780769514774-25",
-      "sourceHandle": "character-info",
-      "target": "combiner-copy-1780779304296-21",
-      "targetHandle": "input-a",
-      "markerEnd": {
-        "type": "arrowclosed",
-        "color": "#64d1ff"
-      },
-      "style": {
-        "stroke": "#64d1ff",
-        "strokeWidth": 2
-      },
-      "id": "xy-edge__rp-storybook-1780769514774-25character-info-combiner-copy-1780779304296-21input-a",
       "selected": false,
       "type": "workflow",
       "animated": false
@@ -899,40 +781,6 @@
       },
       "selected": false,
       "animated": false
-    },
-    {
-      "source": "memory-slot-cb65593c-3a95-44d6-aa0d-43e5574cdd6f",
-      "target": "rp-output",
-      "targetHandle": "highlighting-context",
-      "markerEnd": {
-        "type": "arrowclosed",
-        "color": "#64d1ff"
-      },
-      "style": {
-        "stroke": "#64d1ff",
-        "strokeWidth": 2
-      },
-      "animated": false,
-      "type": "workflow",
-      "sourceHandle": null,
-      "id": "xy-edge__memory-slot-cb65593c-3a95-44d6-aa0d-43e5574cdd6f-rp-outputhighlighting-context",
-      "selected": false
-    },
-    {
-      "source": "combiner-copy-1780779304296-21",
-      "target": "memory-slot-34d735ba-b035-44ea-b122-9c14998d63d3",
-      "markerEnd": {
-        "type": "arrowclosed",
-        "color": "#64d1ff"
-      },
-      "style": {
-        "stroke": "#64d1ff",
-        "strokeWidth": 2
-      },
-      "id": "xy-edge__combiner-copy-1780779304296-21-memory-slot-34d735ba-b035-44ea-b122-9c14998d63d3",
-      "selected": false,
-      "animated": false,
-      "type": "workflow"
     },
     {
       "source": "memory-slot-a322e6fc-5b2f-43df-aad2-cafa5b540157",

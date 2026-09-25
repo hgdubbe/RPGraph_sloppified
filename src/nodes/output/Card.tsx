@@ -177,7 +177,7 @@ export function OutputNodeCard({ id, data }: NodeProps<WorkflowNode>) {
         <button
           className="inspect-button nodrag"
           type="button"
-          disabled={!data.outputHighlightingResponseToon && !data.outputHighlightingResultToon}
+          disabled={!data.outputHighlightingPrompt && !data.outputHighlightingResponseToon && !data.outputHighlightingResultToon}
           onClick={() => showOutputHighlighting(id)}
         >
           Highlighting

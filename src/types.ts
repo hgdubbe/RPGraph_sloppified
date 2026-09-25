@@ -370,6 +370,8 @@ type WorkflowNodeCommonFields = {
   characterStatsContextText?: string;
   characterStatsLastResponse?: string;
   characterStatsLastPrompt?: string;
+  outputHighlightingPrompt?: string;
+  outputHighlightingPromptParts?: Array<{ text: string; actionInserted?: boolean }>;
   outputHighlightingInputToon?: string;
   outputHighlightingResponseToon?: string;
   outputHighlightingResultToon?: string;

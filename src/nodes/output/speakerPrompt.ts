@@ -2,7 +2,8 @@ import { encode } from '@toon-format/toon';
 import type { OutputSpeakerPromptSettings, OutputSpeakerResponseFormat } from '../../types';
 import { parseToonObject, stripStructuredResponse } from '../../utils/toon';
 import { isRecord } from '../../utils/records';
-import { fastTaskPrompt } from '../../llm/fastTaskPrompt';
+import { fastTaskReasoningStart, fastTaskReasoningEnd } from '../../llm/fastTaskPrompt';
+import type { PromptPreviewPart } from '../shared/promptRun';
 
 export const defaultOutputSpeakerResponseFormat: OutputSpeakerResponseFormat = 'toon';
 
@@ -16,9 +17,12 @@ export const outputSpeakerPromptVariables = [
 ];
 
 export const defaultOutputSpeakerPromptText = [
+  fastTaskReasoningStart,
+  '',
   'Analyze a roleplay response for chat display only. Do not rewrite the response.',
   'Known speaker names. Use speakerId values in your answer; speakerId 0 means unknown / do not highlight:',
   '<KnownSpeakers>',
+  'Speaker details explain player selection, Storybook membership, prior interactions, name hits, and embedded message participants. A name hit alone does not confirm who is speaking; use this evidence to disambiguate shared names.',
   'Use Highlighting Context only to disambiguate who is present or likely speaking.',
   '<HighlightingContext>',
   'Analyze speakers only in the response text.',
@@ -27,6 +31,8 @@ export const defaultOutputSpeakerPromptText = [
   '<NumberedQuotedPassages>',
   'RESPONSE TEXT:',
   '<ResponseText>',
+  '',
+  fastTaskReasoningEnd,
 ].join('\n');
 
 export function defaultOutputSpeakerPromptSettings(): OutputSpeakerPromptSettings {
@@ -95,16 +101,38 @@ export function buildOutputSpeakerPrompt(
   settings: OutputSpeakerPromptSettings | undefined,
   variables: Record<string, string>,
 ) {
+  return buildOutputSpeakerPromptPreview(settings, variables).prompt;
+}
+
+export function buildOutputSpeakerPromptPreview(
+  settings: OutputSpeakerPromptSettings | undefined,
+  variables: Record<string, string>,
+) {
   const normalized = outputSpeakerPromptSettings(settings);
   const template = normalized.mode === 'custom'
     ? normalized.customText ?? ''
     : defaultOutputSpeakerPromptText;
-  return fastTaskPrompt(Object.entries(variables)
-    .reduce((text, [key, value]) => text.split(`<${key}>`).join(value), template)
-    .split('\n')
-    .filter((line) => line.trim() || line === '')
-    .join('\n')
-    .trim());
+  const parts: PromptPreviewPart[] = [];
+  let cursor = 0;
+  for (const match of template.matchAll(/<([A-Za-z]+)>/g)) {
+    const value = variables[match[1]];
+    if (value === undefined) continue;
+    parts.push({ text: template.slice(cursor, match.index) });
+    parts.push({ text: value, actionInserted: true });
+    cursor = match.index + match[0].length;
+  }
+  parts.push({ text: template.slice(cursor) });
+  while (parts.length) {
+    parts[0].text = parts[0].text.trimStart();
+    if (parts[0].text) break;
+    parts.shift();
+  }
+  while (parts.length) {
+    parts[parts.length - 1].text = parts[parts.length - 1].text.trimEnd();
+    if (parts[parts.length - 1].text) break;
+    parts.pop();
+  }
+  return { prompt: parts.map((part) => part.text).join(''), parts };
 }
 
 function parseJsonObject(text: string) {

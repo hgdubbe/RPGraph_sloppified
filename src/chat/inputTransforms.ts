@@ -5,7 +5,7 @@ import type {
 } from '../types';
 import { lastTurnMessages } from '../data-management/historyStore';
 import { formatChatHistory } from '../workflow/textHelpers';
-import { fastTaskPrompt } from '../llm/fastTaskPrompt';
+import { fastTaskReasoningStart, fastTaskReasoningEnd } from '../llm/fastTaskPrompt';
 
 const inputTransformRecentTurnCount = 5;
 
@@ -67,7 +67,9 @@ export function translationPrompt({
           'Never translate this direction into the display language.',
         ].join('\n')
       : `Translate the English roleplay text to ${language} for display.`;
-  return fastTaskPrompt([
+  return [
+    fastTaskReasoningStart,
+    '',
     instruction,
     'Preserve tone, meaning, names, formatting, and roleplay style.',
     'Copy account links such as @fotogram:username and @whatsup:Full Name verbatim, including the entire name or account ID. Never translate or reformat account links.',
@@ -83,7 +85,9 @@ export function translationPrompt({
     'Return only the translated text. Do not add notes, and do not wrap the whole output in quotation marks that are not part of the text. When instructed to return an empty response, output no characters.',
     '',
     text,
-  ].filter(Boolean).join('\n'));
+    '',
+    fastTaskReasoningEnd,
+  ].filter(Boolean).join('\n');
 }
 
 export function directInputPrompt({
@@ -114,7 +118,9 @@ export function directInputPrompt({
         'Do not answer for other characters, do not continue the scene as the assistant, and do not add outcomes the user did not ask for.',
         'Preserve the user-controlled character intent, tone, names, and message format.',
       ].join('\n');
-  return fastTaskPrompt([
+  return [
+    fastTaskReasoningStart,
+    '',
     channelInstruction,
     `The user's display language is ${language}; the direction may be ${language}, English, or mixed-language.`,
     'Use recent roleplay context to infer references, relationships, mood, and continuity.',
@@ -130,5 +136,7 @@ export function directInputPrompt({
     '',
     channel === 'phone' ? 'Phone direction:' : 'Roleplay direction:',
     text,
-  ].filter(Boolean).join('\n'));
+    '',
+    fastTaskReasoningEnd,
+  ].filter(Boolean).join('\n');
 }
