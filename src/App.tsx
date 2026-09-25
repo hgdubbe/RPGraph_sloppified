@@ -2526,18 +2526,47 @@ function App() {
     if (!latestTurn || latestTurn.id === lastTurnAutosaveIdRef.current) {
       return;
     }
+    // `currentSession()` throws "Wait for the current run to finish..." while
+    // `activeRunRef.current` is still set — a guard meant for user-initiated
+    // actions (load/replace the RP), where failing loudly is correct. This
+    // effect isn't one of those: it fires because `turns` just changed, which
+    // can happen from `commitCollectedTurn` before `finishRun()`'s cleanup has
+    // actually cleared that ref (e.g. an auto-turn/narrator follow-up already
+    // starting a new run reuses the same ref before this effect gets to run,
+    // since React flushes effects asynchronously, not synchronously inside the
+    // commit that triggered them). Hitting that guard here was surfacing as a
+    // scary "Autosave failed" warning after essentially every turn, even
+    // though nothing was actually wrong. The `isRunning` check below skips the
+    // common case up front; runAutosaveAttempt's retry loop is the actual
+    // guarantee — it covers the narrower race where `isRunning` itself hasn't
+    // caught up to `activeRunRef.current` yet (e.g. a second run starting
+    // before this effect got scheduled), so the user is never shown a failure
+    // for what is, from their perspective, nothing going wrong.
+    if (isRunning) {
+      return;
+    }
     lastTurnAutosaveIdRef.current = latestTurn.id;
     const name = sessionName.trim() || suggestedSessionName();
-    void currentSession(name)
-      .then((session) => window.rpgraph.saveTurnAutosave(session))
-      .then((result) => {
-        setFileStorageStatus(`Autosaved RP recovery: ${result.fileName}`);
-      })
-      .catch((error) => {
-        const detail = error instanceof Error ? error.message : String(error);
-        setFileStorageStatus(`Autosave failed: ${detail}`);
-        notifySystem('warning', `Autosave failed: ${detail}`);
-      });
+    const runInProgressMessage = 'Wait for the current run to finish before replacing or saving the RP.';
+    const maxAttempts = 5;
+    const retryDelayMs = 400;
+    const runAutosaveAttempt = (attempt: number) => {
+      void currentSession(name)
+        .then((session) => window.rpgraph.saveTurnAutosave(session))
+        .then((result) => {
+          setFileStorageStatus(`Autosaved RP recovery: ${result.fileName}`);
+        })
+        .catch((error) => {
+          const detail = error instanceof Error ? error.message : String(error);
+          if (detail === runInProgressMessage && attempt < maxAttempts) {
+            setTimeout(() => runAutosaveAttempt(attempt + 1), retryDelayMs);
+            return;
+          }
+          setFileStorageStatus(`Autosave failed: ${detail}`);
+          notifySystem('warning', `Autosave failed: ${detail}`);
+        });
+    };
+    runAutosaveAttempt(1);
   }, [
     settingsLoadComplete,
     sessionName,
@@ -2545,6 +2574,7 @@ function App() {
     turns,
     turnAutosaveEnabled,
     notifySystem,
+    isRunning,
   ]);
 
   function changeTokenEstimateBytesPerToken(value: number) {
@@ -3025,6 +3055,16 @@ function App() {
     setMessages(loadedMessages);
     turnsRef.current = loadedTurns;
     setTurns(loadedTurns);
+    // Seed the autosave gate to the turn this session already ends on, mirroring
+    // the "latest non-opening turn" selection the autosave effect itself uses
+    // below. Without this, loading any existing RP save (turn-autosave restore,
+    // last-workflow restore, or a manual file open) left the ref at its previous
+    // value (often null, on a fresh app start), so the autosave effect saw the
+    // just-loaded final turn as "new" and immediately wrote a fresh recovery
+    // file before the user had done anything — autosave firing on load, not on
+    // actual new progress.
+    lastTurnAutosaveIdRef.current =
+      [...loadedTurns].reverse().find((turn) => !turn.openingHistory)?.id ?? null;
     setTurnCheckpoints(sessionState.turnCheckpoints);
     setPhoneSeenByConversation(
       mergeSeenStates(
@@ -5557,7 +5597,7 @@ function App() {
             onClick={() => selectChatCharacter(character.id)}
             style={charColor ? { '--character-tab-color': charColor } as React.CSSProperties : undefined}
           >
-            <strong>{character.name}</strong>
+            <strong><CharacterName color={charColor}>{character.name}</CharacterName></strong>
             <span>{isActive ? 'playing now' : character.id === viewedPhoneCharacter?.id ? 'phone open' : 'available'}</span>
           </button>
         );
