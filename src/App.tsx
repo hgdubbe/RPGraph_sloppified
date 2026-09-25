@@ -2547,6 +2547,15 @@ function App() {
     if (isRunning) {
       return;
     }
+    // When autoplay is enabled, a just-committed turn schedules an automatic
+    // follow-up run before `isRunning` flips back to false (see useAutoplay's
+    // scheduleAutoplay, called synchronously from onRunCommitted ahead of
+    // finishRun in useGraphRun). Saving here would autosave after only the
+    // player's turn instead of the autoplay follow-up that's about to run;
+    // skip and let this effect fire again once that follow-up turn commits.
+    if (autoplay.isAutoplayPending()) {
+      return;
+    }
     lastTurnAutosaveIdRef.current = latestTurn.id;
     const name = sessionName.trim() || suggestedSessionName();
     const runInProgressMessage = 'Wait for the current run to finish before replacing or saving the RP.';
@@ -2570,6 +2579,7 @@ function App() {
     };
     runAutosaveAttempt(1);
   }, [
+    autoplay.isAutoplayPending,
     settingsLoadComplete,
     sessionName,
     setFileStorageStatus,

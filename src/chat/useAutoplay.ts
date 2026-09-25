@@ -70,6 +70,10 @@ export function useAutoplay({ isRunning, runAutoplay, cancelAutoplayRun }: UseAu
   const autoplayRunActiveRef = useRef(false);
   const previousIsRunningRef = useRef(isRunning);
 
+  const isAutoplayPending = useCallback(() => {
+    return pendingAutoplayRef.current !== null || autoplayRunActiveRef.current;
+  }, []);
+
   const cancelPendingAutoplay = useCallback(() => {
     if (pendingAutoplayRef.current !== null) {
       window.clearTimeout(pendingAutoplayRef.current);
@@ -149,6 +153,7 @@ export function useAutoplay({ isRunning, runAutoplay, cancelAutoplayRun }: UseAu
     mode,
     setMode,
     cancelPendingAutoplay,
+    isAutoplayPending,
     onRunCommitted,
     runModeNow,
   };
