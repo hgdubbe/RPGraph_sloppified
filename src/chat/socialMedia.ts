@@ -282,14 +282,11 @@ export function socialDirectMessageInputText(
   ].join('\n');
 }
 
-/** Prefer stable IDs and explicit ID aliases; legacy social DMs can use a unique configured username. */
-export function socialDirectMessageParty(
+/** Resolve a DM participant by account identity, including aliases and legacy handles. */
+export function socialDirectMessageCharacter(
   message: SocialDirectMessageRecord,
   side: 'from' | 'to',
   characters: StorybookCharacter[],
-  showProfileNames = true,
-  showRealNames = false,
-  privacyDetail: 'compact' | 'explained' = 'compact',
 ) {
   const storedHandle = message[side === 'from' ? 'fromHandle' : 'toHandle'];
   const id = message[side === 'from' ? 'fromAccountId' : 'toAccountId'];
@@ -302,7 +299,20 @@ export function socialDirectMessageParty(
       ? account.accountId === id || character.identityAliases?.accountIds?.[message.app]?.includes(id)
       : !!storedHandle && accountHandleMatches(account, storedHandle));
   });
-  const character = matches.length === 1 ? matches[0] : undefined;
+  return matches.length === 1 ? matches[0] : undefined;
+}
+
+/** Prefer stable IDs and explicit ID aliases; legacy social DMs can use a unique configured username. */
+export function socialDirectMessageParty(
+  message: SocialDirectMessageRecord,
+  side: 'from' | 'to',
+  characters: StorybookCharacter[],
+  showProfileNames = true,
+  showRealNames = false,
+  privacyDetail: 'compact' | 'explained' = 'compact',
+) {
+  const storedHandle = message[side === 'from' ? 'fromHandle' : 'toHandle'];
+  const character = socialDirectMessageCharacter(message, side, characters);
   const name = showRealNames && message.app !== 'matchme'
     ? character?.name || message[side]
     : socialAccountPresentation(message.app, character, message[side], storedHandle).name;

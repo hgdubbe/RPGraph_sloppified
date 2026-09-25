@@ -6,7 +6,7 @@ import type { NpcParticipantSnapshots } from './npcParticipants';
 import type { RpStorybook } from '../nodes/rp-storybook/model';
 
 /** Inspect historical values only, never the character definitions or snapshot archive itself. */
-export function characterUsageReasons(character: Character, aliases: CharacterRegistryAliases, history: unknown): string[] {
+export function characterUsageReasons(character: Pick<Character, 'id' | 'name' | 'apps' | 'images'>, aliases: CharacterRegistryAliases, history: unknown): string[] {
   // Social directories persist prefixed character/account IDs, including legacy aliases.
   const directoryIds = [character.id, ...(aliases.characterIds ?? []),
     ...Object.values(character.apps ?? {}).map((account) => account.accountId),

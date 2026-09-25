@@ -1,3 +1,4 @@
+import type { CharacterColorSlots } from '../chat/characterColors';
 import type { Edge } from '@xyflow/react';
 import type {
   BankTransferRecord,
@@ -250,6 +251,7 @@ export type SessionEntities = {
 type NodeRuntimeState = Record<string, unknown>;
 
 export type RuntimeState = {
+  characterColorSlots?: CharacterColorSlots;
   /** Pooled JSON revision archive shared by current activity and undo history. */
   npcParticipantsJson?: string;
   nodes: Record<string, NodeRuntimeState>;

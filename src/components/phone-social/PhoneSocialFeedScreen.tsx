@@ -1,3 +1,4 @@
+import { CharacterName } from '../CharacterName';
 import { accountHandle } from '../../characters/character';
 import { isAccountPrivacyMode, socialAccountPresentation } from '../../chat/socialMedia';
 import { socialAvatarDataUrl } from '../../characters/portrait';
@@ -1236,12 +1237,12 @@ export function PhoneSocialFeedScreen({
     );
   }
 
-  if (editingProfile && owner) return <SocialProfileEditor app={app.id} account={owner.apps?.[app.id]}
+  if (editingProfile && owner) return <SocialProfileEditor nameColor={ownerColor} app={app.id} account={owner.apps?.[app.id]}
     accountId={`character:${owner.sourceId}:${app.id}`} name={owner.name} profileImage={owner.profileImage} images={phoneGalleryImages}
     locked={socialMediaMessages.length > 0 || bankTransferMessages.length > 0}
     onSave={(profile) => { const saved = onCreateSocialAccount(owner, app.id, accountHandle(profile), profile); if (saved) { setAccount(accountHandle(profile)); setEditingProfile(false); } return saved; }}
     onCancel={() => setEditingProfile(false)} />;
-  if (!account && owner) return <SocialProfileEditor app={app.id} account={owner.apps?.[app.id]} accountId={`character:${owner.sourceId}:${app.id}`}
+  if (!account && owner) return <SocialProfileEditor nameColor={ownerColor} app={app.id} account={owner.apps?.[app.id]} accountId={`character:${owner.sourceId}:${app.id}`}
     name={owner.name} profileImage={owner.profileImage} images={phoneGalleryImages} locked={false}
     onSave={(profile) => { const saved = onCreateSocialAccount(owner, app.id, accountHandle(profile), profile); if (saved) { setAccount(accountHandle(profile)); setEditingProfile(false); } return saved; }}
     onCancel={onBack} />;
@@ -1453,7 +1454,7 @@ export function PhoneSocialFeedScreen({
                     style={color ? { borderColor: color, color } : undefined}
                   />
                   <span className="phone-social-account-main">
-                    <strong style={color ? { color } : undefined}>{socialAccountPresentation(app.id, entry.character, entry.name, entry.handle).name}</strong>
+                    <strong><CharacterName color={color}>{socialAccountPresentation(app.id, entry.character, entry.name, entry.handle).name}</CharacterName></strong>
                     <span>@{socialAccountPresentation(app.id, entry.character, entry.name, entry.handle).handle}</span>
                   </span>
                   {unread && (
@@ -1489,7 +1490,7 @@ export function PhoneSocialFeedScreen({
                       return (
                         <div className="phone-social-user-result" key={user.id} role="option">
                           <span>
-                            <strong>{userIdentity.name}</strong>
+                            <strong><CharacterName color={characterColors.get(storyCharacters.find((character) => character.id === user.characterId)?.name ?? '')}>{userIdentity.name}</CharacterName></strong>
                             <small>@{userIdentity.handle}</small>
                           </span>
                           <button
@@ -1759,7 +1760,7 @@ export function PhoneSocialFeedScreen({
                         : undefined}
                     />
                     <div className="phone-social-post-author-info">
-                      <strong>{postIdentity.name}</strong>
+                      <strong><CharacterName color={postAuthorColor}>{postIdentity.name}</CharacterName></strong>
                       <span>@{postIdentity.handle}</span>
                     </div>
                   </button>
@@ -1778,7 +1779,7 @@ export function PhoneSocialFeedScreen({
                 {post.textOnly ? (
                   <>
                     <p className="phone-social-post-caption text-only-caption">
-                      <strong>{postIdentity.name}</strong> {post.caption}
+                      <strong><CharacterName color={postAuthorColor}>{postIdentity.name}</CharacterName></strong> {post.caption}
                     </p>
                     <hr className="phone-social-post-separator" />
                     <div className="phone-social-post-footer">
@@ -1912,7 +1913,7 @@ export function PhoneSocialFeedScreen({
                       <>
                         <hr className="phone-social-post-separator" />
                         <p className="phone-social-post-caption">
-                          <strong>{postIdentity.name}</strong> {post.caption}
+                          <strong><CharacterName color={postAuthorColor}>{postIdentity.name}</CharacterName></strong> {post.caption}
                         </p>
                         <div className="phone-social-post-footer">
                           <button
@@ -1984,7 +1985,7 @@ export function PhoneSocialFeedScreen({
                             ? undefined
                             : `Message ${commentIdentity.name}`}
                         >
-                          <strong>{commentIdentity.name}{commentIdentity.handle && ` (@${commentIdentity.handle})`}</strong>
+                          <strong><CharacterName color={commentCharacter ? characterColors.get(commentCharacter.name) : undefined}>{commentIdentity.name}</CharacterName>{commentIdentity.handle && ` (@${commentIdentity.handle})`}</strong>
                           <span>{comment.text}</span>
                         </button>
                       );

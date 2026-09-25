@@ -1,3 +1,4 @@
+import { CharacterName } from './CharacterName';
 import { migratedProfileName } from '../characters/character';
 import { characterUsageReasons } from '../characters/lifecycle';
 import type { NpcParticipantSnapshots } from '../characters/npcParticipants';
@@ -10,6 +11,7 @@ import type { Character } from '../characters/character';
 import { characterContentEqual } from '../characters/contentComparison';
 
 type NpcLibraryDialogProps = {
+  characterColors?: ReadonlyMap<string, string>;
   snapshot: NpcLibrarySnapshot | null;
   participants?: NpcParticipantSnapshots;
   activity?: unknown;
@@ -78,7 +80,8 @@ type DisplayEntry = {
   unlocked?: boolean;
 };
 
-function CharacterRow({ display, issues, canImport, onImport, onEdit, onRemove }: {
+function CharacterRow({ color, display, issues, canImport, onImport, onEdit, onRemove }: {
+  color?: string;
   display: DisplayEntry; issues: string[]; canImport: boolean; onImport: () => void; onEdit: () => void; onRemove?: () => void;
 }) {
   const { character, libraryEntry, inStorybook, storybookEdited, localEdited } = display;
@@ -92,13 +95,13 @@ function CharacterRow({ display, issues, canImport, onImport, onEdit, onRemove }
   });
   return (
     <li className="npc-library-row">
-      <div className="npc-library-avatar" aria-hidden="true">
+      <div className="npc-library-avatar" style={color ? { borderColor: color, color } : undefined} aria-hidden="true">
         {portrait && portrait !== failedPortrait
           ? <img src={portrait} alt="" loading="lazy" onError={() => setFailedPortrait(portrait)} />
           : initials}
       </div>
       <div className="npc-library-identity">
-        <h3>{character.name}{display.unlocked && <span className="npc-library-lock" role="img" aria-label="Unlocked" title="Unlocked">🔓</span>}</h3>
+        <h3><CharacterName color={color}>{character.name}</CharacterName>{display.unlocked && <span className="npc-library-lock" role="img" aria-label="Unlocked" title="Unlocked">🔓</span>}</h3>
         <div className="npc-library-badges">
           <span className="npc-library-provenance" aria-label={`Active character source: ${provenance.map((stage) => stage.label).join(' then ')}`}>
             {provenance.map((stage, index) => <span className="npc-library-provenance-segment" key={stage.label}>
@@ -164,7 +167,7 @@ function CharacterRow({ display, issues, canImport, onImport, onEdit, onRemove }
   );
 }
 
-export function NpcLibraryDialog({ snapshot, participants = {}, activity, busy = false, dismissOnEscape = true, onRemove, activeRegistry, loading, status, storybookNodeId, onAddToStorybook, onReload, onOpenFolder, onClose, onCreateCharacter, onEditCharacter, onOpenStorybook }: NpcLibraryDialogProps) {
+export function NpcLibraryDialog({ characterColors, snapshot, participants = {}, activity, busy = false, dismissOnEscape = true, onRemove, activeRegistry, loading, status, storybookNodeId, onAddToStorybook, onReload, onOpenFolder, onClose, onCreateCharacter, onEditCharacter, onOpenStorybook }: NpcLibraryDialogProps) {
   const [importStatus, setImportStatus] = useState('');
   const [showUnlock, setShowUnlock] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
@@ -268,6 +271,7 @@ export function NpcLibraryDialog({ snapshot, participants = {}, activity, busy =
                     const target = display.nodeId ?? targetNodeId;
                     return (
                       <CharacterRow
+                        color={characterColors?.get(display.character.name)}
                         key={`${display.diagnosticOnly ? entry?.source : 'effective'}:${display.character.id}`}
                         display={{ ...display, unlocked: !!entry && !!snapshot?.files?.some((file) => file.tier === entry.tier && file.fileName === entry.fileName && file.unlocked) }}
                         onEdit={() => display.inStorybook ? onOpenStorybook(display.nodeId!) : onEditCharacter(display.retained

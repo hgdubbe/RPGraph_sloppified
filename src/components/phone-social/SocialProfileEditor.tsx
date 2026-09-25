@@ -1,3 +1,5 @@
+import { CharacterAvatar } from '../CharacterAvatar';
+import { CharacterName } from '../CharacterName';
 import { migratedProfileName } from '../../characters/character';
 import { useState } from 'react';
 import { portraitDataUrl, socialAvatarDataUrl } from '../../characters/portrait';
@@ -7,7 +9,8 @@ import { profileIdentityError } from '../../characters/profiles';
 import '../characterAppProfiles.css';
 
 /** Shared by Character Setup and the phone apps. Images remain gallery references. */
-export function SocialProfileEditor({ account, accountId, name, images, profileImage, locked, app = 'fotogram', onSave, onCancel }: {
+export function SocialProfileEditor({ nameColor, account, accountId, name, images, profileImage, locked, app = 'fotogram', onSave, onCancel }: {
+  nameColor?: string;
   account?: CharacterAppAccount; accountId: string; name: string;
   app?: 'fotogram' | 'onlyfriends';
   profileImage?: RpStorybookCharacterProfileImage;
@@ -41,8 +44,8 @@ export function SocialProfileEditor({ account, accountId, name, images, profileI
       <p>{creating ? 'Set the scene for your first post.' : 'Give your profile a fresh look.'} Choose a photo, a profile name, and a few words about yourself.</p>
     </header>
     <section className="social-profile-preview" aria-label="Live profile preview">
-      <div className="social-profile-avatar">{!isPrivate && avatar ? <img src={avatar} alt="Profile preview" /> : <span>{(draft.profileName || name).slice(0, 1).toUpperCase()}</span>}</div>
-      <div><span className="social-profile-eyebrow">Profile preview</span><h3>{isPrivate ? draft.profileName : name}</h3><p>@{(draft.profileName ?? '').trim().replace(/^@/, '')}</p><p>{draft.bio || 'Your story starts here.'}</p></div>
+      <CharacterAvatar className="social-profile-avatar" ringColor={nameColor} name={isPrivate ? draft.profileName ?? name : name} profileImageDataUrl={!isPrivate ? avatar : undefined} fallback={(draft.profileName || name).slice(0, 1).toUpperCase()} />
+      <div><span className="social-profile-eyebrow">Profile preview</span><h3><CharacterName color={nameColor}>{isPrivate ? draft.profileName : name}</CharacterName></h3><p>@{(draft.profileName ?? '').trim().replace(/^@/, '')}</p><p>{draft.bio || 'Your story starts here.'}</p></div>
     </section>
     <section className="social-profile-section">
       <h3><span aria-hidden="true">01</span> The essentials</h3>

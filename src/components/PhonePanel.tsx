@@ -1,3 +1,5 @@
+import { ChatBubbleText } from './ChatBubbleText';
+import { CharacterName } from './CharacterName';
 import { AppMessageAvatar } from './AppMessageAvatars';
 import { AccountLinkContext } from '../chat/accountLinkContext';
 import { AccountLinkText } from './AccountLinkText';
@@ -597,7 +599,6 @@ export function PhonePanel({
   const isImageManuallySelected = (image: ChatImageAttachment) =>
     !!image.id.trim() && selectedReferenceImageIds.has(image.id.trim());
   const phoneOwnerName = selectedCharacter?.name.trim().split(/\s+/)[0];
-  const phoneListTitle = phoneOwnerName ? `${phoneOwnerName}'s Chats` : 'Phone Chats';
   const wallpaperImageId = selectedCharacter?.phoneSettings.wallpaperId ?? 'wallpaper-1';
   const wallpaperImage = [...defaultPhoneWallpapers, ...phoneGalleryImages]
     .find((image) => image.id === wallpaperImageId) ?? defaultPhoneWallpapers[0];
@@ -782,7 +783,7 @@ export function PhonePanel({
   }
 
   if (screen === 'plottwist') {
-    return <PhoneDatingScreen key={selectedCharacter?.id ?? 'no-owner'} owner={selectedCharacter}
+    return <PhoneDatingScreen characterColors={characterColors} key={selectedCharacter?.id ?? 'no-owner'} owner={selectedCharacter}
       characters={appCharacters} history={socialMediaMessages} isRunning={isRunning}
       onSendMessage={onSubmitSocialDirectMessage}
       unread={unreadSocialDirectMessages.matchme} onMarkSeen={(id) => onMarkSocialDirectMessagesSeen('matchme', id)}
@@ -828,6 +829,7 @@ export function PhonePanel({
   if (screen === 'notes') {
     return (
       <PhoneNotesScreen
+        ownerColor={selectedCharacter ? characterColors.get(selectedCharacter.name) : undefined}
         key={selectedCharacter?.id ?? 'no-owner'}
         owner={selectedCharacter}
         notes={phoneNotes}
@@ -1329,8 +1331,8 @@ export function PhonePanel({
           >
             ←
           </button>
-          <strong>{phoneListTitle}</strong>
-          <span>{phoneContacts.length}</span>
+          <strong>{phoneOwnerName ? <><CharacterName color={selectedCharacter ? characterColors.get(selectedCharacter.name) : undefined}>{phoneOwnerName}</CharacterName>'s Chats</> : 'Phone Chats'}</strong>
+          <span className="phone-contact-count">{phoneContacts.length}</span>
         </div>
         <div className="phone-contact-list">
           {phoneContacts.map((contact) => (
@@ -1351,7 +1353,7 @@ export function PhonePanel({
               />
               <span className="phone-contact-main">
                 <span className="phone-contact-topline">
-                  <strong style={{ color: contact.color }}>{contact.character.name}</strong>
+                  <strong style={{ color: contact.color }}><CharacterName color={characterColors.get(contact.character.name)}>{contact.character.name}</CharacterName></strong>
                   <small>{contact.time}</small>
                 </span>
                 <span className="phone-contact-bottomline">
@@ -1405,7 +1407,7 @@ export function PhonePanel({
               />
               <div>
                 <strong style={{ color: selectedPhoneContact.color }}>
-                  {selectedPhoneContact.character.name}
+                  <CharacterName color={characterColors.get(selectedPhoneContact.character.name)}>{selectedPhoneContact.character.name}</CharacterName>
                 </strong>
                 <span>Last seen Today</span>
               </div>
@@ -1445,7 +1447,7 @@ export function PhonePanel({
                             className="phone-bubble-sender"
                             style={fromColor ? { color: fromColor } : undefined}
                           >
-                            {view.senderName}
+                            <CharacterName color={fromColor}>{view.senderName}</CharacterName>
                             {phoneAuthorBadgesEnabled && (
                               <span className={`phone-author-badge ${message.role === 'user' ? 'user' : 'ai'}`}>
                                 {message.role === 'user' ? 'USER' : 'AI'}
@@ -1463,9 +1465,9 @@ export function PhonePanel({
                               )}
                               <div className="phone-bubble-reply-copy">
                                 <strong>
-                                  Reply to {repliedToMessage.phoneFrom || repliedToMessage.speakerName || 'Unknown'}
+                                  Reply to <CharacterName color={phoneCharacterColor(repliedToMessage.phoneFrom || repliedToMessage.speakerName || 'Unknown')}>{repliedToMessage.phoneFrom || repliedToMessage.speakerName || 'Unknown'}</CharacterName>
                                 </strong>
-                                <span>{repliedToText}</span>
+                                <ChatBubbleText>{repliedToText}</ChatBubbleText>
                               </div>
                             </div>
                           )}
@@ -1513,7 +1515,7 @@ export function PhonePanel({
                                 }
                               />
                             ) : (
-                              <span><AccountLinkText text={view.visibleText} bindings={message.accountLinks} /></span>
+                              <ChatBubbleText><AccountLinkText text={view.visibleText} bindings={message.accountLinks} /></ChatBubbleText>
                             )
                           )}
                           {message.phoneImageCaptionChange && (
@@ -1641,7 +1643,7 @@ export function PhonePanel({
               {!!selectedCharacter && !!phoneDraft.trim() ? (
                 <div className="phone-typing">
                   <strong style={{ color: characterColors.get(selectedCharacter.name) }}>
-                    {selectedCharacter.name}
+                    <CharacterName color={characterColors.get(selectedCharacter.name)}>{selectedCharacter.name}</CharacterName>
                   </strong>
                   <span>typing...</span>
                   <CommandPillList
@@ -1769,7 +1771,7 @@ export function PhonePanel({
                   <div>
                     {!!selectedCharacter && selectedCharacterPlayable && (
                       <button type="button" onClick={onSwitchToViewedCharacter}>
-                        Switch to {selectedCharacter.name}
+                        Switch to <CharacterName color={characterColors.get(selectedCharacter.name)}>{selectedCharacter.name}</CharacterName>
                       </button>
                     )}
                     <span>

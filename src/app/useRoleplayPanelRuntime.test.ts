@@ -312,3 +312,20 @@ it('invalidates panel state and clears drafts when the same cast starts another 
   after.resetPanelSession();
   expect(render().panelSessionRevision).toBe(after.panelSessionRevision + 1);
 });
+
+it('colors loaded and newly contacted NPCs using the same activity as the library', () => {
+  const { render, options, npc, player } = harness();
+  expect(render().characterColors.has(npc.name)).toBe(false);
+  options.messages = [{ id: 1, role: 'user', channel: 'phone', originalText: 'Hello',
+    phoneFrom: player.name, phoneTo: npc.name }];
+  const contacted = render();
+  expect(contacted.characterColors.get(npc.name)).toMatch(/^var\(--rp-npc-/);
+  expect(contacted.characterColorSlots[npc.sourceId]).toBe(1);
+  const slots = contacted.characterColorSlots;
+  // Loading an old RP with messages but no color record derives colors immediately.
+  contacted.setCharacterColorSlots({});
+  expect(render().characterColors.has(npc.name)).toBe(true);
+  // Modern saves preserve the assigned family.
+  render().setCharacterColorSlots(slots);
+  expect(render().characterColorSlots[npc.sourceId]).toBe(1);
+});

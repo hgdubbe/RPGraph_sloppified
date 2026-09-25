@@ -1,3 +1,4 @@
+import { CharacterName } from './CharacterName';
 import { useEffect, useState } from 'react';
 import type { RpDateTimeFormat, RpWeekdayLanguage } from '../types';
 import type { StorybookCharacter } from '../storybook/runtime';
@@ -11,6 +12,7 @@ import {
 
 type PhoneNotesScreenProps = {
   owner?: StorybookCharacter;
+  ownerColor?: string;
   notes: PhoneNoteRecord[];
   /**
    * Persists the edited note through the workflow as a direct app action.
@@ -54,6 +56,7 @@ function randomNoteColor() {
 }
 
 export function PhoneNotesScreen({
+  ownerColor,
   owner,
   notes,
   onCommitNote,
@@ -207,7 +210,7 @@ export function PhoneNotesScreen({
         </button>
         <div>
           <span>Notes</span>
-          <strong>{owner ? `${owner.name}'s Notes` : 'No Character'}</strong>
+          <strong>{owner ? <><CharacterName color={ownerColor}>{owner.name}</CharacterName>'s Notes</> : 'No Character'}</strong>
         </div>
       </header>
       <div className="phone-notes-scroll">

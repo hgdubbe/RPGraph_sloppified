@@ -1,3 +1,6 @@
+import { useSliderPreview } from './useSliderPreview';
+import { TextEffectOptions } from '../components/TextEffectOptions';
+import type { TextEffectsSettings } from '../chat/textEffects';
 import { reasoningActivation, normalizeReasoningEffort, supportsReasoningEffort, type ReasoningCapabilities } from '../../shared/reasoning.cjs';
 import type { StorybookCharacter } from '../storybook/runtime';
 import {
@@ -144,6 +147,8 @@ type StudioDialogsProps = {
   activeTokenEstimateBytesPerToken: number;
   settingsValueDefinitions: SettingsValueDefinition[];
   settingsValues: Record<string, string>;
+  textEffects: TextEffectsSettings;
+  onTextEffectsChange: (value: TextEffectsSettings) => void;
   chatTextBrightness: number;
   chatColorIntensity: number;
   chatMessageAvatarSize: number;
@@ -418,9 +423,10 @@ function RetryIcon() {
 }
 
 const OPTIONS_TABS = [
-  { id: 'chat', label: 'Chat & UI', desc: 'Font sizes, UI scale and date/time' },
+  { id: 'chat', label: 'Chat & UI', desc: 'Avatars, scrolling, UI scale and date/time' },
+  { id: 'text', label: 'Text', desc: 'Sizes, colors, brightness and wave effects' },
   { id: 'translation', label: 'Translation', desc: 'English processing and display language' },
-  { id: 'nodes', label: 'Node Design', desc: 'Canvas node transparency and text sizes' },
+  { id: 'nodes', label: 'Node Design', desc: 'Canvas node transparency and appearance' },
   { id: 'variables', label: 'Workflow Variables', desc: 'Global variables referenced in prompts' },
   { id: 'images', label: 'Reference Images', desc: 'Vision model context lookback and limits' },
   { id: 'tokens', label: 'Token Estimate', desc: 'UTF-8 byte factors and auto-calibration' },
@@ -824,6 +830,8 @@ export function StudioDialogs({
   activeTokenEstimateBytesPerToken,
   settingsValueDefinitions,
   settingsValues,
+  textEffects,
+  onTextEffectsChange,
   chatTextBrightness,
   chatColorIntensity,
   chatMessageAvatarSize,
@@ -995,6 +1003,7 @@ export function StudioDialogs({
   } | null>(null);
   const [storybookInfoLoading, setStorybookInfoLoading] = useState<string | null>(null);
   const [storybookInfoStatus, setStorybookInfoStatus] = useState('');
+  const textEffectPreview = useSliderPreview(showOptions);
   const [activeOptionsTab, setActiveOptionsTab] = useState<OptionsTabId>('chat');
   const [deleteFileCandidate, setDeleteFileCandidate] = useState<SavedFileSummary | null>(null);
   const [fileFilter, setFileFilter] = useState<'all' | 'workflow' | 'storybook' | 'session' | 'character-card'>('all');
@@ -1867,7 +1876,7 @@ export function StudioDialogs({
 
       {showOptions && (
         <div
-          className="dialog-backdrop"
+          className={`dialog-backdrop${textEffectPreview ? ' text-effect-preview' : ''}`}
           role="presentation"
           onPointerDown={trackBackdropPointerDown}
           onClick={(event) => closeFromBackdropClick(event, 'options', onCloseOptions)}
@@ -1924,7 +1933,7 @@ export function StudioDialogs({
                   <div className="options-tab-content">
                     <div className="options-tab-header">
                       <h3>Chat & UI</h3>
-                      <p>Normal Chat + Phone Chat formatting and interface scaling</p>
+                      <p>Avatars, scrolling, interface scaling and date/time</p>
                     </div>
                     <div className="options-tab-body">
                       <label className="option-toggle">
@@ -2051,6 +2060,39 @@ export function StudioDialogs({
                           </span>
                         </div>
                       </label>
+                      <div className="option-field">
+                        <span>RP TIME / DATE FORMAT</span>
+                        <NodeCustomSelect
+                          id="rp-date-time-format"
+                          value={rpDateTimeFormat}
+                          onChange={(value) => onRpDateTimeFormatChange(value as RpDateTimeFormat)}
+                          options={[
+                            { value: 'eu', label: 'EU - 05.06.26 FR   20:00' },
+                            { value: 'us', label: 'US - 06/05/26 FR   8:00 PM' },
+                            { value: 'iso', label: 'ISO - 2026-06-05 FR   20:00' },
+                          ]}
+                        />
+                      </div>
+                      <div className="option-field">
+                        <span>RP WEEKDAY LANGUAGE</span>
+                        <NodeCustomSelect
+                          id="rp-weekday-language"
+                          value={rpWeekdayLanguage}
+                          onChange={(value) => onRpWeekdayLanguageChange(value as RpWeekdayLanguage)}
+                          options={rpWeekdayLanguageOptions}
+                        />
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {activeOptionsTab === 'text' && (
+                  <div className="options-tab-content">
+                    <div className="options-tab-header">
+                      <h3>Text</h3>
+                      <p>Text size, brightness, color intensity and animated waves</p>
+                    </div>
+                    <div className="options-tab-body">
                       <label className="option-field chat-text-size-field" htmlFor="chat-text-size">
                         NORMAL CHAT TEXT SIZE
                         <div className="option-range-row">
@@ -2129,27 +2171,19 @@ export function StudioDialogs({
                         />
                       </div>
                       <div className="option-field">
-                        <span>RP TIME / DATE FORMAT</span>
+                        <span>NODE TEXT</span>
                         <NodeCustomSelect
-                          id="rp-date-time-format"
-                          value={rpDateTimeFormat}
-                          onChange={(value) => onRpDateTimeFormatChange(value as RpDateTimeFormat)}
+                          id="node-text-size"
+                          value={nodeTextSize}
+                          onChange={(value) => onNodeTextSizeChange(value as 'small' | 'normal' | 'big')}
                           options={[
-                            { value: 'eu', label: 'EU - 05.06.26 FR   20:00' },
-                            { value: 'us', label: 'US - 06/05/26 FR   8:00 PM' },
-                            { value: 'iso', label: 'ISO - 2026-06-05 FR   20:00' },
+                            { value: 'small', label: 'Small' },
+                            { value: 'normal', label: 'Normal' },
+                            { value: 'big', label: 'Big' },
                           ]}
                         />
                       </div>
-                      <div className="option-field">
-                        <span>RP WEEKDAY LANGUAGE</span>
-                        <NodeCustomSelect
-                          id="rp-weekday-language"
-                          value={rpWeekdayLanguage}
-                          onChange={(value) => onRpWeekdayLanguageChange(value as RpWeekdayLanguage)}
-                          options={rpWeekdayLanguageOptions}
-                        />
-                      </div>
+                      <TextEffectOptions value={textEffects} onChange={onTextEffectsChange} />
                     </div>
                   </div>
                 )}
@@ -2246,19 +2280,6 @@ export function StudioDialogs({
                           <span>{Math.round(glassDesignOpacity * 100)}%</span>
                         </div>
                       </label>
-                      <div className="option-field">
-                        <span>NODE TEXT</span>
-                        <NodeCustomSelect
-                          id="node-text-size"
-                          value={nodeTextSize}
-                          onChange={(value) => onNodeTextSizeChange(value as 'small' | 'normal' | 'big')}
-                          options={[
-                            { value: 'small', label: 'Small' },
-                            { value: 'normal', label: 'Normal' },
-                            { value: 'big', label: 'Big' },
-                          ]}
-                        />
-                      </div>
                     </div>
                   </div>
                 )}

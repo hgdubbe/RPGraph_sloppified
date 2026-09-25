@@ -1,3 +1,5 @@
+import { ChatBubbleText } from '../ChatBubbleText';
+import { CharacterName } from '../CharacterName';
 import { AppMessageAvatar } from '../AppMessageAvatars';
 import type { StorybookCharacter } from '../../storybook/runtime';
 import { AccountLinkInput } from '../AccountLinkInput';
@@ -12,6 +14,7 @@ type Props = {
   owner?: StorybookCharacter;
   partner?: StorybookCharacter;
   name: string;
+  nameColor?: string;
   avatarDataUrl?: string;
   busy: boolean;
   age: number;
@@ -28,7 +31,7 @@ type Props = {
   onBack: () => void;
 };
 
-export function MatchMeConversation({ owner, partner, busy, name, avatarDataUrl, age, messages, draft, onDraftChange, emojiOptions, recentEmojis, rpTimeTrackingEnabled, rpDateTimeFormat, rpWeekdayLanguage, onUseEmoji, onSend, onBack }: Props) {
+export function MatchMeConversation({ nameColor, owner, partner, busy, name, avatarDataUrl, age, messages, draft, onDraftChange, emojiOptions, recentEmojis, rpTimeTrackingEnabled, rpDateTimeFormat, rpWeekdayLanguage, onUseEmoji, onSend, onBack }: Props) {
   const [emojiOpen, setEmojiOpen] = useState(false);
   const emojiRef = useRef<HTMLDivElement>(null);
   const threadRef = useRef<HTMLDivElement>(null);
@@ -74,13 +77,13 @@ export function MatchMeConversation({ owner, partner, busy, name, avatarDataUrl,
           <path d="m15 18-6-6 6-6" />
         </svg>
       </button>
-      <CharacterAvatar className="pt-match-avatar" name={name} profileImageDataUrl={avatarDataUrl} fallback={name.split(/\s+/).slice(0, 2).map((part) => part[0]).join('')} />
-      <div><strong>{name}, {age}</strong><span>Active match · Private conversation</span></div>
+      <CharacterAvatar ringColor={nameColor} className="pt-match-avatar" name={name} profileImageDataUrl={avatarDataUrl} fallback={name.split(/\s+/).slice(0, 2).map((part) => part[0]).join('')} />
+      <div><strong><CharacterName color={nameColor}>{name}</CharacterName>, {age}</strong><span>Active match · Private conversation</span></div>
     </header>
     <div className="phone-social-dm-thread" ref={threadRef} role="log" aria-label={`Messages with ${name}`} aria-live="polite" aria-relevant="additions">
       {!messages.length && <div className="phone-social-dm-empty conversation-empty">
-        <CharacterAvatar className="pt-match-avatar" name={name} profileImageDataUrl={avatarDataUrl} fallback={name.split(/\s+/).slice(0, 2).map((part) => part[0]).join('')} />
-        <strong>You matched with {name}</strong><small>Say hello or break the ice with an emoji.</small>
+        <CharacterAvatar ringColor={nameColor} className="pt-match-avatar" name={name} profileImageDataUrl={avatarDataUrl} fallback={name.split(/\s+/).slice(0, 2).map((part) => part[0]).join('')} />
+        <strong>You matched with <CharacterName color={nameColor}>{name}</CharacterName></strong><small>Say hello or break the ice with an emoji.</small>
       </div>}
       {messages.map((message) => {
         const rpTimeParts = rpTimeTrackingEnabled && message.rpDateTime
@@ -88,7 +91,7 @@ export function MatchMeConversation({ owner, partner, busy, name, avatarDataUrl,
           : undefined;
         return <div key={message.id} className={`phone-social-dm-message-row ${message.sender === 'owner' ? 'outgoing' : 'incoming'}`}>
           <AppMessageAvatar character={message.sender === 'owner' ? owner : partner} name={message.sender === 'owner' ? owner?.name ?? 'You' : name} />
-          <div className="phone-social-dm-bubble"><span><AccountLinkText text={message.text} bindings={message.accountLinks} /></span>
+          <div className="phone-social-dm-bubble"><ChatBubbleText><AccountLinkText text={message.text} bindings={message.accountLinks} /></ChatBubbleText>
             <time dateTime={message.rpDateTime ?? message.sentAt}>
               {message.demo ? 'Demo reply · ' : ''}
               {rpTimeParts ? <><span className="rp-time-date">{rpTimeParts.date}</span>{'   '}<span className="rp-time-clock">{rpTimeParts.time}</span></> : new Date(message.sentAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}

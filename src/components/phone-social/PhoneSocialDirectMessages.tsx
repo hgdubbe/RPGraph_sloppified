@@ -1,3 +1,5 @@
+import { ChatBubbleText } from '../ChatBubbleText';
+import { CharacterName } from '../CharacterName';
 import { AppMessageAvatar } from '../AppMessageAvatars';
 import { createPortal } from 'react-dom';
 import { AccountLinkInput } from '../AccountLinkInput';
@@ -260,7 +262,7 @@ export function PhoneSocialDirectMessages({
                   style={color ? { borderColor: color, color } : undefined}
                 />
                 <span className="phone-social-dm-contact-copy">
-                  <strong>{participantIdentity(participant).name}</strong>
+                  <strong><CharacterName color={color}>{participantIdentity(participant).name}</CharacterName></strong>
                   <span>{latest?.displayText ?? latest?.text ?? `@${participantIdentity(participant).handle}`}</span>
                 </span>
                 {unread && (
@@ -320,7 +322,7 @@ export function PhoneSocialDirectMessages({
           style={participantColor ? { borderColor: participantColor, color: participantColor } : undefined}
         />
         <div>
-          <strong>{participantIdentity(selectedParticipant).name}</strong>
+          <strong><CharacterName color={participantColor}>{participantIdentity(selectedParticipant).name}</CharacterName></strong>
           <span>@{participantIdentity(selectedParticipant).handle}</span>
         </div>
       </header>
@@ -463,7 +465,7 @@ export function PhoneSocialDirectMessages({
               profileImageDataUrl={!isAccountPrivacyMode(app, selectedParticipant.character) ? selectedParticipant.character?.profileImage?.dataUrl : undefined}
               style={participantColor ? { borderColor: participantColor, color: participantColor } : undefined}
             />
-            <strong>{participantIdentity(selectedParticipant).name}</strong>
+            <strong><CharacterName color={participantColor}>{participantIdentity(selectedParticipant).name}</CharacterName></strong>
             <span>@{participantIdentity(selectedParticipant).handle}</span>
             <small>Start your conversation</small>
           </div>
@@ -474,7 +476,7 @@ export function PhoneSocialDirectMessages({
               character={originOutgoing ? owner : selectedParticipant.character}
               hidePortrait={isAccountPrivacyMode(app, originOutgoing ? owner : selectedParticipant.character)} />
             <div className="phone-social-dm-bubble">
-              <span>{origin.commentText}</span>
+              <ChatBubbleText>{origin.commentText}</ChatBubbleText>
               <time>{originLabel}</time>
             </div>
           </div>
@@ -501,7 +503,7 @@ export function PhoneSocialDirectMessages({
                 character={outgoing ? owner : selectedParticipant.character}
                 hidePortrait={isAccountPrivacyMode(app, outgoing ? owner : selectedParticipant.character)} />
               <div className="phone-social-dm-bubble">
-                <span><AccountLinkText text={message.displayText ?? message.text} bindings={message.accountLinks} /></span>
+                <ChatBubbleText><AccountLinkText text={message.displayText ?? message.text} bindings={message.accountLinks} /></ChatBubbleText>
                 <div className="phone-social-dm-footer">
                   {message.app === 'onlyfriends' && message.tip !== undefined && (
                     <span className="phone-social-dm-tip">{outgoing ? '−' : '+'}{formatBankingAmount(message.tip)} tip</span>

@@ -1,3 +1,4 @@
+import { CharacterName } from './CharacterName';
 import type { StorybookCharacter } from '../storybook/runtime';
 import type {
   RpDateTimeFormat,
@@ -56,7 +57,7 @@ export function SocialPostCard({
         style={authorColor ? { borderColor: authorColor, color: authorColor } : undefined}
       />
       <span>
-        <strong style={authorColor ? { color: authorColor } : undefined}>{identity.name}</strong>
+        <strong><CharacterName color={authorColor}>{identity.name}</CharacterName></strong>
         {showProfileNames && identity.handle && <small>@{identity.handle}</small>}
       </span>
     </span>
@@ -101,7 +102,7 @@ export function SocialPostCard({
         <>
           {authorIdentity}
           <span className="chat-social-post-caption">
-            <strong>{identity.name}</strong>
+            <strong><CharacterName color={authorColor}>{identity.name}</CharacterName></strong>
             <span>{post.caption}</span>
           </span>
         </>

@@ -1,3 +1,4 @@
+import { validCharacterColorSlots } from '../chat/characterColors';
 import { validAccountLinkBindings } from '../chat/accountLinks';
 import { parseNpcParticipantSnapshots } from '../characters/npcParticipants';
 import { createMediaPoolReader } from './mediaPool';
@@ -549,6 +550,7 @@ export function isRpgraphSessionV2(value: unknown): value is RpgraphSessionV2 {
     hasValidVoiceClipMediaReferences(value.timeline, value.entities.mediaData) &&
     isRecord(value.runtime) &&
     isRecord(value.runtime.current) &&
+    (value.runtime.current.characterColorSlots === undefined || validCharacterColorSlots(value.runtime.current.characterColorSlots)) &&
     hasValidNpcParticipants(value.runtime.current, value.entities.mediaData) &&
     isWorkflowVariableRecord(value.runtime.current.workflowVariables) &&
     isNodeRuntimeRecord(value.runtime.current.nodes) &&

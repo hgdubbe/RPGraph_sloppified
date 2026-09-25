@@ -1,3 +1,4 @@
+import type { TextEffectsSettings } from './chat/textEffects';
 import type { ReasoningCapabilities, ReasoningEffort } from '../shared/reasoning.cjs';
 import type { Edge, Node, XYPosition } from '@xyflow/react';
 import type { NodeVersion } from './nodes/nodeVersion';
@@ -954,6 +955,7 @@ export type AppSettings = {
     promptActionCustomPresets?: PromptActionStoredConfig[];
     promptActionSettings?: PromptActionRuntimeSettings;
     promptTextCustomPresets?: Record<string, string>;
+    textEffects?: TextEffectsSettings;
     chatTextBrightness?: number;
     chatColorIntensity?: number;
     chatMessageAvatarSize?: number;

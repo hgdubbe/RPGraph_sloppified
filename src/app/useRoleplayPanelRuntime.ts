@@ -1,3 +1,4 @@
+import { characterUsageReasons } from '../characters/lifecycle';
 import { useStorybookContentNodes } from '../storybook/useStorybookContentNodes';
 import { nextAutoScrollSpeed } from '../chat/autoScrollSpeed';
 import { bankingRecipientByName } from '../chat/bankingRecipients';
@@ -50,7 +51,7 @@ import {
   socialLikeAccountKey,
   socialMessageHiddenFromChat,
 } from '../chat/socialMedia';
-import { dialogueColors } from '../chat/textRendering';
+import { useCharacterColors } from './useCharacterColors';
 import {
   chatAttachmentFromStorybookImage,
   storyCharactersFromNodes,
@@ -221,6 +222,7 @@ export function useRoleplayPanelRuntime({
   function resetPanelSession() {
     // A new session can reuse every character and message ID. Explicitly
     // invalidate component-local profiles, drafts, and navigation in that case.
+    setCharacterColorSlots({});
     setPanelSessionRevision((revision) => revision + 1);
     setSelectedCharacterId('');
     setViewedPhoneCharacterId('');
@@ -275,16 +277,19 @@ export function useRoleplayPanelRuntime({
       new Set(Object.values(socialConnectionsByCharacter).flatMap((apps) => apps.whatsup ?? []))),
     [messages, appCharacters, socialConnectionsByCharacter],
   );
-  const characterColors = useMemo(
-    () =>
-      new Map(
-        playerCharacters.map((character, index) => [
-          character.name,
-          dialogueColors[index % dialogueColors.length],
-        ]),
-      ),
-    [playerCharacters],
-  );
+  const characterActivity = useMemo(() => [
+    [...storybooksByNodeId.values()].map((book) => book.openingHistory),
+    turns, messages, socialLikesByAccount, persistedSocialConnectionsByCharacter,
+    phoneNotesByCharacter, chatGpdChatsByCharacter,
+  ], [storybooksByNodeId, turns, messages, socialLikesByAccount, persistedSocialConnectionsByCharacter,
+    phoneNotesByCharacter, chatGpdChatsByCharacter]);
+  const interactedCharacterIds = useMemo(() => appCharacters.filter((character) =>
+    character.playerSelectable === false && characterUsageReasons({
+      id: character.sourceId, name: character.name, apps: character.apps, images: character.images ?? [],
+    }, character.identityAliases ?? {}, characterActivity).length > 0,
+  ).map((character) => character.sourceId), [appCharacters, characterActivity]);
+  const { characterColors, characterColorSlots, setCharacterColorSlots, characterColorStyle } =
+    useCharacterColors(appCharacters, playerCharacters, interactedCharacterIds);
   const fotogramContactsByCharacter = useMemo(
     () => Object.fromEntries(storyCharacters.map((viewer) => [
       viewer.id,
@@ -1479,6 +1484,10 @@ export function useRoleplayPanelRuntime({
     playerCharacters,
     phoneCharacters,
     characterColors,
+    characterColorSlots,
+    setCharacterColorSlots,
+    characterColorStyle,
+    characterActivity,
     viewedPhoneCharacter,
     phoneGalleryImages,
     selectChatCharacter,

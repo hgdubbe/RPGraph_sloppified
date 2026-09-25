@@ -1,3 +1,5 @@
+import { CharacterName } from './CharacterName';
+import { CharacterAvatar } from './CharacterAvatar';
 import { useEffect, useRef, useState, type CSSProperties } from 'react';
 import { narratorCharacterId, narratorSpeakerName } from '../app/runOrchestration';
 import type { StorybookCharacter } from '../storybook/runtime';
@@ -162,8 +164,14 @@ export function EdgeCharacterPicker({ characters, selectedId, characterColors, o
             previousFocus.current?.focus({ preventScroll: true });
           }}
         >
-          {character.profileImage?.dataUrl && <img src={character.profileImage.dataUrl} alt="" draggable={false} />}
-          <span>{character.profileImage?.dataUrl ? character.name : pickerDisplayName(character.name)}</span>
+          {character.profileImage?.dataUrl && <CharacterAvatar
+            className="edge-character-avatar"
+            name={character.name}
+            fallback={character.name.slice(0, 1)}
+            profileImageDataUrl={character.profileImage.dataUrl}
+            ringColor={characterColors.get(character.name)}
+          />}
+          <span><CharacterName color={character.id === narratorCharacterId ? undefined : characterColors.get(character.name)}>{character.profileImage?.dataUrl ? character.name : pickerDisplayName(character.name)}</CharacterName></span>
         </button>
       ))}
     </div>
