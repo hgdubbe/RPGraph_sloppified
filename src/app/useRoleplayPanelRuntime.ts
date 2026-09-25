@@ -1579,6 +1579,8 @@ export function useRoleplayPanelRuntime({
       });
     }
     if (latestPhoneMessage && latestPhoneMessage.phoneFrom && latestPhoneMessage.phoneTo) {
+      // onOpen only runs from a click handler, never during render.
+      // eslint-disable-next-line react-hooks/refs
       shortcuts.push({
             id: 'last-message' as const,
             label: 'Last Message',
@@ -1595,6 +1597,8 @@ export function useRoleplayPanelRuntime({
       });
     }
     if (latestPost) {
+      // onOpen only runs from a click handler, never during render.
+      // eslint-disable-next-line react-hooks/refs
       shortcuts.push({
             id: 'last-post' as const,
             label: 'Last Post',
