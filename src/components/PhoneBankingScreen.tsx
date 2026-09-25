@@ -1,3 +1,4 @@
+import { usePanelNavigationState } from '../navigation/usePanelNavigation';
 import { CharacterName } from './CharacterName';
 import { useEffect, useState } from 'react';
 import type { MessageRecord, RpDateTimeFormat, RpWeekdayLanguage } from '../types';
@@ -57,10 +58,10 @@ export function PhoneBankingScreen({
   onSendBankTransfer,
 }: PhoneBankingScreenProps) {
   const allCharacters = appCharacters ?? storyCharacters;
-  const [recipientKey, setRecipientKey] = useState<string | undefined>(() =>
+  const [recipientKey, setRecipientKey] = usePanelNavigationState<string | undefined>(`banking.${owner?.id}.recipient`, () =>
     initialRecipientName ? normalizePhoneName(initialRecipientName) : undefined
   );
-  const [seenRecipientRequest, setSeenRecipientRequest] = useState({ name: initialRecipientName, id: recipientRequestId });
+  const [seenRecipientRequest, setSeenRecipientRequest] = usePanelNavigationState(`banking.${owner?.id}.seenRequest`, { name: initialRecipientName, id: recipientRequestId }, false);
   if (seenRecipientRequest.name !== initialRecipientName || seenRecipientRequest.id !== recipientRequestId) {
     setSeenRecipientRequest({ name: initialRecipientName, id: recipientRequestId });
     if (initialRecipientName) setRecipientKey(normalizePhoneName(initialRecipientName));

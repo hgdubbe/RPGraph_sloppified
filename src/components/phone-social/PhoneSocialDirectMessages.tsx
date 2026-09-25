@@ -1,3 +1,4 @@
+import { usePanelNavigationOverlay } from '../../navigation/usePanelNavigation';
 import { ChatBubbleText } from '../ChatBubbleText';
 import { CharacterName } from '../CharacterName';
 import { AppMessageAvatar } from '../AppMessageAvatars';
@@ -101,6 +102,7 @@ export function PhoneSocialDirectMessages({
   const [sending, setSending] = useState(false);
   const sendLock = useRef(false);
   const [tipDialogKey, setTipDialogKey] = useState<string>();
+  usePanelNavigationOverlay(() => setTipDialogKey(undefined), !!tipDialogKey);
   const [tipAmountText, setTipAmountText] = useState('10');
   const tipAmount = Number(tipAmountText);
   const tipAmountValid = /^\d{1,4}$/.test(tipAmountText) && tipAmount > 0;

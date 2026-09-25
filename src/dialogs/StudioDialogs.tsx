@@ -1,3 +1,4 @@
+import { usePanelNavigationOverlay } from '../navigation/usePanelNavigation';
 import { useSliderPreview } from './useSliderPreview';
 import { TextEffectOptions } from '../components/TextEffectOptions';
 import type { TextEffectsSettings } from '../chat/textEffects';
@@ -1569,25 +1570,29 @@ export function StudioDialogs({
     return () => previouslyFocused?.focus();
   }, [activeDialog, fileProtection, isSavingFile]);
 
+  const closeActiveDialog = useCallback(() => {
+    if (deleteFileCandidate) { setDeleteFileCandidate(null); return; }
+    if (activeDialog === 'storybook-info') { setStorybookInfo(null); return; }
+    if (showFileVersionInfo) {
+      setShowFileVersionInfo(false);
+      return;
+    }
+    if (activeDialog === 'session-password') { onCloseSessionPassword(); return; }
+    if (activeDialog === 'storybook-picker') { onCloseStorybookPicker(); return; }
+    if (activeDialog === 'connections') { onCloseConnections(); return; }
+    if (activeDialog === 'characters') { onCloseCharacterFiles(); return; }
+    if (activeDialog === 'files') { onCloseFiles(); return; }
+    if (activeDialog === 'options') { onCloseOptions(); return; }
+    if (activeDialog === 'json') { onCloseJson(); return; }
+    onCloseText();
+  }, [activeDialog, showFileVersionInfo, deleteFileCandidate, onCloseSessionPassword,
+    onCloseStorybookPicker, onCloseConnections, onCloseCharacterFiles, onCloseFiles,
+    onCloseOptions, onCloseJson, onCloseText]);
+  usePanelNavigationOverlay(closeActiveDialog, !!activeDialog);
+
   useEffect(() => {
     if (!activeDialog) {
       return;
-    }
-
-    function closeActiveDialog() {
-      if (activeDialog === 'storybook-info') { setStorybookInfo(null); return; }
-      if (showFileVersionInfo) {
-        setShowFileVersionInfo(false);
-        return;
-      }
-      if (activeDialog === 'session-password') { onCloseSessionPassword(); return; }
-      if (activeDialog === 'storybook-picker') { onCloseStorybookPicker(); return; }
-      if (activeDialog === 'connections') { onCloseConnections(); return; }
-      if (activeDialog === 'characters') { onCloseCharacterFiles(); return; }
-      if (activeDialog === 'files') { onCloseFiles(); return; }
-      if (activeDialog === 'options') { onCloseOptions(); return; }
-      if (activeDialog === 'json') { onCloseJson(); return; }
-      onCloseText();
     }
 
     function handleKeyboard(event: KeyboardEvent) {
@@ -1626,7 +1631,7 @@ export function StudioDialogs({
     return () => window.removeEventListener('keydown', handleKeyboard);
   }, [
     activeDialog,
-    showFileVersionInfo,
+    showFileVersionInfo, closeActiveDialog,
     onCloseText, onCloseJson, onCloseOptions, onCloseFiles, onCloseStorybookPicker, onCloseCharacterFiles,
     onCloseSessionPassword, onCloseConnections,
   ]);

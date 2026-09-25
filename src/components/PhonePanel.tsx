@@ -1,3 +1,4 @@
+import { usePanelNavigationState, usePanelNavigationBack } from '../navigation/usePanelNavigation';
 import { ChatBubbleText } from './ChatBubbleText';
 import { CharacterName } from './CharacterName';
 import { AppMessageAvatar } from './AppMessageAvatars';
@@ -445,6 +446,7 @@ export function PhonePanel({
   onRefreshImageAssistantModelState,
 }: PhonePanelProps) {
   const { request: accountLinkRequest } = useContext(AccountLinkContext);
+  const navigateBack = usePanelNavigationBack();
   const accountLinkScreen = accountLinkRequest?.app === 'matchme' ? 'plottwist' : accountLinkRequest?.app;
   const linkedSocialRequest = accountLinkRequest && accountLinkRequest.app !== 'whatsup' && accountLinkRequest.app !== 'banking' ? {
     requestId: accountLinkRequest.requestId, app: accountLinkRequest.app, messageId: '',
@@ -455,33 +457,32 @@ export function PhonePanel({
   const commandComposerRef = useRef<CommandPillComposerHandle | null>(null);
   // Start on the conversation when the panel opens through a chat message
   // link, or on a requested social post; otherwise start on the desktop.
-  const [screen, setScreen] = useState<PhoneScreen>(() =>
+  const [screen, setScreen] = usePanelNavigationState<PhoneScreen>('phone.screen', () =>
     accountLinkScreen ??
     (directMessageRequest?.app === 'matchme' ? 'plottwist' : directMessageRequest?.app) ??
     socialPostOpenRequest?.app ??
     (highlightedPhoneMessageId !== undefined ? 'whatsup' : 'desktop'));
-  const [seenAccountLinkRequest, setSeenAccountLinkRequest] = useState(accountLinkRequest);
+  const [seenAccountLinkRequest, setSeenAccountLinkRequest] = usePanelNavigationState('phone.seenAccountLinkRequest', accountLinkRequest, false);
   if (seenAccountLinkRequest !== accountLinkRequest) {
     setSeenAccountLinkRequest(accountLinkRequest);
     if (accountLinkScreen) setScreen(accountLinkScreen);
   }
-  const [seenPhoneHomeRequestId, setSeenPhoneHomeRequestId] = useState(phoneHomeRequestId);
+  const [seenPhoneHomeRequestId, setSeenPhoneHomeRequestId] = usePanelNavigationState('phone.seenPhoneHomeRequestId', phoneHomeRequestId, false);
   if (seenPhoneHomeRequestId !== phoneHomeRequestId) {
     setSeenPhoneHomeRequestId(phoneHomeRequestId);
     if (screen !== 'desktop') {
       setScreen('desktop');
     }
   }
-  const [seenSocialPostOpenRequestId, setSeenSocialPostOpenRequestId] = useState(
-    socialPostOpenRequest?.requestId ?? 0,
-  );
+  const [seenSocialPostOpenRequestId, setSeenSocialPostOpenRequestId] = usePanelNavigationState('phone.seenSocialPostOpenRequestId',
+    socialPostOpenRequest?.requestId ?? 0, false);
   // Leaving the social screen consumes the request; otherwise reopening the
   // app from the desktop would jump back to the previously requested post.
   const [dismissedSocialPostOpenRequestId, setDismissedSocialPostOpenRequestId] =
-    useState<number>();
+    usePanelNavigationState<number>('phone.dismissedSocialPostOpenRequestId');
   const [dismissedSocialDirectMessageOpenRequestId, setDismissedSocialDirectMessageOpenRequestId] =
-    useState<number>();
-  const [dismissedBankingRequestId, setDismissedBankingRequestId] = useState<number>();
+    usePanelNavigationState<number>('phone.dismissedSocialDirectMessageOpenRequestId');
+  const [dismissedBankingRequestId, setDismissedBankingRequestId] = usePanelNavigationState<number>('phone.dismissedBankingRequestId');
   if (
     socialPostOpenRequest &&
     seenSocialPostOpenRequestId !== socialPostOpenRequest.requestId
@@ -491,9 +492,8 @@ export function PhonePanel({
       setScreen(socialPostOpenRequest.app);
     }
   }
-  const [seenSocialDirectMessageOpenRequestId, setSeenSocialDirectMessageOpenRequestId] = useState(
-    directMessageRequest?.requestId ?? 0,
-  );
+  const [seenSocialDirectMessageOpenRequestId, setSeenSocialDirectMessageOpenRequestId] = usePanelNavigationState('phone.seenSocialDirectMessageOpenRequestId',
+    directMessageRequest?.requestId ?? 0, false);
   if (
     directMessageRequest &&
     seenSocialDirectMessageOpenRequestId !== directMessageRequest.requestId
@@ -532,7 +532,7 @@ export function PhonePanel({
 
   // Jump straight to the conversation when a chat message links into the
   // phone (each click bumps the highlight pulse key).
-  const [seenHighlightPulseKey, setSeenHighlightPulseKey] = useState(highlightedPhoneMessagePulseKey);
+  const [seenHighlightPulseKey, setSeenHighlightPulseKey] = usePanelNavigationState('phone.seenHighlightPulseKey', highlightedPhoneMessagePulseKey, false);
   if (seenHighlightPulseKey !== highlightedPhoneMessagePulseKey) {
     setSeenHighlightPulseKey(highlightedPhoneMessagePulseKey);
     if (highlightedPhoneMessageId !== undefined && screen !== 'whatsup') {
@@ -768,7 +768,7 @@ export function PhonePanel({
         images={phoneGalleryImages}
         action={wallpaperMode ? 'wallpaper' : 'select'}
         selectedWallpaperId={wallpaperMode ? wallpaperImageId : undefined}
-        onBack={() => setScreen(wallpaperMode ? 'desktop' : 'whatsup')}
+        onBack={() => navigateBack(() => setScreen(wallpaperMode ? 'desktop' : 'whatsup'))}
         onSelectImage={(image) => {
           if (wallpaperMode) {
             selectWallpaper(image);
@@ -791,7 +791,7 @@ export function PhonePanel({
       emojiOptions={phoneEmojiOptions} recentlyUsedEmojis={recentlyUsedEmojis}
       rpTimeTrackingEnabled={rpTimeTrackingEnabled} rpDateTimeFormat={rpDateTimeFormat} rpWeekdayLanguage={rpWeekdayLanguage}
       images={phoneGalleryImages} onImportImage={onImportSocialPostImage} onSave={onSaveDatingProfile}
-      onBack={() => setScreen('desktop')} />;
+      onBack={() => navigateBack(() => setScreen('desktop'))} />;
   }
 
   if (screen === 'banking') {
@@ -816,10 +816,10 @@ export function PhonePanel({
         isRunning={isRunning}
         initialRecipientName={bankingRecipientRequest}
         recipientRequestId={bankingRecipientRequest ? accountLinkRequest?.requestId : undefined}
-        onBack={() => {
+        onBack={() => navigateBack(() => {
           setDismissedBankingRequestId(accountLinkRequest?.requestId);
           setScreen('desktop');
-        }}
+        })}
         onAddBankingContact={onAddBankingContact}
         onSendBankTransfer={onSendBankTransfer}
       />
@@ -839,7 +839,7 @@ export function PhonePanel({
         rpDateTimeFormat={rpDateTimeFormat}
         rpWeekdayLanguage={rpWeekdayLanguage}
         onCommitNote={onPhoneNoteCommit}
-        onBack={() => setScreen('desktop')}
+        onBack={() => navigateBack(() => setScreen('desktop'))}
       />
     );
   }
@@ -855,7 +855,7 @@ export function PhonePanel({
         onSidebarWidthChange={onChatGpdSidebarWidthChange}
         archivedChatIds={archivedChatGpdChatIds}
         onCommitChat={onChatGpdChatCommit}
-        onBack={() => setScreen('desktop')}
+        onBack={() => navigateBack(() => setScreen('desktop'))}
       />
     );
   }
@@ -913,11 +913,11 @@ export function PhonePanel({
             onToggleSocialLike(selectedCharacter.id, socialScreen, postId);
           }
         }}
-        onBack={() => {
+        onBack={() => navigateBack(() => {
           setDismissedSocialPostOpenRequestId(socialPostOpenRequest?.requestId);
           setDismissedSocialDirectMessageOpenRequestId(directMessageRequest?.requestId);
           setScreen('desktop');
-        }}
+        })}
         connections={connections}
         providerHealthById={providerHealthById}
         estimatedTokenBytesPerToken={estimatedTokenBytesPerToken}
@@ -1325,7 +1325,7 @@ export function PhonePanel({
           <button
             className="phone-home-button"
             type="button"
-            onClick={() => setScreen('desktop')}
+            onClick={() => navigateBack(() => setScreen('desktop'))}
             aria-label="Back to phone desktop"
             title="Phone desktop"
           >

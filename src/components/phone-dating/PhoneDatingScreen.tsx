@@ -1,3 +1,4 @@
+import { usePanelNavigationState } from '../../navigation/usePanelNavigation';
 import { CharacterName } from '../CharacterName';
 import { CharacterAvatar } from '../CharacterAvatar';
 import { datingAccountId, resolveDatingAccount, datingFirstName, datingAvatarDataUrl } from '../../chat/datingAccounts';
@@ -39,18 +40,18 @@ export function PhoneDatingScreen({ characterColors, profileOnly = false, unread
     characterColors?.get(characters.find((character) => character.id === characterId)?.name ?? '');
   const [profile, setProfile] = useState(normalizeDatingProfile(owner?.social.plotTwist));
   const [editing, setEditing] = useState(profileOnly || !profile);
-  const [tab, setTab] = useState<'discover' | 'likes' | 'profile'>('discover');
+  const [tab, setTab] = usePanelNavigationState<'discover' | 'likes' | 'profile'>(`dating.${owner?.id}.tab`, 'discover');
   const [draft, setDraft] = useState<DatingProfile>(profile ?? normalizeDatingProfile({ ...owner?.apps?.matchme?.profile, name: owner?.apps?.matchme?.profileName ?? owner?.apps?.matchme?.profile?.name ?? owner?.name }, true) ?? { name: owner?.name ?? '', age: owner?.age && owner.age >= 18 && owner.age <= 120 ? owner.age : 18, gender: owner?.gender, seeking: [], bio: '', interests: '', photoIds: [], decisions: {} });
   const [chatDrafts, setChatDrafts] = useState<Record<string, string>>({});
   const [recentEmojis, setRecentEmojis] = useState(recentlyUsedEmojis);
-  const [gallery, setGallery] = useState(false);
+  const [gallery, setGallery] = usePanelNavigationState(`dating.${owner?.id}.gallery`, false);
   const [imported, setImported] = useState<ChatImageAttachment[]>([]);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const [celebration, setCelebration] = useState<{ id: string; name: string; superlike: boolean }>();
   const [photo, setPhoto] = useState(0);
   const [drag, setDrag] = useState(0);
-  const [previewCandidateId, setPreviewCandidateId] = useState<string | undefined>();
+  const [previewCandidateId, setPreviewCandidateId] = usePanelNavigationState<string | undefined>(`dating.${owner?.id}.previewCandidateId`, );
   const [previewPhoto, setPreviewPhoto] = useState(0);
   const start = useRef<{ x: number; y: number } | null>(null);
   const uploadRef = useRef<HTMLInputElement>(null);
@@ -60,8 +61,8 @@ export function PhoneDatingScreen({ characterColors, profileOnly = false, unread
   const decisionsRef = useRef<HTMLDivElement>(null);
   const [discoverScale, setDiscoverScale] = useState(1);
   const [isScrollMode, setIsScrollMode] = useState(false);
-  const [selectedMatchId, setSelectedMatchId] = useState<string | undefined>(openRequest?.participantHandle);
-  const [seenOpenRequest, setSeenOpenRequest] = useState(openRequest?.requestId);
+  const [selectedMatchId, setSelectedMatchId] = usePanelNavigationState<string | undefined>(`dating.${owner?.id}.selectedMatchId`, openRequest?.participantHandle);
+  const [seenOpenRequest, setSeenOpenRequest] = usePanelNavigationState(`dating.${owner?.id}.seenOpenRequest`, openRequest?.requestId, false);
   if (openRequest && seenOpenRequest !== openRequest.requestId) {
     setSeenOpenRequest(openRequest.requestId); setSelectedMatchId(openRequest.participantHandle); setEditing(false); setTab('discover');
   }
@@ -160,7 +161,7 @@ export function PhoneDatingScreen({ characterColors, profileOnly = false, unread
 
     window.addEventListener('keydown', onKeyDown);
     return () => window.removeEventListener('keydown', onKeyDown);
-  }, [celebration, gallery, previewCandidateId, editing, profile, selectedMatchId, tab, onBack]);
+  }, [celebration, gallery, previewCandidateId, editing, profile, selectedMatchId, tab, onBack, setGallery, setPreviewCandidateId, setSelectedMatchId, setTab]);
   const state = matchMeState(characters, history);
   const ownerId = owner ? datingAccountId(owner) : '';
   const availableProfiles = state.accounts.filter((account) => account.id !== ownerId);

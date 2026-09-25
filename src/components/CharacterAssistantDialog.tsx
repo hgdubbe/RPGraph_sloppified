@@ -1,3 +1,4 @@
+import { usePanelNavigationOverlay } from '../navigation/usePanelNavigation';
 import { CharacterAgencyField } from './CharacterAgencyField';
 import { CharacterRelationships } from './CharacterRelationships';
 import { CharacterMentionInput } from './CharacterMentionInput';
@@ -98,6 +99,14 @@ export function CharacterAssistantDialog({ requiredPassword = '', referenceChara
     if (dirty) setConfirm({ message: 'Discard unsaved character changes?', label: 'Discard changes', action });
     else action();
   }
+  usePanelNavigationOverlay(() => {
+    if (ioBusy) return;
+    if (confirm) setConfirm(null);
+    else if (choices) setChoices(null);
+    else if (showSave) setShowSave(false);
+    else close();
+  });
+
   function close() {
     if (ioBusy) return;
     guard(() => { request.current?.abort(); onClose(); });

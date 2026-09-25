@@ -1,3 +1,4 @@
+import { usePanelNavigationState } from '../navigation/usePanelNavigation';
 import { useState, type Dispatch, type SetStateAction } from 'react';
 import type { NodeLlmApi } from '../llm/NodeLlmApi';
 import type { WorkflowNode } from '../types';
@@ -130,7 +131,7 @@ export function useChatGpdPhoneApp({
   const [sendingChatId, setSendingChatId] = useState<string>();
   const [streaming, setStreaming] = useState<{ chatId: string; text: string }>();
   const [activeChatIdByCharacter, setActiveChatIdByCharacter] =
-    useState<Record<string, string | undefined>>({});
+    usePanelNavigationState<Record<string, string | undefined>>('phone.ai.chats', {});
 
   const characterId = viewedCharacterId ?? '';
   const chats = chatsByCharacter[characterId] ?? [];

@@ -1,3 +1,4 @@
+import { usePanelNavigationOverlay } from '../navigation/usePanelNavigation';
 import { CharacterName } from './CharacterName';
 import { migratedProfileName } from '../characters/character';
 import { characterUsageReasons } from '../characters/lifecycle';
@@ -36,6 +37,7 @@ const appLabels = { fotogram: 'Fotogram', whatsup: 'WhatsUp', onlyfriends: 'Only
 function UnlockCharactersDialog({ onClose }: {
   onClose: () => void;
 }) {
+  usePanelNavigationOverlay(onClose);
   const dialogRef = useRef<HTMLElement>(null);
   useEffect(() => {
     const previous = document.activeElement;
@@ -168,6 +170,7 @@ function CharacterRow({ color, display, issues, canImport, onImport, onEdit, onR
 }
 
 export function NpcLibraryDialog({ characterColors, snapshot, participants = {}, activity, busy = false, dismissOnEscape = true, onRemove, activeRegistry, loading, status, storybookNodeId, onAddToStorybook, onReload, onOpenFolder, onClose, onCreateCharacter, onEditCharacter, onOpenStorybook }: NpcLibraryDialogProps) {
+  usePanelNavigationOverlay(onClose);
   const [importStatus, setImportStatus] = useState('');
   const [showUnlock, setShowUnlock] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');

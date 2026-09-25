@@ -1,3 +1,4 @@
+import { usePanelNavigationOverlay } from '../navigation/usePanelNavigation';
 import { useCallback, useEffect, useRef, useState, type FormEvent } from 'react';
 import { createPortal } from 'react-dom';
 import { useBackdropDismiss } from './useBackdropDismiss';
@@ -135,6 +136,7 @@ export function ImageGenerationAssistantDialog({
     onClose();
   }, [hasUnsavedImages, isGenerating, isSavingImage, isSubmitting, onClose]);
   const backdropDismiss = useBackdropDismiss<HTMLDivElement>(requestClose);
+  usePanelNavigationOverlay(() => setDiscardConfirmOpen(false), discardConfirmOpen);
   const textMetrics = new TextMetricsApi(estimatedTokenBytesPerToken);
   const characterContextTokens = textMetrics.measure(characterContext).tokens;
   const chatHistoryContextTokens = textMetrics.measure(chatHistoryContext).tokens;

@@ -28,6 +28,8 @@ vi.mock('react', async (importOriginal) => ({
   useMemo: <T,>(compute: () => T) => compute(),
   useCallback: <T,>(callback: T) => callback,
   useEffect: (effect: EffectCallback) => { hooks.effects.push(effect); },
+  useLayoutEffect: (effect: EffectCallback) => { hooks.effects.push(effect); },
+  useContext: () => null,
 }));
 
 beforeEach(() => { hooks.slots = []; hooks.index = 0; hooks.effects = []; });

@@ -5387,6 +5387,12 @@ async function createWindow() {
     },
   });
 
+  window.on('app-command', (event, command) => {
+    if (command !== 'browser-backward' && command !== 'browser-forward') return;
+    event.preventDefault();
+    window.webContents.send('panel:navigate', command === 'browser-backward' ? -1 : 1);
+  });
+
   window.webContents.setWindowOpenHandler(() => ({ action: 'deny' }));
   window.webContents.on('will-navigate', (event, url) => {
     if (!isAllowedNavigationUrl(url)) {

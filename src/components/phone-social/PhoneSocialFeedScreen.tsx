@@ -1,3 +1,4 @@
+import { usePanelNavigationState, usePanelNavigationBack } from '../../navigation/usePanelNavigation';
 import { CharacterName } from '../CharacterName';
 import { accountHandle } from '../../characters/character';
 import { isAccountPrivacyMode, socialAccountPresentation } from '../../chat/socialMedia';
@@ -267,14 +268,15 @@ export function PhoneSocialFeedScreen({
   rpDateTimeFormat,
   rpWeekdayLanguage,
 }: PhoneSocialFeedScreenProps) {
-  const [editingProfile, setEditingProfile] = useState(false);
+  const navigateBack = usePanelNavigationBack();
+  const [editingProfile, setEditingProfile] = usePanelNavigationState(`${app.id}.${owner?.id}.editingProfile`, false);
   // A username stored in the Storybook means the character already has an
   // account in this app; the onboarding step is skipped then.
   const storedUsername =
     app.id === 'fotogram' ? owner?.social.fotogramUsername : owner?.social.onlyfriendsUsername;
   const [account, setAccount] = useState<string | undefined>(storedUsername || undefined);
-  const [directMessagesOpen, setDirectMessagesOpen] = useState(!!openDirectMessageRequest);
-  const [directMessageParticipant, setDirectMessageParticipant] = useState<SocialDirectMessageParticipant | undefined>(
+  const [directMessagesOpen, setDirectMessagesOpen] = usePanelNavigationState(`${app.id}.${owner?.id}.directMessagesOpen`, !!openDirectMessageRequest);
+  const [directMessageParticipant, setDirectMessageParticipant] = usePanelNavigationState<SocialDirectMessageParticipant | undefined>(`${app.id}.${owner?.id}.directMessageParticipant`,
     openDirectMessageRequest
       ? {
           key: `open-${openDirectMessageRequest.app}-${openDirectMessageRequest.participantHandle}`,
@@ -283,9 +285,8 @@ export function PhoneSocialFeedScreen({
         }
       : undefined,
   );
-  const [seenOpenDirectMessageRequestId, setSeenOpenDirectMessageRequestId] = useState(
-    openDirectMessageRequest?.requestId ?? 0,
-  );
+  const [seenOpenDirectMessageRequestId, setSeenOpenDirectMessageRequestId] = usePanelNavigationState(`${app.id}.${owner?.id}.seenOpenDirectMessageRequestId`,
+    openDirectMessageRequest?.requestId ?? 0, false);
   // An open DM thread reads its messages, including ones arriving while open.
   useEffect(() => {
     const handleKey = directMessageParticipant?.handle.toLowerCase();
@@ -295,18 +296,17 @@ export function PhoneSocialFeedScreen({
   }, [directMessagesOpen, directMessageParticipant, onMarkDirectMessagesSeen, unreadDirectMessages]);
   // Post currently showing the OnlyFriends balance confirmation.
   const [unlockCandidateId, setUnlockCandidateId] = useState<string>();
-  const [walletOpen, setWalletOpen] = useState(false);
+  const [walletOpen, setWalletOpen] = usePanelNavigationState(`${app.id}.${owner?.id}.walletOpen`, false);
   const [walletAmountText, setWalletAmountText] = useState('10');
-  const [openCommentsPostId, setOpenCommentsPostId] = useState<string | undefined>(
+  const [openCommentsPostId, setOpenCommentsPostId] = usePanelNavigationState<string | undefined>(`${app.id}.${owner?.id}.openCommentsPostId`,
     openPostRequest?.postId,
   );
-  const [seenOpenPostRequestId, setSeenOpenPostRequestId] = useState(
-    openPostRequest?.requestId ?? 0,
-  );
+  const [seenOpenPostRequestId, setSeenOpenPostRequestId] = usePanelNavigationState(`${app.id}.${owner?.id}.seenOpenPostRequestId`,
+    openPostRequest?.requestId ?? 0, false);
   const [commentDraft, setCommentDraft] = useState('');
   // Posting flow: pick the image source first (menu), then describe (editor).
-  const [postStage, setPostStage] = useState<'menu' | 'editor'>();
-  const [cameraOpen, setCameraOpen] = useState(false);
+  const [postStage, setPostStage] = usePanelNavigationState<'menu' | 'editor'>(`${app.id}.${owner?.id}.postStage`);
+  const [cameraOpen, setCameraOpen] = usePanelNavigationState(`${app.id}.${owner?.id}.cameraOpen`, false);
   const [postDraft, setPostDraft] = useState('');
   const [postDraftImage, setPostDraftImage] = useState<ChatImageAttachment>();
   const [notice, setNotice] = useState<SocialNotice>();
@@ -319,7 +319,7 @@ export function PhoneSocialFeedScreen({
   const [addingPerson, setAddingPerson] = useState(false);
   const [revealedDirectMessageIds, setRevealedDirectMessageIds] = useState<Set<string>>(() => new Set());
   const [newPersonName, setNewPersonName] = useState('');
-  const [galleryOpen, setGalleryOpen] = useState(false);
+  const [galleryOpen, setGalleryOpen] = usePanelNavigationState(`${app.id}.${owner?.id}.galleryOpen`, false);
   const uploadInputRef = useRef<HTMLInputElement | null>(null);
   const postMenuRef = useRef<HTMLDivElement | null>(null);
   const postElementsRef = useRef(new Map<string, HTMLElement>());
@@ -427,7 +427,7 @@ export function PhoneSocialFeedScreen({
     };
     document.addEventListener('pointerdown', closeMenu);
     return () => document.removeEventListener('pointerdown', closeMenu);
-  }, [postStage]);
+  }, [postStage, setPostStage]);
 
   // Each app uses its own directed authored and acquired follows. Real DM
   // partners surface separately without granting access to another app.
@@ -1227,7 +1227,7 @@ export function PhoneSocialFeedScreen({
         title={`${ownerFirstName ?? 'Phone'}'s Gallery`}
         images={phoneGalleryImages}
         action="select"
-        onBack={() => setGalleryOpen(false)}
+        onBack={() => navigateBack(() => setGalleryOpen(false))}
         onSelectImage={(image) => {
           setPostDraftImage(image);
           setGalleryOpen(false);
@@ -1649,11 +1649,11 @@ export function PhoneSocialFeedScreen({
             highlightedMessagePulseKey={openDirectMessageRequest?.requestId ?? 0}
             disabled={isRunning}
             onSelectParticipant={setDirectMessageParticipant}
-            onCloseConversation={() => setDirectMessageParticipant(undefined)}
-            onBack={() => {
+            onCloseConversation={() => navigateBack(() => setDirectMessageParticipant(undefined))}
+            onBack={() => navigateBack(() => {
               setDirectMessageParticipant(undefined);
               setDirectMessagesOpen(false);
-            }}
+            })}
             walletBalance={walletBalance}
             onSend={(message) => onSendDirectMessage(message, owner.id)}
           />

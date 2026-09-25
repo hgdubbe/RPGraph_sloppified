@@ -437,6 +437,7 @@ declare global {
         protection: 'plain' | 'encrypted',
         password: string,
       ) => Promise<{ fileName: string; filePath: string }>;
+      onPanelNavigate?: (callback: (direction: -1 | 1) => void) => () => void;
       minimizeWindow: () => Promise<void>;
       toggleMaximizeWindow: () => Promise<{ isMaximized: boolean }>;
       toggleFullScreenWindow: () => Promise<{ isFullScreen: boolean }>;

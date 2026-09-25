@@ -1,3 +1,4 @@
+import { usePanelNavigationState, usePanelNavigationReset } from '../navigation/usePanelNavigation';
 import { characterUsageReasons } from '../characters/lifecycle';
 import { useStorybookContentNodes } from '../storybook/useStorybookContentNodes';
 import { nextAutoScrollSpeed } from '../chat/autoScrollSpeed';
@@ -141,11 +142,12 @@ export function useRoleplayPanelRuntime({
   notifySystem,
 }: UseRoleplayPanelRuntimeOptions) {
   const [panelSessionRevision, setPanelSessionRevision] = useState(0);
-  const [chatPanelView, setChatPanelView] = useState<ChatPanelView>('chat');
-  const [selectedCharacterId, setSelectedCharacterId] = useState('');
-  const [viewedPhoneCharacterId, setViewedPhoneCharacterId] = useState('');
-  const [selectedPhoneCharacterId, setSelectedPhoneCharacterId] = useState('');
-  const [selectedEventId, setSelectedEventId] = useState('');
+  const resetPanelNavigation = usePanelNavigationReset(panelSessionRevision);
+  const [chatPanelView, setChatPanelView] = usePanelNavigationState<ChatPanelView>('panel.chatPanelView', 'chat');
+  const [selectedCharacterId, setSelectedCharacterId] = usePanelNavigationState('panel.selectedCharacterId', '');
+  const [viewedPhoneCharacterId, setViewedPhoneCharacterId] = usePanelNavigationState('panel.viewedPhoneCharacterId', '');
+  const [selectedPhoneCharacterId, setSelectedPhoneCharacterId] = usePanelNavigationState('panel.selectedPhoneCharacterId', '');
+  const [selectedEventId, setSelectedEventId] = usePanelNavigationState('panel.selectedEventId', '');
   const [phoneSeenByConversation, setPhoneSeenByConversation] = useState<Record<string, number>>({});
   const [bankingSeenByCharacter, setBankingSeenByCharacter] = useState<Record<string, number>>({});
   const [phoneAppSeenByCharacter, setPhoneAppSeenByCharacter] = useState<Record<string, number>>({});
@@ -160,20 +162,20 @@ export function useRoleplayPanelRuntime({
   const [chatGpdChatsByCharacter, setChatGpdChatsByCharacter] = useState<ChatGpdChatsByCharacter>({});
   const [onlyFriendsPurchasesByCharacter, setOnlyFriendsPurchasesByCharacter] =
     useState<OnlyFriendsPurchasesByCharacter>({});
-  const [phoneHomeRequestId, setPhoneHomeRequestId] = useState(0);
+  const [phoneHomeRequestId, setPhoneHomeRequestId] = usePanelNavigationState('panel.phoneHomeRequestId', 0, false);
   const accountLinkRequestId = useRef(0);
-  const [accountLinkOpenRequest, setAccountLinkOpenRequest] = useState<AccountLinkOpenRequest>();
-  const [socialPostOpenRequest, setSocialPostOpenRequest] = useState<{
+  const [accountLinkOpenRequest, setAccountLinkOpenRequest] = usePanelNavigationState<AccountLinkOpenRequest>('panel.accountLinkOpenRequest');
+  const [socialPostOpenRequest, setSocialPostOpenRequest] = usePanelNavigationState<{
     requestId: number;
     app: SocialPostRecord['app'];
     postId: string;
-  }>();
+  }>('panel.socialPostOpenRequest');
   const [socialDirectMessageOpenRequest, setSocialDirectMessageOpenRequest] =
-    useState<SocialDirectMessageOpenRequest>();
+    usePanelNavigationState<SocialDirectMessageOpenRequest>('panel.socialDirectMessageOpenRequest');
   const [phoneDividerAfterByConversation, setPhoneDividerAfterByConversation] = useState<Record<string, number>>({});
   const [recentlyUsedEmojis, setRecentlyUsedEmojis] = useState<string[]>([]);
   const [recentChatCharacterIds, setRecentChatCharacterIds] = useState<string[]>([]);
-  const [openedPhoneConversationKey, setOpenedPhoneConversationKey] = useState('');
+  const [openedPhoneConversationKey, setOpenedPhoneConversationKey] = usePanelNavigationState('panel.openedPhoneConversationKey', '');
   const [phoneAuthorBadgesEnabled, setPhoneAuthorBadgesEnabled] = useState(() => {
     try {
       return window.localStorage.getItem(phoneAuthorBadgesStorageKey) === 'true';
@@ -220,6 +222,7 @@ export function useRoleplayPanelRuntime({
   } = usePhoneReply(openedPhoneConversationKey);
 
   function resetPanelSession() {
+    resetPanelNavigation();
     // A new session can reuse every character and message ID. Explicitly
     // invalidate component-local profiles, drafts, and navigation in that case.
     setCharacterColorSlots({});
@@ -593,7 +596,7 @@ export function useRoleplayPanelRuntime({
       [conversationKey]: seenBefore,
     }));
     markPhoneConversationsSeen([{ key: conversationKey, latestId }]);
-  }, [markPhoneConversationsSeen, phoneSeenByConversation, playerCharacters]);
+  }, [markPhoneConversationsSeen, phoneSeenByConversation, playerCharacters, setOpenedPhoneConversationKey, setSelectedPhoneCharacterId, setViewedPhoneCharacterId, setSelectedCharacterId]);
 
   const phoneContacts = useMemo(
     () => phoneContactsForViewer(
@@ -862,10 +865,10 @@ export function useRoleplayPanelRuntime({
       contactId: contact.id,
       activatePlayer: !narratorSelected,
     });
-    setHighlightedPhoneMessage((current) => ({
+    setHighlightedPhoneMessage({
       id: message.phoneMessageId,
-      pulseKey: (current?.pulseKey ?? 0) + 1,
-    }));
+      pulseKey: ++accountLinkRequestId.current,
+    });
     selectChatPanelView('phone');
   }
 
@@ -934,13 +937,13 @@ export function useRoleplayPanelRuntime({
     if (owner.playerSelectable !== false) rememberChatCharacter(owner.id);
     setHighlightedPhoneMessage(undefined);
     setSocialPostOpenRequest(undefined);
-    setSocialDirectMessageOpenRequest((current) => ({
-      requestId: (current?.requestId ?? 0) + 1,
+    setSocialDirectMessageOpenRequest({
+      requestId: ++accountLinkRequestId.current,
       app: directMessage.app,
       messageId: directMessage.messageId,
       participantName: ownerIsSender ? directMessage.to : directMessage.from,
       participantHandle: ownerIsSender ? directMessage.toHandle : directMessage.fromHandle,
-    }));
+    });
     setChatPanelView('phone');
   }
 
@@ -999,11 +1002,11 @@ export function useRoleplayPanelRuntime({
     setHighlightedPhoneMessage(undefined);
     setSocialDirectMessageOpenRequest(undefined);
     setAccountLinkOpenRequest(undefined);
-    setSocialPostOpenRequest((current) => ({
-      requestId: (current?.requestId ?? 0) + 1,
+    setSocialPostOpenRequest({
+      requestId: ++accountLinkRequestId.current,
       app: post.app,
       postId: post.postId,
-    }));
+    });
     setChatPanelView('phone');
   }
 
