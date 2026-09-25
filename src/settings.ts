@@ -32,7 +32,7 @@ const defaultChatTextBrightness = 70;
 const defaultChatColorIntensity = 70;
 
 export const defaultPhoneChatTextSize = 14;
-export const phoneDesktopGridColumns = 8;
+const phoneDesktopGridColumns = 8;
 export const phoneDesktopGridRows = 12;
 const defaultPhoneDesktopLayout: PhoneDesktopLayout = {
   // column: 1, not 2 — the portrait desktop grid has exactly 5 real columns

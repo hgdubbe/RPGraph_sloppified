@@ -30,8 +30,11 @@ export type PhoneHomeThemeRegistry = {
 
 /** Manifests minus hidden ones, ordered by `order` ascending (undefined
  * sorts last, alphabetically among themselves). Mirrors `selectableThemes`
- * in `themeRegistry.ts` exactly. */
-export function selectablePhoneHomeThemes(manifests: PhoneHomeThemeManifest[]): PhoneHomeThemeManifest[] {
+ * in `themeRegistry.ts` exactly, minus that one's standalone export for
+ * direct test exercise — nothing here currently tests this function
+ * without going through the hook, so keep it unexported until something
+ * does (re-export it the moment that changes, same as the Studio original). */
+function selectablePhoneHomeThemes(manifests: PhoneHomeThemeManifest[]): PhoneHomeThemeManifest[] {
   return manifests
     .filter((manifest) => !manifest.hidden)
     .sort((a, b) => {
