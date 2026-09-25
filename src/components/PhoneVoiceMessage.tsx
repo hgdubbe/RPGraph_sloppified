@@ -1,3 +1,4 @@
+import { ChatBubbleText } from './ChatBubbleText';
 import { useState } from 'react';
 import { DarkAudioPlayer } from './DarkAudioPlayer';
 
@@ -42,7 +43,7 @@ export function PhoneVoiceMessage({
   }
 
   if (failed) {
-    return <span>{text}</span>;
+    return <ChatBubbleText>{text}</ChatBubbleText>;
   }
   if (playableClipDataUrl) {
     return (

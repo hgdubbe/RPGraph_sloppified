@@ -20,7 +20,7 @@ export default defineConfig({
       name: 'local-cjs-dev-interop',
       apply: 'serve',
       transform(code, id) {
-        if (id.endsWith('/shared/agency-tags.cjs')) {
+        if (id.endsWith('/shared/agency-tags.cjs') || id.endsWith('/shared/reasoning.cjs')) {
           return code.replace(localCjsExportStatement, 'export { $1 };');
         }
         if (id.endsWith('/shared/character-container.cjs')) {

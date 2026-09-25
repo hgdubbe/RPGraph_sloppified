@@ -12,6 +12,9 @@ import {
   connectionWithOllamaCapabilities as connectionWithOllamaCapabilitiesForModels,
   connectionWithOpenRouterCapabilities as connectionWithOpenRouterCapabilitiesForModels,
   connectionWithVeniceCapabilities as connectionWithVeniceCapabilitiesForModels,
+  connectionWithOpenRouterReasoning,
+  connectionWithLmStudioReasoning,
+  connectionWithOllamaReasoning,
   createProviderConnectionId,
   geminiCapabilitiesForConnection,
   lmStudioCapabilitiesForConnection,
@@ -496,7 +499,7 @@ export function useProviderConnections({
       editingConnection.kind === 'comfyui' ? 'comfyui' : 'llm';
     const comfyRole = kind === 'comfyui' ? comfyConnectionRole(editingConnection) : null;
     const isComfyImage = comfyRole === 'image';
-    return {
+    return connectionWithReasoning({
       ...editingConnection,
       kind,
       comfyRole: comfyRole ?? undefined,
@@ -569,7 +572,7 @@ export function useProviderConnections({
       frequencyPenalty: kind === 'comfyui'
         ? undefined
         : editingConnection.frequencyPenalty ?? defaultConnectionSampling.frequencyPenalty,
-    };
+    });
   }
 
   function applyConnectionToAllNodes() {
@@ -680,6 +683,19 @@ export function useProviderConnections({
     setLlamaCppModelsByConnectionId(llamaCppModelsByConnectionIdRef.current);
   }
 
+  function connectionWithReasoning(connection: ConnectionPreset) {
+    if (isGeminiConnection(connection)) {
+      return { ...connection, reasoningEffort: 'auto' as const, reasoningCapabilities: undefined };
+    }
+    if (isOllamaConnection(connection)) {
+      return connectionWithOllamaReasoning(connection, ollamaModelsByConnectionIdRef.current[connection.id] ?? []);
+    }
+    if (isLmStudioConnection(connection)) {
+      return connectionWithLmStudioReasoning(connection, lmStudioModelsByConnectionIdRef.current[connection.id] ?? []);
+    }
+    return connectionWithOpenRouterReasoning(connection, openRouterModelsByConnectionIdRef.current[connection.id] ?? []);
+  }
+
   function connectionWithLmStudioCapabilities(
     connection: ConnectionPreset,
     models = lmStudioModelsByConnectionIdRef.current[connection.id] ?? [],
@@ -748,6 +764,8 @@ export function useProviderConnections({
           llmProviderKind(current) !== llmProviderKind(connection)) return current;
       const updated = connectionWithDetectedCapabilities(current);
       return updated.vision === current.vision && updated.ttsVoice === current.ttsVoice
+        && updated.reasoningEffort === current.reasoningEffort
+        && JSON.stringify(updated.reasoningCapabilities) === JSON.stringify(current.reasoningCapabilities)
         ? current
         : updated;
     };
@@ -2468,8 +2486,11 @@ export function useProviderConnections({
       throw new Error(`Select an LLM connection for ${purpose}; "${connection.label}" is a ComfyUI image provider.`);
     }
 
-    if (connection.model.trim()) {
-      return connection;
+    if (connection.model.trim() &&
+        (!isOpenRouterConnection(connection) || openRouterModelsByConnectionIdRef.current[connection.id]) &&
+        (!isLmStudioConnection(connection) || lmStudioModelsByConnectionIdRef.current[connection.id]) &&
+        (!isOllamaConnection(connection) || ollamaModelsByConnectionIdRef.current[connection.id])) {
+      return connectionWithReasoning(connection);
     }
 
     if (signal?.aborted) throw new Error('The LLM request was cancelled.');
@@ -2512,6 +2533,10 @@ export function useProviderConnections({
       cleanupAbort?.();
     }
     if (signal?.aborted) throw new Error('The LLM request was cancelled.');
+    if (connection.model.trim()) {
+      return connectionWithReasoning(connection);
+    }
+
     if (!models[0]) {
       throw new Error('No model is configured for this provider.');
     }
@@ -2689,6 +2714,13 @@ export function useProviderConnections({
   const editingConnectionSupportedVoices = editingConnectionVoiceModels
         ?.find((model) => model.id === editingConnection.model)
         ?.supportedVoices ?? [];
+  const editingConnectionReasoning = isOpenRouterConnection(editingConnection)
+    ? editingConnectionVoiceModels?.find((model) => model.id === editingConnection.model)?.reasoning
+    : isLmStudioConnection(editingConnection)
+      ? lmStudioModelsByConnectionId[editingConnection.id]?.find((model) => model.id === editingConnection.model)?.reasoning
+      : isOllamaConnection(editingConnection)
+        ? ollamaModelsByConnectionId[editingConnection.id]?.find((model) => model.id === editingConnection.model)?.reasoning
+        : undefined;
   const editingConnectionSupportedParameters = editingConnectionVoiceModels
         ?.find((model) => model.id === editingConnection.model)
         ?.supportedParameters ?? [];
@@ -2741,6 +2773,7 @@ export function useProviderConnections({
     ollamaModelActionActive,
     editingConnectionCapabilities,
     editingConnectionArchitecture,
+    editingConnectionReasoning,
     editingConnectionSupportedVoices,
     editingConnectionSupportedParameters,
     comfyWorkflowRepairStatus,

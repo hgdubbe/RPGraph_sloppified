@@ -1,3 +1,4 @@
+import type { CharacterColorSlots } from '../chat/characterColors';
 import { parseNpcParticipantSnapshots, type NpcParticipantSnapshots } from '../characters/npcParticipants';
 import {
   currentSessionFormatVersion,
@@ -42,6 +43,7 @@ import type {
 } from './types';
 
 export type SessionV2AppState = {
+  characterColorSlots: CharacterColorSlots;
   npcParticipants: NpcParticipantSnapshots;
   settings: {
     englishProcessingEnabled: boolean;
@@ -68,6 +70,7 @@ export type SessionV2AppState = {
 };
 
 export type SessionV2CurrentStateInput = {
+  characterColorSlots?: CharacterColorSlots;
   npcParticipants?: NpcParticipantSnapshots;
   name: string;
   settings: SessionV2AppState['settings'];
@@ -211,6 +214,7 @@ export function sessionV2FromCurrentState(
     runtimeStateFromNodes(runtimeNodes, state.workflowVariables),
     mediaWriter.redactedStorybookJson,
   );
+  if (state.characterColorSlots) redactedRuntime.characterColorSlots = { ...state.characterColorSlots };
   if (state.npcParticipants && Object.keys(state.npcParticipants).length) {
     redactedRuntime.npcParticipantsJson = mediaWriter.redactedStorybookJson(
       JSON.stringify(parseNpcParticipantSnapshots(state.npcParticipants)),
@@ -472,6 +476,7 @@ export function appStateFromSessionV2(session: RpgraphSessionV2): SessionV2AppSt
       inputTranslationOnlyEnabled: session.metadata.settings.inputTranslationOnlyEnabled,
       displayLanguage: session.metadata.settings.displayLanguage,
     },
+    characterColorSlots: { ...session.runtime.current.characterColorSlots },
     npcParticipants: parseNpcParticipantSnapshots(session.runtime.current.npcParticipantsJson === undefined
       ? undefined : JSON.parse(mediaReader.rehydratedStorybookJson(session.runtime.current.npcParticipantsJson))),
     workflowVariables: workflowVariableRecord(session.runtime.current.workflowVariables),

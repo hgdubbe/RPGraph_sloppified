@@ -1,3 +1,4 @@
+import { normalizeTextEffects, type TextEffectsSettings } from './chat/textEffects';
 import { useEffect, useState, type Dispatch, type SetStateAction } from 'react';
 import type {
   AppSettings,
@@ -378,6 +379,7 @@ export const defaultComfyLoraSlots: ComfyLoraSlot[] = [
 ];
 export const connectionReasoningEfforts = [
   'auto',
+  'on',
   'none',
   'minimal',
   'low',
@@ -896,6 +898,8 @@ type AppSettingsState = {
   setPromptActionSettings: Dispatch<SetStateAction<PromptActionRuntimeSettings>>;
   promptTextCustomPresets: Record<string, string>;
   setPromptTextCustomPresets: Dispatch<SetStateAction<Record<string, string>>>;
+  textEffects: TextEffectsSettings;
+  setTextEffects: Dispatch<SetStateAction<TextEffectsSettings>>;
   chatTextBrightness: number;
   setChatTextBrightness: Dispatch<SetStateAction<number>>;
   chatColorIntensity: number;
@@ -981,6 +985,7 @@ export function useAppSettings(): AppSettingsState {
   const [promptActionCustomPresets, setPromptActionCustomPresets] = useState<PromptActionConfig[]>([]);
   const [promptActionSettings, setPromptActionSettings] = useState<PromptActionRuntimeSettings>({});
   const [promptTextCustomPresets, setPromptTextCustomPresets] = useState<Record<string, string>>({});
+  const [textEffects, setTextEffects] = useState(() => normalizeTextEffects());
   const [chatTextBrightness, setChatTextBrightness] = useState(defaultChatTextBrightness);
   const [chatColorIntensity, setChatColorIntensity] = useState(defaultChatColorIntensity);
   const [chatMessageAvatarSize, setChatMessageAvatarSize] = useState(100);
@@ -1088,6 +1093,7 @@ export function useAppSettings(): AppSettingsState {
         setPromptActionCustomPresets(promptActionConfigs(result.settings.options.promptActionCustomPresets));
         setPromptActionSettings(promptActionRuntimeSettings(result.settings.options.promptActionSettings));
         setPromptTextCustomPresets(workflowVariableRecord(result.settings.options.promptTextCustomPresets));
+        setTextEffects(normalizeTextEffects(result.settings.options.textEffects));
         setChatTextBrightness(validChatAppearancePercent(result.settings.options.chatTextBrightness, defaultChatTextBrightness));
         setChatColorIntensity(validChatAppearancePercent(result.settings.options.chatColorIntensity, defaultChatColorIntensity));
         setChatMessageAvatarSize(validChatMessageAvatarSize(result.settings.options.chatMessageAvatarSize));
@@ -1183,6 +1189,7 @@ export function useAppSettings(): AppSettingsState {
         promptActionCustomPresets: promptActionSaveConfigs(promptActionCustomPresets),
         promptActionSettings: promptActionRuntimeSettings(promptActionSettings),
         promptTextCustomPresets,
+        textEffects: normalizeTextEffects(textEffects),
         chatTextBrightness: validChatAppearancePercent(chatTextBrightness, defaultChatTextBrightness),
         chatColorIntensity: validChatAppearancePercent(chatColorIntensity, defaultChatColorIntensity),
         chatMessageAvatarSize: validChatMessageAvatarSize(chatMessageAvatarSize),
@@ -1250,6 +1257,7 @@ export function useAppSettings(): AppSettingsState {
     promptActionCustomPresets,
     promptActionSettings,
     promptTextCustomPresets,
+    textEffects,
     chatTextBrightness,
     chatColorIntensity,
     chatMessageAvatarSize,
@@ -1311,6 +1319,8 @@ export function useAppSettings(): AppSettingsState {
     setPromptActionSettings,
     promptTextCustomPresets,
     setPromptTextCustomPresets,
+    textEffects,
+    setTextEffects,
     chatTextBrightness,
     setChatTextBrightness,
     chatColorIntensity,

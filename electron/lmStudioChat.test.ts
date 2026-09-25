@@ -135,3 +135,11 @@ describe('LM Studio native chat adapter', () => {
     ]);
   });
 });
+
+it('sends native On and normalizes unsupported settings using exposed capabilities', () => {
+  const profile = { exposesReasoning: true, allowedOptions: ['off', 'on'], defaultOption: 'on' };
+  expect(lmStudioChatBody({ connection: { model: 'qwen', reasoningEffort: 'on' }, prompt: 'Hello' }, false, profile)).toEqual(expect.objectContaining({ reasoning: 'on' }));
+  expect(lmStudioReasoningSetting('high', profile)).toBeUndefined();
+  expect(lmStudioReasoningSetting('none', { ...profile, allowedOptions: ['on'] })).toBeUndefined();
+  expect(lmStudioReasoningSetting('auto', profile)).toBeUndefined();
+});

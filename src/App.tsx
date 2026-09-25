@@ -1,3 +1,5 @@
+import { textEffectsStyle } from './chat/textEffects';
+import { CharacterName } from './components/CharacterName';
 import { AppMessageAvatars } from './components/AppMessageAvatars';
 import { createNodeViewSnapshot } from './app/nodeViewSnapshot';
 import { useNodeViewContent } from './nodes/nodeViewContent';
@@ -277,7 +279,6 @@ import {
   emptyRpStorybook,
   isEmptyRpStorybook,
   parseRpStorybookJson,
-  parseNodeStorybookJson,
   type RpStorybookCharacterImage,
   type RpStorybook,
 } from './nodes/rp-storybook/model';
@@ -749,6 +750,8 @@ function App() {
     setPromptActionSettings,
     promptTextCustomPresets,
     setPromptTextCustomPresets,
+    textEffects,
+    setTextEffects,
     chatTextBrightness,
     setChatTextBrightness,
     chatColorIntensity,
@@ -1095,6 +1098,10 @@ function App() {
     playerCharacters,
     phoneCharacters,
     characterColors,
+    characterColorSlots,
+    characterActivity,
+    setCharacterColorSlots,
+    characterColorStyle,
     viewedPhoneCharacter,
     phoneGalleryImages,
     selectChatCharacter,
@@ -1302,6 +1309,7 @@ function App() {
     ollamaModelActionActive,
     editingConnectionCapabilities,
     editingConnectionArchitecture,
+    editingConnectionReasoning,
     editingConnectionSupportedVoices,
     editingConnectionSupportedParameters,
     comfyWorkflowRepairStatus,
@@ -1604,6 +1612,9 @@ function App() {
   const nodeLlm = useNodeLlmApi({
     resolveConnection,
     recordCall: recordNodeLlmCall,
+    onReasoningActivity: (nodeId, active) => {
+      updateRuntimeNode(nodeId, { runReasoningActive: active });
+    },
     onReasoningTokens: (nodeId, tokenCount) => {
       updateRuntimeNode(nodeId, { llmActiveReasoningTokens: tokenCount });
     },
@@ -2726,6 +2737,7 @@ function App() {
       },
       workflowVariables: workflowSettingsValuesRef.current,
       npcParticipants: npcParticipants.current(),
+      characterColorSlots,
       turns: turnsRef.current,
       turnCheckpoints: turnCheckpointsRef.current,
       openingMessages,
@@ -3001,6 +3013,7 @@ function App() {
       false,
     );
     npcParticipants.restore(sessionState.npcParticipants);
+    setCharacterColorSlots(sessionState.characterColorSlots);
     workflowFromRpSaveRef.current = true;
     const openingMessages = sessionState.openingMessages;
     const loadedTurns = sessionState.turns;
@@ -6154,6 +6167,8 @@ function App() {
       className={`studio studio-mode-${studioMode} node-text-${nodeTextSize}${glassDesignEnabled ? ' glass-design-active' : ''}`}
       data-studio-theme={effectiveThemeId}
       style={{
+        ...textEffectsStyle(textEffects),
+        ...characterColorStyle,
         '--glass-opacity': glassDesignOpacity,
         '--glass-blur': glassDesignEnabled ? '1px' : '0px',
       } as React.CSSProperties}
@@ -7133,6 +7148,8 @@ function App() {
       )}
 
       <StudioDialogs
+        textEffects={textEffects}
+        onTextEffectsChange={setTextEffects}
         appCharacters={npcParticipants.characters()}
         textDialogNode={textDialogNode}
         nodes={nodeViewNodes}
@@ -7396,6 +7413,7 @@ function App() {
         connectionDraftPending={connectionDraftPending}
         editingConnectionCapabilities={editingConnectionCapabilities}
         editingConnectionArchitecture={editingConnectionArchitecture}
+        editingConnectionReasoning={editingConnectionReasoning}
         editingConnectionSupportedVoices={editingConnectionSupportedVoices}
         editingConnectionSupportedParameters={editingConnectionSupportedParameters}
         providerHealthById={providerHealthById}
@@ -7490,6 +7508,7 @@ function App() {
         onClose={() => setCharacterRemoval(null)} />}
       {npcLibrary.open && !showCharacterAssistant && (
         <NpcLibraryDialog
+          characterColors={characterColors}
           onCreateCharacter={() => { setCharacterAssistantEntry(undefined); setShowCharacterAssistant(true); }}
           onEditCharacter={(entry) => { editedNpcSnapshotRef.current = npcParticipants.current()[entry.character.id]; setCharacterAssistantEntry(entry); setShowCharacterAssistant(true); }}
           onOpenStorybook={(nodeId) => {
@@ -7499,9 +7518,7 @@ function App() {
           snapshot={npcLibrary.snapshot}
           activeRegistry={npcParticipants.registry()}
           participants={npcParticipants.current()}
-          activity={[nodes.filter(isStorybookSourceNode).map((node) => parseNodeStorybookJson(node.data.storybookJson)?.openingHistory),
-            turns, messages, socialLikesByAccount, persistedSocialConnectionsByCharacter,
-            phoneNotesByCharacter, chatGpdChatsByCharacter]}
+          activity={characterActivity}
           onRemove={(characterId, nodeId) => setCharacterRemoval({ nodeId, characterId })}
           busy={isRunning}
           dismissOnEscape={!characterRemoval}

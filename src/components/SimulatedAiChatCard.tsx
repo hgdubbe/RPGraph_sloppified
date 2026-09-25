@@ -1,11 +1,13 @@
+import { CharacterName } from './CharacterName';
 import type { SimulatedAiChatCommit } from '../chat/phoneAppsSessions';
 
 type SimulatedAiChatCardProps = {
   entry: SimulatedAiChatCommit;
   fontSize?: number;
+  nameColor?: string;
 };
 
-export function SimulatedAiChatCard({ entry, fontSize }: SimulatedAiChatCardProps) {
+export function SimulatedAiChatCard({ entry, fontSize, nameColor }: SimulatedAiChatCardProps) {
   return (
     <section
       className="chat-simulated-ai-card"
@@ -16,7 +18,7 @@ export function SimulatedAiChatCard({ entry, fontSize }: SimulatedAiChatCardProp
         <span className="chat-simulated-ai-icon" aria-hidden="true">AI</span>
         <span>
           <strong>ChatGPD</strong>
-          <small>{entry.characterName} used the AI assistant</small>
+          <small><CharacterName color={nameColor}>{entry.characterName}</CharacterName> used the AI assistant</small>
         </span>
       </header>
       <div className="chat-simulated-ai-thread">

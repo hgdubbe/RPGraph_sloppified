@@ -230,3 +230,22 @@ describe('saved NPC revisions', () => {
     expect(appStateFromSessionV2(save(rolledBack.npcParticipants, redone)).turns[0].input.messages[0].matchMeMatch).toEqual(match.matchMeMatch);
   });
 });
+
+it('round-trips stable character color slots through RP saves and accepts older saves', () => {
+  const nodes = [node()];
+  const slots = { player: 0, nova: 3, retired: 12 };
+  const session = sessionV2FromCurrentState({
+    name: 'Color slots', settings: { englishProcessingEnabled: true, displayLanguage: 'en' },
+    workflowVariables: {}, turns: [turn], turnCheckpoints: [], openingMessages: [],
+    npcParticipants: pin(), characterColorSlots: slots,
+  }, workflow(nodes), nodes, now);
+  expect(isRpgraphSessionV2(session)).toBe(true);
+  expect(appStateFromSessionV2(session).characterColorSlots).toEqual(slots);
+  slots.nova = 9;
+  expect(appStateFromSessionV2(session).characterColorSlots.nova).toBe(3);
+  session.runtime.current.characterColorSlots = { player: 0, nova: 0 };
+  expect(isRpgraphSessionV2(session)).toBe(false);
+  delete session.runtime.current.characterColorSlots;
+  expect(isRpgraphSessionV2(session)).toBe(true);
+  expect(appStateFromSessionV2(session).characterColorSlots).toEqual({});
+});

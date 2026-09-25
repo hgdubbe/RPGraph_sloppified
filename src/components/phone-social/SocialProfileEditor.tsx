@@ -1,3 +1,7 @@
+import { CharacterName } from '../CharacterName';
+import { gradientPhaseStyle } from '../../chat/gradientPhase';
+import { isNpcCharacterColor } from '../../chat/characterColors';
+import type { CSSProperties } from 'react';
 import { migratedProfileName } from '../../characters/character';
 import { useState } from 'react';
 import { portraitDataUrl, socialAvatarDataUrl } from '../../characters/portrait';
@@ -9,7 +13,8 @@ import onlyFriendsLogoUrl from '../../assets/social/onlyfriends/logo_of.png';
 import '../characterAppProfiles.css';
 
 /** Shared by Character Setup and the phone apps. Images remain gallery references. */
-export function SocialProfileEditor({ account, accountId, name, images, profileImage, locked, app = 'fotogram', onSave, onCancel }: {
+export function SocialProfileEditor({ nameColor, account, accountId, name, images, profileImage, locked, app = 'fotogram', onSave, onCancel }: {
+  nameColor?: string;
   account?: CharacterAppAccount; accountId: string; name: string;
   app?: 'fotogram' | 'onlyfriends';
   profileImage?: RpStorybookCharacterProfileImage;
@@ -29,6 +34,18 @@ export function SocialProfileEditor({ account, accountId, name, images, profileI
   const appName = app === 'fotogram' ? 'Photogram' : 'OnlyFriends';
   const isPrivate = draft.privacyMode === true;
   const [showPrivacyInfo, setShowPrivacyInfo] = useState(false);
+  // Mirrors CharacterAvatar's own ring-gradient logic (see ../CharacterAvatar.tsx):
+  // that component can't be reused directly here because .social-profile-avatar must
+  // stay a plain positioning container for the Fotogram plus-badge overlay nested
+  // inside it (CharacterAvatar's span has no children slot for that).
+  const previewName = isPrivate ? draft.profileName ?? name : name;
+  const avatarGradientColor = nameColor ?? 'var(--avatar-ring-default, currentColor)';
+  const avatarHasGradient = !isNpcCharacterColor(avatarGradientColor);
+  const avatarGradientStyle: CSSProperties = {
+    ...gradientPhaseStyle(previewName),
+    '--avatar-ring-color': avatarGradientColor,
+    borderColor: avatarHasGradient ? `var(--avatar-ring-border, ${avatarGradientColor})` : avatarGradientColor,
+  } as CSSProperties;
   return <form
     className={`social-profile-editor social-profile-editor--${app}`}
     style={app === 'onlyfriends' ? {
@@ -63,11 +80,11 @@ export function SocialProfileEditor({ account, accountId, name, images, profileI
     </header>
     <section className="social-profile-preview" aria-label="Live profile preview">
       {app === 'fotogram' && <span className="social-profile-live-badge">Live preview</span>}
-      <div className="social-profile-avatar">
+      <div className={`social-profile-avatar${avatarHasGradient ? ' character-avatar-gradient' : ''}`} style={avatarGradientStyle}>
         <span>{!isPrivate && avatar ? <img src={avatar} alt="Profile preview" /> : ((isPrivate ? draft.profileName : name) || '?').slice(0, 1).toUpperCase()}</span>
         {app === 'fotogram' && <span className="social-profile-plus-badge" aria-hidden="true">+</span>}
       </div>
-      <div><span className="social-profile-eyebrow">Profile preview</span><h3>{isPrivate ? draft.profileName : (draft.profileName?.trim() || name)}</h3>
+      <div><span className="social-profile-eyebrow">Profile preview</span><h3><CharacterName color={nameColor}>{isPrivate ? draft.profileName : (draft.profileName?.trim() || name)}</CharacterName></h3>
         {app === 'fotogram' && <div className="social-profile-handle">@{(draft.profileName ?? '').trim().replace(/^@/, '') || 'your.username'}</div>}
         <p>{draft.bio || 'Your story starts here.'}</p></div>
     </section>

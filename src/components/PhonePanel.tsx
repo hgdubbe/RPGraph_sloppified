@@ -1,5 +1,8 @@
 import { createPortal } from 'react-dom';
 import { PhoneStatusTrayContext } from './RoleplayPhoneDevice';
+import { usePanelNavigationState, usePanelNavigationBack } from '../navigation/usePanelNavigation';
+import { ChatBubbleText } from './ChatBubbleText';
+import { CharacterName } from './CharacterName';
 import { AppMessageAvatar } from './AppMessageAvatars';
 import { AccountLinkContext } from '../chat/accountLinkContext';
 import { AccountLinkText } from './AccountLinkText';
@@ -522,6 +525,7 @@ export function PhonePanel({
   onPhoneThemeChange,
 }: PhonePanelProps) {
   const { request: accountLinkRequest } = useContext(AccountLinkContext);
+  const navigateBack = usePanelNavigationBack();
   const accountLinkScreen = accountLinkRequest?.app === 'matchme' ? 'plottwist' : accountLinkRequest?.app;
   const linkedSocialRequest = accountLinkRequest && accountLinkRequest.app !== 'whatsup' && accountLinkRequest.app !== 'banking' ? {
     requestId: accountLinkRequest.requestId, app: accountLinkRequest.app, messageId: '',
@@ -533,17 +537,17 @@ export function PhonePanel({
   const [contactListOpen, setContactListOpen] = useState(!selectedPhoneContact);
   // Start on the conversation when the panel opens through a chat message
   // link, or on a requested social post; otherwise start on the desktop.
-  const [screen, setScreen] = useState<PhoneScreen>(() =>
+  const [screen, setScreen] = usePanelNavigationState<PhoneScreen>('phone.screen', () =>
     accountLinkScreen ??
     (directMessageRequest?.app === 'matchme' ? 'plottwist' : directMessageRequest?.app) ??
     socialPostOpenRequest?.app ??
     (highlightedPhoneMessageId !== undefined ? 'whatsup' : 'desktop'));
-  const [seenAccountLinkRequest, setSeenAccountLinkRequest] = useState(accountLinkRequest);
+  const [seenAccountLinkRequest, setSeenAccountLinkRequest] = usePanelNavigationState('phone.seenAccountLinkRequest', accountLinkRequest, false);
   if (seenAccountLinkRequest !== accountLinkRequest) {
     setSeenAccountLinkRequest(accountLinkRequest);
     if (accountLinkScreen) setScreen(accountLinkScreen);
   }
-  const [seenPhoneHomeRequestId, setSeenPhoneHomeRequestId] = useState(phoneHomeRequestId);
+  const [seenPhoneHomeRequestId, setSeenPhoneHomeRequestId] = usePanelNavigationState('phone.seenPhoneHomeRequestId', phoneHomeRequestId, false);
   if (seenPhoneHomeRequestId !== phoneHomeRequestId) {
     setSeenPhoneHomeRequestId(phoneHomeRequestId);
     if (screen !== 'desktop') {
@@ -562,16 +566,15 @@ export function PhonePanel({
       setScreen(phoneAppOpenRequest.app);
     }
   }
-  const [seenSocialPostOpenRequestId, setSeenSocialPostOpenRequestId] = useState(
-    socialPostOpenRequest?.requestId ?? 0,
-  );
+  const [seenSocialPostOpenRequestId, setSeenSocialPostOpenRequestId] = usePanelNavigationState('phone.seenSocialPostOpenRequestId',
+    socialPostOpenRequest?.requestId ?? 0, false);
   // Leaving the social screen consumes the request; otherwise reopening the
   // app from the desktop would jump back to the previously requested post.
   const [dismissedSocialPostOpenRequestId, setDismissedSocialPostOpenRequestId] =
-    useState<number>();
+    usePanelNavigationState<number>('phone.dismissedSocialPostOpenRequestId');
   const [dismissedSocialDirectMessageOpenRequestId, setDismissedSocialDirectMessageOpenRequestId] =
-    useState<number>();
-  const [dismissedBankingRequestId, setDismissedBankingRequestId] = useState<number>();
+    usePanelNavigationState<number>('phone.dismissedSocialDirectMessageOpenRequestId');
+  const [dismissedBankingRequestId, setDismissedBankingRequestId] = usePanelNavigationState<number>('phone.dismissedBankingRequestId');
   if (
     socialPostOpenRequest &&
     seenSocialPostOpenRequestId !== socialPostOpenRequest.requestId
@@ -581,9 +584,8 @@ export function PhonePanel({
       setScreen(socialPostOpenRequest.app);
     }
   }
-  const [seenSocialDirectMessageOpenRequestId, setSeenSocialDirectMessageOpenRequestId] = useState(
-    directMessageRequest?.requestId ?? 0,
-  );
+  const [seenSocialDirectMessageOpenRequestId, setSeenSocialDirectMessageOpenRequestId] = usePanelNavigationState('phone.seenSocialDirectMessageOpenRequestId',
+    directMessageRequest?.requestId ?? 0, false);
   if (
     directMessageRequest &&
     seenSocialDirectMessageOpenRequestId !== directMessageRequest.requestId
@@ -629,7 +631,7 @@ export function PhonePanel({
 
   // Jump straight to the conversation when a chat message links into the
   // phone (each click bumps the highlight pulse key).
-  const [seenHighlightPulseKey, setSeenHighlightPulseKey] = useState(highlightedPhoneMessagePulseKey);
+  const [seenHighlightPulseKey, setSeenHighlightPulseKey] = usePanelNavigationState('phone.seenHighlightPulseKey', highlightedPhoneMessagePulseKey, false);
   if (seenHighlightPulseKey !== highlightedPhoneMessagePulseKey) {
     setSeenHighlightPulseKey(highlightedPhoneMessagePulseKey);
     if (highlightedPhoneMessageId !== undefined && screen !== 'whatsup') {
@@ -724,7 +726,6 @@ export function PhonePanel({
   const isImageManuallySelected = (image: ChatImageAttachment) =>
     !!image.id.trim() && selectedReferenceImageIds.has(image.id.trim());
   const phoneOwnerName = selectedCharacter?.name.trim().split(/\s+/)[0];
-  const phoneListTitle = phoneOwnerName ? `${phoneOwnerName}'s Chats` : 'Phone Chats';
   const wallpaperImageId = selectedCharacter?.phoneSettings.wallpaperId ?? 'wallpaper-1';
   const wallpaperImage = [...defaultPhoneWallpapers, ...phoneGalleryImages]
     .find((image) => image.id === wallpaperImageId) ?? defaultPhoneWallpapers[0];
@@ -1339,7 +1340,7 @@ export function PhonePanel({
           action={wallpaperMode ? 'wallpaper' : 'select'}
           selectedWallpaperId={wallpaperMode ? wallpaperImageId : undefined}
           newImageIds={wallpaperMode ? undefined : newGalleryImageIds}
-          onBack={() => setScreen(wallpaperMode ? 'desktop' : 'whatsup')}
+          onBack={() => navigateBack(() => setScreen(wallpaperMode ? 'desktop' : 'whatsup'))}
           onSelectImage={(image) => {
             markGalleryImageSeen(image.id);
             if (wallpaperMode) {
@@ -1357,7 +1358,7 @@ export function PhonePanel({
   }
 
   if (screen === 'plottwist') {
-    return <PhoneDatingScreen key={selectedCharacter?.id ?? 'no-owner'} owner={selectedCharacter}
+    return <PhoneDatingScreen characterColors={characterColors} key={selectedCharacter?.id ?? 'no-owner'} owner={selectedCharacter}
       characters={appCharacters} history={socialMediaMessages} isRunning={isRunning}
       onSendMessage={onSubmitSocialDirectMessage}
       unread={unreadSocialDirectMessages.matchme} onMarkSeen={(id) => onMarkSocialDirectMessagesSeen('matchme', id)}
@@ -1365,7 +1366,7 @@ export function PhonePanel({
       emojiOptions={phoneEmojiOptions} recentlyUsedEmojis={recentlyUsedEmojis}
       rpTimeTrackingEnabled={rpTimeTrackingEnabled} rpDateTimeFormat={rpDateTimeFormat} rpWeekdayLanguage={rpWeekdayLanguage}
       images={phoneGalleryImages} onImportImage={onImportSocialPostImage} onSave={onSaveDatingProfile}
-      onBack={() => setScreen('desktop')} />;
+      onBack={() => navigateBack(() => setScreen('desktop'))} />;
   }
 
   if (screen === 'banking') {
@@ -1391,10 +1392,10 @@ export function PhonePanel({
           isRunning={isRunning}
           initialRecipientName={bankingRecipientRequest}
           recipientRequestId={bankingRecipientRequest ? accountLinkRequest?.requestId : undefined}
-          onBack={() => {
+          onBack={() => navigateBack(() => {
             setDismissedBankingRequestId(accountLinkRequest?.requestId);
             setScreen('desktop');
-          }}
+          })}
           onAddBankingContact={onAddBankingContact}
           onSendBankTransfer={onSendBankTransfer}
         />
@@ -1407,6 +1408,7 @@ export function PhonePanel({
     return (
       <Fragment>
         <PhoneNotesScreen
+          ownerColor={selectedCharacter ? characterColors.get(selectedCharacter.name) : undefined}
           key={selectedCharacter?.id ?? 'no-owner'}
           owner={selectedCharacter}
           notes={phoneNotes}
@@ -1416,7 +1418,7 @@ export function PhonePanel({
           rpDateTimeFormat={rpDateTimeFormat}
           rpWeekdayLanguage={rpWeekdayLanguage}
           onCommitNote={onPhoneNoteCommit}
-          onBack={() => setScreen('desktop')}
+          onBack={() => navigateBack(() => setScreen('desktop'))}
         />
         {phoneSystemTrayControls}
       </Fragment>
@@ -1435,7 +1437,7 @@ export function PhonePanel({
           onSidebarWidthChange={onChatGpdSidebarWidthChange}
           archivedChatIds={archivedChatGpdChatIds}
           onCommitChat={onChatGpdChatCommit}
-          onBack={() => setScreen('desktop')}
+          onBack={() => navigateBack(() => setScreen('desktop'))}
         />
         {phoneSystemTrayControls}
       </Fragment>
@@ -1496,11 +1498,11 @@ export function PhonePanel({
               onToggleSocialLike(selectedCharacter.id, socialScreen, postId);
             }
           }}
-          onBack={() => {
+          onBack={() => navigateBack(() => {
             setDismissedSocialPostOpenRequestId(socialPostOpenRequest?.requestId);
             setDismissedSocialDirectMessageOpenRequestId(directMessageRequest?.requestId);
             setScreen('desktop');
-          }}
+          })}
           connections={connections}
           providerHealthById={providerHealthById}
           estimatedTokenBytesPerToken={estimatedTokenBytesPerToken}
@@ -2040,14 +2042,14 @@ export function PhonePanel({
           <button
             className="phone-home-button"
             type="button"
-            onClick={() => setScreen('desktop')}
+            onClick={() => navigateBack(() => setScreen('desktop'))}
             aria-label="Back to phone desktop"
             title="Phone desktop"
           >
             ←
           </button>
-          <strong>{phoneListTitle}</strong>
-          <span>{phoneContacts.length}</span>
+          <strong>{phoneOwnerName ? <><CharacterName color={selectedCharacter ? characterColors.get(selectedCharacter.name) : undefined}>{phoneOwnerName}</CharacterName>'s Chats</> : 'Phone Chats'}</strong>
+          <span className="phone-contact-count">{phoneContacts.length}</span>
         </div>
         <div className="phone-contact-list">
           {phoneContacts.map((contact) => (
@@ -2071,7 +2073,7 @@ export function PhonePanel({
               />
               <span className="phone-contact-main">
                 <span className="phone-contact-topline">
-                  <strong style={{ color: contact.color }}>{contact.character.name}</strong>
+                  <strong style={{ color: contact.color }}><CharacterName color={characterColors.get(contact.character.name)}>{contact.character.name}</CharacterName></strong>
                   <small>{contact.time}</small>
                 </span>
                 <span className="phone-contact-bottomline">
@@ -2129,7 +2131,7 @@ export function PhonePanel({
               />
               <div>
                 <strong style={{ color: selectedPhoneContact.color }}>
-                  {selectedPhoneContact.character.name}
+                  <CharacterName color={characterColors.get(selectedPhoneContact.character.name)}>{selectedPhoneContact.character.name}</CharacterName>
                 </strong>
                 <span>Last seen Today</span>
               </div>
@@ -2169,7 +2171,7 @@ export function PhonePanel({
                             className="phone-bubble-sender"
                             style={fromColor ? { color: fromColor } : undefined}
                           >
-                            {view.senderName}
+                            <CharacterName color={fromColor}>{view.senderName}</CharacterName>
                             {phoneAuthorBadgesEnabled && (
                               <span className={`phone-author-badge ${message.role === 'user' ? 'user' : 'ai'}`}>
                                 {message.role === 'user' ? 'USER' : 'AI'}
@@ -2187,9 +2189,9 @@ export function PhonePanel({
                               )}
                               <div className="phone-bubble-reply-copy">
                                 <strong>
-                                  Reply to {repliedToMessage.phoneFrom || repliedToMessage.speakerName || 'Unknown'}
+                                  Reply to <CharacterName color={phoneCharacterColor(repliedToMessage.phoneFrom || repliedToMessage.speakerName || 'Unknown')}>{repliedToMessage.phoneFrom || repliedToMessage.speakerName || 'Unknown'}</CharacterName>
                                 </strong>
-                                <span>{repliedToText}</span>
+                                <ChatBubbleText>{repliedToText}</ChatBubbleText>
                               </div>
                             </div>
                           )}
@@ -2237,7 +2239,7 @@ export function PhonePanel({
                                 }
                               />
                             ) : (
-                              <span><AccountLinkText text={view.visibleText} bindings={message.accountLinks} /></span>
+                              <ChatBubbleText><AccountLinkText text={view.visibleText} bindings={message.accountLinks} /></ChatBubbleText>
                             )
                           )}
                           {message.phoneImageCaptionChange && (
@@ -2365,7 +2367,7 @@ export function PhonePanel({
               {!!selectedCharacter && !!phoneDraft.trim() ? (
                 <div className="phone-typing">
                   <strong style={{ color: characterColors.get(selectedCharacter.name) }}>
-                    {selectedCharacter.name}
+                    <CharacterName color={characterColors.get(selectedCharacter.name)}>{selectedCharacter.name}</CharacterName>
                   </strong>
                   <span>typing...</span>
                   <CommandPillList
@@ -2508,7 +2510,7 @@ export function PhonePanel({
                   <div>
                     {!!selectedCharacter && selectedCharacterPlayable && (
                       <button type="button" onClick={onSwitchToViewedCharacter}>
-                        Switch to {selectedCharacter.name}
+                        Switch to <CharacterName color={characterColors.get(selectedCharacter.name)}>{selectedCharacter.name}</CharacterName>
                       </button>
                     )}
                     <span>

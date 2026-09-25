@@ -1,3 +1,8 @@
+import { usePanelNavigationOverlay } from '../navigation/usePanelNavigation';
+import { useSliderPreview } from './useSliderPreview';
+import { TextEffectOptions } from '../components/TextEffectOptions';
+import type { TextEffectsSettings } from '../chat/textEffects';
+import { reasoningActivation, normalizeReasoningEffort, supportsReasoningEffort, type ReasoningCapabilities } from '../../shared/reasoning.cjs';
 import type { StorybookCharacter } from '../storybook/runtime';
 import {
   useCallback,
@@ -149,6 +154,8 @@ type StudioDialogsProps = {
   activeTokenEstimateBytesPerToken: number;
   settingsValueDefinitions: SettingsValueDefinition[];
   settingsValues: Record<string, string>;
+  textEffects: TextEffectsSettings;
+  onTextEffectsChange: (value: TextEffectsSettings) => void;
   chatTextBrightness: number;
   chatColorIntensity: number;
   chatMessageAvatarSize: number;
@@ -264,6 +271,7 @@ type StudioDialogsProps = {
   connectionDraftPending: boolean;
   editingConnectionCapabilities?: ProviderConnectionCapabilities;
   editingConnectionArchitecture?: string;
+  editingConnectionReasoning?: ReasoningCapabilities;
   editingConnectionSupportedVoices: string[];
   editingConnectionSupportedParameters: string[];
   providerHealthById: Record<string, ProviderConnectionHealth>;
@@ -424,9 +432,10 @@ function RetryIcon() {
 }
 
 const OPTIONS_TABS = [
-  { id: 'chat', label: 'Chat & UI', desc: 'Font sizes, UI scale and date/time' },
+  { id: 'chat', label: 'Chat & UI', desc: 'Avatars, scrolling, UI scale and date/time' },
+  { id: 'text', label: 'Text', desc: 'Sizes, colors, brightness and wave effects' },
   { id: 'translation', label: 'Translation', desc: 'English processing and display language' },
-  { id: 'nodes', label: 'Node Design', desc: 'Canvas node transparency and text sizes' },
+  { id: 'nodes', label: 'Node Design', desc: 'Canvas node transparency and appearance' },
   { id: 'variables', label: 'Workflow Variables', desc: 'Global variables referenced in prompts' },
   { id: 'images', label: 'Reference Images', desc: 'Vision model context lookback and limits' },
   { id: 'tokens', label: 'Token Estimate', desc: 'UTF-8 byte factors and auto-calibration' },
@@ -439,6 +448,7 @@ type OptionsTabId = typeof OPTIONS_TABS[number]['id'];
 type ProviderCapabilityKind = keyof ProviderConnectionCapabilities;
 
 const providerCapabilityLabels: Record<ProviderCapabilityKind, string> = {
+  reasoning: 'Reasoning',
   text: 'Text',
   vision: 'Vision',
   tools: 'Tools',
@@ -447,6 +457,14 @@ const providerCapabilityLabels: Record<ProviderCapabilityKind, string> = {
 };
 
 function ProviderCapabilityIcon({ kind }: { kind: ProviderCapabilityKind }) {
+  if (kind === 'reasoning') {
+    return (
+      <svg viewBox="0 0 24 24" aria-hidden="true">
+        <path d="M12 5a3 3 0 0 0-5.8-1A4 4 0 0 0 3 10a4 4 0 0 0 1 7.5A4 4 0 0 0 12 19V5Z" />
+        <path d="M12 5a3 3 0 0 1 5.8-1A4 4 0 0 1 21 10a4 4 0 0 1-1 7.5A4 4 0 0 1 12 19M7 4v3M3 10h4l2 2M4 17.5 8 16M17 4v3M21 10h-4l-2 2M20 17.5 16 16" />
+      </svg>
+    );
+  }
   if (kind === 'text') {
     return <span className="provider-capability-text-mark" aria-hidden="true">TXT</span>;
   }
@@ -487,10 +505,12 @@ function ProviderCapabilityBadges({
   capabilities,
   kinds,
   showInactive = false,
+  reasoningEnabled,
 }: {
   capabilities?: ProviderConnectionCapabilities;
   kinds: ProviderCapabilityKind[];
   showInactive?: boolean;
+  reasoningEnabled?: boolean;
 }) {
   const badges = kinds.flatMap((kind) => {
     const active = capabilities?.[kind] === true;
@@ -498,12 +518,20 @@ function ProviderCapabilityBadges({
       return [];
     }
     const label = providerCapabilityLabels[kind];
+    const isReasoning = kind === 'reasoning';
+    const state = isReasoning && active
+      ? reasoningEnabled === true ? 'active' : 'available'
+      : active ? 'active' : 'inactive';
+    const description = isReasoning && active
+      ? reasoningEnabled === true ? 'enabled' : reasoningEnabled === false
+        ? 'supported, disabled' : 'supported, activation unknown'
+      : active ? 'available' : 'not detected';
     return (
       <span
         key={kind}
-        className={`provider-capability-badge ${active ? 'active' : 'inactive'}`}
-        data-tooltip={`${label}: ${active ? 'available' : 'not detected'}`}
-        aria-label={`${label}: ${active ? 'available' : 'not detected'}`}
+        className={`provider-capability-badge ${state}`}
+        data-tooltip={`${label}: ${description}`}
+        aria-label={`${label}: ${description}`}
       >
         <ProviderCapabilityIcon kind={kind} />
       </span>
@@ -636,6 +664,7 @@ const providerPresets = [
 const connectionReasoningLabels = {
   auto: 'Auto / provider default',
   none: 'Off',
+  on: 'On',
   minimal: 'Minimal',
   low: 'Low',
   medium: 'Medium',
@@ -848,6 +877,8 @@ export function StudioDialogs({
   activeTokenEstimateBytesPerToken,
   settingsValueDefinitions,
   settingsValues,
+  textEffects,
+  onTextEffectsChange,
   chatTextBrightness,
   chatColorIntensity,
   chatMessageAvatarSize,
@@ -963,6 +994,7 @@ export function StudioDialogs({
   connectionDraftPending,
   editingConnectionCapabilities,
   editingConnectionArchitecture,
+  editingConnectionReasoning,
   editingConnectionSupportedVoices,
   editingConnectionSupportedParameters,
   providerHealthById,
@@ -1020,6 +1052,7 @@ export function StudioDialogs({
   } | null>(null);
   const [storybookInfoLoading, setStorybookInfoLoading] = useState<string | null>(null);
   const [storybookInfoStatus, setStorybookInfoStatus] = useState('');
+  const textEffectPreview = useSliderPreview(showOptions);
   const [activeOptionsTab, setActiveOptionsTab] = useState<OptionsTabId>('chat');
   const [deleteFileCandidate, setDeleteFileCandidate] = useState<SavedFileSummary | null>(null);
   const [fileFilter, setFileFilter] = useState<'all' | 'workflow' | 'storybook' | 'session' | 'character-card'>('all');
@@ -1108,14 +1141,18 @@ export function StudioDialogs({
   const comfyOnboardingMemory = comfyOnboardingMemoryInfo(editingComfyRole);
   const editingProviderKind = llmProviderKind(editingConnection);
   const isMuseGlimmerReasoning =
-    editingProviderKind === 'lm-studio' && (
+    editingProviderKind === 'lm-studio' && !editingConnectionReasoning && (
       editingConnectionArchitecture === 'muse_glimmer' ||
       /muse[-_ ]glimmer/i.test(editingConnection.model)
     );
   const museGlimmerReasoningEfforts = ['low', 'medium', 'high', 'xhigh'] as const;
   const reasoningEfforts = isMuseGlimmerReasoning
     ? museGlimmerReasoningEfforts
-    : connectionReasoningEfforts;
+    : editingProviderKind === 'gemini' ? ['auto'] as const
+    : connectionReasoningEfforts.filter((effort) =>
+      (editingProviderKind === 'lm-studio' || editingProviderKind === 'ollama') && editingConnectionReasoning
+        ? supportsReasoningEffort(effort, editingConnectionReasoning)
+        : effort !== 'on');
   const selectedReasoningEffort = isMuseGlimmerReasoning
     ? editingConnection.reasoningEffort === 'medium' ||
       editingConnection.reasoningEffort === 'high' ||
@@ -1126,7 +1163,8 @@ export function StudioDialogs({
         : editingConnection.reasoningEffort === 'auto' || editingConnection.reasoningEffort === undefined
           ? 'high'
           : 'low'
-    : editingConnection.reasoningEffort ?? 'none';
+    : editingProviderKind === 'gemini' ? 'auto'
+    : normalizeReasoningEffort(editingConnection.reasoningEffort, editingConnectionReasoning);
   const comfyLoraSlots = validComfyLoraSlots(editingConnection.comfyLoraSlots ?? defaultComfyLoraSlots);
   const [comfyRepairProviderId, setComfyRepairProviderId] = useState('');
   const llmConnections = connections.filter((connection) => connection.kind !== 'comfyui');
@@ -1580,25 +1618,29 @@ export function StudioDialogs({
     return () => previouslyFocused?.focus();
   }, [activeDialog, fileProtection, isSavingFile]);
 
+  const closeActiveDialog = useCallback(() => {
+    if (deleteFileCandidate) { setDeleteFileCandidate(null); return; }
+    if (activeDialog === 'storybook-info') { setStorybookInfo(null); return; }
+    if (showFileVersionInfo) {
+      setShowFileVersionInfo(false);
+      return;
+    }
+    if (activeDialog === 'session-password') { onCloseSessionPassword(); return; }
+    if (activeDialog === 'storybook-picker') { onCloseStorybookPicker(); return; }
+    if (activeDialog === 'connections') { onCloseConnections(); return; }
+    if (activeDialog === 'characters') { onCloseCharacterFiles(); return; }
+    if (activeDialog === 'files') { onCloseFiles(); return; }
+    if (activeDialog === 'options') { onCloseOptions(); return; }
+    if (activeDialog === 'json') { onCloseJson(); return; }
+    onCloseText();
+  }, [activeDialog, showFileVersionInfo, deleteFileCandidate, onCloseSessionPassword,
+    onCloseStorybookPicker, onCloseConnections, onCloseCharacterFiles, onCloseFiles,
+    onCloseOptions, onCloseJson, onCloseText]);
+  usePanelNavigationOverlay(closeActiveDialog, !!activeDialog);
+
   useEffect(() => {
     if (!activeDialog) {
       return;
-    }
-
-    function closeActiveDialog() {
-      if (activeDialog === 'storybook-info') { setStorybookInfo(null); return; }
-      if (showFileVersionInfo) {
-        setShowFileVersionInfo(false);
-        return;
-      }
-      if (activeDialog === 'session-password') { onCloseSessionPassword(); return; }
-      if (activeDialog === 'storybook-picker') { onCloseStorybookPicker(); return; }
-      if (activeDialog === 'connections') { onCloseConnections(); return; }
-      if (activeDialog === 'characters') { onCloseCharacterFiles(); return; }
-      if (activeDialog === 'files') { onCloseFiles(); return; }
-      if (activeDialog === 'options') { onCloseOptions(); return; }
-      if (activeDialog === 'json') { onCloseJson(); return; }
-      onCloseText();
     }
 
     function handleKeyboard(event: KeyboardEvent) {
@@ -1637,7 +1679,7 @@ export function StudioDialogs({
     return () => window.removeEventListener('keydown', handleKeyboard);
   }, [
     activeDialog,
-    showFileVersionInfo,
+    showFileVersionInfo, closeActiveDialog,
     onCloseText, onCloseJson, onCloseOptions, onCloseFiles, onCloseStorybookPicker, onCloseCharacterFiles,
     onCloseSessionPassword, onCloseConnections,
   ]);
@@ -1693,7 +1735,7 @@ export function StudioDialogs({
         >
           <section
             ref={activeDialog === 'text' ? activeDialogRef : undefined}
-            className={`text-dialog${isCompressionDialog ? ' compression-text-dialog' : ''}${isHistoryDialog ? ' history-text-dialog' : ''}${isCharacterStatsChartDialog ? ' character-stats-chart-text-dialog' : ''}`}
+            className={`text-dialog node-text-dialog${isCompressionDialog ? ' compression-text-dialog' : ''}${isHistoryDialog ? ' history-text-dialog' : ''}${isCharacterStatsChartDialog ? ' character-stats-chart-text-dialog' : ''}`}
             role="dialog"
             aria-modal={activeDialog === 'text'}
             aria-hidden={activeDialog !== 'text'}
@@ -1887,7 +1929,7 @@ export function StudioDialogs({
 
       {showOptions && (
         <div
-          className="dialog-backdrop"
+          className={`dialog-backdrop${textEffectPreview ? ' text-effect-preview' : ''}`}
           role="presentation"
           onPointerDown={trackBackdropPointerDown}
           onClick={(event) => closeFromBackdropClick(event, 'options', onCloseOptions)}
@@ -1944,7 +1986,7 @@ export function StudioDialogs({
                   <div className="options-tab-content">
                     <div className="options-tab-header">
                       <h3>Chat & UI</h3>
-                      <p>Normal Chat + Phone Chat formatting and interface scaling</p>
+                      <p>Avatars, scrolling, interface scaling and date/time</p>
                     </div>
                     <div className="options-tab-body">
                       <label className="option-toggle">
@@ -2071,6 +2113,39 @@ export function StudioDialogs({
                           </span>
                         </div>
                       </label>
+                      <div className="option-field">
+                        <span>RP TIME / DATE FORMAT</span>
+                        <NodeCustomSelect
+                          id="rp-date-time-format"
+                          value={rpDateTimeFormat}
+                          onChange={(value) => onRpDateTimeFormatChange(value as RpDateTimeFormat)}
+                          options={[
+                            { value: 'eu', label: 'EU - 05.06.26 FR   20:00' },
+                            { value: 'us', label: 'US - 06/05/26 FR   8:00 PM' },
+                            { value: 'iso', label: 'ISO - 2026-06-05 FR   20:00' },
+                          ]}
+                        />
+                      </div>
+                      <div className="option-field">
+                        <span>RP WEEKDAY LANGUAGE</span>
+                        <NodeCustomSelect
+                          id="rp-weekday-language"
+                          value={rpWeekdayLanguage}
+                          onChange={(value) => onRpWeekdayLanguageChange(value as RpWeekdayLanguage)}
+                          options={rpWeekdayLanguageOptions}
+                        />
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {activeOptionsTab === 'text' && (
+                  <div className="options-tab-content">
+                    <div className="options-tab-header">
+                      <h3>Text</h3>
+                      <p>Text size, brightness, color intensity and animated waves</p>
+                    </div>
+                    <div className="options-tab-body">
                       <label className="option-field chat-text-size-field" htmlFor="chat-text-size">
                         NORMAL CHAT TEXT SIZE
                         <div className="option-range-row">
@@ -2149,27 +2224,19 @@ export function StudioDialogs({
                         />
                       </div>
                       <div className="option-field">
-                        <span>RP TIME / DATE FORMAT</span>
+                        <span>NODE TEXT</span>
                         <NodeCustomSelect
-                          id="rp-date-time-format"
-                          value={rpDateTimeFormat}
-                          onChange={(value) => onRpDateTimeFormatChange(value as RpDateTimeFormat)}
+                          id="node-text-size"
+                          value={nodeTextSize}
+                          onChange={(value) => onNodeTextSizeChange(value as 'small' | 'normal' | 'big')}
                           options={[
-                            { value: 'eu', label: 'EU - 05.06.26 FR   20:00' },
-                            { value: 'us', label: 'US - 06/05/26 FR   8:00 PM' },
-                            { value: 'iso', label: 'ISO - 2026-06-05 FR   20:00' },
+                            { value: 'small', label: 'Small' },
+                            { value: 'normal', label: 'Normal' },
+                            { value: 'big', label: 'Big' },
                           ]}
                         />
                       </div>
-                      <div className="option-field">
-                        <span>RP WEEKDAY LANGUAGE</span>
-                        <NodeCustomSelect
-                          id="rp-weekday-language"
-                          value={rpWeekdayLanguage}
-                          onChange={(value) => onRpWeekdayLanguageChange(value as RpWeekdayLanguage)}
-                          options={rpWeekdayLanguageOptions}
-                        />
-                      </div>
+                      <TextEffectOptions value={textEffects} onChange={onTextEffectsChange} />
                     </div>
                   </div>
                 )}
@@ -2266,19 +2333,6 @@ export function StudioDialogs({
                           <span>{Math.round(glassDesignOpacity * 100)}%</span>
                         </div>
                       </label>
-                      <div className="option-field">
-                        <span>NODE TEXT</span>
-                        <NodeCustomSelect
-                          id="node-text-size"
-                          value={nodeTextSize}
-                          onChange={(value) => onNodeTextSizeChange(value as 'small' | 'normal' | 'big')}
-                          options={[
-                            { value: 'small', label: 'Small' },
-                            { value: 'normal', label: 'Normal' },
-                            { value: 'big', label: 'Big' },
-                          ]}
-                        />
-                      </div>
                     </div>
                   </div>
                 )}
@@ -3905,65 +3959,21 @@ export function StudioDialogs({
                           onOpenOptions={onRefreshConnectionModels}
                         />
                       </div>
-                      {!isVoiceOnlyModel && <div className="connection-field">
-                        <div className="connection-field-label-row">
-                          <label htmlFor="reasoning-effort">
-                            {isMuseGlimmerReasoning ? 'REASONING (MUSE GLIMMER)' : 'REASONING'}
-                          </label>
-                          {isMuseGlimmerReasoning ? (
-                            <button
-                              type="button"
-                              className="node-info-button connection-reasoning-help"
-                              data-tooltip="Muse Glimmer always uses reasoning and does not support Off. RPGraph sends the selected Low, Medium, High, or Very high strength through the model's chat template."
-                              aria-label="About Muse Glimmer reasoning"
-                            >
-                              ?
-                            </button>
-                          ) : null}
-                        </div>
-                        <NodeCustomSelect
-                          id="reasoning-effort"
-                          value={selectedReasoningEffort}
-                          onChange={(effort) => onEditConnection('reasoningEffort', String(effort))}
-                          options={reasoningEfforts.map((effort) => ({
-                            value: effort,
-                            label: connectionReasoningLabels[effort],
-                          }))}
-                        />
-                      </div>}
-                      <div className="connection-field connection-field-api-key">
-                        <label htmlFor="api-key">API KEY (OPTIONAL)</label>
-                        <div className="secret-input-row">
-                          <input
-                            id="api-key"
-                            type={apiKeyVisible ? 'text' : 'password'}
-                            placeholder="Local providers can usually stay empty"
-                            value={editingConnection.apiKey}
-                            onChange={(event) => onEditConnection('apiKey', event.target.value)}
-                          />
-                          <button
-                            type="button"
-                            className="secret-input-toggle"
-                            aria-label={apiKeyVisible ? 'Hide API key' : 'Show API key'}
-                            aria-pressed={apiKeyVisible}
-                            onClick={() => setApiKeyVisible((visible) => !visible)}
-                          >
-                            <EyeIcon hidden={!apiKeyVisible} />
-                          </button>
-                        </div>
-                      </div>
                       {modelCapabilitiesSourceLabel ? (
                         <div className="connection-field connection-field-capabilities">
                           <label>CAPABILITIES</label>
                           <div className="connection-detected-capabilities">
                             <ProviderCapabilityBadges
                               capabilities={editingConnectionCapabilities}
+                              reasoningEnabled={reasoningActivation(selectedReasoningEffort, editingConnectionReasoning)}
                               kinds={
                                 lmStudioToolsAvailable || ollamaToolsAvailable
-                                  ? ['text', 'vision', 'tools']
+                                  ? ['text', 'reasoning', 'vision', 'tools']
                                   : llamaCppToolsAvailable
                                     ? ['text', 'vision']
-                                  : ['text', 'vision', 'image', 'voice']
+                                  : editingProviderKind === 'openrouter'
+                                    ? ['text', 'reasoning', 'vision', 'image', 'voice']
+                                    : ['text', 'vision', 'image', 'voice']
                               }
                               showInactive
                             />
@@ -3994,6 +4004,63 @@ export function StudioDialogs({
                           </span>
                         </div>
                       )}
+                      <div className="connection-field connection-field-api-key">
+                        <label htmlFor="api-key">API KEY (OPTIONAL)</label>
+                        <div className="secret-input-row">
+                          <input
+                            id="api-key"
+                            type={apiKeyVisible ? 'text' : 'password'}
+                            placeholder="Local providers can usually stay empty"
+                            value={editingConnection.apiKey}
+                            onChange={(event) => onEditConnection('apiKey', event.target.value)}
+                          />
+                          <button
+                            type="button"
+                            className="secret-input-toggle"
+                            aria-label={apiKeyVisible ? 'Hide API key' : 'Show API key'}
+                            aria-pressed={apiKeyVisible}
+                            onClick={() => setApiKeyVisible((visible) => !visible)}
+                          >
+                            <EyeIcon hidden={!apiKeyVisible} />
+                          </button>
+                        </div>
+                      </div>
+                      {!isVoiceOnlyModel && <div className="connection-field connection-field-reasoning">
+                        <div className="connection-field-label-row">
+                          <label htmlFor="reasoning-effort">
+                            {isMuseGlimmerReasoning ? 'REASONING (MUSE GLIMMER)' : 'REASONING'}
+                          </label>
+                          {isMuseGlimmerReasoning ? (
+                            <button
+                              type="button"
+                              className="node-info-button connection-reasoning-help"
+                              data-tooltip="Muse Glimmer always uses reasoning and does not support Off. RPGraph sends the selected Low, Medium, High, or Very high strength through the model's chat template."
+                              aria-label="About Muse Glimmer reasoning"
+                            >
+                              ?
+                            </button>
+                          ) : null}
+                        </div>
+                        <NodeCustomSelect
+                          id="reasoning-effort"
+                          disabled={editingProviderKind === 'gemini'}
+                          value={selectedReasoningEffort}
+                          onChange={(effort) => onEditConnection('reasoningEffort', String(effort))}
+                          options={reasoningEfforts.map((effort) => ({
+                            value: effort,
+                            label: connectionReasoningLabels[effort] + (
+                              !supportsReasoningEffort(effort, editingConnectionReasoning)
+                                ? ' (not supported)'
+                                : effort === 'auto' && editingConnectionReasoning?.defaultEnabled === false
+                                  ? ' (Off)'
+                                  : effort === 'auto' && editingConnectionReasoning?.defaultEffort
+                                    ? ` (${connectionReasoningLabels[editingConnectionReasoning.defaultEffort]})`
+                                    : ''
+                            ),
+                            disabled: !supportsReasoningEffort(effort, editingConnectionReasoning),
+                          }))}
+                        />
+                      </div>}
                       {isVoiceOnlyModel && (
                         <div className={`connection-tts-section${supportsTtsTemperature ? ' has-temperature' : ''}`}>
                           <div className="connection-field connection-tts-voice-field">

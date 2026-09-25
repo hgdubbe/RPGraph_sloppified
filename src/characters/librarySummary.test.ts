@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { Character, CharacterAppAccount } from './character';
-import { characterLibrarySummary, libraryActivityPosts, libraryCharacterWithPosts, libraryCharacterContentEqual } from './librarySummary';
+import { characterLibrarySummary, characterMatchesLibrarySearch, libraryActivityPosts, libraryCharacterWithPosts, libraryCharacterContentEqual } from './librarySummary';
 import { rpCharacterCardForCharacter } from '../storybook/characterCard';
 import type { SocialPostRecord } from '../types';
 
@@ -101,5 +101,27 @@ describe('NPC library image inventory', () => {
     expect(summary.apps.whatsup?.enabled).toBe(true);
     expect(summary.apps.onlyfriends).toBeUndefined();
     expect(summary.apps.matchme).toBeUndefined();
+  });
+});
+
+describe('NPC library character search', () => {
+  it('matches partial character and profile names with or without an at sign', () => {
+    const npc = character();
+    npc.apps = {
+      fotogram: account({ profileName: 'Alex.AfterHours' }),
+      onlyfriends: account({ enabled: false, profileName: 'MorganStudio' }),
+    };
+
+    expect(characterMatchesLibrarySearch(npc, 'alex mor')).toBe(true);
+    expect(characterMatchesLibrarySearch(npc, '@after')).toBe(true);
+    expect(characterMatchesLibrarySearch(npc, 'AFTER')).toBe(true);
+    expect(characterMatchesLibrarySearch(npc, '@morgan')).toBe(true);
+    expect(characterMatchesLibrarySearch(npc, 'nobody')).toBe(false);
+  });
+
+  it('shows every character for an empty query or an at sign by itself', () => {
+    const npc = character();
+    expect(characterMatchesLibrarySearch(npc, '')).toBe(true);
+    expect(characterMatchesLibrarySearch(npc, ' @ ')).toBe(true);
   });
 });

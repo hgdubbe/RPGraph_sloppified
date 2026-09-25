@@ -1,3 +1,5 @@
+import { usePanelNavigationState } from '../../navigation/usePanelNavigation';
+import { CharacterName } from '../CharacterName';
 import { CharacterAvatar } from '../CharacterAvatar';
 import { datingAccountId, resolveDatingAccount, datingFirstName, datingAvatarDataUrl } from '../../chat/datingAccounts';
 import { matchMeDecision, matchMeLikePolicy, matchMeState, canSendMatchMeMessage, incomingMatchMeMessage } from '../../chat/matchMe';
@@ -14,6 +16,7 @@ import './phoneDating.css';
 
 type Props = {
   profileOnly?: boolean;
+  characterColors?: ReadonlyMap<string, string>;
   owner?: StorybookCharacter;
   characters: StorybookCharacter[];
   unread: SocialDmUnreadByHandle;
@@ -33,22 +36,24 @@ type Props = {
   onBack: () => void;
 };
 
-export function PhoneDatingScreen({ profileOnly = false, unread, onMarkSeen, openRequest, characters, history, isRunning, onSendMessage, owner, images, onImportImage, onSave, onBack, emojiOptions, recentlyUsedEmojis, rpTimeTrackingEnabled = false, rpDateTimeFormat = 'eu', rpWeekdayLanguage = 'system' }: Props) {
+export function PhoneDatingScreen({ characterColors, profileOnly = false, unread, onMarkSeen, openRequest, characters, history, isRunning, onSendMessage, owner, images, onImportImage, onSave, onBack, emojiOptions, recentlyUsedEmojis, rpTimeTrackingEnabled = false, rpDateTimeFormat = 'eu', rpWeekdayLanguage = 'system' }: Props) {
+  const profileColor = (characterId: string | undefined) =>
+    characterColors?.get(characters.find((character) => character.id === characterId)?.name ?? '');
   const [profile, setProfile] = useState(normalizeDatingProfile(owner?.social.plotTwist));
   const [editing, setEditing] = useState(profileOnly || !profile);
-  const [tab, setTab] = useState<'discover' | 'likes' | 'profile'>('discover');
+  const [tab, setTab] = usePanelNavigationState<'discover' | 'likes' | 'profile'>(`dating.${owner?.id}.tab`, 'discover');
   const [draft, setDraft] = useState<DatingProfile>(profile ?? normalizeDatingProfile({ ...owner?.apps?.matchme?.profile, name: owner?.apps?.matchme?.profileName ?? owner?.apps?.matchme?.profile?.name ?? owner?.name }, true) ?? { name: owner?.name ?? '', age: owner?.age && owner.age >= 18 && owner.age <= 120 ? owner.age : 18, gender: owner?.gender, seeking: [], bio: '', interests: '', photoIds: [], decisions: {} });
   const [interestDraft, setInterestDraft] = useState('');
   const [chatDrafts, setChatDrafts] = useState<Record<string, string>>({});
   const [recentEmojis, setRecentEmojis] = useState(recentlyUsedEmojis);
-  const [gallery, setGallery] = useState(false);
+  const [gallery, setGallery] = usePanelNavigationState(`dating.${owner?.id}.gallery`, false);
   const [imported, setImported] = useState<ChatImageAttachment[]>([]);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const [celebration, setCelebration] = useState<{ id: string; name: string; superlike: boolean }>();
   const [photo, setPhoto] = useState(0);
   const [drag, setDrag] = useState(0);
-  const [previewCandidateId, setPreviewCandidateId] = useState<string | undefined>();
+  const [previewCandidateId, setPreviewCandidateId] = usePanelNavigationState<string | undefined>(`dating.${owner?.id}.previewCandidateId`, );
   const [previewPhoto, setPreviewPhoto] = useState(0);
   const start = useRef<{ x: number; y: number } | null>(null);
   const uploadRef = useRef<HTMLInputElement>(null);
@@ -58,8 +63,8 @@ export function PhoneDatingScreen({ profileOnly = false, unread, onMarkSeen, ope
   const decisionsRef = useRef<HTMLDivElement>(null);
   const [discoverScale, setDiscoverScale] = useState(1);
   const [isScrollMode, setIsScrollMode] = useState(false);
-  const [selectedMatchId, setSelectedMatchId] = useState<string | undefined>(openRequest?.participantHandle);
-  const [seenOpenRequest, setSeenOpenRequest] = useState(openRequest?.requestId);
+  const [selectedMatchId, setSelectedMatchId] = usePanelNavigationState<string | undefined>(`dating.${owner?.id}.selectedMatchId`, openRequest?.participantHandle);
+  const [seenOpenRequest, setSeenOpenRequest] = usePanelNavigationState(`dating.${owner?.id}.seenOpenRequest`, openRequest?.requestId, false);
   if (openRequest && seenOpenRequest !== openRequest.requestId) {
     setSeenOpenRequest(openRequest.requestId); setSelectedMatchId(openRequest.participantHandle); setEditing(false); setTab('discover');
   }
@@ -158,7 +163,7 @@ export function PhoneDatingScreen({ profileOnly = false, unread, onMarkSeen, ope
 
     window.addEventListener('keydown', onKeyDown);
     return () => window.removeEventListener('keydown', onKeyDown);
-  }, [celebration, gallery, previewCandidateId, editing, profile, selectedMatchId, tab, onBack]);
+  }, [celebration, gallery, previewCandidateId, editing, profile, selectedMatchId, tab, onBack, setGallery, setPreviewCandidateId, setSelectedMatchId, setTab]);
   const state = matchMeState(characters, history);
   const ownerId = owner ? datingAccountId(owner) : '';
   const availableProfiles = state.accounts.filter((account) => account.id !== ownerId);
@@ -286,7 +291,7 @@ export function PhoneDatingScreen({ profileOnly = false, unread, onMarkSeen, ope
         <div className="pt-match-list">
           {matches.map((match) => <button type="button" key={match.id} className={`pt-match${selectedMatchId === match.id && tab === 'discover' && !editing ? ' active' : ''}`}
             onClick={() => { setSelectedMatchId(match.id); setPreviewCandidateId(undefined); setPreviewPhoto(0); setPhoto(0); setTab('discover'); setEditing(false); }}>
-            <CharacterAvatar className="pt-match-avatar" name={datingFirstName(match.name)} profileImageDataUrl={match.avatarDataUrl} fallback={datingFirstName(match.name).slice(0, 1)} />
+            <CharacterAvatar ringColor={profileColor(match.characterId)} className="pt-match-avatar" name={datingFirstName(match.name)} profileImageDataUrl={match.avatarDataUrl} fallback={datingFirstName(match.name).slice(0, 1)} />
             <span><strong>{datingFirstName(match.name)}<span className="pt-match-age">, {match.age}</span></strong>
               {unread[match.id]?.count ? <small className="pt-match-unread"><span>New Message</span><span className="pt-match-unread-badge" aria-label={`${unread[match.id].count} unread messages`}>{unread[match.id].count}</span></small>
                 : <small>{conversationMessages(match.id).slice(-1)[0]?.text ?? 'Say hello'}</small>}
@@ -364,7 +369,7 @@ export function PhoneDatingScreen({ profileOnly = false, unread, onMarkSeen, ope
             <input ref={uploadRef} type="file" accept="image/*" hidden onChange={(e) => { void upload(e.target.files?.[0]); e.target.value = ''; }} />
           </div>
         </form> : selectedMatch && profile ? <MatchMeConversation key={selectedMatch.id} owner={owner} partner={characters.find((character) => character.id === selectedMatch.characterId)}
-          name={datingFirstName(selectedMatch.name)} avatarDataUrl={selectedMatch.avatarDataUrl} age={selectedMatch.age} messages={conversationMessages(selectedMatch.id)}
+          nameColor={profileColor(selectedMatch.characterId)} name={datingFirstName(selectedMatch.name)} avatarDataUrl={selectedMatch.avatarDataUrl} age={selectedMatch.age} messages={conversationMessages(selectedMatch.id)}
           busy={busy || isRunning}
           draft={chatDrafts[selectedMatch.id] ?? ''}
           onDraftChange={(text) => setChatDrafts((current) => ({ ...current, [selectedMatch.id]: text }))}
@@ -384,7 +389,7 @@ export function PhoneDatingScreen({ profileOnly = false, unread, onMarkSeen, ope
               <div className="pt-placeholder">{candidate.photos?.length ? <img className="pt-discovery-photo" src={candidate.photos[photo % candidate.photos.length].dataUrl} alt={candidate.photos[photo % candidate.photos.length].description || `${datingFirstName(candidate.name)}, photo ${photo + 1}`} /> : <><span aria-hidden="true">✧</span><small>Photo unavailable</small></>}</div>
               {candidatePhotoCount > 1 && <div className="pt-image-nav"><button type="button" aria-label="Previous image" onClick={() => setPhoto((photo + candidatePhotoCount - 1) % candidatePhotoCount)}><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m14 6-6 6 6 6" /></svg></button><button type="button" aria-label="Next image" onClick={() => setPhoto((photo + 1) % candidatePhotoCount)}><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m10 6 6 6-6 6" /></svg></button></div>}
               {Math.abs(drag) >= 8 && <span className={`pt-swipe-label ${drag > 0 ? 'like' : 'pass'}`} style={{ opacity: Math.min(1, Math.abs(drag) / 35) }}>{drag > 0 ? 'LIKE' : 'PASS'}</span>}
-              <div className="pt-card-info"><h3>{datingFirstName(candidate.name)}<span>, {candidate.age}</span></h3><p>{candidate.bio}</p><div className="pt-tags">{candidate.interests.map((interest) => <span key={interest}>{interest}</span>)}</div></div>
+              <div className="pt-card-info"><h3><CharacterName color={profileColor(candidate.characterId)}>{datingFirstName(candidate.name)}</CharacterName><span>, {candidate.age}</span></h3><p>{candidate.bio}</p><div className="pt-tags">{candidate.interests.map((interest) => <span key={interest}>{interest}</span>)}</div></div>
             </article>
             <div ref={decisionsRef} className="pt-decisions">
               <button className="pt-pass" type="button" disabled={busy || isRunning} aria-label={`Pass on ${datingFirstName(candidate.name)}`} title="Pass" onClick={() => decide('pass')}>
@@ -411,7 +416,7 @@ export function PhoneDatingScreen({ profileOnly = false, unread, onMarkSeen, ope
               <div className="pt-section-heading">
                 <div>
                   <span className="pt-eyebrow">PROFILE PREVIEW</span>
-                  <h2>{datingFirstName(previewCandidate.name)}</h2>
+                  <h2><CharacterName color={profileColor(previewCandidate.characterId)}>{datingFirstName(previewCandidate.name)}</CharacterName></h2>
                 </div>
                 <span className="pt-preview">{canSendMatchMeMessage(ownerId, previewCandidate.id, state) ? 'Active Match' : 'Liked Profile'}</span>
               </div>
@@ -455,7 +460,7 @@ export function PhoneDatingScreen({ profileOnly = false, unread, onMarkSeen, ope
                   </div>
                 )}
                 <div className="pt-card-info">
-                  <h3>{datingFirstName(previewCandidate.name)}<span>, {previewCandidate.age}</span></h3>
+                  <h3><CharacterName color={profileColor(previewCandidate.characterId)}>{datingFirstName(previewCandidate.name)}</CharacterName><span>, {previewCandidate.age}</span></h3>
                   <p>{previewCandidate.bio}</p>
                   <div className="pt-tags">
                     {previewCandidate.interests.map((interest) => <span key={interest}>{interest}</span>)}
@@ -484,7 +489,7 @@ export function PhoneDatingScreen({ profileOnly = false, unread, onMarkSeen, ope
                       setTab('discover');
                     }}
                   >
-                    <span>Chat with {datingFirstName(previewCandidate.name)}</span>
+                    <span>Chat with <CharacterName color={profileColor(previewCandidate.characterId)}>{datingFirstName(previewCandidate.name)}</CharacterName></span>
                     <span aria-hidden="true">→</span>
                   </button>
                 )}
@@ -510,6 +515,7 @@ export function PhoneDatingScreen({ profileOnly = false, unread, onMarkSeen, ope
                     >
                       <div className="pt-like-avatar-wrap">
                         <CharacterAvatar
+                          ringColor={profileColor(entry.characterId)}
                           className={`pt-like-avatar${isMatch ? ' match-border' : ''}`}
                           name={datingFirstName(entry.name)}
                           profileImageDataUrl={entryAvatar}
@@ -520,7 +526,7 @@ export function PhoneDatingScreen({ profileOnly = false, unread, onMarkSeen, ope
                         </span>
                       </div>
                       <div className="pt-like-info">
-                        <strong>{datingFirstName(entry.name)}<span className="pt-like-age">, {entry.age}</span></strong>
+                        <strong><CharacterName color={profileColor(entry.characterId)}>{datingFirstName(entry.name)}</CharacterName><span className="pt-like-age">, {entry.age}</span></strong>
                         <small className={`pt-like-status${isMatch ? ' match' : ''}`}>
                           {isMatch ? (
                             <>
@@ -566,12 +572,12 @@ export function PhoneDatingScreen({ profileOnly = false, unread, onMarkSeen, ope
           )
         ) : <div className="pt-profile-view">
           <div className="pt-profile-hero">
-            <CharacterAvatar className="pt-profile-avatar-large" name={datingFirstName(profile?.name ?? owner.name)}
+            <CharacterAvatar ringColor={characterColors?.get(owner.name)} className="pt-profile-avatar-large" name={datingFirstName(profile?.name ?? owner.name)}
               profileImageDataUrl={ownerAvatarDataUrl}
               fallback={datingFirstName(profile?.name ?? owner.name).slice(0, 1)} />
             <div className="pt-profile-hero-meta">
               <span className="pt-eyebrow">YOUR PROFILE</span>
-              <h2>{datingFirstName(profile?.name ?? owner.name)}<span className="pt-profile-hero-age">, {profile?.age}</span></h2>
+              <h2><CharacterName color={characterColors?.get(owner.name)}>{datingFirstName(profile?.name ?? owner.name)}</CharacterName><span className="pt-profile-hero-age">, {profile?.age}</span></h2>
               <div className="pt-profile-badges">
                 <span className="pt-profile-badge">{profile?.gender ? datingGenderLabels[profile.gender] : 'Not specified'}</span>
                 <span className="pt-profile-badge">Seeking: {profile?.seeking?.length ? profile.seeking.map((gender) => datingSeekingLabels[gender]).join(', ') : 'Everyone'}</span>
@@ -620,7 +626,7 @@ export function PhoneDatingScreen({ profileOnly = false, unread, onMarkSeen, ope
               </svg>
               Edit profile
             </button>
-            <p className="pt-subtle">Saved in {owner.name}’s Storybook profile.</p>
+            <p className="pt-subtle">Saved in <CharacterName color={characterColors?.get(owner.name)}>{owner.name}</CharacterName>’s Storybook profile.</p>
           </div>
         </div>}
       {selectedMatch && failedMessages[selectedMatch.id] && <button type="button" disabled={busy || isRunning} onClick={() => { void send(selectedMatch.id, true); }}>Retry reply</button>}
@@ -634,7 +640,7 @@ export function PhoneDatingScreen({ profileOnly = false, unread, onMarkSeen, ope
         </div>
         <div className="pt-celebration-duo">
           <div className="pt-celebration-avatar-ring">
-            <CharacterAvatar className="pt-celebration-avatar" name={datingFirstName(profile?.name ?? owner?.name ?? 'You')}
+            <CharacterAvatar ringColor={owner ? characterColors?.get(owner.name) : undefined} className="pt-celebration-avatar" name={datingFirstName(profile?.name ?? owner?.name ?? 'You')}
               profileImageDataUrl={ownerAvatarDataUrl}
               fallback={datingFirstName(profile?.name ?? owner?.name ?? 'You').slice(0, 1)} />
           </div>
@@ -646,7 +652,7 @@ export function PhoneDatingScreen({ profileOnly = false, unread, onMarkSeen, ope
             )}
           </div>
           <div className="pt-celebration-avatar-ring">
-            <CharacterAvatar className="pt-celebration-avatar" name={datingFirstName(celebration.name)}
+            <CharacterAvatar ringColor={profileColor(state.accounts.find((account) => account.id === celebration.id)?.characterId)} className="pt-celebration-avatar" name={datingFirstName(celebration.name)}
               profileImageDataUrl={state.accounts.find((acc) => acc.id === celebration.id)?.avatarDataUrl}
               fallback={datingFirstName(celebration.name).slice(0, 1)} />
           </div>

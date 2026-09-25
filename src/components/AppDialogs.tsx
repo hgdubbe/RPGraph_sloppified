@@ -1,3 +1,4 @@
+import { usePanelNavigationOverlay } from '../navigation/usePanelNavigation';
 import { parseStorybookContinuation } from '../storybook/assistantConversation';
 import { CharacterAgencyField } from './CharacterAgencyField';
 import type { Character } from '../characters/character';
@@ -4429,6 +4430,7 @@ export function SystemLogDialog({
   const [debugSnapshotToonEnabled, setDebugSnapshotToonEnabled] = useState(false);
   const [debugSnapshotCompressed, setDebugSnapshotCompressed] = useState(true);
   const [debugSnapshotPreviewOpen, setDebugSnapshotPreviewOpen] = useState(false);
+  usePanelNavigationOverlay(() => setDebugSnapshotPreviewOpen(false), debugSnapshotPreviewOpen);
   const [turnTraceOpen, setTurnTraceOpen] = useState(false);
   const [snapshotCopied, setSnapshotCopied] = useState(false);
   const [snapshotCopyError, setSnapshotCopyError] = useState('');

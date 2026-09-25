@@ -2428,7 +2428,7 @@ export function useGraphRun(options: UseGraphRunOptions) {
           attribution = await analyzeDisplayedOutput(
             displayOutput,
             outputNode,
-            storyCharacters,
+            appCharacters(),
             outputHighlightingContext,
             runSignal,
             (result) => reportFormatResult(result, outputNodeTraceInfo),

@@ -1,3 +1,5 @@
+import { usePanelNavigationState } from '../navigation/usePanelNavigation';
+import { CharacterName } from './CharacterName';
 import { useEffect, useState } from 'react';
 import type { MessageRecord, RpDateTimeFormat, RpWeekdayLanguage } from '../types';
 import type { StorybookCharacter } from '../storybook/runtime';
@@ -56,10 +58,10 @@ export function PhoneBankingScreen({
   onSendBankTransfer,
 }: PhoneBankingScreenProps) {
   const allCharacters = appCharacters ?? storyCharacters;
-  const [recipientKey, setRecipientKey] = useState<string | undefined>(() =>
+  const [recipientKey, setRecipientKey] = usePanelNavigationState<string | undefined>(`banking.${owner?.id}.recipient`, () =>
     initialRecipientName ? normalizePhoneName(initialRecipientName) : undefined
   );
-  const [seenRecipientRequest, setSeenRecipientRequest] = useState({ name: initialRecipientName, id: recipientRequestId });
+  const [seenRecipientRequest, setSeenRecipientRequest] = usePanelNavigationState(`banking.${owner?.id}.seenRequest`, { name: initialRecipientName, id: recipientRequestId }, false);
   if (seenRecipientRequest.name !== initialRecipientName || seenRecipientRequest.id !== recipientRequestId) {
     setSeenRecipientRequest({ name: initialRecipientName, id: recipientRequestId });
     if (initialRecipientName) setRecipientKey(normalizePhoneName(initialRecipientName));
@@ -191,7 +193,7 @@ export function PhoneBankingScreen({
         </button>
         <div className="phone-banking-header-title">
           <span>RPB Digital Banking</span>
-          <strong>{owner ? `${owner.name}` : 'No Account'}</strong>
+          <strong><CharacterName color={owner ? characterColors.get(owner.name) : undefined}>{owner?.name ?? 'No Account'}</CharacterName></strong>
         </div>
         <div className="phone-banking-header-badge">
           <span className="phone-banking-status-dot" aria-hidden="true" />
@@ -292,10 +294,10 @@ export function PhoneBankingScreen({
                   profileImageDataUrl={recipient.character?.profileImage?.dataUrl}
                   style={(() => {
                     const color = characterColors.get(recipient.name);
-                    return color ? { borderColor: color, boxShadow: `0 0 10px ${color}55` } : undefined;
+                    return color ? { borderColor: color, boxShadow: `0 0 10px color-mix(in srgb, ${color} 33%, transparent)` } : undefined;
                   })()}
                 />
-                <strong className="phone-banking-selected-name">{recipient.name}</strong>
+                <strong className="phone-banking-selected-name"><CharacterName color={characterColors.get(recipient.name)}>{recipient.name}</CharacterName></strong>
               </div>
               <button
                 type="button"
@@ -358,7 +360,7 @@ export function PhoneBankingScreen({
                         profileImageDataUrl={candidate.profileImage?.dataUrl}
                         style={color ? { borderColor: color, color } : undefined}
                       />
-                      <span className="phone-banking-grid-candidate-name">{candidate.name}</span>
+                      <span className="phone-banking-grid-candidate-name"><CharacterName color={characterColors.get(candidate.name)}>{candidate.name}</CharacterName></span>
                     </button>
                   );
                 })}
@@ -522,7 +524,7 @@ export function PhoneBankingScreen({
                       </div>
                       <div className="phone-banking-transaction-info">
                         <strong className="phone-banking-transaction-title">
-                          {isSent ? 'To' : 'From'} {transaction.counterpartyName}
+                          {isSent ? 'To' : 'From'} <CharacterName color={characterColors.get(transaction.counterpartyName)}>{transaction.counterpartyName}</CharacterName>
                         </strong>
                         {transaction.transfer.note && (
                           <span className="phone-banking-transaction-note">

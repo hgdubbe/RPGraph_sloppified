@@ -1,3 +1,5 @@
+import { usePanelNavigationState, usePanelNavigationBack } from '../../navigation/usePanelNavigation';
+import { CharacterName } from '../CharacterName';
 import { accountHandle } from '../../characters/character';
 import { isAccountPrivacyMode, socialAccountPresentation } from '../../chat/socialMedia';
 import { socialAvatarDataUrl } from '../../characters/portrait';
@@ -266,14 +268,15 @@ export function PhoneSocialFeedScreen({
   rpDateTimeFormat,
   rpWeekdayLanguage,
 }: PhoneSocialFeedScreenProps) {
-  const [editingProfile, setEditingProfile] = useState(false);
+  const navigateBack = usePanelNavigationBack();
+  const [editingProfile, setEditingProfile] = usePanelNavigationState(`${app.id}.${owner?.id}.editingProfile`, false);
   // A username stored in the Storybook means the character already has an
   // account in this app; the onboarding step is skipped then.
   const storedUsername =
     app.id === 'fotogram' ? owner?.social.fotogramUsername : owner?.social.onlyfriendsUsername;
   const [account, setAccount] = useState<string | undefined>(storedUsername || undefined);
-  const [directMessagesOpen, setDirectMessagesOpen] = useState(!!openDirectMessageRequest);
-  const [directMessageParticipant, setDirectMessageParticipant] = useState<SocialDirectMessageParticipant | undefined>(
+  const [directMessagesOpen, setDirectMessagesOpen] = usePanelNavigationState(`${app.id}.${owner?.id}.directMessagesOpen`, !!openDirectMessageRequest);
+  const [directMessageParticipant, setDirectMessageParticipant] = usePanelNavigationState<SocialDirectMessageParticipant | undefined>(`${app.id}.${owner?.id}.directMessageParticipant`,
     openDirectMessageRequest
       ? {
           key: `open-${openDirectMessageRequest.app}-${openDirectMessageRequest.participantHandle}`,
@@ -282,9 +285,8 @@ export function PhoneSocialFeedScreen({
         }
       : undefined,
   );
-  const [seenOpenDirectMessageRequestId, setSeenOpenDirectMessageRequestId] = useState(
-    openDirectMessageRequest?.requestId ?? 0,
-  );
+  const [seenOpenDirectMessageRequestId, setSeenOpenDirectMessageRequestId] = usePanelNavigationState(`${app.id}.${owner?.id}.seenOpenDirectMessageRequestId`,
+    openDirectMessageRequest?.requestId ?? 0, false);
   // An open DM thread reads its messages, including ones arriving while open.
   useEffect(() => {
     const handleKey = directMessageParticipant?.handle.toLowerCase();
@@ -294,18 +296,17 @@ export function PhoneSocialFeedScreen({
   }, [directMessagesOpen, directMessageParticipant, onMarkDirectMessagesSeen, unreadDirectMessages]);
   // Post currently showing the OnlyFriends balance confirmation.
   const [unlockCandidateId, setUnlockCandidateId] = useState<string>();
-  const [walletOpen, setWalletOpen] = useState(false);
+  const [walletOpen, setWalletOpen] = usePanelNavigationState(`${app.id}.${owner?.id}.walletOpen`, false);
   const [walletAmountText, setWalletAmountText] = useState('10');
-  const [openCommentsPostId, setOpenCommentsPostId] = useState<string | undefined>(
+  const [openCommentsPostId, setOpenCommentsPostId] = usePanelNavigationState<string | undefined>(`${app.id}.${owner?.id}.openCommentsPostId`,
     openPostRequest?.postId,
   );
-  const [seenOpenPostRequestId, setSeenOpenPostRequestId] = useState(
-    openPostRequest?.requestId ?? 0,
-  );
+  const [seenOpenPostRequestId, setSeenOpenPostRequestId] = usePanelNavigationState(`${app.id}.${owner?.id}.seenOpenPostRequestId`,
+    openPostRequest?.requestId ?? 0, false);
   const [commentDraft, setCommentDraft] = useState('');
   // Posting flow: pick the image source first (menu), then describe (editor).
-  const [postStage, setPostStage] = useState<'menu' | 'editor'>();
-  const [cameraOpen, setCameraOpen] = useState(false);
+  const [postStage, setPostStage] = usePanelNavigationState<'menu' | 'editor'>(`${app.id}.${owner?.id}.postStage`);
+  const [cameraOpen, setCameraOpen] = usePanelNavigationState(`${app.id}.${owner?.id}.cameraOpen`, false);
   const [postDraft, setPostDraft] = useState('');
   const [postDraftImage, setPostDraftImage] = useState<ChatImageAttachment>();
   const [notice, setNotice] = useState<SocialNotice>();
@@ -318,7 +319,7 @@ export function PhoneSocialFeedScreen({
   const [addingPerson, setAddingPerson] = useState(false);
   const [revealedDirectMessageIds, setRevealedDirectMessageIds] = useState<Set<string>>(() => new Set());
   const [newPersonName, setNewPersonName] = useState('');
-  const [galleryOpen, setGalleryOpen] = useState(false);
+  const [galleryOpen, setGalleryOpen] = usePanelNavigationState(`${app.id}.${owner?.id}.galleryOpen`, false);
   const uploadInputRef = useRef<HTMLInputElement | null>(null);
   const postMenuRef = useRef<HTMLDivElement | null>(null);
   const postElementsRef = useRef(new Map<string, HTMLElement>());
@@ -426,7 +427,7 @@ export function PhoneSocialFeedScreen({
     };
     document.addEventListener('pointerdown', closeMenu);
     return () => document.removeEventListener('pointerdown', closeMenu);
-  }, [postStage]);
+  }, [postStage, setPostStage]);
 
   // Each app uses its own directed authored and acquired follows. Real DM
   // partners surface separately without granting access to another app.
@@ -1226,7 +1227,7 @@ export function PhoneSocialFeedScreen({
         title={`${ownerFirstName ?? 'Phone'}'s Gallery`}
         images={phoneGalleryImages}
         action="select"
-        onBack={() => setGalleryOpen(false)}
+        onBack={() => navigateBack(() => setGalleryOpen(false))}
         onSelectImage={(image) => {
           setPostDraftImage(image);
           setGalleryOpen(false);
@@ -1236,12 +1237,12 @@ export function PhoneSocialFeedScreen({
     );
   }
 
-  if (editingProfile && owner) return <SocialProfileEditor app={app.id} account={owner.apps?.[app.id]}
+  if (editingProfile && owner) return <SocialProfileEditor nameColor={ownerColor} app={app.id} account={owner.apps?.[app.id]}
     accountId={`character:${owner.sourceId}:${app.id}`} name={owner.name} profileImage={owner.profileImage} images={phoneGalleryImages}
     locked={socialMediaMessages.length > 0 || bankTransferMessages.length > 0}
     onSave={(profile) => { const saved = onCreateSocialAccount(owner, app.id, accountHandle(profile), profile); if (saved) { setAccount(accountHandle(profile)); setEditingProfile(false); } return saved; }}
     onCancel={() => setEditingProfile(false)} />;
-  if (!account && owner) return <SocialProfileEditor app={app.id} account={owner.apps?.[app.id]} accountId={`character:${owner.sourceId}:${app.id}`}
+  if (!account && owner) return <SocialProfileEditor nameColor={ownerColor} app={app.id} account={owner.apps?.[app.id]} accountId={`character:${owner.sourceId}:${app.id}`}
     name={owner.name} profileImage={owner.profileImage} images={phoneGalleryImages} locked={false}
     onSave={(profile) => { const saved = onCreateSocialAccount(owner, app.id, accountHandle(profile), profile); if (saved) { setAccount(accountHandle(profile)); setEditingProfile(false); } return saved; }}
     onCancel={onBack} />;
@@ -1453,7 +1454,7 @@ export function PhoneSocialFeedScreen({
                     style={color ? { borderColor: color, color } : undefined}
                   />
                   <span className="phone-social-account-main">
-                    <strong style={color ? { color } : undefined}>{socialAccountPresentation(app.id, entry.character, entry.name, entry.handle).name}</strong>
+                    <strong><CharacterName color={color}>{socialAccountPresentation(app.id, entry.character, entry.name, entry.handle).name}</CharacterName></strong>
                     <span>@{socialAccountPresentation(app.id, entry.character, entry.name, entry.handle).handle}</span>
                   </span>
                   {unread && (
@@ -1489,7 +1490,7 @@ export function PhoneSocialFeedScreen({
                       return (
                         <div className="phone-social-user-result" key={user.id} role="option">
                           <span>
-                            <strong>{userIdentity.name}</strong>
+                            <strong><CharacterName color={characterColors.get(storyCharacters.find((character) => character.id === user.characterId)?.name ?? '')}>{userIdentity.name}</CharacterName></strong>
                             <small>@{userIdentity.handle}</small>
                           </span>
                           <button
@@ -1648,11 +1649,11 @@ export function PhoneSocialFeedScreen({
             highlightedMessagePulseKey={openDirectMessageRequest?.requestId ?? 0}
             disabled={isRunning}
             onSelectParticipant={setDirectMessageParticipant}
-            onCloseConversation={() => setDirectMessageParticipant(undefined)}
-            onBack={() => {
+            onCloseConversation={() => navigateBack(() => setDirectMessageParticipant(undefined))}
+            onBack={() => navigateBack(() => {
               setDirectMessageParticipant(undefined);
               setDirectMessagesOpen(false);
-            }}
+            })}
             walletBalance={walletBalance}
             onSend={(message) => onSendDirectMessage(message, owner.id)}
           />
@@ -1759,7 +1760,7 @@ export function PhoneSocialFeedScreen({
                         : undefined}
                     />
                     <div className="phone-social-post-author-info">
-                      <strong>{postIdentity.name}</strong>
+                      <strong><CharacterName color={postAuthorColor}>{postIdentity.name}</CharacterName></strong>
                       <span>@{postIdentity.handle}</span>
                     </div>
                   </button>
@@ -1778,7 +1779,7 @@ export function PhoneSocialFeedScreen({
                 {post.textOnly ? (
                   <>
                     <p className="phone-social-post-caption text-only-caption">
-                      <strong>{postIdentity.name}</strong> {post.caption}
+                      <strong><CharacterName color={postAuthorColor}>{postIdentity.name}</CharacterName></strong> {post.caption}
                     </p>
                     <hr className="phone-social-post-separator" />
                     <div className="phone-social-post-footer">
@@ -1912,7 +1913,7 @@ export function PhoneSocialFeedScreen({
                       <>
                         <hr className="phone-social-post-separator" />
                         <p className="phone-social-post-caption">
-                          <strong>{postIdentity.name}</strong> {post.caption}
+                          <strong><CharacterName color={postAuthorColor}>{postIdentity.name}</CharacterName></strong> {post.caption}
                         </p>
                         <div className="phone-social-post-footer">
                           <button
@@ -1984,7 +1985,7 @@ export function PhoneSocialFeedScreen({
                             ? undefined
                             : `Message ${commentIdentity.name}`}
                         >
-                          <strong>{commentIdentity.name}{commentIdentity.handle && ` (@${commentIdentity.handle})`}</strong>
+                          <strong><CharacterName color={commentCharacter ? characterColors.get(commentCharacter.name) : undefined}>{commentIdentity.name}</CharacterName>{commentIdentity.handle && ` (@${commentIdentity.handle})`}</strong>
                           <span>{comment.text}</span>
                         </button>
                       );

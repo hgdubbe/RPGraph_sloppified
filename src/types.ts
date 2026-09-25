@@ -1,3 +1,5 @@
+import type { TextEffectsSettings } from './chat/textEffects';
+import type { ReasoningCapabilities, ReasoningEffort } from '../shared/reasoning.cjs';
 import type { Edge, Node, XYPosition } from '@xyflow/react';
 import type { NodeVersion } from './nodes/nodeVersion';
 import type { WorkflowFormatVersion } from './workflow/version';
@@ -18,15 +20,7 @@ import type {
 import type { PromptRunDebug } from './nodes/shared/promptRun';
 import type { CoreNodeType } from './nodes/coreNodeTypes';
 
-export type ConnectionReasoningEffort =
-  | 'auto'
-  | 'none'
-  | 'minimal'
-  | 'low'
-  | 'medium'
-  | 'high'
-  | 'xhigh'
-  | 'max';
+export type ConnectionReasoningEffort = ReasoningEffort;
 
 export type LlmProviderKind =
   | 'lm-studio'
@@ -81,6 +75,7 @@ export type ConnectionPreset = {
   comfySampler?: string;
   comfyScheduler?: string;
   reasoningEffort?: ConnectionReasoningEffort;
+  reasoningCapabilities?: ReasoningCapabilities;
   vision?: boolean;
   temperature?: number;
   topP?: number;
@@ -89,6 +84,7 @@ export type ConnectionPreset = {
 };
 
 export type ProviderConnectionCapabilities = {
+  reasoning?: boolean;
   text?: boolean;
   vision?: boolean;
   tools?: boolean;
@@ -104,6 +100,7 @@ export type ProviderConnectionHealth = {
 };
 
 export type LmStudioModelInfo = {
+  reasoning?: ReasoningCapabilities;
   id: string;
   name: string;
   type?: string;
@@ -113,6 +110,8 @@ export type LmStudioModelInfo = {
 };
 
 export type OllamaModelInfo = {
+  reasoning?: ReasoningCapabilities;
+  thinkingSupported?: boolean;
   id: string;
   name: string;
   vision: boolean;
@@ -130,6 +129,7 @@ export type LlamaCppModelInfo = {
 };
 
 export type OpenRouterModelInfo = {
+  reasoning?: ReasoningCapabilities;
   id: string;
   name: string;
   vision: boolean;
@@ -322,6 +322,7 @@ type WorkflowNodeCommonFields = {
   runActive?: boolean;
   runActiveStartedAtMs?: number;
   runVisionActive?: boolean;
+  runReasoningActive?: boolean;
   llmActiveCallLabel?: string;
   llmActiveCallStage?: LlmCallStage;
   llmActiveCallStartedAtMs?: number;
@@ -977,6 +978,7 @@ export type AppSettings = {
     promptActionCustomPresets?: PromptActionStoredConfig[];
     promptActionSettings?: PromptActionRuntimeSettings;
     promptTextCustomPresets?: Record<string, string>;
+    textEffects?: TextEffectsSettings;
     chatTextBrightness?: number;
     chatColorIntensity?: number;
     chatMessageAvatarSize?: number;

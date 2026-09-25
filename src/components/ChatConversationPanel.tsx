@@ -1,3 +1,7 @@
+import { gradientPhaseStyle } from '../chat/gradientPhase';
+import { isNpcCharacterColor } from '../chat/characterColors';
+import { ChatBubbleText } from './ChatBubbleText';
+import { CharacterName } from './CharacterName';
 import { accountHandleMatches } from '../characters/character';
 import { datingAccountMatches } from '../chat/datingAccounts';
 import { CharacterAvatar } from './CharacterAvatar';
@@ -5,7 +9,7 @@ import { phoneCharacterAvatarDataUrl } from '../chat/phoneCharacters';
 import { phoneNamesMatch } from '../chat/phoneMessages';
 import { createStableDerivedValueSelector } from '../chat/stableDerivedValue';
 import type { MessageStream } from '../chat/messageStream';
-import { socialDirectMessageDisplayText, socialDirectMessageParty } from '../chat/socialMedia';
+import { socialDirectMessageCharacter, socialDirectMessageDisplayText, socialDirectMessageParty } from '../chat/socialMedia';
 import { socialTimelineGroups, socialTimelineMessageText } from '../chat/socialTimeline';
 import { AccountLinkText } from './AccountLinkText';
 import {
@@ -238,8 +242,8 @@ const DialogueText = memo(function DialogueText({
       {textParts.map((part, index) => {
         const partSpeakerName = 'speakerName' in part ? part.speakerName : undefined;
         const speechColor = partSpeakerName
-          ? speakerColors?.[partSpeakerName] ??
-            characterColors.get(partSpeakerName) ??
+          ? characterColors.get(partSpeakerName) ??
+            speakerColors?.[partSpeakerName] ??
             dialogueColors[0]
           : undefined;
         const pendingSpeech = !speechColor && 'isSpeech' in part && part.isSpeech;
@@ -275,18 +279,26 @@ const DialogueText = memo(function DialogueText({
                 : undefined
             }
           >
-            {thoughtParts(part.text).map((thoughtPart, thoughtIndex) => (
-              <span
-                className={
-                  thoughtPart.isThought
-                    ? thoughtStyleClass(thoughtTextStyle || defaultThoughtTextStyle)
-                    : undefined
-                }
-                key={thoughtIndex}
-              >
-                <AccountLinkText text={thoughtPart.text} bindings={accountLinks} />
-              </span>
-            ))}
+            <span style={gradientPhaseStyle(part.text)} className={
+              speechColor && partSpeakerName && characterColors.has(partSpeakerName) && !isNpcCharacterColor(speechColor)
+                ? 'dialogue-text-gradient'
+                : !speechColor && !pendingSpeech
+                  ? 'dialogue-text-gradient narration-text-gradient'
+                  : undefined
+            }>
+              {thoughtParts(part.text).map((thoughtPart, thoughtIndex) => (
+                <span
+                  className={
+                    thoughtPart.isThought
+                      ? thoughtStyleClass(thoughtTextStyle || defaultThoughtTextStyle)
+                      : undefined
+                  }
+                  key={thoughtIndex}
+                >
+                  <AccountLinkText text={thoughtPart.text} bindings={accountLinks} />
+                </span>
+              ))}
+            </span>
           </span>
         );
       })}
@@ -318,7 +330,6 @@ type MessageRowProps = {
   englishProcessingEnabled: boolean;
   appCharacters: StorybookCharacter[];
   showProfileNames: boolean;
-  storyCharacters: StorybookCharacter[];
   characterColors: Map<string, string>;
   dialogueHighlightEnabled: boolean;
   dialogueVoiceSpeakerNames: ReadonlySet<string>;
@@ -375,7 +386,7 @@ type MessageRowProps = {
  * primary target of the "full per-message row memoization" follow-up: see
  * docs/performance-stuttering-investigation.md. */
 const MessageRow = memo(function MessageRow({
-  message, previousDay, englishProcessingEnabled, appCharacters, showProfileNames, storyCharacters,
+  message, previousDay, englishProcessingEnabled, appCharacters, showProfileNames,
   chatMessageAvatarsEnabled, socialMessageRpDateTimeById,
   characterColors, dialogueHighlightEnabled, dialogueVoiceSpeakerNames, activeDialogueVoiceKey,
   onSpeakDialogue, onGenerateVoiceMessageClip, chatColorIntensity, thoughtTextStyle, chatTextSize,
@@ -521,10 +532,6 @@ const MessageRow = memo(function MessageRow({
       accountLinks={message.accountLinks}
     />
   );
-  const characterNameStyle = (name: string) => {
-    const color = characterColors.get(name);
-    return color ? { color } : undefined;
-  };
   const phoneMessageTimeParts = (phoneMessageId: number) => {
     const rpDateTime = phoneMessageRpDateTime(phoneMessageId, phoneMessagesById);
     return rpDateTime
@@ -567,7 +574,7 @@ const MessageRow = memo(function MessageRow({
   const renderPhoneActionContent = (phoneMessage: EmbeddedPhoneMessageLink) => (
     <>
       <span>[WhatsUp]</span>
-      <strong style={characterNameStyle(phoneMessage.from)}>{phoneMessage.from}</strong>
+      <strong><CharacterName color={characterColors.get(phoneMessage.from)}>{phoneMessage.from}</CharacterName></strong>
       {phoneAuthorBadgesEnabled && (
         <span
           className={`phone-author-badge ${
@@ -578,7 +585,7 @@ const MessageRow = memo(function MessageRow({
         </span>
       )}
       <span>sent message to</span>
-      <strong style={characterNameStyle(phoneMessage.to)}>{phoneMessage.to}</strong>
+      <strong><CharacterName color={characterColors.get(phoneMessage.to)}>{phoneMessage.to}</CharacterName></strong>
     </>
   );
   const renderPhoneActionButton = (phoneMessage: EmbeddedPhoneMessageLink) => {
@@ -732,17 +739,17 @@ const MessageRow = memo(function MessageRow({
             >
               {showRouteLabel ? (
                 <span className="phone-bubble-sender chat-phone-bubble-route">
-                  <span style={fromColor ? { color: fromColor } : undefined}>{phoneMessage.from}</span>
+                  <CharacterName color={fromColor}>{phoneMessage.from}</CharacterName>
                   {authorBadge}
                   <span className="chat-message-route-verb">texts</span>
-                  <span style={toColor ? { color: toColor } : undefined}>{phoneMessage.to}</span>
+                  <CharacterName color={toColor}>{phoneMessage.to}</CharacterName>
                 </span>
               ) : (
                 <span
                   className="phone-bubble-sender"
                   style={fromColor ? { color: fromColor } : undefined}
                 >
-                  {phoneMessage.from}
+                  <CharacterName color={fromColor}>{phoneMessage.from}</CharacterName>
                   {authorBadge}
                 </span>
               )}
@@ -757,9 +764,9 @@ const MessageRow = memo(function MessageRow({
                   )}
                   <div className="phone-bubble-reply-copy">
                     <strong>
-                      Reply to {repliedToMessage.phoneFrom || repliedToMessage.speakerName || 'Unknown'}
+                      Reply to <CharacterName color={characterColors.get(repliedToMessage.phoneFrom || repliedToMessage.speakerName || 'Unknown')}>{repliedToMessage.phoneFrom || repliedToMessage.speakerName || 'Unknown'}</CharacterName>
                     </strong>
-                    <span>{repliedToText}</span>
+                    <ChatBubbleText>{repliedToText}</ChatBubbleText>
                   </div>
                 </div>
               )}
@@ -814,7 +821,7 @@ const MessageRow = memo(function MessageRow({
                   />
                 </div>
               ) : text ? (
-                <span><AccountLinkText text={text} bindings={linkedMessage?.accountLinks} /></span>
+                <ChatBubbleText><AccountLinkText text={text} bindings={linkedMessage?.accountLinks} /></ChatBubbleText>
               ) : null}
               {linkedMessage?.phoneImageCaptionChange && (
                 <button
@@ -878,7 +885,7 @@ const MessageRow = memo(function MessageRow({
             >
               <header className="chat-social-message-header">
                 <strong>WhatsUp</strong>
-                {segment[0] && <span>{segment[0].from} to {segment[0].to}</span>}
+                {segment[0] && <span><CharacterName color={characterColors.get(segment[0].from)}>{segment[0].from}</CharacterName> to <CharacterName color={characterColors.get(segment[0].to)}>{segment[0].to}</CharacterName></span>}
               </header>
               <div className="chat-phone-card-messages">
                 {segment.map((phoneMessage, messageIndex) =>
@@ -926,9 +933,7 @@ const MessageRow = memo(function MessageRow({
             >
               <header className="chat-social-message-header">
                 <strong>{appName}{first.app === 'matchme' && <span aria-hidden="true"> ♥</span>}</strong>
-                <span>{firstMessage
-                  ? `${socialDirectMessageParty(firstMessage, 'from', appCharacters, showProfileNames)} to ${socialDirectMessageParty(firstMessage, 'to', appCharacters, showProfileNames)}`
-                  : `${first.from} to ${first.to}`}</span>
+                <span><CharacterName color={characterColors.get((firstMessage && socialDirectMessageCharacter(firstMessage, 'from', appCharacters)?.name) || first.from)}>{firstMessage ? socialDirectMessageParty(firstMessage, 'from', appCharacters, showProfileNames) : first.from}</CharacterName> to <CharacterName color={characterColors.get((firstMessage && socialDirectMessageCharacter(firstMessage, 'to', appCharacters)?.name) || first.to)}>{firstMessage ? socialDirectMessageParty(firstMessage, 'to', appCharacters, showProfileNames) : first.to}</CharacterName></span>
               </header>
               <div className="chat-social-message-thread">
                 {segment.map((socialMessage, messageIndex) => {
@@ -937,7 +942,6 @@ const MessageRow = memo(function MessageRow({
                   const outgoing = first.app === 'matchme'
                     ? linkedMessage?.fromAccountId === firstMessage?.fromAccountId
                     : socialMessage.from.trim().toLocaleLowerCase() === anchorSender;
-                  const fromColor = characterColors.get(socialMessage.from);
                   return (
                     <div
                       className={`chat-social-message-row ${outgoing ? 'outgoing' : 'incoming'}${chatMessageAvatarsEnabled ? ' with-message-avatar' : ''}`}
@@ -958,13 +962,13 @@ const MessageRow = memo(function MessageRow({
                         style={{ fontSize: chatTextSize || defaultChatTextSize }}
                       >
                         <strong className={messageIndex === 0 ? 'chat-phone-bubble-route' : undefined}>
-                          <span style={fromColor ? { color: fromColor } : undefined}>{linkedMessage ? socialDirectMessageParty(linkedMessage, 'from', appCharacters, showProfileNames) : socialMessage.from}</span>
+                          <CharacterName color={characterColors.get((linkedMessage && socialDirectMessageCharacter(linkedMessage, 'from', appCharacters)?.name) || socialMessage.from)}>{linkedMessage ? socialDirectMessageParty(linkedMessage, 'from', appCharacters, showProfileNames) : socialMessage.from}</CharacterName>
                           {messageIndex === 0 && <>
                             <span className="chat-message-route-verb">texts</span>
-                            <span style={{ color: characterColors.get(socialMessage.to) }}>{linkedMessage ? socialDirectMessageParty(linkedMessage, 'to', appCharacters, showProfileNames) : socialMessage.to}</span>
+                            <CharacterName color={characterColors.get((linkedMessage && socialDirectMessageCharacter(linkedMessage, 'to', appCharacters)?.name) || socialMessage.to)}>{linkedMessage ? socialDirectMessageParty(linkedMessage, 'to', appCharacters, showProfileNames) : socialMessage.to}</CharacterName>
                           </>}
                         </strong>
-                        <span><AccountLinkText text={text} bindings={linkedMessage?.accountLinks} /></span>
+                        <ChatBubbleText><AccountLinkText text={text} bindings={linkedMessage?.accountLinks} /></ChatBubbleText>
                         {rpTimeTrackingEnabled && renderRpTime(
                           socialMessageRpDateTimeById.get(socialMessage.socialMessageId),
                           'phone-bubble-time',
@@ -1244,6 +1248,7 @@ const MessageRow = memo(function MessageRow({
       <Fragment key={message.id}>
         {dayLabel && <div className="rp-day-divider chat-day-divider"><span>{dayLabel}</span></div>}
         <BankTransferCard
+          characterColors={characterColors}
           transfer={message.bankTransfer}
           rpDateTime={rpTimeTrackingEnabled ? effectiveMessageRpDateTime : undefined}
           rpDateTimeFormat={rpDateTimeFormat}
@@ -1295,12 +1300,14 @@ const MessageRow = memo(function MessageRow({
         <div className="phone-app-command-card-stack">
           {message.createdPhoneNote && (
             <CreatedPhoneNoteCard
+              nameColor={characterColors.get(message.createdPhoneNote.characterName)}
               entry={message.createdPhoneNote}
               fontSize={chatTextSize || defaultChatTextSize}
             />
           )}
           {message.simulatedAiChat && (
             <SimulatedAiChatCard
+              nameColor={characterColors.get(message.simulatedAiChat.characterName)}
               entry={message.simulatedAiChat}
               fontSize={chatTextSize || defaultChatTextSize}
             />
@@ -1320,12 +1327,12 @@ const MessageRow = memo(function MessageRow({
           aria-hidden={speakerLabelsPlaceholder ? 'true' : undefined}
         >
           {speakerLabelNames.map((speakerName) => {
-            const isCharacter = storyCharacters.some(
+            const isCharacter = appCharacters.some(
               (character) => character.name === speakerName,
             );
             const color =
               isCharacter && dialogueHighlightEnabled
-                ? message.speakerColors?.[speakerName] ?? characterColors.get(speakerName)
+                ? characterColors.get(speakerName) ?? message.speakerColors?.[speakerName]
                 : undefined;
             return (
               <span
@@ -1333,7 +1340,7 @@ const MessageRow = memo(function MessageRow({
                 key={speakerName}
                 style={color ? { color } : undefined}
               >
-                {speakerName}
+                <CharacterName color={characterColors.has(speakerName) ? color : undefined}>{speakerName}</CharacterName>
               </span>
             );
           })}
@@ -1432,12 +1439,14 @@ const MessageRow = memo(function MessageRow({
             <div className="phone-app-command-card-stack">
               {message.createdPhoneNote && (
                 <CreatedPhoneNoteCard
+                  nameColor={characterColors.get(message.createdPhoneNote.characterName)}
                   entry={message.createdPhoneNote}
                   fontSize={chatTextSize || defaultChatTextSize}
                 />
               )}
               {message.simulatedAiChat && (
                 <SimulatedAiChatCard
+                  nameColor={characterColors.get(message.simulatedAiChat.characterName)}
                   entry={message.simulatedAiChat}
                   fontSize={chatTextSize || defaultChatTextSize}
                 />
@@ -2134,7 +2143,6 @@ const MemoizedChatConversationPanel = memo(function ChatConversationPanelContent
             englishProcessingEnabled={englishProcessingEnabled}
             appCharacters={appCharacters}
             showProfileNames={showProfileNames}
-            storyCharacters={storyCharacters}
             characterColors={characterColors}
             dialogueHighlightEnabled={dialogueHighlightEnabled}
             dialogueVoiceSpeakerNames={dialogueVoiceSpeakerNames}
@@ -2226,7 +2234,7 @@ const MemoizedChatConversationPanel = memo(function ChatConversationPanelContent
                 : undefined
             }
           >
-            {(isNarratorSelected ? 'Narrator' : selectedCharacter?.name ?? 'CHARACTER').toUpperCase()} INPUT
+            <CharacterName color={!isNarratorSelected && selectedCharacter ? characterColors.get(selectedCharacter.name) : undefined}>{(isNarratorSelected ? 'Narrator' : selectedCharacter?.name ?? 'CHARACTER').toUpperCase()}</CharacterName> INPUT
           </label>
         </div>
         <CommandPillComposer

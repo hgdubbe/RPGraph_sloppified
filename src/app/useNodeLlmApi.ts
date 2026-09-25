@@ -17,19 +17,22 @@ type UseNodeLlmApiOptions = {
   ) => Promise<ConnectionPreset>;
   recordCall: RecordNodeLlmCall;
   onReasoningTokens: (nodeId: string, tokenCount: number) => void;
+  onReasoningActivity: (nodeId: string, active: boolean) => void;
 };
 
 export function useNodeLlmApi({
   resolveConnection,
   recordCall,
   onReasoningTokens,
+  onReasoningActivity,
 }: UseNodeLlmApiOptions) {
   return useMemo(
     () => new NodeLlmApi({
       resolveConnection,
       recordCall,
       onReasoningTokens,
+      onReasoningActivity,
     }),
-    [onReasoningTokens, recordCall, resolveConnection],
+    [onReasoningActivity, onReasoningTokens, recordCall, resolveConnection],
   );
 }

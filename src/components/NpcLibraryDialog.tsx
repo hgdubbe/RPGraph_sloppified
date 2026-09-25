@@ -1,15 +1,18 @@
+import { usePanelNavigationOverlay } from '../navigation/usePanelNavigation';
+import { CharacterName } from './CharacterName';
 import { migratedProfileName } from '../characters/character';
 import { characterUsageReasons } from '../characters/lifecycle';
 import type { NpcParticipantSnapshots } from '../characters/npcParticipants';
 import { Fragment, useEffect, useMemo, useRef, useState } from 'react';
 import type { EffectiveCharacterRegistry } from '../characters/registry';
 import type { NpcLibraryEntry, NpcLibrarySnapshot } from '../characters/npcLibrary';
-import { characterLibrarySummary, characterProvenanceStages, effectiveLibraryEntry, visibleLibraryEntries, libraryActivityPosts, libraryCharacterWithPosts, libraryCharacterContentEqual } from '../characters/librarySummary';
+import { characterLibrarySummary, characterMatchesLibrarySearch, characterProvenanceStages, effectiveLibraryEntry, visibleLibraryEntries, libraryActivityPosts, libraryCharacterWithPosts, libraryCharacterContentEqual } from '../characters/librarySummary';
 import { appAvatarDataUrl } from '../characters/portrait';
 import type { Character } from '../characters/character';
 import { characterContentEqual } from '../characters/contentComparison';
 
 type NpcLibraryDialogProps = {
+  characterColors?: ReadonlyMap<string, string>;
   snapshot: NpcLibrarySnapshot | null;
   participants?: NpcParticipantSnapshots;
   activity?: unknown;
@@ -34,6 +37,7 @@ const appLabels = { fotogram: 'Fotogram', whatsup: 'WhatsUp', onlyfriends: 'Only
 function UnlockCharactersDialog({ onClose }: {
   onClose: () => void;
 }) {
+  usePanelNavigationOverlay(onClose);
   const dialogRef = useRef<HTMLElement>(null);
   useEffect(() => {
     const previous = document.activeElement;
@@ -78,7 +82,8 @@ type DisplayEntry = {
   unlocked?: boolean;
 };
 
-function CharacterRow({ display, issues, canImport, onImport, onEdit, onRemove }: {
+function CharacterRow({ color, display, issues, canImport, onImport, onEdit, onRemove }: {
+  color?: string;
   display: DisplayEntry; issues: string[]; canImport: boolean; onImport: () => void; onEdit: () => void; onRemove?: () => void;
 }) {
   const { character, libraryEntry, inStorybook, storybookEdited, localEdited } = display;
@@ -92,13 +97,13 @@ function CharacterRow({ display, issues, canImport, onImport, onEdit, onRemove }
   });
   return (
     <li className="npc-library-row">
-      <div className="npc-library-avatar" aria-hidden="true">
+      <div className="npc-library-avatar" style={color ? { borderColor: color, color } : undefined} aria-hidden="true">
         {portrait && portrait !== failedPortrait
           ? <img src={portrait} alt="" loading="lazy" onError={() => setFailedPortrait(portrait)} />
           : initials}
       </div>
       <div className="npc-library-identity">
-        <h3>{character.name}{display.unlocked && <span className="npc-library-lock" role="img" aria-label="Unlocked" title="Unlocked">🔓</span>}</h3>
+        <h3><CharacterName color={color}>{character.name}</CharacterName>{display.unlocked && <span className="npc-library-lock" role="img" aria-label="Unlocked" title="Unlocked">🔓</span>}</h3>
         <div className="npc-library-badges">
           <span className="npc-library-provenance" aria-label={`Active character source: ${provenance.map((stage) => stage.label).join(' then ')}`}>
             {provenance.map((stage, index) => <span className="npc-library-provenance-segment" key={stage.label}>
@@ -164,9 +169,11 @@ function CharacterRow({ display, issues, canImport, onImport, onEdit, onRemove }
   );
 }
 
-export function NpcLibraryDialog({ snapshot, participants = {}, activity, busy = false, dismissOnEscape = true, onRemove, activeRegistry, loading, status, storybookNodeId, onAddToStorybook, onReload, onOpenFolder, onClose, onCreateCharacter, onEditCharacter, onOpenStorybook }: NpcLibraryDialogProps) {
+export function NpcLibraryDialog({ characterColors, snapshot, participants = {}, activity, busy = false, dismissOnEscape = true, onRemove, activeRegistry, loading, status, storybookNodeId, onAddToStorybook, onReload, onOpenFolder, onClose, onCreateCharacter, onEditCharacter, onOpenStorybook }: NpcLibraryDialogProps) {
+  usePanelNavigationOverlay(onClose);
   const [importStatus, setImportStatus] = useState('');
   const [showUnlock, setShowUnlock] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
   const lockedFiles = (snapshot?.files ?? []).filter((file) => file.protection === 'encrypted' && !file.unlocked);
   const targetNodeId = storybookNodeId ?? '';
   const libraryEntries = useMemo(() => visibleLibraryEntries(snapshot?.entries ?? []), [snapshot]);
@@ -204,17 +211,27 @@ export function NpcLibraryDialog({ snapshot, participants = {}, activity, busy =
     });
   }, [activeRegistry, libraryEntries, snapshot, participants, activity, posts]);
 
+  const filteredEntries = useMemo(
+    () => entries.filter((entry) => characterMatchesLibrarySearch(entry.character, searchQuery)),
+    [entries, searchQuery],
+  );
+  const filteredLockedFiles = useMemo(() => {
+    const needle = searchQuery.normalize('NFKC').trim().replace(/^@+/, '').toLocaleLowerCase();
+    if (!needle) return lockedFiles;
+    return lockedFiles.filter((file) => (file.characterName || file.name).normalize('NFKC').toLocaleLowerCase().includes(needle));
+  }, [lockedFiles, searchQuery]);
+
   const sections = useMemo(() => {
-    const playable = entries.filter((entry) => entry.playable);
-    const interacted = entries.filter((entry) => !entry.playable && entry.hasActivity);
-    const available = entries.filter((entry) => !entry.playable && !entry.hasActivity);
+    const playable = filteredEntries.filter((entry) => entry.playable);
+    const interacted = filteredEntries.filter((entry) => !entry.playable && entry.hasActivity);
+    const available = filteredEntries.filter((entry) => !entry.playable && !entry.hasActivity);
 
     return [
       { id: 'playable', title: 'Playable Characters', entries: playable },
       { id: 'interacted', title: 'Interacted Characters', entries: interacted },
       { id: 'available', title: 'Available Characters', entries: available },
     ].filter((section) => section.entries.length > 0);
-  }, [entries]);
+  }, [filteredEntries]);
 
   const issuesFor = (entry: NpcLibraryEntry) => [
     ...(snapshot?.diagnostics ?? []).filter((item) => item.tier === entry.tier && item.fileName === entry.fileName).map((item) => item.message),
@@ -243,7 +260,7 @@ export function NpcLibraryDialog({ snapshot, participants = {}, activity, busy =
       <section className="npc-library-dialog" role="dialog" aria-modal={!showUnlock} inert={showUnlock} aria-labelledby="npc-library-title"
         onClick={(event) => event.stopPropagation()}>
         <main className="npc-library-main" aria-label="Library characters" aria-busy={loading}>
-          {entries.length || lockedFiles.length ? (
+          {filteredEntries.length || filteredLockedFiles.length ? (
             <ul className="npc-library-list">
               {sections.map((section) => (
                 <Fragment key={section.id}>
@@ -257,6 +274,7 @@ export function NpcLibraryDialog({ snapshot, participants = {}, activity, busy =
                     const target = display.nodeId ?? targetNodeId;
                     return (
                       <CharacterRow
+                        color={characterColors?.get(display.character.name)}
                         key={`${display.diagnosticOnly ? entry?.source : 'effective'}:${display.character.id}`}
                         display={{ ...display, unlocked: !!entry && !!snapshot?.files?.some((file) => file.tier === entry.tier && file.fileName === entry.fileName && file.unlocked) }}
                         onEdit={() => display.inStorybook ? onOpenStorybook(display.nodeId!) : onEditCharacter(display.retained
@@ -278,8 +296,8 @@ export function NpcLibraryDialog({ snapshot, participants = {}, activity, busy =
                   })}
                 </Fragment>
               ))}
-              {lockedFiles.length > 0 && <li className="npc-library-section-divider"><span>Encrypted Characters · Locked</span></li>}
-              {lockedFiles.map((file) => <li className="npc-library-row npc-library-locked-row" key={`locked:${file.tier}:${file.fileName}`}>
+              {filteredLockedFiles.length > 0 && <li className="npc-library-section-divider"><span>Encrypted Characters · Locked</span></li>}
+              {filteredLockedFiles.map((file) => <li className="npc-library-row npc-library-locked-row" key={`locked:${file.tier}:${file.fileName}`}>
                 <div className="npc-library-avatar" aria-hidden="true">🔒</div>
                 <div className="npc-library-identity">
                   <h3>{file.characterName || file.name}<span className="npc-library-lock" role="img" aria-label="Locked" title="Locked">🔒</span></h3>
@@ -299,12 +317,20 @@ export function NpcLibraryDialog({ snapshot, participants = {}, activity, busy =
               </li>)}
             </ul>
           ) : (
-            <p className="npc-library-empty">{loading ? 'Loading characters…' : 'No characters found. Add character files to your NPC folder and reload the library.'}</p>
+            <p className="npc-library-empty">{loading ? 'Loading characters…' : searchQuery.trim()
+              ? `No characters match “${searchQuery.trim()}”.`
+              : 'No characters found. Add character files to your NPC folder and reload the library.'}</p>
           )}
         </main>
         <aside className="npc-library-sidebar">
           <header><div><h2 id="npc-library-title">NPC Library</h2><p>Your character collection</p></div>
-            <button type="button" className="close-button" onClick={onClose} autoFocus>Close</button></header>
+            <button type="button" className="close-button" onClick={onClose}>Close</button></header>
+          <div className="npc-library-search">
+            <label htmlFor="npc-library-search">Search characters</label>
+            <input id="npc-library-search" type="search" value={searchQuery} autoFocus
+              placeholder="Name or @profile" onChange={(event) => setSearchQuery(event.target.value)} />
+            <small aria-live="polite">{filteredEntries.length + filteredLockedFiles.length} of {entries.length + lockedFiles.length} shown</small>
+          </div>
           <div className="npc-library-actions">
             <button type="button" className="primary" onClick={onCreateCharacter}>Create Character</button>
             <button type="button" className="primary" onClick={onReload} disabled={loading}>{loading ? 'Reloading…' : 'Reload Library'}</button>

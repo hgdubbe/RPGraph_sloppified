@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { usePanelNavigationOverlay } from '../navigation/usePanelNavigation';
 import type { ChatImageAttachment } from '../types';
 
 const phoneGalleryPageSize = 100;
@@ -23,6 +24,7 @@ export function PhoneGalleryScreen({
   onSelectImage,
 }: PhoneGalleryScreenProps) {
   const [selectedImage, setSelectedImage] = useState<ChatImageAttachment>();
+  usePanelNavigationOverlay(() => setSelectedImage(undefined), !!selectedImage);
   const [page, setPage] = useState(0);
   const totalPages = Math.max(1, Math.ceil(images.length / phoneGalleryPageSize));
   const visiblePage = Math.min(page, totalPages - 1);

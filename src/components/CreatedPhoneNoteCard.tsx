@@ -1,3 +1,4 @@
+import { CharacterName } from './CharacterName';
 import {
   createdPhoneNoteActionVerb,
   type CreatedPhoneNoteCommit,
@@ -6,9 +7,10 @@ import {
 type CreatedPhoneNoteCardProps = {
   entry: CreatedPhoneNoteCommit;
   fontSize?: number;
+  nameColor?: string;
 };
 
-export function CreatedPhoneNoteCard({ entry, fontSize }: CreatedPhoneNoteCardProps) {
+export function CreatedPhoneNoteCard({ entry, fontSize, nameColor }: CreatedPhoneNoteCardProps) {
   const actionVerb = createdPhoneNoteActionVerb(entry);
   return (
     <section
@@ -26,7 +28,7 @@ export function CreatedPhoneNoteCard({ entry, fontSize }: CreatedPhoneNoteCardPr
         </span>
         <span>
           <strong>Notes</strong>
-          <small>{entry.characterName} {actionVerb} a note</small>
+          <small><CharacterName color={nameColor}>{entry.characterName}</CharacterName> {actionVerb} a note</small>
         </span>
         {entry.note.dayLabel && <time>{entry.note.dayLabel}</time>}
       </header>

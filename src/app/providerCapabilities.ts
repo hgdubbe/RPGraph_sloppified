@@ -1,3 +1,4 @@
+import { normalizeReasoningEffort } from '../../shared/reasoning.cjs';
 import {
   isCompositeConnection,
   isGeminiConnection,
@@ -91,6 +92,7 @@ export function lmStudioCapabilitiesForConnection(
 ): ProviderConnectionCapabilities {
   const model = selectedLmStudioModel(connection, models);
   return {
+    reasoning: model?.reasoning?.supportedEfforts?.some((effort) => effort !== 'none') === true,
     text: !!model || models.length > 0,
     vision: model?.vision === true,
     tools: model?.trainedForToolUse === true,
@@ -105,6 +107,7 @@ export function openRouterCapabilitiesForConnection(
   const inputModalities = model?.inputModalities ?? [];
   const outputModalities = model?.outputModalities ?? [];
   return {
+    reasoning: !!model?.reasoning || model?.supportedParameters?.includes('reasoning') === true,
     text: model ? model.text === true || outputModalities.includes('text') : models.length > 0,
     vision: model?.vision === true || inputModalities.includes('image'),
     image: model?.image === true || outputModalities.includes('image'),
@@ -164,10 +167,23 @@ export function ollamaCapabilitiesForConnection(
 ): ProviderConnectionCapabilities {
   const model = selectedOllamaModel(connection, models);
   return {
+    reasoning: model?.reasoning
+      ? model.reasoning.supportedEfforts?.some((effort) => effort !== 'none') === true || model.reasoning.defaultEnabled === true
+      : model?.thinkingSupported === true,
     text: !!model || models.length > 0,
     vision: model?.vision === true,
     tools: model?.trainedForToolUse === true,
   };
+}
+
+export function connectionWithLmStudioReasoning(
+  connection: ConnectionPreset,
+  models: LmStudioModelInfo[],
+): ConnectionPreset {
+  if (!isLmStudioConnection(connection)) return connection;
+  const reasoning = selectedLmStudioModel(connection, models)?.reasoning;
+  return { ...connection, reasoningCapabilities: reasoning,
+    reasoningEffort: normalizeReasoningEffort(connection.reasoningEffort, reasoning) };
 }
 
 export function connectionWithLmStudioCapabilities(
@@ -179,8 +195,21 @@ export function connectionWithLmStudioCapabilities(
   }
   const capabilities = lmStudioCapabilitiesForConnection(connection, models);
   return {
-    ...connection,
+    ...connectionWithLmStudioReasoning(connection, models),
     vision: capabilities.vision === true,
+  };
+}
+
+export function connectionWithOpenRouterReasoning(
+  connection: ConnectionPreset,
+  models: OpenRouterModelInfo[],
+): ConnectionPreset {
+  if (!isOpenRouterConnection(connection)) return connection;
+  const model = selectedOpenRouterModel(connection, models);
+  return {
+    ...connection,
+    reasoningCapabilities: model?.reasoning,
+    reasoningEffort: normalizeReasoningEffort(connection.reasoningEffort, model?.reasoning),
   };
 }
 
@@ -195,7 +224,7 @@ export function connectionWithOpenRouterCapabilities(
   const model = selectedOpenRouterModel(connection, models);
   const supportedVoices = model?.supportedVoices ?? [];
   return {
-    ...connection,
+    ...connectionWithOpenRouterReasoning(connection, models),
     vision: capabilities.vision === true,
     ttsVoice: capabilities.voice === true && capabilities.text !== true && supportedVoices.length > 0
       ? supportedVoices.includes(connection.ttsVoice ?? '')
@@ -231,6 +260,8 @@ export function connectionWithGeminiCapabilities(
   const supportedVoices = model?.supportedVoices ?? [];
   return {
     ...connection,
+    reasoningEffort: 'auto',
+    reasoningCapabilities: undefined,
     vision: capabilities.vision === true,
     ttsVoice: capabilities.voice === true && capabilities.text !== true && supportedVoices.length > 0
       ? supportedVoices.includes(connection.ttsVoice ?? '')
@@ -261,6 +292,16 @@ export function connectionWithVeniceCapabilities(
   };
 }
 
+export function connectionWithOllamaReasoning(
+  connection: ConnectionPreset,
+  models: OllamaModelInfo[],
+): ConnectionPreset {
+  if (!isOllamaConnection(connection)) return connection;
+  const reasoning = selectedOllamaModel(connection, models)?.reasoning;
+  return { ...connection, reasoningCapabilities: reasoning,
+    reasoningEffort: normalizeReasoningEffort(connection.reasoningEffort, reasoning) };
+}
+
 export function connectionWithOllamaCapabilities(
   connection: ConnectionPreset,
   models: OllamaModelInfo[],
@@ -270,7 +311,7 @@ export function connectionWithOllamaCapabilities(
   }
   const capabilities = ollamaCapabilitiesForConnection(connection, models);
   return {
-    ...connection,
+    ...connectionWithOllamaReasoning(connection, models),
     vision: capabilities.vision === true,
   };
 }

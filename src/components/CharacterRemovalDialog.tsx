@@ -1,3 +1,4 @@
+import { usePanelNavigationOverlay } from '../navigation/usePanelNavigation';
 import { useEffect, useState } from 'react';
 import type { CharacterRemovalInfo } from '../characters/lifecycle';
 
@@ -11,6 +12,7 @@ export function CharacterRemovalDialog({ info, blocked, canSave, onRemove, onClo
   const [busy, setBusy] = useState(false);
   const [status, setStatus] = useState('');
 
+  usePanelNavigationOverlay(() => { if (!busy) onClose(); });
   useEffect(() => {
     function handleKeyDown(event: KeyboardEvent) {
       if (event.key === 'Escape' && !busy) {

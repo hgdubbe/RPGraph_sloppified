@@ -1,5 +1,7 @@
+const { normalizeLmStudioReasoning, normalizeReasoningEffort } = require('../shared/reasoning.cjs');
 const supportedReasoningEfforts = new Set([
   'auto',
+  'on',
   'none',
   'minimal',
   'low',
@@ -10,6 +12,11 @@ const supportedReasoningEfforts = new Set([
 ]);
 
 function lmStudioReasoningSetting(effort, profile) {
+  if (profile?.exposesReasoning && Array.isArray(profile.allowedOptions)) {
+    effort = normalizeReasoningEffort(effort, normalizeLmStudioReasoning({
+      allowed_options: profile.allowedOptions, default: profile.defaultOption,
+    }));
+  }
   if (!supportedReasoningEfforts.has(effort) || effort === 'auto') {
     return undefined;
   }

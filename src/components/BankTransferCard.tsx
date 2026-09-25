@@ -1,9 +1,11 @@
+import { CharacterName } from './CharacterName';
 import { formatBankingAmount } from '../chat/bankTransfers';
 import type { BankTransferRecord, RpDateTimeFormat, RpWeekdayLanguage } from '../types';
 import { formatRpDateTimeParts } from '../workflow';
 
 type BankTransferCardProps = {
   transfer: BankTransferRecord;
+  characterColors?: ReadonlyMap<string, string>;
   rpDateTime?: string;
   rpDateTimeFormat: RpDateTimeFormat;
   rpWeekdayLanguage: RpWeekdayLanguage;
@@ -12,6 +14,7 @@ type BankTransferCardProps = {
 
 export function BankTransferCard({
   transfer,
+  characterColors,
   rpDateTime,
   rpDateTimeFormat,
   rpWeekdayLanguage,
@@ -56,14 +59,14 @@ export function BankTransferCard({
       <div className="bank-transfer-card-route">
         <span>
           <small>From:</small>
-          <strong>{transfer.from}</strong>
+          <strong><CharacterName color={characterColors?.get(transfer.from)}>{transfer.from}</CharacterName></strong>
         </span>
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
           <path d="M5 12h14M14 7l5 5-5 5" />
         </svg>
         <span>
           <small>To:</small>
-          <strong>{transfer.to}</strong>
+          <strong><CharacterName color={characterColors?.get(transfer.to)}>{transfer.to}</CharacterName></strong>
         </span>
       </div>
     </article>

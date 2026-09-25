@@ -57,6 +57,13 @@ function abortableLlmInvoke(channel, request, onAbort) {
 }
 
 contextBridge.exposeInMainWorld('rpgraph', {
+  onPanelNavigate: (callback) => {
+    const listener = (_event, direction) => {
+      if (direction === -1 || direction === 1) callback(direction);
+    };
+    ipcRenderer.on('panel:navigate', listener);
+    return () => ipcRenderer.removeListener('panel:navigate', listener);
+  },
   listModels: (connection, onAbort) =>
     abortableLlmInvoke('llm:list-models', { connection }, onAbort),
   listLmStudioModels: (connection, onAbort) =>
