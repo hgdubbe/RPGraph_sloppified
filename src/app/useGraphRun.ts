@@ -1,3 +1,4 @@
+import type { HighlightingSpeakerContext } from '../nodes/output/speakerSelection';
 import { resolveSocialPostCommand, resolveSocialPostReference, type SocialPostCommandBinding } from '../chat/socialPostCommands';
 import { socialReactionAccountContext } from '../characters/socialReactionAccounts';
 import { resolveWhatsUpMessageParticipants } from '../characters/messageIdentity';
@@ -280,6 +281,8 @@ type UseGraphRunOptions = Pick<
     highlightingContext: string,
     signal?: AbortSignal,
     onFormatResult?: (result: ExecuteTraceFormatResult) => void,
+    sourceText?: string,
+    speakerContext?: HighlightingSpeakerContext,
   ) => Promise<OutputAttribution>;
   appendPhoneMessage: (
     message: ParsedPhoneMessage,
@@ -2432,6 +2435,21 @@ export function useGraphRun(options: UseGraphRunOptions) {
             outputHighlightingContext,
             runSignal,
             (result) => reportFormatResult(result, outputNodeTraceInfo),
+            rpOutput,
+            {
+              selectedCharacterId: inputCharacter?.id,
+              participants: [
+                ...embeddedPhoneResult.phoneMessages.flatMap((message) => [
+                  { app: 'WhatsUp', role: 'sender' as const, identity: message.fromAccountId || message.from },
+                  { app: 'WhatsUp', role: 'recipient' as const, identity: message.toAccountId || message.to },
+                ]),
+                ...embeddedSocialDirectMessages.flatMap((message) => [
+                  { app: message.app, role: 'sender' as const, identity: message.from },
+                  ...(message.handle ? [{ app: message.app, role: 'sender' as const, identity: message.handle }] : []),
+                  ...(message.to ? [{ app: message.app, role: 'recipient' as const, identity: message.to }] : []),
+                ]),
+              ],
+            },
           );
         } catch (error) {
           if (isRunCancelledError(error)) {

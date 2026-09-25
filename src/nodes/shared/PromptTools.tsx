@@ -955,6 +955,15 @@ export function PromptCommandModal({
   );
 }
 
+export function PromptPreviewBlock({ label, text, parts, tone }: {
+  label: string;
+  text: string;
+  parts?: PromptPreviewPart[];
+  tone?: 'text-input' | 'prompt' | 'output' | 'images';
+}) {
+  return previewBlock(label, text, parts, tone);
+}
+
 function previewBlock(
   label: string,
   text: string,

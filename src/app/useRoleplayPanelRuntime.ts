@@ -1667,6 +1667,7 @@ export function useRoleplayPanelRuntime({
     setCharacterColorSlots,
     characterColorStyle,
     characterActivity,
+    interactedCharacterIds,
     viewedPhoneCharacter,
     phoneGalleryImages,
     phoneGalleryOpenRequestId,

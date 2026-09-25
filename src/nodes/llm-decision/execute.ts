@@ -1,5 +1,5 @@
 import type { WorkflowNode } from '../../types';
-import { fastTaskPrompt } from '../../llm/fastTaskPrompt';
+import { fastTaskReasoningStart, fastTaskReasoningEnd } from '../../llm/fastTaskPrompt';
 import { llmDecisionEntries, llmDecisionOutputHandle } from '../../workflow';
 import { llmDecisionMemo } from '../runScratch';
 import { resolveTextAndImageInputs } from '../shared/imageInputs';
@@ -73,14 +73,16 @@ async function runLlmDecision(node: WorkflowNode, context: ExecuteContext) {
   context.updateRuntimeData(node.id, { preview: 'Calling LLM ...', llmCallStats: [] });
 
   const results = await Promise.all(entries.map(async (entry, index): Promise<LlmDecisionResult> => {
-    const prompt = fastTaskPrompt([
+    const prompt = [
+      fastTaskReasoningStart,
       'Analyze the input text and answer the question with JSON only.',
       'Return exactly this object shape: {"bool":true,"text":"short answer","number":0}',
       'Use bool for yes/no, text for the extracted answer, and number for a count or numeric result.',
       `Question: ${entry.question.trim() || 'Analyze the input.'}`,
       'Input text:',
       inputValue,
-    ].join('\n\n'));
+      fastTaskReasoningEnd,
+    ].join('\n\n');
     const output = await context.llm.complete({
       connectionId: node.data.connectionId,
       nodeId: node.id,

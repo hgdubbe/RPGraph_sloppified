@@ -19769,6 +19769,10 @@ button.message-timeline-row.phone:focus-visible {
   flex-direction: column;
 }
 
+.text-dialog.node-text-dialog.highlighting-text-dialog {
+  width: min(1036.8px, calc(100vw - 40px));
+}
+
 .text-dialog.node-text-dialog:not(.compression-text-dialog, .history-text-dialog, .character-stats-chart-text-dialog) .text-form {
   min-height: 0;
 }

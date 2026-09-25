@@ -1,5 +1,5 @@
 import type { EventManagerPromptSettings } from '../../types';
-import { fastTaskPrompt } from '../../llm/fastTaskPrompt';
+import { fastTaskReasoningStart, fastTaskReasoningEnd } from '../../llm/fastTaskPrompt';
 
 export const eventManagerPromptVariables = [
   '<EventManagerContext>',
@@ -10,6 +10,8 @@ export const eventManagerPromptVariables = [
 ];
 
 export const defaultEventManagerPromptText = [
+  fastTaskReasoningStart,
+  '',
   '<EventManagerContext>',
   '',
   'REFERENCE RP TIME: <ReferenceRpTime>',
@@ -48,6 +50,8 @@ export const defaultEventManagerPromptText = [
   '',
   'RETURN:',
   '{"op":"end"} OR {"add":[event]} OR {"update":[{"id":"existing-id","field":"new value"}]} OR {"delete":["existing-id"]}',
+  '',
+  fastTaskReasoningEnd,
 ].join('\n');
 
 export function defaultEventManagerPromptSettings(): EventManagerPromptSettings {
@@ -78,10 +82,10 @@ export function buildEventManagerPrompt(
   const template = eventManagerPromptSettings(settings).mode === 'custom'
     ? eventManagerPromptSettings(settings).customText ?? ''
     : defaultEventManagerPromptText;
-  return fastTaskPrompt(Object.entries(variables)
+  return Object.entries(variables)
     .reduce((text, [key, value]) => text.split(`<${key}>`).join(value), template)
     .split('\n')
     .filter((line) => line.trim() || line === '')
     .join('\n')
-    .trim());
+    .trim();
 }
