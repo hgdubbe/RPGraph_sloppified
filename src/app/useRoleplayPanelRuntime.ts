@@ -123,7 +123,7 @@ const chatAutoFollowBottomMargin = 48;
 // drawer overlay-vs-inline mode) never drifts out of sync with the CSS.
 const narrowLayoutContainerWidthThreshold = 900;
 
-export type ContextDrawerContent = 'phone' | 'timeline' | null;
+export type ContextDrawerContent = 'phone' | 'timeline' | 'events' | null;
 
 type UseRoleplayPanelRuntimeOptions = {
   appCharacters: StorybookCharacter[];
@@ -249,8 +249,12 @@ export function useRoleplayPanelRuntime({
   const [drawerContent, setDrawerContent] = usePanelNavigationState<ContextDrawerContent>(
     'panel.drawerContent', null,
   );
+  // 'events' (the ChatPanelView value governing the composer's "Run Event"
+  // label/send-disable) now tracks the standalone Events Manager panel, not
+  // Timeline -- Timeline is a read-only structural nav rail with no actions
+  // of its own, so viewing it behaves like plain chat.
   const chatPanelView: ChatPanelView =
-    drawerContent === 'phone' ? 'phone' : drawerContent === 'timeline' ? 'events' : 'chat';
+    drawerContent === 'phone' ? 'phone' : drawerContent === 'events' ? 'events' : 'chat';
   const [isNarrowLayout, setIsNarrowLayout] = useState(true);
   // Chat is always mounted; it is only actually hidden/inert when the drawer
   // takes over the screen in narrow layout (mirrors the aria-hidden/inert
@@ -1221,7 +1225,7 @@ export function useRoleplayPanelRuntime({
       setSocialPostOpenRequest(undefined);
       setSocialDirectMessageOpenRequest(undefined);
     }
-    setDrawerContent(view === 'phone' ? 'phone' : view === 'events' ? 'timeline' : null);
+    setDrawerContent(view === 'phone' ? 'phone' : view === 'events' ? 'events' : null);
   }
 
   function selectPhonePanelView() {

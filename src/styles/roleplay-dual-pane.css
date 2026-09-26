@@ -53,8 +53,14 @@
   width: clamp(340px, 52cqw, 480px);
   box-sizing: border-box;
   padding: 14px;
-  border-left: 1px solid color-mix(in srgb, var(--theme-border, rgba(77, 96, 138, 0.72)) 55%, transparent);
-  background: var(--theme-panel, #101421);
+  /* Same border/fill as .roleplay-chat-pane, so the drawer reads as the same
+     kind of card as the chat pane instead of a bare overlay. Right corners
+     sit flush against the window's own (square) edge -- only the left
+     corners (against the drawer toggle rail, not the window edge) stay
+     rounded. */
+  border: 1px solid var(--theme-border, var(--border-color, #363640));
+  border-radius: var(--theme-radius-card, var(--theme-radius, 8px)) 0 0 var(--theme-radius-card, var(--theme-radius, 8px));
+  background: var(--theme-panel, var(--panel, #121722));
   box-shadow:
     inset 1px 0 0 var(--theme-raw-vrgba255255255005, rgba(255, 255, 255, 0.05)),
     -24px 0 48px var(--theme-raw-vrgba000035, rgba(0, 0, 0, 0.35));
@@ -78,7 +84,6 @@
     inset: auto;
     flex: 0 0 auto;
     width: var(--studio-context-drawer-width, clamp(380px, 40cqw, 560px));
-    border-left-color: transparent;
     box-shadow: none;
     transform: none;
     transition: width 200ms ease;
@@ -88,7 +93,7 @@
   .studio-context-drawer:not(.open) {
     width: 0;
     padding: 0;
-    border-left-color: transparent;
+    border-color: transparent;
     overflow: hidden;
   }
 
@@ -153,7 +158,15 @@
 
 /* Always-present seam between chat and drawer; the two toggle buttons are
    the drawer's reopen affordance once it's collapsed, so this rail itself
-   never gets hidden or inert. */
+   never gets hidden or inert.
+
+   Shares the chat pane / drawer's own panel fill and border color on its
+   top and bottom edges, so the three pieces read as one continuous framed
+   strip (border runs unbroken across the top and bottom of the whole row)
+   instead of a bare gap of the page background wedged between two card
+   borders -- that gap is what made the chat pane's right border and the
+   drawer's left border look like stray floating hairlines once the outer
+   14px padding (and the breathing room it gave every border) was removed. */
 .studio-drawer-toggle-rail {
   position: relative;
   z-index: 6;
@@ -165,6 +178,9 @@
   width: 44px;
   padding: 8px 0;
   box-sizing: border-box;
+  border-top: 1px solid var(--theme-border, var(--border-color, #363640));
+  border-bottom: 1px solid var(--theme-border, var(--border-color, #363640));
+  background: var(--theme-panel, var(--panel, #121722));
 }
 
 .studio-drawer-resize-handle {
@@ -184,20 +200,8 @@
     background: transparent;
   }
 
-  .studio-drawer-resize-handle::before {
-    position: absolute;
-    top: 0;
-    bottom: 0;
-    left: 50%;
-    width: 3px;
-    margin-left: -1.5px;
-    content: "";
-    background: color-mix(in srgb, var(--theme-shell-drawer-handle-bg, var(--theme-border, rgba(77, 96, 138, 0.72))) 70%, transparent);
-  }
-
-  /* A flat 3px line reads as a stray border, not a control -- this grip
-     capsule (only visible marker besides the line) is what actually signals
-     "drag me" at rest, not just on hover. */
+  /* Just the grip capsule signals "drag me" -- no full-height line, which
+     read as a stray border rather than a control. */
   .studio-drawer-resize-handle::after {
     position: absolute;
     top: 50%;
@@ -208,11 +212,6 @@
     content: "";
     border-radius: 3px;
     background: var(--theme-shell-drawer-handle-bg, var(--theme-border, rgba(77, 96, 138, 0.72)));
-  }
-
-  .studio-drawer-resize-handle:hover::before,
-  .studio-drawer-resize-handle.dragging::before {
-    background: var(--theme-primary, #7ee1f7);
   }
 
   .studio-drawer-resize-handle:hover::after,
@@ -303,7 +302,11 @@
   box-sizing: border-box;
   overflow: hidden;
   border: 1px solid var(--theme-border, var(--border-color, #363640));
-  border-radius: var(--theme-radius-card, var(--theme-radius, 8px));
+  /* Left corners sit flush against the window's own (square) edge now that
+     .studio-play-content has no surrounding padding -- only the right
+     corners (against the drawer toggle rail, not the window edge) stay
+     rounded. */
+  border-radius: 0 var(--theme-radius-card, var(--theme-radius, 8px)) var(--theme-radius-card, var(--theme-radius, 8px)) 0;
   background: var(--theme-panel, var(--panel, #121722));
 }
 

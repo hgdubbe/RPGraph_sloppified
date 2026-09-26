@@ -6647,44 +6647,6 @@ input[type="number"]::-webkit-outer-spin-button {
   margin-bottom: 3px;
 }
 
-.auto-turn-button {
-  flex: none;
-  height: 28px;
-  padding: 0 12px;
-  border: 1px solid var(--theme-raw-vrgba255255255008, rgba(255, 255, 255, 0.08));
-  border-radius: 6px;
-  color: var(--theme-raw-vd9e6f8, #d9e6f8);
-  background: var(--theme-raw-vrgba255255255004, rgba(255, 255, 255, 0.04));
-  backdrop-filter: blur(8px);
-  cursor: pointer;
-  font-size: 11px;
-  font-weight: 800;
-  white-space: nowrap;
-  transition: all 0.18s ease;
-}
-
-.auto-turn-button:hover:not(:disabled) {
-  border-color: #56d99a;
-  color: var(--soft-white);
-  background: rgba(86, 217, 154, 0.15);
-  box-shadow: 0 0 12px rgba(86, 217, 154, 0.2);
-}
-
-.auto-turn-button:active:not(:disabled) {
-  transform: translateY(0);
-}
-
-.auto-turn-button:disabled {
-  opacity: 0.35;
-  cursor: default;
-}
-
-.auto-turn-button[data-disabled-look="true"] {
-  color: var(--theme-app-muted, var(--muted, #6b7686));
-  background: var(--theme-raw-vrgba255255255004, rgba(255, 255, 255, 0.04));
-  box-shadow: none;
-}
-
 .turn-controls {
   display: inline-flex;
   flex: none;
@@ -10056,15 +10018,6 @@ input[type="number"]::-webkit-outer-spin-button {
   text-align: center;
 }
 
-.events-surface {
-  position: relative;
-  display: grid;
-  grid-template-columns: minmax(170px, 42%) minmax(0, 1fr);
-  min-height: 0;
-  flex: 1;
-  background: var(--theme-panel);
-}
-
 .events-disabled-overlay {
   position: absolute;
   inset: 0;
@@ -10114,6 +10067,15 @@ input[type="number"]::-webkit-outer-spin-button {
   color: var(--theme-muted-foreground);
   font-size: 11.5px;
   line-height: 1.4;
+}
+
+.events-surface {
+  position: relative;
+  display: grid;
+  grid-template-columns: minmax(170px, 42%) minmax(0, 1fr);
+  min-height: 0;
+  flex: 1;
+  background: var(--theme-panel);
 }
 
 .events-list {

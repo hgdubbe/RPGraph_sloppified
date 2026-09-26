@@ -12,7 +12,14 @@
   height: 100%;
   min-height: 0;
   overflow: hidden;
-  border: 1px solid var(--theme-border, rgba(77, 96, 138, 0.72));
+  /* No border here: .roleplay-chat-pane, .studio-drawer-toggle-rail and
+     .studio-context-drawer (roleplay-dual-pane.css) already draw their own
+     1px borders flush against this container's edges on every side (top,
+     left and bottom against the chat pane; right against the drawer when
+     open). An outer border here sat one physical pixel outside those with
+     zero gap between the two lines, so the two independent 1px borders
+     read as a single ~2px-thick edge instead of a hairline. */
+  border: 0;
   border-radius: 0;
   background: var(--theme-background, #070912);
 }
@@ -474,6 +481,41 @@
   stroke-width: 2;
 }
 
+/* Same circular treatment as the send button, just smaller -- AutoTurn moved
+   here from its own header button (see TurnControlsHeader.tsx) to sit right
+   next to the action it's a shortcut for. */
+.studio-shell-play .composer-autoturn-button {
+  display: grid;
+  flex: none;
+  width: 30px;
+  min-width: 30px;
+  height: 30px;
+  padding: 0;
+  place-items: center;
+  border: 1px solid color-mix(in srgb, var(--theme-primary, #79d8ef) 68%, transparent);
+  border-radius: 50%;
+  color: var(--theme-primary-foreground, #051018);
+  background: var(--theme-primary, #79d8ef);
+  box-shadow: var(--theme-button-shadow, none);
+}
+
+.studio-shell-play .composer-autoturn-button:hover:not(:disabled) {
+  box-shadow: var(--theme-button-shadow-hover, var(--theme-button-shadow, none));
+  transform: translateY(-1px);
+}
+
+.studio-shell-play .composer-autoturn-button:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.studio-shell-play .composer-autoturn-icon {
+  width: 14px;
+  height: 14px;
+  fill: currentColor;
+  stroke: none;
+}
+
 .studio-shell-play .composer-submit-label {
   position: absolute;
   width: 1px;
@@ -658,7 +700,7 @@
   container-type: size;
   display: flex;
   min-height: 0;
-  padding: 14px;
+  padding: 0;
   overflow: hidden;
   background: var(--theme-surface-content, #090b15);
 }

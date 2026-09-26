@@ -52,6 +52,7 @@ import { TurnControlsHeader } from './components/TurnControlsHeader';
 import { runProgress } from './chat/runProgress';
 import { ChatConversationPanel } from './components/ChatConversationPanel';
 import { TimelinePanel } from './components/TimelinePanel';
+import { EventsPanel } from './components/EventsPanel';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import { GraphStudioShell } from './components/GraphStudioShell';
 import { PhonePanel } from './components/PhonePanel';
@@ -1090,11 +1091,11 @@ function App() {
     selectChatPanelView,
     selectPhonePanelView,
     drawerContent,
+    setDrawerContent,
     isNarrowLayout,
     setPlayContentRef,
     contextDrawerWidth,
     setContextDrawerWidth,
-    pastTurns,
     setSelectedCharacterId,
     selectedCharacter,
     narratorSelected,
@@ -5107,11 +5108,11 @@ function App() {
     });
   }
 
-  async function runSelectedEvent() {
-    if (isRunning || !eventManagerAvailable || !selectedEvent) {
+  async function runSelectedEvent(eventOverride?: RpAppointment) {
+    const eventToRun = eventOverride ?? selectedEvent;
+    if (isRunning || !eventManagerAvailable || !eventToRun) {
       return;
     }
-    const eventToRun = selectedEvent;
     const completeEvent = () => closeEvent(eventToRun.id, 'completed');
     if (eventToRun.channel === 'phone') {
       const senderName = eventToRun.phoneFrom ?? eventToRun.assignedTo;
@@ -5168,6 +5169,27 @@ function App() {
       eventDisplayText: eventNarratorText,
       onSuccessfulRunBeforeCommit: completeEvent,
     });
+  }
+
+  const timelineJumpHighlightClass = 'timeline-jump-highlight';
+
+  function jumpToTurn(turnId: string) {
+    const container = chatThreadRef.current;
+    if (!container) {
+      return;
+    }
+    let target: Element | null = null;
+    try {
+      target = container.querySelector(`[data-turn-id="${CSS.escape(turnId)}"]`);
+    } catch {
+      target = null;
+    }
+    if (!target) {
+      return;
+    }
+    target.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    target.classList.add(timelineJumpHighlightClass);
+    window.setTimeout(() => target?.classList.remove(timelineJumpHighlightClass), 1200);
   }
 
   function triggerAutoTurn() {
@@ -5633,10 +5655,6 @@ function App() {
 
   const roleplayComposerActions = (
     <TurnControlsHeader
-      triggerAutoTurn={triggerAutoTurn}
-      autoTurnDisabled={autoTurnDisabled}
-      autoTurnTitle={autoTurnTitle}
-      isEventView={chatPanelView === 'events'}
       isRunning={isRunning}
       currentSessionTurn={currentSessionTurn}
       currentTurnVariants={currentTurnVariants}
@@ -6672,6 +6690,9 @@ function App() {
                       ? 'Type a message or attach an image to run the chat.'
                       : undefined
               }
+              onTriggerAutoTurn={triggerAutoTurn}
+              autoTurnDisabled={autoTurnDisabled}
+              autoTurnTitle={autoTurnTitle}
               autoplayEnabled={autoplay.enabled}
               autoplayMode={autoplay.mode}
               autoplayReplayDisabled={isRunning || (!narratorSelected && !selectedCharacter)}
@@ -6719,13 +6740,14 @@ function App() {
                 selectPhonePanelView();
               }
             }}
-            onSelectTimeline={() => selectChatPanelView(chatPanelView === 'events' ? 'chat' : 'events')}
+            onSelectEvents={() => selectChatPanelView(chatPanelView === 'events' ? 'chat' : 'events')}
+            onSelectTimeline={() => setDrawerContent(drawerContent === 'timeline' ? null : 'timeline')}
             onClose={() => selectChatPanelView('chat')}
             isNarrowLayout={isNarrowLayout}
             width={contextDrawerWidth}
             onWidthChange={setContextDrawerWidth}
             phoneBadge={unreadPhoneNotificationCount}
-            timelineBadge={unreadEventCount}
+            eventsBadge={unreadEventCount}
             drawerRef={setPhoneDrawerRef}
             phoneContent={
           <RoleplayPhoneDevice owner={viewedPhoneCharacter?.name ?? 'Character'} orientation={phoneDesktopLayout.orientation}
@@ -7013,8 +7035,8 @@ function App() {
             </AppMessageAvatars>
           </RoleplayPhoneDevice>
             }
-            timelineContent={
-              <TimelinePanel
+            eventsContent={
+              <EventsPanel
                 key={panelSessionRevision}
                 upcomingEvents={upcomingEvents}
                 selectedEvent={selectedEvent}
@@ -7032,7 +7054,26 @@ function App() {
                 onSelectEvent={setSelectedEventId}
                 onCancelEvent={cancelEvent}
                 onRunEvent={runSelectedEvent}
-                pastTurns={pastTurns}
+              />
+            }
+            timelineContent={
+              <TimelinePanel
+                key={panelSessionRevision}
+                upcomingEvents={upcomingEvents}
+                highlightedEventIds={highlightedEventIds}
+                eventManagerAvailable={eventManagerAvailable}
+                runDisabled={
+                  isRunning ||
+                  !eventManagerAvailable ||
+                  characterStorybookNodes.length === 0
+                }
+                isRunning={isRunning}
+                rpDateTimeFormat={rpDateTimeFormat}
+                rpWeekdayLanguage={rpWeekdayLanguage}
+                onCancelEvent={cancelEvent}
+                onRunEvent={runSelectedEvent}
+                allTurns={turns}
+                onJumpToTurn={jumpToTurn}
                 turnControlsHeader={roleplayComposerActions}
               />
             }

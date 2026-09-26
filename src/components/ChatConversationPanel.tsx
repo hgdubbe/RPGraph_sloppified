@@ -1140,7 +1140,7 @@ const MessageRow = memo(function MessageRow({
     return (
       <Fragment key={message.id}>
         {dayLabel && <div className="rp-day-divider chat-day-divider"><span>{dayLabel}</span></div>}
-        <section className="phone-timeline-bubbles">
+        <section className="phone-timeline-bubbles" data-turn-id={message.turnId}>
           {renderEmbeddedSocialMessages(standaloneSocialMessages)}
         </section>
       </Fragment>
@@ -1181,11 +1181,11 @@ const MessageRow = memo(function MessageRow({
       <Fragment key={message.id}>
         {dayLabel && <div className="rp-day-divider chat-day-divider"><span>{dayLabel}</span></div>}
         {outsidePhoneDisplayMode === 'bubbles' ? (
-          <section className="phone-timeline-bubbles">
+          <section className="phone-timeline-bubbles" data-turn-id={message.turnId}>
             {bubbleStack}
           </section>
         ) : phoneTimelineEntries.length >= 2 && outsidePhoneDisplayMode === 'collapse' ? (
-          <section className="phone-timeline-group">
+          <section className="phone-timeline-group" data-turn-id={message.turnId}>
             <button
               className="phone-timeline-group-toggle"
               type="button"
@@ -1223,6 +1223,7 @@ const MessageRow = memo(function MessageRow({
             narratorAutoTurnMarker ? ' narrator-auto-turn' : ''
           }`}
           style={{ fontSize: chatTextSize || defaultChatTextSize }}
+          data-turn-id={message.turnId}
         >
           {narratorAutoTurnMarker && (
             <span className={badgeClassName('NARRATOR')}>NARRATOR</span>
@@ -1250,6 +1251,7 @@ const MessageRow = memo(function MessageRow({
     return (
       <Fragment key={message.id}>
         {dayLabel && <div className="rp-day-divider chat-day-divider"><span>{dayLabel}</span></div>}
+        <div data-turn-id={message.turnId} className="timeline-jump-wrapper">
         <BankTransferCard
           characterColors={characterColors}
           transfer={message.bankTransfer}
@@ -1258,6 +1260,7 @@ const MessageRow = memo(function MessageRow({
           rpWeekdayLanguage={rpWeekdayLanguage}
           fontSize={chatTextSize || defaultChatTextSize}
         />
+        </div>
       </Fragment>
     );
   }
@@ -1275,6 +1278,7 @@ const MessageRow = memo(function MessageRow({
     return (
       <Fragment key={message.id}>
         {dayLabel && <div className="rp-day-divider chat-day-divider"><span>{dayLabel}</span></div>}
+        <div data-turn-id={message.turnId} className="timeline-jump-wrapper">
         <SocialPostCard
           post={socialPost}
           showProfileNames={showProfileNames}
@@ -1292,6 +1296,7 @@ const MessageRow = memo(function MessageRow({
           onOpen={() => onOpenSocialPost(socialPost)}
           onImageLoaded={onMessageContentLoaded}
         />
+        </div>
       </Fragment>
     );
   }
@@ -1300,7 +1305,7 @@ const MessageRow = memo(function MessageRow({
     return (
       <Fragment key={message.id}>
         {dayLabel && <div className="rp-day-divider chat-day-divider"><span>{dayLabel}</span></div>}
-        <div className="phone-app-command-card-stack">
+        <div className="phone-app-command-card-stack" data-turn-id={message.turnId}>
           {message.createdPhoneNote && (
             <CreatedPhoneNoteCard
               nameColor={characterColors.get(message.createdPhoneNote.characterName)}
@@ -1326,6 +1331,7 @@ const MessageRow = memo(function MessageRow({
       <article
         className={`message ${message.role} ${hasOutputActionUi ? 'has-output-action-ui' : ''}${isEditingMessage ? ' is-editing' : ''}`}
         style={primarySpeakerAccent ? ({ '--message-accent': primarySpeakerAccent } as CSSProperties) : undefined}
+        data-turn-id={message.turnId}
       >
       {speakerLabelNames.length > 0 && (
         <div
@@ -1593,6 +1599,9 @@ type ChatConversationPanelProps = RunProgress & {
   selectedReferenceImageIds: ReadonlySet<string>;
   canRunChat: boolean;
   runChatDisabledReason?: string;
+  onTriggerAutoTurn: () => void;
+  autoTurnDisabled: boolean;
+  autoTurnTitle: string;
   autoplayEnabled: boolean;
   autoplayMode: AutoplayMode;
   autoplayReplayDisabled: boolean;
@@ -1734,6 +1743,9 @@ const MemoizedChatConversationPanel = memo(function ChatConversationPanelContent
   selectedReferenceImageIds,
   canRunChat,
   runChatDisabledReason,
+  onTriggerAutoTurn,
+  autoTurnDisabled,
+  autoTurnTitle,
   autoplayEnabled,
   autoplayMode,
   autoplayReplayDisabled,
@@ -2498,6 +2510,20 @@ const MemoizedChatConversationPanel = memo(function ChatConversationPanelContent
                 Stop Voices
               </button>
             )}
+          <button
+            className="composer-autoturn-button"
+            type="button"
+            onClick={onTriggerAutoTurn}
+            disabled={autoTurnDisabled}
+            data-disabled-look={autoTurnDisabled ? 'true' : undefined}
+            title={autoTurnTitle}
+            aria-label="AutoTurn"
+          >
+            <svg className="composer-autoturn-icon" aria-hidden="true" viewBox="0 0 24 24">
+              <path d="M4 5v14l10-7z" />
+              <path d="M13 5v14l10-7z" />
+            </svg>
+          </button>
           <button
             type="submit"
             disabled={!canRunChat}

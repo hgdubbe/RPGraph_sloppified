@@ -20,6 +20,15 @@ function PhoneRailIcon() {
 function TimelineRailIcon() {
   return (
     <svg viewBox="0 0 24 24" aria-hidden="true">
+      <circle cx="12" cy="12" r="8.5" />
+      <path d="M12 7.5V12l3.2 2" />
+    </svg>
+  );
+}
+
+function EventsRailIcon() {
+  return (
+    <svg viewBox="0 0 24 24" aria-hidden="true">
       <rect x="4" y="5.5" width="16" height="14.5" rx="2.2" />
       <path d="M8 3.5v4M16 3.5v4M4 10h16" />
       <path d="M8 14h2M12 14h2M16 14h1M8 17h2M12 17h2" />
@@ -32,14 +41,16 @@ export type ContextDrawerProps = {
    * is open; `chatPanelView` (see useRoleplayPanelRuntime.ts) is derived from it. */
   content: ContextDrawerContent;
   onSelectPhone: () => void;
+  onSelectEvents: () => void;
   onSelectTimeline: () => void;
   onClose: () => void;
   isNarrowLayout: boolean;
   width: number | undefined;
   onWidthChange: (width: number | undefined) => void;
   phoneBadge: number;
-  timelineBadge: number;
+  eventsBadge: number;
   phoneContent: ReactNode;
+  eventsContent: ReactNode;
   timelineContent: ReactNode;
   drawerRef?: (element: HTMLDivElement | null) => void;
 };
@@ -47,14 +58,16 @@ export type ContextDrawerProps = {
 export function ContextDrawer({
   content,
   onSelectPhone,
+  onSelectEvents,
   onSelectTimeline,
   onClose,
   isNarrowLayout,
   width,
   onWidthChange,
   phoneBadge,
-  timelineBadge,
+  eventsBadge,
   phoneContent,
+  eventsContent,
   timelineContent,
   drawerRef,
 }: ContextDrawerProps) {
@@ -113,13 +126,22 @@ export function ContextDrawer({
         </button>
         <button
           type="button"
-          className={`studio-rail-button events${content === 'timeline' ? ' active' : ''}`}
+          className={`studio-rail-button events${content === 'events' ? ' active' : ''}`}
+          aria-pressed={content === 'events'}
+          title="Events"
+          onClick={onSelectEvents}
+        >
+          <span className="studio-rail-icon"><EventsRailIcon /></span>
+          {!!eventsBadge && <span className="studio-rail-badge">{eventsBadge}</span>}
+        </button>
+        <button
+          type="button"
+          className={`studio-rail-button timeline${content === 'timeline' ? ' active' : ''}`}
           aria-pressed={content === 'timeline'}
           title="Timeline"
           onClick={onSelectTimeline}
         >
           <span className="studio-rail-icon"><TimelineRailIcon /></span>
-          {!!timelineBadge && <span className="studio-rail-badge">{timelineBadge}</span>}
         </button>
       </nav>
       {isNarrowLayout && open && (
@@ -161,6 +183,7 @@ export function ContextDrawer({
           </button>
         )}
         <div className="studio-context-drawer-pane" hidden={content !== 'phone'}>{phoneContent}</div>
+        <div className="studio-context-drawer-pane" hidden={content !== 'events'}>{eventsContent}</div>
         <div className="studio-context-drawer-pane" hidden={content !== 'timeline'}>{timelineContent}</div>
       </div>
     </>

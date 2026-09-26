@@ -36,7 +36,7 @@
   .studio-context-drawer:has(.roleplay-phone-stage.landscape) {
     width: min(94vw, 460px);
   }
-  .studio-shell-play .studio-play-content { padding: 8px; }
+  .studio-shell-play .studio-play-content { padding: 0; }
 }
 
 @media (prefers-reduced-motion: reduce) {

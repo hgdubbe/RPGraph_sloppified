@@ -17,37 +17,40 @@ into it.
 
 ## Open
 
-- Landscape mode of phone simulation still has weird scaling (not the phone body, the
-  screen content). The underlying gap (theme/landscape CSS never ported) is fixed —
-  see Done — but the scaling behavior itself hasn't been visually re-checked since.
-- https://github.com/0xfreddy/homescreen https://github.com/Pierreg99/cryos-launcher
-  phone screen simulations. maybe claude can analyze this for better understanding
-  how phones work, look and feel, since this is code and claude understands code
-  better than "imagination"
-- Phone widgets waste too much space (the widgets' own internal layout/density,
-  not the drawer size fixed below — a bigger drawer doesn't yet mean a
-  better-used one).
-- phone reflection broken
-- NPCs should be able to use the phone's mood indicator
-- Themes per character
-- Some themes suck (esp. the girly ones look "dirty/dark", more pastel, brighter colors)
-- Showcase changes, maybe visually — a quick theme gallery / before-and-after pass so
-  the app-wide theming and phone-app reskins are actually visible to visitors instead of
-  just being hidden in the code and config files.
-- Chat Panel and Display of Actions like Messaging in Chat panel still share styles.css
-  with upstream's own rendering — only the 5 phone apps got split out with independent
-  theming so far (see Done); the chat/message-log split is a bigger, deliberate call
-  since that content is upstream-owned, not fork-authored.
-- chore: some UI elements slipped past the the theme-engine conversion and are still hardcoded
+- chore, always active: some UI elements slipped past the the theme-engine conversion and are still hardcoded
   or falling back to default style. Needs to be searched for and fixed.
-- chore: normalize theming: if something is on the same surface and has the same type and use,
+- chore, always active: normalize theming: if something is on the same surface and has the same type and use,
   use the same theming (e.g. all textboxes in options use the same theming, all descriptions
   in Storyeditor user the same theme values). Remove outliers that use their own schema despite
   having same function and visual representation inside their ui surface.
-- ComfyUI Provider: add a CFG control, change steps from a number field to a slider, and
-  replace the free-text sampler/scheduler fields with dropdowns populated from supported values.
+
+- whisper integration for voice input
+- explore the possibility of using fuse.js for semantic similarity lookup when the llm confuses a 
+  character-handle or image file name. goal is further hardening. this could be done perhaps by doing 
+  a fuse-lookup on a retry attempt, telling the llm something like "did you mean XXX"
 - Add the established encryption/decryption mechanism to rotating autosaves, with an
   explicit user option to enable it.
+- Glass mode for node display (`.studio.glass-design-active .workflow-node`/
+  `.wire-link-shape`/`.react-flow__handle`, ~src/styles.css:21100) needs its own
+  separate theming pass. It uses `rgba(r, g, b, var(--glass-opacity, N))` — the RGB
+  triplet is a bespoke glass-tint literal, not wired to any token, and doesn't fit the
+  color-mix pattern the rest of the node theming sweep used since the alpha channel is
+  itself a live CSS var. Flagged and deliberately left alone during that sweep pending
+  its own fix.
+- The phone camera dialog for sending image-generation prompts to Comfy has no way
+  to directly use a resulting image in the current chat — you have to close the
+  generator, reopen the phone image picker, then pick the image from the gallery.
+  (Saving to the character's gallery already works.) Needs a new callback threaded
+  from `ImageGenerationAssistantDialog` through `PhonePanel` into the message
+  composer's attachment state. Upstream has a use/cancel button in those menus.
+- scrap landscape mode, it sucks anyways. remove all references to landscape mode from the project, remove phone menu button.
+- remove phnoe widgets from active application. keep code and clock, all others inaccessible to user.
+- Showcase changes, maybe visually — a quick theme gallery / before-and-after pass so
+  the app-wide theming and phone-app reskins are actually visible to visitors instead of
+  just being hidden in the code and config files.
+
+## Done
+
 - Model unload ordering: **confirmed bug, not just a risk** — the LLM sometimes hits an
   OOM when loading right after an image generation, so ComfyUI's model isn't actually
   fully unloaded/freed from VRAM by the time the LLM tries to load. The main paths
@@ -57,16 +60,11 @@ into it.
   fixed delay, or retrying the LLM load on OOM), not just a revisit. Also check for a path
   that triggers an implicit/JIT LLM load without going through `freeComfyMemoryForLocalLlm`
   at all.
-- Glass mode for node display (`.studio.glass-design-active .workflow-node`/
-  `.wire-link-shape`/`.react-flow__handle`, ~src/styles.css:21100) needs its own
-  separate theming pass. It uses `rgba(r, g, b, var(--glass-opacity, N))` — the RGB
-  triplet is a bespoke glass-tint literal, not wired to any token, and doesn't fit the
-  color-mix pattern the rest of the node theming sweep used since the alpha channel is
-  itself a live CSS var. Flagged and deliberately left alone during that sweep pending
-  its own fix.
-
-## Done
-
+- ComfyUI Provider: add a CFG control, change steps from a number field to a slider, and
+  replace the free-text sampler/scheduler fields with dropdowns populated from supported values.
+- Some themes suck (esp. the girly ones look "dirty/dark", more pastel, brighter colors).
+  Fixed by new Theming Skill.
+- phone reflection broken. Fixed, wrong file paths referenced.
 - Ground-up Play mode UI rebuild: chat is now always visible instead of one of
   three mutually exclusive full-bleed tabs; a resizable Context Drawer shows
   Phone or the new Timeline (replaces Events, also absorbs turn history)
@@ -116,9 +114,4 @@ into it.
   count-only Images field is removed; a new phone contact-visibility matrix was wired
   onto the Phone rail page.
 - Instead of switching between roleplay and graph mode, make them tabs of the main window
-- The phone camera dialog for sending image-generation prompts to Comfy has no way
-  to directly use a resulting image in the current chat — you have to close the
-  generator, reopen the phone image picker, then pick the image from the gallery.
-  (Saving to the character's gallery already works.) Needs a new callback threaded
-  from `ImageGenerationAssistantDialog` through `PhonePanel` into the message
-  composer's attachment state. Fixed by remerging with upstream and theming.
+

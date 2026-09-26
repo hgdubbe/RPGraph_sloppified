@@ -422,11 +422,20 @@ describe('theme coverage for audited Studio surfaces', () => {
   // against a themed surface" guarantee now belongs to the Drawer Toggle
   // Rail (right-aligned between chat and the Context Drawer) and the
   // Context Drawer surface it toggles.
-  it('keeps the drawer toggle rail visually continuous with the context drawer surface', () => {
+  //
+  // Since .studio-play-content lost its outer padding, the rail now shares
+  // the chat pane / drawer's own panel fill (and their border color on its
+  // top/bottom edges) instead of staying transparent -- a transparent rail
+  // exposed the page background as a third, off-tone gap wedged between the
+  // chat pane's right border and the drawer's left border, which read as
+  // stray floating hairlines rather than one continuous framed strip.
+  it('keeps the drawer toggle rail visually continuous with the chat pane and context drawer surface', () => {
     const toggleRail = cssRule(roleplayDualPaneStyles, '.studio-drawer-toggle-rail');
     const drawer = cssRule(roleplayDualPaneStyles, '.studio-context-drawer');
 
-    expect(toggleRail).not.toMatch(/background:/);
+    expect(toggleRail).toContain('background: var(--theme-panel');
+    expect(toggleRail).toContain('border-top: 1px solid var(--theme-border');
+    expect(toggleRail).toContain('border-bottom: 1px solid var(--theme-border');
     expect(drawer).toContain('background: var(--theme-panel');
   });
 
@@ -471,41 +480,45 @@ describe('theme coverage for audited Studio surfaces', () => {
     expect(roleplayShell).not.toContain('studio-play-footer');
   });
 
-  it('themes the Event Viewer entirely from semantic application roles', () => {
+  it('themes the Event Manager disabled-state overlay entirely from semantic application roles', () => {
     const selectors = [
-      '.events-surface',
       '.events-disabled-overlay',
       '.events-disabled-overlay span',
-      '.events-list',
-      '.events-list-header',
-      '.events-list-header span',
-      '.event-item',
-      '.event-item:hover,\n.event-item.active',
-      '.event-item.active',
-      '.event-item.unread',
-      '.event-item.unread::after',
-      '.event-cancel-button',
-      '.event-cancel-button:hover',
-      '.event-date',
-      '.event-title',
-      '.event-source',
-      '.event-detail',
-      '.event-detail-header span',
-      '.event-detail-header strong',
-      '.event-detail-body div',
-      '.event-detail-body small',
-      '.event-detail-body span',
-      '.event-prompt-preview',
-      '.event-prompt-preview:focus',
-      '.event-run-button',
-      '.event-run-button:hover:not(:disabled)',
-      '.event-run-button:disabled',
+      '.events-disabled-message strong',
+      '.events-disabled-message small',
       '.events-empty',
     ];
 
     for (const selector of selectors) {
       expect(cssRule(styles, selector), selector).not.toMatch(/--theme-raw-|#[0-9a-f]{3,8}\b|rgba?\(/i);
     }
+  });
+
+  // The timeline rail is a read-only structural nav panel: every state
+  // (current turn, unread event, tracked vs. fallback timestamp) is shape,
+  // weight, or outline-style only -- never color. The old EventsPanel-style
+  // markup (.event-item/.event-run-button/.event-detail) legitimately lives
+  // on again in styles.css for the standalone Events Manager panel
+  // (EventsPanel.tsx) -- it just must not have leaked back into the
+  // Timeline rail's own component/stylesheet.
+  it('keeps the timeline rail shape/weight-coded instead of color-coded', () => {
+    expect(roleplayTimelineStyles).not.toContain('.event-item');
+    expect(roleplayTimelineStyles).not.toContain('.event-run-button');
+    expect(roleplayTimelineStyles).not.toContain('.event-detail');
+    expect(timelinePanel).not.toContain('className="event-item');
+    expect(timelinePanel).not.toContain('onSelectEvent');
+    expect(timelinePanel).not.toContain('selectedEvent');
+
+    const railNode = cssRule(roleplayTimelineStyles, '.rail-node');
+    const railCurrent = cssRule(roleplayTimelineStyles, '.rail-turn-node.is-current');
+    const railUnread = cssRule(roleplayTimelineStyles, '.rail-event-node.is-unread');
+
+    for (const rule of [railNode, railCurrent, railUnread]) {
+      expect(rule).not.toMatch(/--theme-raw-|#[0-9a-f]{3,8}\b|rgba?\(/i);
+    }
+    // Current-turn and unread-event states differ by border weight, not hue.
+    expect(railCurrent).toContain('border-width');
+    expect(railUnread).toContain('border-width');
   });
 
   // The Switch control moved back into App.tsx (roleplaySwitchPill), out of

@@ -1,10 +1,6 @@
 import type { TurnRecord, TurnRecordVariant } from '../types';
 
 type TurnControlsHeaderProps = {
-  triggerAutoTurn: () => void;
-  autoTurnDisabled: boolean;
-  autoTurnTitle: string;
-  isEventView: boolean;
   isRunning: boolean;
   currentSessionTurn: TurnRecord | undefined;
   currentTurnVariants: TurnRecordVariant[];
@@ -14,13 +10,11 @@ type TurnControlsHeaderProps = {
 /** Extracted verbatim from App.tsx's inline `roleplayComposerActions` block.
  * Switch and the back/regenerate/rephrase turn actions moved out to their own
  * pills in the composer's pills row (see App.tsx's roleplaySwitchPill /
- * roleplayHistoryActionsPill) -- this header now only covers AutoTurn, the
- * turn-variant picker, and the turn counter. */
+ * roleplayHistoryActionsPill); AutoTurn moved to its own small button beside
+ * the composer's send button (ChatConversationPanel.tsx's
+ * composer-autoturn-button) -- this header now only covers the turn-variant
+ * picker and the turn counter. */
 export function TurnControlsHeader({
-  triggerAutoTurn,
-  autoTurnDisabled,
-  autoTurnTitle,
-  isEventView,
   isRunning,
   currentSessionTurn,
   currentTurnVariants,
@@ -29,16 +23,6 @@ export function TurnControlsHeader({
   return (
     <div className="chat-actions">
       <div className="header-turn-actions">
-        <button
-          className="auto-turn-button"
-          type="button"
-          onClick={triggerAutoTurn}
-          disabled={autoTurnDisabled}
-          data-disabled-look={autoTurnDisabled ? 'true' : undefined}
-          title={autoTurnTitle}
-        >
-          {isEventView ? 'Run Event' : 'AutoTurn'}
-        </button>
         {currentTurnVariants.length > 1 && (
           <select
             className="turn-variant-select"
