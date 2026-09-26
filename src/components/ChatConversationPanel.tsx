@@ -18,7 +18,6 @@ import {
   type CSSProperties,
   type Dispatch,
   type FormEvent,
-  type ReactNode,
   type RefObject,
   type SetStateAction,
   useCallback,
@@ -432,6 +431,9 @@ const MessageRow = memo(function MessageRow({
       ? ['Character']
       : [];
   const speakerLabelsPlaceholder = speakerNames.length === 0 && reserveSpeakerLabels;
+  const primarySpeakerAccent = dialogueHighlightEnabled && speakerNames.length > 0
+    ? characterColors.get(speakerNames[0])
+    : undefined;
   const visibleText =
     message.role === 'error'
       ? displayText
@@ -1320,7 +1322,10 @@ const MessageRow = memo(function MessageRow({
   return (
     <Fragment key={message.id}>
       {dayLabel && <div className="rp-day-divider chat-day-divider"><span>{dayLabel}</span></div>}
-      <article className={`message ${message.role} ${hasOutputActionUi ? 'has-output-action-ui' : ''}${isEditingMessage ? ' is-editing' : ''}`}>
+      <article
+        className={`message ${message.role} ${hasOutputActionUi ? 'has-output-action-ui' : ''}${isEditingMessage ? ' is-editing' : ''}`}
+        style={primarySpeakerAccent ? ({ '--message-accent': primarySpeakerAccent } as CSSProperties) : undefined}
+      >
       {speakerLabelNames.length > 0 && (
         <div
           className={`message-speakers${speakerLabelsPlaceholder ? ' is-placeholder' : ''}`}
@@ -1514,7 +1519,6 @@ const MessageRow = memo(function MessageRow({
 });
 
 type ChatConversationPanelProps = RunProgress & {
-  workspaceControls?: ReactNode;
   chatMessageAvatarSize?: number;
   chatMessageAvatarsEnabled?: boolean;
   messageStream: MessageStream;
@@ -1660,7 +1664,6 @@ export function ChatConversationPanel(props: ChatConversationPanelProps) {
 }
 
 const MemoizedChatConversationPanel = memo(function ChatConversationPanelContent({
-  workspaceControls,
   chatMessageAvatarSize = 100,
   chatMessageAvatarsEnabled = true,
   activity,
@@ -2133,6 +2136,17 @@ const MemoizedChatConversationPanel = memo(function ChatConversationPanelContent
           '--chat-reading-color': chatReadingColor(chatTextBrightness),
         } as CSSProperties}
       >
+        {visibleMessages.length === 0 && (
+          <div className="rp-chat-empty-state">
+            <span className="rp-chat-empty-icon" aria-hidden="true">
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M5 6.5h11.5a2.5 2.5 0 0 1 2.5 2.5v5.5a2.5 2.5 0 0 1-2.5 2.5H11l-4.5 3v-3H5A2.5 2.5 0 0 1 2.5 14.5V9A2.5 2.5 0 0 1 5 6.5Z" />
+              </svg>
+            </span>
+            <strong>No story yet</strong>
+            <small>Pick a character (or Narrator) and send the first message to begin.</small>
+          </div>
+        )}
         {visibleMessages.map((message, index) => (
           <MessageRow
             key={message.id}
@@ -2455,9 +2469,6 @@ const MemoizedChatConversationPanel = memo(function ChatConversationPanelContent
               onCommandsChange={onDraftCommandsChange}
               onRequestMessageFocus={() => commandComposerRef.current?.focusMessage()}
             />
-          )}
-          {workspaceControls && (
-            <div className="composer-workspace-controls">{workspaceControls}</div>
           )}
           <div className="composer-run-actions">
             <AutoplayControl

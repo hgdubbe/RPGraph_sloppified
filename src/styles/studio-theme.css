@@ -120,8 +120,7 @@
   font-family: var(--theme-heading-font, inherit);
 }
 
-.studio[data-studio-theme] .studio-play-scene span,
-.studio[data-studio-theme] .studio-character-tabs span {
+.studio[data-studio-theme] .studio-play-scene span {
   color: var(--theme-muted-foreground);
 }
 
@@ -170,29 +169,6 @@
   background: var(--theme-panel);
 }
 
-.studio[data-studio-theme] .studio-activity-rail {
-  border-bottom-color: var(--theme-border-soft);
-  background: var(--theme-surface-rail);
-}
-
-.studio[data-studio-theme] .studio-character-surface-tabs {
-  background: transparent;
-}
-
-.studio[data-studio-theme] .studio-character-surface-tabs .studio-rail-button {
-  border-color: var(--theme-border-soft);
-  border-radius: var(--theme-radius) var(--theme-radius) 0 0;
-  color: var(--theme-muted-foreground);
-  background: var(--theme-panel);
-}
-
-.studio[data-studio-theme] .studio-character-surface-tabs .studio-rail-button.active {
-  border-color: var(--theme-primary);
-  border-bottom-color: var(--theme-card);
-  color: var(--theme-primary);
-  background: var(--theme-card);
-}
-
 .studio[data-studio-theme] .studio-rail-button {
   border-radius: var(--theme-radius);
   color: var(--theme-rail);
@@ -206,22 +182,6 @@
 
 .studio[data-studio-theme] .studio-play-content {
   background: var(--theme-surface-content);
-}
-
-.studio[data-studio-theme] .studio-character-tabs {
-  border-bottom-color: var(--theme-border-soft);
-  background: var(--theme-surface-content);
-}
-
-.studio[data-studio-theme] .studio-character-tabs button {
-  border-color: var(--theme-border-soft);
-  border-radius: var(--theme-radius) var(--theme-radius) 0 0;
-  background: var(--theme-panel);
-}
-
-.studio[data-studio-theme] .studio-character-tabs button.active {
-  border-color: var(--theme-primary);
-  background: var(--theme-card);
 }
 
 .studio[data-studio-theme] .chat-lockable,

@@ -1,6 +1,5 @@
 import { highlightingSpeakerReferences, type HighlightingSpeakerContext } from './nodes/output/speakerSelection';
 import { textEffectsStyle } from './chat/textEffects';
-import { CharacterName } from './components/CharacterName';
 import { AppMessageAvatars } from './components/AppMessageAvatars';
 import { createNodeViewSnapshot } from './app/nodeViewSnapshot';
 import { useNodeViewContent } from './nodes/nodeViewContent';
@@ -48,15 +47,17 @@ import {
   type AssistantMessage as AssistantChatMessage,
   type DebugSnapshotAssistantSection,
 } from './components/AssistantDialog';
-import { EdgeCharacterPicker } from './components/EdgeCharacterPicker';
+import { CharacterSwitchChip } from './components/CharacterSwitchChip';
+import { TurnControlsHeader } from './components/TurnControlsHeader';
 import { runProgress } from './chat/runProgress';
 import { ChatConversationPanel } from './components/ChatConversationPanel';
-import { EventsPanel } from './components/EventsPanel';
+import { TimelinePanel } from './components/TimelinePanel';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import { GraphStudioShell } from './components/GraphStudioShell';
 import { PhonePanel } from './components/PhonePanel';
 import { RoleplayPhoneDevice } from './components/RoleplayPhoneDevice';
 import { RoleplayStudioShell } from './components/RoleplayStudioShell';
+import { ContextDrawer } from './components/ContextDrawer';
 import { PopoutWindow } from './components/PopoutWindow';
 import { phoneMoodContext } from './phone/moodStatus';
 import { useChatGpdPhoneApp } from './chat/useChatGpdPhoneApp';
@@ -151,7 +152,6 @@ import {
 import { hydrateLoadedWorkflow, type HydratedWorkflow } from './app/workflowHydration';
 import {
   lastMessage,
-  narratorCharacterId,
   narratorSpeakerName,
 } from './app/runOrchestration';
 import {
@@ -291,7 +291,6 @@ import {
   speakerDataForFormat,
 } from './nodes/output/speakerPrompt';
 import {
-  defaultChatPanelWidth,
   defaultConnection,
   useAppSettings,
 } from './settings';
@@ -507,8 +506,6 @@ function loadAssistantConnectionId() {
   }
 }
 
-const minChatPanelWidth = 779;
-const minGraphPanelWidth = 520;
 const phoneEmojiOptions = [
   '🙂',
   '😀',
@@ -793,8 +790,6 @@ function App() {
     setReferenceImageTurnLookback,
     maxReferenceImages,
     setMaxReferenceImages,
-    chatPanelWidth: storedChatPanelWidth,
-    setChatPanelWidth: setStoredChatPanelWidth,
     settingsLoadComplete,
     settingsStatus,
     glassDesignEnabled,
@@ -958,8 +953,6 @@ function App() {
   const [workflowAssistantMessages, setWorkflowAssistantMessages] = useState<AssistantChatMessage[]>([]);
   const [outputFormatHelpKind, setOutputFormatHelpKind] =
     useState<OutputFormatHelpKind | null>(null);
-  const [chatWidth, setChatWidth] = useState(defaultChatPanelWidth);
-  const [isResizing, setIsResizing] = useState(false);
   const [roleplayPanelDetached, setRoleplayPanelDetached] = useState(false);
   const closeRoleplayPanelDetached = useCallback(() => setRoleplayPanelDetached(false), []);
   const [showDeletedNodeRestoreButton, setShowDeletedNodeRestoreButton] = useState(false);
@@ -982,6 +975,10 @@ function App() {
   useEffect(() => { lifecycleRunningRef.current = isRunning; }, [isRunning]);
   const imageInputRef = useRef<HTMLInputElement | null>(null);
   const lastTurnAutosaveIdRef = useRef<string | null>(null);
+  const phoneDrawerRef = useRef<HTMLDivElement | null>(null);
+  const setPhoneDrawerRef = useCallback((element: HTMLDivElement | null) => {
+    phoneDrawerRef.current = element;
+  }, []);
   useEffect(() => {
     if (!topbarMenuOpen) {
       return undefined;
@@ -1092,6 +1089,12 @@ function App() {
     chatPanelView,
     selectChatPanelView,
     selectPhonePanelView,
+    drawerContent,
+    isNarrowLayout,
+    setPlayContentRef,
+    contextDrawerWidth,
+    setContextDrawerWidth,
+    pastTurns,
     setSelectedCharacterId,
     selectedCharacter,
     narratorSelected,
@@ -1155,6 +1158,7 @@ function App() {
     unlockOnlyFriendsPost,
     unreadEventCount,
     unreadChatCount,
+    unreadPhoneNotificationCount,
     unreadBankingCount,
     markViewedBankingSeen,
     phoneAppNotificationCounts,
@@ -1809,7 +1813,6 @@ function App() {
   const copiedSelection = useRef<CopiedGraphSelection | null>(null);
   const deletedNodeRestoreStack = useRef<DeletedGraphRestoreAction[]>([]);
   const pasteCount = useRef(0);
-  const chatWidthRef = useRef(chatWidth);
   const edgesRef = useRef(edges);
   const commitEdges = useCallback((nextEdges: Edge[]) => {
     edgesRef.current = nextEdges;
@@ -1888,10 +1891,6 @@ function App() {
     cancelBulkNodeRemoval,
     confirmBulkNodeRemoval,
   } = useNodeContextMenu({ nodesRef, flowInstanceRef });
-
-  useEffect(() => {
-    chatWidthRef.current = chatWidth;
-  }, [chatWidth]);
 
   useEffect(() => {
     if (assistantConnectionId) {
@@ -2143,44 +2142,6 @@ function App() {
   }, [isRunning, messages, rpDateTimeFormat, rpWeekdayLanguage, setNodes]);
 
   useEffect(() => {
-    if (settingsLoadComplete) {
-      const maximum = Math.max(minChatPanelWidth, window.innerWidth - minGraphPanelWidth);
-      queueMicrotask(() => {
-        const nextWidth = Math.min(maximum, Math.max(minChatPanelWidth, storedChatPanelWidth));
-        setChatWidth((current) => (current === nextWidth ? current : nextWidth));
-      });
-    }
-  }, [settingsLoadComplete, storedChatPanelWidth]);
-
-  useEffect(() => {
-    if (!isResizing) {
-      return;
-    }
-
-    function resize(event: PointerEvent) {
-      const maximum = Math.max(minChatPanelWidth, window.innerWidth - minGraphPanelWidth);
-      const width = Math.min(maximum, Math.max(minChatPanelWidth, window.innerWidth - event.clientX));
-      chatWidthRef.current = width;
-      setChatWidth(width);
-    }
-
-    function stopResize() {
-      setIsResizing(false);
-      setStoredChatPanelWidth(chatWidthRef.current);
-    }
-
-    document.body.classList.add('resizing-panels');
-    window.addEventListener('pointermove', resize);
-    window.addEventListener('pointerup', stopResize);
-
-    return () => {
-      document.body.classList.remove('resizing-panels');
-      window.removeEventListener('pointermove', resize);
-      window.removeEventListener('pointerup', stopResize);
-    };
-  }, [isResizing, setStoredChatPanelWidth]);
-
-  useEffect(() => {
     if (!previewImage) {
       return;
     }
@@ -2192,6 +2153,67 @@ function App() {
     window.addEventListener('keydown', closePreview);
     return () => window.removeEventListener('keydown', closePreview);
   }, [previewImage]);
+
+  useEffect(() => {
+    // The drawer only behaves like a modal overlay in narrow layout; in wide
+    // layout it's a normal in-flow sibling and shouldn't steal focus.
+    if (drawerContent === null || !isNarrowLayout) {
+      return;
+    }
+
+    const previouslyFocused = document.activeElement instanceof HTMLElement
+      ? document.activeElement
+      : null;
+    phoneDrawerRef.current?.querySelector<HTMLElement>('.studio-context-drawer-close')?.focus();
+
+    return () => previouslyFocused?.focus();
+  }, [drawerContent, isNarrowLayout]);
+
+  useEffect(() => {
+    if (drawerContent === null || !isNarrowLayout) {
+      return;
+    }
+
+    function handleKeyboard(event: KeyboardEvent) {
+      if (event.key === 'Escape') {
+        if (previewImage) {
+          // Let the image-preview handler (a nested overlay on top of the drawer) close first.
+          return;
+        }
+        event.preventDefault();
+        selectChatPanelView('chat');
+        return;
+      }
+      if (event.key !== 'Tab') {
+        return;
+      }
+
+      const drawer = phoneDrawerRef.current;
+      const focusable = drawer
+        ? Array.from(drawer.querySelectorAll<HTMLElement>(
+            'button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])',
+          )).filter((element) => element.offsetParent !== null)
+        : [];
+      if (!drawer || focusable.length === 0) {
+        event.preventDefault();
+        drawer?.focus();
+        return;
+      }
+
+      const first = focusable[0];
+      const last = focusable[focusable.length - 1];
+      if (event.shiftKey && document.activeElement === first) {
+        event.preventDefault();
+        last.focus();
+      } else if (!event.shiftKey && document.activeElement === last) {
+        event.preventDefault();
+        first.focus();
+      }
+    }
+
+    window.addEventListener('keydown', handleKeyboard);
+    return () => window.removeEventListener('keydown', handleKeyboard);
+  }, [drawerContent, isNarrowLayout, previewImage, selectChatPanelView]);
 
   function persistentDeletedNodeData(data: WorkflowNodeData) {
     try {
@@ -5594,128 +5616,40 @@ function App() {
   }, [commitNodes, prepareLoadedWorkflow, selectedGraphNode, setFileStorageStatus]);
 
   const roleplayCharacterPicker = (
-    <div className="studio-character-tabs" role="tablist" aria-label="Playable characters">
-      <button
-        type="button"
-        role="tab"
-        aria-selected={narratorSelected}
-        className={narratorSelected ? 'active' : ''}
-        onClick={() => selectChatCharacter(narratorCharacterId)}
-      >
-        <strong>{narratorSpeakerName}</strong>
-        <span>system voice</span>
-      </button>
-      {storyCharacters.map((character) => {
-        const isActive = selectedCharacter?.id === character.id && !narratorSelected;
-        const charColor = characterColors.get(character.name);
-        return (
-          <button
-            type="button"
-            key={character.id}
-            role="tab"
-            aria-selected={isActive}
-            className={isActive ? 'active' : ''}
-            onClick={() => selectChatCharacter(character.id)}
-            style={charColor ? { '--character-tab-color': charColor } as React.CSSProperties : undefined}
-          >
-            <strong><CharacterName color={charColor}>{character.name}</CharacterName></strong>
-            <span>{isActive ? 'playing now' : character.id === viewedPhoneCharacter?.id ? 'phone open' : 'available'}</span>
-          </button>
-        );
-      })}
-    </div>
+    <CharacterSwitchChip
+      storyCharacters={storyCharacters}
+      playerCharacters={playerCharacters}
+      narratorSelected={narratorSelected}
+      selectedCharacterId={selectedCharacter?.id}
+      viewedPhoneCharacterId={viewedPhoneCharacter?.id}
+      characterColors={characterColors}
+      selectChatCharacter={selectChatCharacter}
+      settingsLoadComplete={settingsLoadComplete}
+      hintSeen={edgeCharacterPickerHintSeen}
+      onHintSeen={setEdgeCharacterPickerHintSeen}
+      notificationCount={unreadChatCount}
+    />
   );
 
   const roleplayComposerActions = (
-    <div className="chat-actions">
-      <button
-        className="switch-player-button"
-        type="button"
-        onClick={switchActivePlayer}
-        disabled={switchPlayerDisabled}
-        data-disabled-look={switchPlayerDisabled ? 'true' : undefined}
-        title={switchPlayerTitle}
-      >
-        Switch
-      </button>
-      <div className="header-turn-actions">
-        <button
-          className="auto-turn-button"
-          type="button"
-          onClick={triggerAutoTurn}
-          disabled={autoTurnDisabled}
-          data-disabled-look={autoTurnDisabled ? 'true' : undefined}
-          title={autoTurnTitle}
-        >
-          {chatPanelView === 'events' ? 'Run Event' : 'AutoTurn'}
-        </button>
-        <div className="turn-controls" aria-label="Turn actions">
-          <button
-            type="button"
-            onClick={cancelRunOrUndoLastTurn}
-            disabled={undoTurnDisabled}
-            title={undoTurnTitle}
-            aria-label={undoTurnTitle}
-          >
-            {isRunning ? 'x' : '←'}
-          </button>
-          <button
-            type="button"
-            onClick={() => regenerateLastOutput()}
-            disabled={!isRunning && !currentSessionTurn}
-            title={isRunning ? 'Cancel and restart the running RP output' : 'Regenerate the last RP output'}
-            aria-label={isRunning ? 'Cancel and restart the running RP output' : 'Regenerate the last RP output'}
-          >
-            ↶
-          </button>
-          <button
-            type="button"
-            onClick={() => regenerateLastOutput({ reflavor: true })}
-            disabled={isRunning || !currentSessionTurn}
-            title="Reflavor the last output while preserving the same continuity"
-            aria-label="Reflavor the last output while preserving continuity"
-          >
-            Rf
-          </button>
-        </div>
-        {currentTurnVariants.length > 1 && (
-          <select
-            className="turn-variant-select"
-            aria-label="Turn variant"
-            value={`${currentSessionTurn?.id}-active`}
-            disabled={isRunning}
-            onChange={(event) => selectLastTurnVariant(event.target.value)}
-          >
-            {currentTurnVariants.map((variant, index) => (
-              <option key={variant.id} value={variant.id}>
-                {index + 1}. {variant.label}
-              </option>
-            ))}
-          </select>
-        )}
-        <span className="turn-counter">
-          Turn {currentSessionTurn?.number ?? 0}
-        </span>
-      </div>
-    </div>
+    <TurnControlsHeader
+      switchActivePlayer={switchActivePlayer}
+      switchPlayerDisabled={switchPlayerDisabled}
+      switchPlayerTitle={switchPlayerTitle}
+      triggerAutoTurn={triggerAutoTurn}
+      autoTurnDisabled={autoTurnDisabled}
+      autoTurnTitle={autoTurnTitle}
+      isEventView={chatPanelView === 'events'}
+      cancelRunOrUndoLastTurn={cancelRunOrUndoLastTurn}
+      undoTurnDisabled={undoTurnDisabled}
+      undoTurnTitle={undoTurnTitle}
+      isRunning={isRunning}
+      regenerateLastOutput={regenerateLastOutput}
+      currentSessionTurn={currentSessionTurn}
+      currentTurnVariants={currentTurnVariants}
+      selectLastTurnVariant={selectLastTurnVariant}
+    />
   );
-
-  const roleplayStudioSurfaces = [
-    {
-      id: 'chat' as const,
-      label: 'Chat',
-      badge: unreadChatCount,
-      active: chatPanelView === 'chat',
-      onSelect: () => selectChatPanelView('chat'),
-    },
-    {
-      id: 'events' as const,
-      label: 'Events',
-      badge: unreadEventCount,
-      active: chatPanelView === 'events',
-      onSelect: () => selectChatPanelView('events'),
-    },
-  ];
 
   const graphCanvas = (
     <NodeActionsContext.Provider value={nodeActions}>
@@ -6554,9 +6488,7 @@ function App() {
         </div>
       </nav>
 
-      <main
-        className={`workspace ${isResizing ? 'resizing' : ''}`}
-      >
+      <main className="workspace">
         {studioMode === 'graph' && (
         <ErrorBoundary label="Graph Panel">
           <GraphStudioShell
@@ -6578,30 +6510,20 @@ function App() {
           title="RPGraph Roleplay"
           onClose={closeRoleplayPanelDetached}
         >
-        {!isResizing && (
-          <EdgeCharacterPicker
-            characters={playerCharacters}
-            settingsLoadComplete={settingsLoadComplete}
-            hintSeen={edgeCharacterPickerHintSeen}
-            onHintSeen={setEdgeCharacterPickerHintSeen}
-            selectedId={narratorSelected ? narratorCharacterId : selectedCharacter?.id}
-            characterColors={characterColors}
-            onSelect={selectChatCharacter}
-          />
-        )}
         <RoleplayStudioShell
-          characterPicker={roleplayCharacterPicker}
-          surfaces={roleplayStudioSurfaces}
-          panelWidth={chatWidth}
-          onResizeStart={() => setIsResizing(true)}
+          playContentRef={setPlayContentRef}
         >
           <div className="chat-lockable roleplay-dual-pane">
-          <div className="roleplay-chat-pane" hidden={chatPanelView === 'events'} onFocusCapture={() => {
-            if (chatPanelView === 'phone') selectChatPanelView('chat');
-          }}>
+          <div
+            className="roleplay-chat-pane"
+            // Chat is always mounted and visible now; only in narrow layout
+            // does an open drawer take over the screen and make it inert.
+            aria-hidden={isNarrowLayout && drawerContent !== null ? true : undefined}
+            inert={isNarrowLayout && drawerContent !== null}
+          >
+            {roleplayCharacterPicker}
             <ChatConversationPanel
               key={panelSessionRevision}
-              workspaceControls={roleplayComposerActions}
               appCharacters={npcParticipants.characters()}
               {...runProgress(isRunning ? nodes : [])}
               messageStream={messageStream}
@@ -6746,6 +6668,24 @@ function App() {
               onMessageContentLoaded={() => scrollChatThreadToBottomIfFollowing('smooth')}
             />
           </div>
+          <ContextDrawer
+            content={drawerContent}
+            onSelectPhone={() => {
+              if (chatPanelView === 'phone') {
+                selectChatPanelView('chat');
+              } else {
+                selectPhonePanelView();
+              }
+            }}
+            onSelectTimeline={() => selectChatPanelView(chatPanelView === 'events' ? 'chat' : 'events')}
+            onClose={() => selectChatPanelView('chat')}
+            isNarrowLayout={isNarrowLayout}
+            width={contextDrawerWidth}
+            onWidthChange={setContextDrawerWidth}
+            phoneBadge={unreadPhoneNotificationCount}
+            timelineBadge={unreadEventCount}
+            drawerRef={setPhoneDrawerRef}
+            phoneContent={
           <RoleplayPhoneDevice owner={viewedPhoneCharacter?.name ?? 'Character'} orientation={phoneDesktopLayout.orientation}
             phoneHomeThemeId={effectivePhoneHomeThemeId}
             phoneHomeThemeManifests={phoneHomeThemeRegistry.manifests}
@@ -7030,29 +6970,31 @@ function App() {
             />
             </AppMessageAvatars>
           </RoleplayPhoneDevice>
-          {chatPanelView === 'events' && (
-            <div className="roleplay-chat-pane">
-            <EventsPanel
-              key={panelSessionRevision}
-              upcomingEvents={upcomingEvents}
-              selectedEvent={selectedEvent}
-              highlightedEventIds={highlightedEventIds}
-              eventManagerAvailable={eventManagerAvailable}
-              runDisabled={
-                isRunning ||
-                !eventManagerAvailable ||
-                characterStorybookNodes.length === 0 ||
-                !selectedEvent
-              }
-              isRunning={isRunning}
-              rpDateTimeFormat={rpDateTimeFormat}
-              rpWeekdayLanguage={rpWeekdayLanguage}
-              onSelectEvent={setSelectedEventId}
-              onCancelEvent={cancelEvent}
-              onRunEvent={runSelectedEvent}
-            />
-            </div>
-          )}
+            }
+            timelineContent={
+              <TimelinePanel
+                key={panelSessionRevision}
+                upcomingEvents={upcomingEvents}
+                selectedEvent={selectedEvent}
+                highlightedEventIds={highlightedEventIds}
+                eventManagerAvailable={eventManagerAvailable}
+                runDisabled={
+                  isRunning ||
+                  !eventManagerAvailable ||
+                  characterStorybookNodes.length === 0 ||
+                  !selectedEvent
+                }
+                isRunning={isRunning}
+                rpDateTimeFormat={rpDateTimeFormat}
+                rpWeekdayLanguage={rpWeekdayLanguage}
+                onSelectEvent={setSelectedEventId}
+                onCancelEvent={cancelEvent}
+                onRunEvent={runSelectedEvent}
+                pastTurns={pastTurns}
+                turnControlsHeader={roleplayComposerActions}
+              />
+            }
+          />
           </div>
         </RoleplayStudioShell>
         </PopoutWindow>

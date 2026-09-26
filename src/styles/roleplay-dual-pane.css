@@ -1,51 +1,25 @@
-/* The phone column/row is sized from the *container's own width* first —
-   `RoleplayPhoneDevice` already clamps its actual render size to whatever
-   height is really available (it measures its own box and never renders
-   taller than that), so this track only needs a generous, width-driven
-   share plus a sane pixel ceiling. It used to size off `100cqh` (portrait)
-   / cap at `62%` of the container's height (landscape) instead — both
-   percentages of the *cross* axis, which stays flat while only the window's
-   width grows, so the phone barely grew with the window at all. Dropping
-   that cross-axis dependency (and loosening the landscape safety cap) lets
-   the phone scale with available width as intended, while the pixel
-   ceiling keeps it from becoming absurd on an ultra-wide window and the
-   pixel floor keeps it usable on a narrow one. */
+/* Chat is the full-width primary surface by default; the phone used to be
+   a permanent 46%-wide grid sibling that squeezed the narrative pane on
+   every screen regardless of whether anyone was looking at the phone.
+   Phone and Timeline content now live in the Context Drawer (see
+   .studio-context-drawer below), which overlays this container from the
+   right in narrow layout or sits in-flow beside chat in wide layout,
+   instead of either sharing a track with chat or being a separate tab. */
 .studio-shell-play .chat-lockable.roleplay-dual-pane {
-  display: grid;
-  grid-template-columns: minmax(240px, min(46%, 520px)) minmax(0, 1fr);
-  gap: 18px;
+  position: relative;
+  display: flex;
+  /* Overrides the shared `.chat-lockable` column direction (styles.css) --
+     chat, the toggle rail, and the drawer are laid out side by side now
+     that the rail sits in-flow between them at every layout width. */
+  flex-direction: row;
   box-sizing: border-box;
   border: 0;
   border-radius: 0;
   background: transparent;
-}
-
-/* Landscape phone: wide and short, so it wastes width sitting beside a
-   narrow chat column. Stack it above the chat pane instead — full width,
-   height driven by the landscape aspect ratio against the container's
-   width rather than its height. The `78%`-of-container-height term is only
-   a safety backstop for a short-but-wide window (so the chat pane below
-   never gets squeezed to nothing); at typical window heights the
-   width-driven `calc()` term is the one that actually wins. */
-.studio-shell-play .roleplay-dual-pane:has(.roleplay-phone-stage.landscape) {
-  grid-template-columns: 1fr;
-  grid-template-rows: minmax(140px, min(78%, clamp(140px, calc(100cqw * 430 / 932), 560px))) minmax(0, 1fr);
-  gap: 14px;
-}
-
-.studio-shell-play .roleplay-dual-pane:has(.roleplay-phone-stage.landscape) .roleplay-phone-stage {
-  grid-column: 1;
-  grid-row: 1;
-}
-
-.studio-shell-play .roleplay-dual-pane:has(.roleplay-phone-stage.landscape) .roleplay-chat-pane {
-  grid-column: 1;
-  grid-row: 2;
+  overflow: hidden;
 }
 
 .roleplay-phone-stage {
-  grid-column: 1;
-  grid-row: 1;
   display: flex;
   justify-content: center;
   align-items: center;
@@ -53,6 +27,198 @@
   height: 100%;
   min-width: 0;
   min-height: 0;
+}
+
+/* The drawer's own chrome (backdrop, panel, close button, resize handle) is
+   genuine Studio UI -- unlike the hardware bezel/status-bar literals below,
+   it themes normally. Narrow-mode width is a container-query clamp off the
+   shell's own box (`.studio-play-content` sets container-type: size) rather
+   than a percentage of the phone's cross axis, so it scales with the window
+   like the rest of the shell. Landscape gets a wider clamp since the
+   simulated handset itself is wide-and-short in that orientation and would
+   otherwise render tiny inside a narrow portrait-sized drawer.
+
+   Generalized from the old phone-only `.studio-phone-drawer` to host either
+   Phone or Timeline content (see ContextDrawer.tsx). Below 900px container
+   width it's still the same absolute-overlay + backdrop + translateX drawer
+   as before; the `@container (min-width: 900px)` block below turns it into
+   an ordinary in-flow flex sibling instead, sized from Phase 1's persisted
+   `contextDrawerWidth` (the `--studio-context-drawer-width` custom property)
+   or the same clamp as a default. */
+.studio-context-drawer {
+  position: absolute;
+  inset: 0 0 0 auto;
+  z-index: 5;
+  display: flex;
+  width: clamp(340px, 52cqw, 480px);
+  box-sizing: border-box;
+  padding: 14px;
+  border-left: 1px solid color-mix(in srgb, var(--theme-border, rgba(77, 96, 138, 0.72)) 55%, transparent);
+  background: var(--theme-panel, #101421);
+  box-shadow:
+    inset 1px 0 0 rgba(255, 255, 255, 0.05),
+    -24px 0 48px var(--theme-raw-vrgba000035, rgba(0, 0, 0, 0.35));
+  transform: translateX(calc(100% + 24px));
+  transition: transform 200ms ease;
+  pointer-events: none;
+}
+
+.studio-context-drawer:has(.roleplay-phone-stage.landscape) {
+  width: clamp(360px, 68cqw, 760px);
+}
+
+.studio-context-drawer.open {
+  transform: translateX(0);
+  pointer-events: auto;
+}
+
+@container (min-width: 900px) {
+  .studio-context-drawer {
+    position: relative;
+    inset: auto;
+    flex: 0 0 auto;
+    width: var(--studio-context-drawer-width, clamp(380px, 40cqw, 560px));
+    border-left-color: transparent;
+    box-shadow: none;
+    transform: none;
+    transition: width 200ms ease;
+    pointer-events: auto;
+  }
+
+  .studio-context-drawer:not(.open) {
+    width: 0;
+    padding: 0;
+    border-left-color: transparent;
+    overflow: hidden;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .studio-context-drawer {
+      transition: none;
+    }
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .studio-context-drawer {
+    transition: none;
+  }
+}
+
+.studio-context-drawer-backdrop {
+  position: absolute;
+  inset: 0;
+  z-index: 4;
+  border: 0;
+  padding: 0;
+  background: color-mix(in srgb, var(--theme-background, #070912) 45%, transparent);
+  cursor: pointer;
+}
+
+.studio-context-drawer-close {
+  position: absolute;
+  top: 10px;
+  left: -14px;
+  z-index: 6;
+  display: grid;
+  width: 28px;
+  height: 28px;
+  place-items: center;
+  border: 1px solid var(--theme-border, rgba(77, 96, 138, 0.72));
+  border-radius: 50%;
+  color: var(--theme-foreground, #eaf7ff);
+  background: var(--theme-card, #182131);
+  box-shadow: var(--theme-card-shadow, 0 2px 8px rgba(0, 0, 0, 0.3));
+  cursor: pointer;
+}
+
+.studio-context-drawer-close svg {
+  width: 15px;
+  height: 15px;
+  fill: none;
+  stroke: currentColor;
+  stroke-linecap: round;
+  stroke-width: 2;
+}
+
+.studio-context-drawer-pane {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+  width: 100%;
+}
+
+.studio-context-drawer-pane[hidden] { display: none; }
+
+/* Always-present seam between chat and drawer; the two toggle buttons are
+   the drawer's reopen affordance once it's collapsed, so this rail itself
+   never gets hidden or inert. */
+.studio-drawer-toggle-rail {
+  position: relative;
+  z-index: 6;
+  display: flex;
+  flex: 0 0 44px;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  width: 44px;
+  padding: 8px 0;
+  box-sizing: border-box;
+}
+
+.studio-drawer-resize-handle {
+  display: none;
+}
+
+@container (min-width: 900px) {
+  .studio-drawer-resize-handle {
+    display: block;
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    left: -12px;
+    width: 24px;
+    cursor: col-resize;
+    touch-action: none;
+    background: transparent;
+  }
+
+  .studio-drawer-resize-handle::before {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    left: 50%;
+    width: 3px;
+    margin-left: -1.5px;
+    content: "";
+    background: color-mix(in srgb, var(--theme-shell-drawer-handle-bg, var(--theme-border, rgba(77, 96, 138, 0.72))) 70%, transparent);
+  }
+
+  /* A flat 3px line reads as a stray border, not a control -- this grip
+     capsule (only visible marker besides the line) is what actually signals
+     "drag me" at rest, not just on hover. */
+  .studio-drawer-resize-handle::after {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 4px;
+    height: 36px;
+    margin: -18px 0 0 -2px;
+    content: "";
+    border-radius: 3px;
+    background: var(--theme-shell-drawer-handle-bg, var(--theme-border, rgba(77, 96, 138, 0.72)));
+  }
+
+  .studio-drawer-resize-handle:hover::before,
+  .studio-drawer-resize-handle.dragging::before {
+    background: var(--theme-primary, #7ee1f7);
+  }
+
+  .studio-drawer-resize-handle:hover::after,
+  .studio-drawer-resize-handle.dragging::after {
+    background: var(--theme-primary, #7ee1f7);
+  }
 }
 
 /* Status bar and home button are phone hardware, like the bezel in
@@ -127,9 +293,8 @@
 .roleplay-phone-screen .phone-desktop.is-launching { filter: brightness(.85); }
 
 .roleplay-chat-pane {
-  grid-column: 2;
-  grid-row: 1;
   display: flex;
+  flex: 1 1 auto;
   flex-direction: column;
   width: 100%;
   height: 100%;
@@ -142,7 +307,169 @@
   background: var(--theme-panel, var(--panel, #121722));
 }
 
-.roleplay-chat-pane[hidden] { display: none; }
+.character-switch-chip {
+  position: relative;
+  flex: 0 0 auto;
+  padding: 6px 10px 0;
+}
+
+.character-switch-chip-button {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  height: 40px;
+  padding: 0 12px;
+  border: 1px solid var(--theme-border, #363640);
+  border-radius: 999px;
+  color: var(--theme-app-dialog-text, var(--text));
+  background: var(--theme-card, var(--panel, #121722));
+  cursor: pointer;
+}
+
+.character-switch-chip-avatars {
+  display: flex;
+  align-items: center;
+}
+
+.character-switch-chip-avatar {
+  display: inline-flex;
+  width: 32px;
+  height: 32px;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  border: 2px solid var(--theme-border, #363640);
+  border-radius: 50%;
+  background: #253347;
+  color: #edf1ff;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.character-switch-chip-avatar img,
+.character-switch-chip-row-avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.character-switch-chip-avatars .character-switch-chip-avatar + .character-switch-chip-avatar {
+  margin-left: -10px;
+}
+
+.character-switch-chip-avatar.active-speaker {
+  border-color: var(--theme-primary, #7ee1f7);
+}
+
+.character-switch-chip-label {
+  overflow: hidden;
+  max-width: 160px;
+  font-size: 12px;
+  font-weight: 800;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.character-switch-chip-badge {
+  position: absolute;
+  top: -4px;
+  right: -4px;
+  left: auto;
+}
+
+.character-switch-chip-hint {
+  position: absolute;
+  top: calc(100% + 8px);
+  left: 12px;
+  z-index: 20;
+}
+
+.character-switch-chip-popover {
+  position: absolute;
+  top: calc(100% + 8px);
+  left: 10px;
+  z-index: 30;
+  width: min(320px, calc(100vw - 32px));
+  max-height: min(420px, calc(100vh - 120px));
+  overflow: auto;
+  border: 1px solid var(--theme-app-dialog-border, #3a465d);
+  border-radius: var(--theme-radius-card, var(--theme-radius, 8px));
+  background: var(--theme-app-dialog-bg, #111722);
+  color: var(--theme-app-dialog-text, #dbe4f7);
+  box-shadow: var(--theme-card-shadow, 0 22px 64px rgba(0, 0, 0, 0.48));
+}
+
+.character-switch-chip-list {
+  display: grid;
+  gap: 6px;
+  margin: 0;
+  padding: 8px;
+  list-style: none;
+}
+
+.character-switch-chip-row {
+  display: flex;
+  width: 100%;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 10px;
+  border: 1px solid transparent;
+  border-radius: 10px;
+  color: inherit;
+  background: transparent;
+  text-align: left;
+  cursor: pointer;
+}
+
+.character-switch-chip-row:hover,
+.character-switch-chip-row:focus-visible {
+  border-color: var(--theme-border, #363640);
+  background: color-mix(in srgb, var(--theme-primary, #7ee1f7) 10%, transparent);
+}
+
+.character-switch-chip-row.active {
+  border-color: var(--theme-primary, #7ee1f7);
+  background: color-mix(in srgb, var(--theme-primary, #7ee1f7) 14%, transparent);
+}
+
+.character-switch-chip-row-avatar {
+  display: inline-flex;
+  width: 36px;
+  height: 36px;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  border: 2px solid var(--theme-border, #363640);
+  border-radius: 50%;
+  background: #253347;
+  color: #edf1ff;
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.character-switch-chip-row-identity {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 2px;
+  overflow: hidden;
+}
+
+.character-switch-chip-row-identity strong {
+  overflow: hidden;
+  color: var(--character-tab-color, currentColor);
+  font-size: 13px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.character-switch-chip-row-identity span {
+  color: var(--theme-shell-tab-subtext, #7f92c4);
+  font-size: 10px;
+  font-weight: 700;
+}
 
 .message-context-note {
   display: grid;
@@ -213,4 +540,97 @@
 
 .composer-context-textarea::placeholder {
   color: var(--theme-raw-vrgba191219254048, rgba(191, 219, 254, 0.48));
+}
+
+/* Mirrors EventsPanel's .events-disabled-message pattern (icon + bold
+   headline + one supporting line) verbatim, for the same "nothing here yet"
+   idiom in the message log instead of a blank bordered rectangle. */
+.rp-chat-empty-state {
+  display: flex;
+  max-width: 260px;
+  margin: auto;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  padding: 18px 16px;
+  border: var(--theme-border-width, 1px) var(--theme-border-style, solid) var(--theme-border, rgba(77, 96, 138, 0.72));
+  border-radius: 12px;
+  background: var(--theme-card-strong, #1a1e33);
+  box-shadow: var(--theme-card-shadow, none);
+  text-align: center;
+}
+
+.rp-chat-empty-icon {
+  display: grid;
+  width: 40px;
+  height: 40px;
+  margin-bottom: 2px;
+  place-items: center;
+  border-radius: 12px;
+  color: var(--theme-app-accent, var(--accent));
+  background: color-mix(in srgb, var(--theme-app-accent, var(--accent)) 18%, transparent);
+}
+
+.rp-chat-empty-state strong {
+  color: var(--theme-foreground, #eaf7ff);
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.rp-chat-empty-state small {
+  color: var(--theme-muted-foreground, #9fb0df);
+  font-size: 11.5px;
+  line-height: 1.4;
+}
+
+/* chat-phone-card / chat-social-message-card get their base look from
+   styles.css, which is shared with upstream Graph mode -- these Play-only
+   overrides layer "device chrome" on top instead of editing that shared
+   rule in place. Goal: read as a screenshot of a device conversation
+   embedded in the story, not an ordinary narrative message card. Corner
+   radius and the glass ring/sheen are pushed further than any bubble or
+   panel in the log so the embed stays visually distinct from both. */
+.studio-shell-play .chat-phone-card,
+.studio-shell-play .chat-social-message-card {
+  position: relative;
+  overflow: hidden;
+  border-radius: 22px;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.14),
+    inset 0 0 0 1px color-mix(in srgb, var(--theme-phone-glass, rgba(20, 24, 36, 0.46)) 70%, transparent),
+    0 10px 28px rgba(0, 0, 0, 0.2);
+  backdrop-filter: blur(14px) saturate(1.1);
+}
+
+.studio-shell-play .chat-phone-card::before,
+.studio-shell-play .chat-social-message-card::before {
+  position: absolute;
+  z-index: 0;
+  content: "";
+  inset: 0;
+  background: radial-gradient(120% 60% at 12% -10%, color-mix(in srgb, var(--theme-phone-glass, rgba(20, 24, 36, 0.46)) 80%, transparent), transparent 60%);
+  pointer-events: none;
+}
+
+/* ::before is position:absolute + z-index:0, so header/message content
+   (position:static by default) needs its own stacking context to paint
+   above the glass sheen instead of underneath it. */
+.studio-shell-play .chat-phone-card > *,
+.studio-shell-play .chat-social-message-card > * {
+  position: relative;
+  z-index: 1;
+}
+
+/* Composer's center command-pill zone: matches the segmented-control look
+   Switch/AutoTurn used to have here before Phase 8 moved them to the
+   Timeline sticky header. */
+.studio-shell-play .composer-actions .chat-command-pill-list {
+  flex-wrap: wrap;
+}
+
+.studio-shell-play .composer-actions .chat-command-pill-list .command-pill {
+  border-color: var(--theme-border, transparent);
+  color: var(--theme-shell-icon-color, currentColor);
+  background: var(--theme-shell-segmented-bg, transparent);
+  box-shadow: none;
 }

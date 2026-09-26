@@ -27,7 +27,7 @@ import {
   phoneDesktopGridRows,
 } from '../settings';
 import type { StorybookCharacter } from '../storybook/runtime';
-import { phoneMoodStatuses, type PhoneMoodStatusId } from '../phone/moodStatus';
+import type { PhoneMoodStatusId } from '../phone/moodStatus';
 import type { PhoneDesktopIconSize, PhoneDesktopLayout, PhoneDesktopWidgetId } from '../types';
 import type {
   ChatImageAttachment,
@@ -67,6 +67,8 @@ import type {
   SocialDirectoryUser,
 } from '../chat/socialDirectory';
 import { PhoneVoiceMessage } from './PhoneVoiceMessage';
+import { PhoneAppTopStrip } from './PhoneAppTopStrip';
+import { PhoneAppSwitcherStrip, type PhoneAppSwitcherAppId } from './PhoneAppSwitcherStrip';
 import { CharacterAvatar } from './CharacterAvatar';
 import { ImageContextControl } from './ImageContextControl';
 import {
@@ -110,6 +112,36 @@ type UnreadPhoneConversation = {
 type PhoneScreen =
   | 'desktop' | 'whatsup' | 'gallery' | 'chat-gallery' | 'camera' | 'banking'
   | 'fotogram' | 'onlyfriends' | 'notes' | 'ai' | 'plottwist';
+
+// Persistent top-strip label per screen (Phase 6 app chrome) — 'chat-gallery'
+// reuses the Gallery label since it's the same screen in image-picker mode.
+const phoneScreenTopStripLabels: Record<PhoneScreen, string> = {
+  desktop: 'Home',
+  whatsup: 'WhatsUp',
+  gallery: 'Gallery',
+  'chat-gallery': 'Gallery',
+  camera: 'Camera',
+  banking: 'Banking',
+  fotogram: 'Fotogram',
+  onlyfriends: 'OnlyFriends',
+  notes: 'Notes',
+  ai: 'ChatGPD',
+  plottwist: 'MatchMe',
+};
+
+// Maps each screen to the switcher app id it corresponds to, so the switcher
+// can highlight the active app; 'desktop' and 'chat-gallery' have none.
+const phoneScreenSwitcherAppIds: Partial<Record<PhoneScreen, PhoneAppSwitcherAppId>> = {
+  whatsup: 'whatsup',
+  gallery: 'gallery',
+  camera: 'camera',
+  banking: 'banking',
+  fotogram: 'fotogram',
+  onlyfriends: 'onlyfriends',
+  notes: 'notes',
+  ai: 'ai',
+  plottwist: 'plottwist',
+};
 
 type PhoneDesktopAppId = 'whatsup' | 'gallery' | 'camera' | 'banking' | 'fotogram' | 'onlyfriends' | 'notes' | 'ai' | 'plottwist';
 type PhoneDesktopWidgetLayout = NonNullable<NonNullable<PhoneDesktopLayout['widgets']>[PhoneDesktopWidgetId]>;
@@ -673,7 +705,6 @@ export function PhonePanel({
     }, reduceMotion ? 0 : 140);
   }
   const [desktopSettingsOpen, setDesktopSettingsOpen] = useState(false);
-  const [phoneMoodStatusOpen, setPhoneMoodStatusOpen] = useState(false);
   const [narrativeWidgetExpanded, setNarrativeWidgetExpanded] = useState(false);
   const desktopSettingsButtonsRef = useRef<HTMLDivElement | null>(null);
   const desktopSettingsMenusRef = useRef<HTMLDivElement | null>(null);
@@ -685,7 +716,7 @@ export function PhonePanel({
     : desktopIconPx;
 
   useEffect(() => {
-    if (!desktopSettingsOpen && !phoneMoodStatusOpen) {
+    if (!desktopSettingsOpen) {
       return;
     }
     const closeMenu = (event: PointerEvent) => {
@@ -695,15 +726,11 @@ export function PhonePanel({
         !desktopSettingsMenusRef.current?.contains(event.target)
       ) {
         setDesktopSettingsOpen(false);
-        setPhoneMoodStatusOpen(false);
       }
     };
     document.addEventListener('pointerdown', closeMenu);
     return () => document.removeEventListener('pointerdown', closeMenu);
-  }, [desktopSettingsOpen, phoneMoodStatusOpen]);
-
-  const selectedPhoneMoodStatus = phoneMoodStatuses.find((option) => option.id === phoneMoodStatus)
-    ?? phoneMoodStatuses[0];
+  }, [desktopSettingsOpen]);
 
   const [clockNow, setClockNow] = useState(() => new Date());
 
@@ -1156,7 +1183,6 @@ export function PhonePanel({
         className="phone-desktop-settings-button"
         type="button"
         onClick={() => {
-          setPhoneMoodStatusOpen(false);
           setDesktopSettingsOpen((open) => !open);
         }}
         aria-label="Desktop settings"
@@ -1168,51 +1194,12 @@ export function PhonePanel({
           <path d="M19.4 15a1.7 1.7 0 0 0 .34 1.87l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.7 1.7 0 0 0-1.87-.34 1.7 1.7 0 0 0-1.03 1.56V21a2 2 0 1 1-4 0v-.09A1.7 1.7 0 0 0 8.98 19.4a1.7 1.7 0 0 0-1.87.34l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.7 1.7 0 0 0 .34-1.87 1.7 1.7 0 0 0-1.56-1.03H3a2 2 0 1 1 0-4h.09A1.7 1.7 0 0 0 4.6 8.98a1.7 1.7 0 0 0-.34-1.87l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.7 1.7 0 0 0 1.87.34h.02a1.7 1.7 0 0 0 1.02-1.56V3a2 2 0 1 1 4 0v.09a1.7 1.7 0 0 0 1.03 1.56 1.7 1.7 0 0 0 1.87-.34l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.7 1.7 0 0 0-.34 1.87v.02a1.7 1.7 0 0 0 1.56 1.02H21a2 2 0 1 1 0 4h-.09a1.7 1.7 0 0 0-1.56 1.03Z" />
         </svg>
       </button>
-      <button
-        className={`phone-mood-status-button${selectedPhoneMoodStatus.id === 'online' ? ' online' : ''}`}
-        type="button"
-        onClick={() => {
-          setDesktopSettingsOpen(false);
-          setPhoneMoodStatusOpen((open) => !open);
-        }}
-        aria-label={`Phone status: ${selectedPhoneMoodStatus.label}`}
-        aria-expanded={phoneMoodStatusOpen}
-        title={`Phone status: ${selectedPhoneMoodStatus.label}`}
-      >
-        {selectedPhoneMoodStatus.id === 'online' ? (
-          <span className="phone-mood-status-dot" aria-hidden="true" />
-        ) : (
-          <span aria-hidden="true">{selectedPhoneMoodStatus.symbol}</span>
-        )}
-      </button>
     </div>,
     phoneTray.icons,
   ) : null;
 
   const phoneTrayMenus = phoneTray.overlay ? createPortal(
     <div className="phone-desktop-tray-menus" ref={desktopSettingsMenusRef}>
-      {phoneMoodStatusOpen && (
-        <div className="phone-mood-status-menu" role="menu" aria-label="Phone status">
-          {phoneMoodStatuses.map((option) => (
-            <button
-              className={`phone-mood-status-option${option.id === selectedPhoneMoodStatus.id ? ' active' : ''}`}
-              type="button"
-              key={option.id}
-              onClick={() => {
-                onPhoneMoodStatusChange(option.id);
-                setPhoneMoodStatusOpen(false);
-              }}
-              role="menuitemradio"
-              aria-checked={option.id === selectedPhoneMoodStatus.id}
-            >
-              <span className="phone-mood-status-option-symbol" aria-hidden="true">
-                {option.id === 'online' ? <span className="phone-mood-status-dot" /> : option.symbol}
-              </span>
-              <span>{option.label}</span>
-            </button>
-          ))}
-        </div>
-      )}
       {desktopSettingsOpen && (
         <div className="phone-desktop-settings-menu" role="menu" aria-label="Desktop settings">
           <span className="phone-desktop-settings-grabber" aria-hidden="true" />
@@ -1338,10 +1325,38 @@ export function PhonePanel({
     </Fragment>
   );
 
+  const phoneAppTopStrip = (
+    <PhoneAppTopStrip
+      currentAppLabel={phoneScreenTopStripLabels[screen]}
+      onHome={() => setScreen('desktop')}
+      onBack={() => navigateBack(() => setScreen('desktop'))}
+      phoneMoodStatus={phoneMoodStatus}
+      onPhoneMoodStatusChange={onPhoneMoodStatusChange}
+    />
+  );
+
+  const phoneAppSwitcherStrip = (
+    <PhoneAppSwitcherStrip
+      activeApp={phoneScreenSwitcherAppIds[screen]}
+      counts={{
+        whatsup: unreadWhatsUpCount,
+        banking: unreadBankingCount,
+        matchme: phoneAppNotificationCounts.matchme,
+        notes: phoneAppNotificationCounts.notes,
+        ai: phoneAppNotificationCounts.ai,
+        fotogram: phoneAppNotificationCounts.fotogram,
+        onlyfriends: phoneAppNotificationCounts.onlyfriends,
+      }}
+      onSelectApp={(app) => setScreen(app)}
+    />
+  );
+
   if (screen === 'gallery' || screen === 'chat-gallery') {
     const wallpaperMode = screen === 'gallery';
     return (
       <Fragment>
+        {phoneAppTopStrip}
+        <div className="phone-app-chrome-content">
         <PhoneGalleryScreen
           title={`${phoneOwnerName ?? 'Phone'}'s Gallery`}
           images={phoneGalleryImages}
@@ -1360,21 +1375,32 @@ export function PhonePanel({
             }
           }}
         />
+        </div>
+        {phoneAppSwitcherStrip}
         {phoneSystemTrayControls}
       </Fragment>
     );
   }
 
   if (screen === 'plottwist') {
-    return <PhoneDatingScreen characterColors={characterColors} key={selectedCharacter?.id ?? 'no-owner'} owner={selectedCharacter}
-      characters={appCharacters} history={socialMediaMessages} isRunning={isRunning}
-      onSendMessage={onSubmitSocialDirectMessage}
-      unread={unreadSocialDirectMessages.matchme} onMarkSeen={(id) => onMarkSocialDirectMessagesSeen('matchme', id)}
-      openRequest={directMessageRequest?.app === 'matchme' ? directMessageRequest : undefined}
-      emojiOptions={phoneEmojiOptions} recentlyUsedEmojis={recentlyUsedEmojis}
-      rpTimeTrackingEnabled={rpTimeTrackingEnabled} rpDateTimeFormat={rpDateTimeFormat} rpWeekdayLanguage={rpWeekdayLanguage}
-      images={phoneGalleryImages} onImportImage={onImportSocialPostImage} onSave={onSaveDatingProfile}
-      onBack={() => navigateBack(() => setScreen('desktop'))} />;
+    return (
+      <Fragment>
+        {phoneAppTopStrip}
+        <div className="phone-app-chrome-content">
+        <PhoneDatingScreen characterColors={characterColors} key={selectedCharacter?.id ?? 'no-owner'} owner={selectedCharacter}
+          characters={appCharacters} history={socialMediaMessages} isRunning={isRunning}
+          onSendMessage={onSubmitSocialDirectMessage}
+          unread={unreadSocialDirectMessages.matchme} onMarkSeen={(id) => onMarkSocialDirectMessagesSeen('matchme', id)}
+          openRequest={directMessageRequest?.app === 'matchme' ? directMessageRequest : undefined}
+          emojiOptions={phoneEmojiOptions} recentlyUsedEmojis={recentlyUsedEmojis}
+          rpTimeTrackingEnabled={rpTimeTrackingEnabled} rpDateTimeFormat={rpDateTimeFormat} rpWeekdayLanguage={rpWeekdayLanguage}
+          images={phoneGalleryImages} onImportImage={onImportSocialPostImage} onSave={onSaveDatingProfile}
+          onBack={() => navigateBack(() => setScreen('desktop'))} />
+        </div>
+        {phoneAppSwitcherStrip}
+        {phoneSystemTrayControls}
+      </Fragment>
+    );
   }
 
   if (screen === 'banking') {
@@ -1385,6 +1411,8 @@ export function PhonePanel({
         : undefined;
     return (
       <Fragment>
+        {phoneAppTopStrip}
+        <div className="phone-app-chrome-content">
         <PhoneBankingScreen
           key={selectedCharacter?.id ?? 'no-account'}
           owner={selectedCharacter}
@@ -1407,6 +1435,8 @@ export function PhonePanel({
           onAddBankingContact={onAddBankingContact}
           onSendBankTransfer={onSendBankTransfer}
         />
+        </div>
+        {phoneAppSwitcherStrip}
         {phoneSystemTrayControls}
       </Fragment>
     );
@@ -1415,6 +1445,8 @@ export function PhonePanel({
   if (screen === 'notes') {
     return (
       <Fragment>
+        {phoneAppTopStrip}
+        <div className="phone-app-chrome-content">
         <PhoneNotesScreen
           ownerColor={selectedCharacter ? characterColors.get(selectedCharacter.name) : undefined}
           key={selectedCharacter?.id ?? 'no-owner'}
@@ -1428,6 +1460,8 @@ export function PhonePanel({
           onCommitNote={onPhoneNoteCommit}
           onBack={() => navigateBack(() => setScreen('desktop'))}
         />
+        </div>
+        {phoneAppSwitcherStrip}
         {phoneSystemTrayControls}
       </Fragment>
     );
@@ -1436,6 +1470,8 @@ export function PhonePanel({
   if (screen === 'ai') {
     return (
       <Fragment>
+        {phoneAppTopStrip}
+        <div className="phone-app-chrome-content">
         <PhoneChatGpdScreen
           key={selectedCharacter?.id ?? 'no-owner'}
           chatGpd={chatGpd}
@@ -1447,6 +1483,8 @@ export function PhonePanel({
           onCommitChat={onChatGpdChatCommit}
           onBack={() => navigateBack(() => setScreen('desktop'))}
         />
+        </div>
+        {phoneAppSwitcherStrip}
         {phoneSystemTrayControls}
       </Fragment>
     );
@@ -1456,6 +1494,8 @@ export function PhonePanel({
     const socialScreen = screen;
     return (
       <Fragment>
+        {phoneAppTopStrip}
+        <div className="phone-app-chrome-content">
         <PhoneSocialFeedScreen
           key={`${screen}-${selectedCharacter?.id ?? 'no-account'}`}
           app={socialApps[screen]}
@@ -1525,6 +1565,8 @@ export function PhonePanel({
           rpDateTimeFormat={rpDateTimeFormat}
           rpWeekdayLanguage={rpWeekdayLanguage}
         />
+        </div>
+        {phoneAppSwitcherStrip}
         {phoneSystemTrayControls}
       </Fragment>
     );
@@ -1533,6 +1575,8 @@ export function PhonePanel({
   if (screen === 'camera') {
     return (
       <Fragment>
+        {phoneAppTopStrip}
+        <div className="phone-app-chrome-content">
         <div className="phone-desktop" style={desktopStyle} aria-label="Phone desktop">
           <div className="phone-desktop-scrim" />
           <PhoneImagePicker
@@ -1561,6 +1605,8 @@ export function PhonePanel({
             onRefreshImageAssistantModelState={onRefreshImageAssistantModelState}
           />
         </div>
+        </div>
+        {phoneAppSwitcherStrip}
         {phoneSystemTrayControls}
       </Fragment>
     );
@@ -1569,6 +1615,8 @@ export function PhonePanel({
   if (screen === 'desktop') {
     return (
       <Fragment>
+      {phoneAppTopStrip}
+      <div className="phone-app-chrome-content">
       <div
         className={`phone-desktop${launchingApp ? ' is-launching' : ''}`}
         ref={desktopRef}
@@ -1967,76 +2015,9 @@ export function PhonePanel({
             <span>ChatGPD</span>
           </button>
         </div>
-        <div className="phone-desktop-dock" aria-label="Favorites">
-          <button
-            className="phone-desktop-dock-app"
-            type="button"
-            onClick={() => launchDesktopApp('whatsup')}
-            aria-label={unreadWhatsUpCount > 0
-              ? `Open WhatsUp, ${unreadWhatsUpCount} unread`
-              : 'Open WhatsUp'}
-          >
-            <span className="phone-whatsup-icon" aria-hidden="true">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M18.8 5.2A8.9 8.9 0 0 0 4.7 15.9L3.4 20.4l4.7-1.2A8.9 8.9 0 1 0 18.8 5.2Z" />
-              </svg>
-            </span>
-            {unreadWhatsUpCount > 0 && (
-              <span className="phone-desktop-app-badge" aria-hidden="true">
-                {desktopBadgeLabel(unreadWhatsUpCount)}
-              </span>
-            )}
-          </button>
-          <button
-            className="phone-desktop-dock-app"
-            type="button"
-            onClick={() => launchDesktopApp('camera')}
-            aria-label="Open Camera"
-          >
-            <span className="phone-camera-icon" aria-hidden="true">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M4 7h3l1.2-2h7.6L17 7h3a1 1 0 0 1 1 1v10a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a1 1 0 0 1 1-1Z" />
-                <circle cx="12" cy="13" r="4" />
-              </svg>
-            </span>
-          </button>
-          <button
-            className="phone-desktop-dock-app"
-            type="button"
-            onClick={() => launchDesktopApp('gallery')}
-            aria-label="Open Gallery"
-          >
-            <span className="phone-gallery-icon" aria-hidden="true">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-                <rect x="3" y="3" width="18" height="18" rx="4" />
-                <circle cx="8.5" cy="8.5" r="1.4" />
-                <path d="m4.5 18 5.5-5.5 3.2 3.2 2.1-2.1 4.2 4.4" />
-              </svg>
-            </span>
-          </button>
-          <button
-            className="phone-desktop-dock-app"
-            type="button"
-            onClick={() => launchDesktopApp('notes')}
-            aria-label={phoneAppNotificationCounts.notes > 0
-              ? `Open Notes, ${phoneAppNotificationCounts.notes} new`
-              : 'Open Notes'}
-          >
-            <span className="phone-notes-icon" aria-hidden="true">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M5 3h11l3 3v15a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1Z" />
-                <path d="M15 3v4h4" />
-                <path d="M8 11h8M8 15h8M8 19h5" />
-              </svg>
-            </span>
-            {phoneAppNotificationCounts.notes > 0 && (
-              <span className="phone-desktop-app-badge" aria-hidden="true">
-                {desktopBadgeLabel(phoneAppNotificationCounts.notes)}
-              </span>
-            )}
-          </button>
-        </div>
       </div>
+      </div>
+      {phoneAppSwitcherStrip}
       {phoneSystemTrayControls}
       </Fragment>
     );
@@ -2044,6 +2025,8 @@ export function PhonePanel({
 
   return (
     <Fragment>
+      {phoneAppTopStrip}
+      <div className="phone-app-chrome-content">
       <div className={`phone-surface${contactListOpen || !selectedPhoneContact ? ' shows-contacts' : ' shows-conversation'}`}>
         <div className="phone-list" aria-label="Phone chats">
         <div className="phone-list-header">
@@ -2534,6 +2517,8 @@ export function PhonePanel({
         )}
         </div>
       </div>
+      </div>
+      {phoneAppSwitcherStrip}
       {phoneSystemTrayControls}
     </Fragment>
   );

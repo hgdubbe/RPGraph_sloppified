@@ -18,11 +18,6 @@
     padding-inline: 10px;
   }
 
-  .studio-activity-rail {
-    grid-template-columns: repeat(7, minmax(62px, 1fr));
-    overflow-x: auto;
-  }
-
   .studio-rail-button {
     min-width: 70px;
   }
@@ -37,14 +32,11 @@
 }
 
 @media (max-width: 700px) {
-  .studio-shell-play .roleplay-dual-pane { grid-template-columns: minmax(0, min(46%, calc(100cqh * 430 / 932))) minmax(0, 1fr); gap: 8px; }
-  .studio-shell-play .roleplay-dual-pane:has(.roleplay-phone-stage.landscape) { grid-template-columns: minmax(0, min(64%, calc(100cqh * 932 / 430))) minmax(0, 1fr); }
-  .studio-shell-play .studio-play-content { padding: 8px; }
-  .studio-shell-play .composer-workspace-controls {
-    order: 3;
-    flex-basis: 100%;
-    margin-left: 0;
+  .studio-context-drawer,
+  .studio-context-drawer:has(.roleplay-phone-stage.landscape) {
+    width: min(94vw, 460px);
   }
+  .studio-shell-play .studio-play-content { padding: 8px; }
 }
 
 @media (prefers-reduced-motion: reduce) {

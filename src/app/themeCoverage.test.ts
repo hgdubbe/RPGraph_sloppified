@@ -11,6 +11,9 @@ const conversationPanel = readFileSync('src/components/ChatConversationPanel.tsx
 const roleplayShell = readFileSync('src/components/RoleplayStudioShell.tsx', 'utf8');
 const autoplayControl = readFileSync('src/chat/AutoplayControl.tsx', 'utf8');
 const appSource = readFileSync('src/App.tsx', 'utf8');
+const roleplayTimelineStyles = readFileSync('src/styles/roleplay-timeline.css', 'utf8');
+const timelinePanel = readFileSync('src/components/TimelinePanel.tsx', 'utf8');
+const turnControlsHeader = readFileSync('src/components/TurnControlsHeader.tsx', 'utf8');
 
 function cssRange(source: string, start: string, end: string): string {
   const startIndex = source.indexOf(start);
@@ -411,12 +414,18 @@ describe('theme coverage for audited Studio surfaces', () => {
     }
   });
 
-  it('keeps the right-aligned surface tabs and character strip visually continuous', () => {
-    const surfaceTabs = cssRule(studioThemeStyles, '.studio[data-studio-theme] .studio-character-surface-tabs');
-    const characterStrip = cssRule(studioShellStyles, '.studio-character-strip');
+  // The old always-visible tab rail (.studio-character-surface-tabs) and its
+  // adjoining .studio-character-strip were removed with the tab-based IA.
+  // The equivalent "right-aligned, always-present rail sitting seamlessly
+  // against a themed surface" guarantee now belongs to the Drawer Toggle
+  // Rail (right-aligned between chat and the Context Drawer) and the
+  // Context Drawer surface it toggles.
+  it('keeps the drawer toggle rail visually continuous with the context drawer surface', () => {
+    const toggleRail = cssRule(roleplayDualPaneStyles, '.studio-drawer-toggle-rail');
+    const drawer = cssRule(roleplayDualPaneStyles, '.studio-context-drawer');
 
-    expect(surfaceTabs).toContain('background: transparent');
-    expect(characterStrip).toContain('background: var(--theme-surface-content');
+    expect(toggleRail).not.toMatch(/background:/);
+    expect(drawer).toContain('background: var(--theme-panel');
   });
 
   it('keeps the phone bay separate from the bordered narrative pane', () => {
@@ -430,18 +439,26 @@ describe('theme coverage for audited Studio surfaces', () => {
     expect(narrativePane).toContain('background: var(--theme-panel');
   });
 
-  it('places Chat and Events in the upper character bar and keeps actions only in the chat composer', () => {
-    const controls = cssRule(studioShellStyles, '.studio-shell-play .composer-workspace-controls');
-    const surfaceTabs = cssRule(studioShellStyles, '.studio-shell-play .studio-character-surface-tabs');
+  // The old upper character/Chat/Events tab bar and the composer's own
+  // turn-action controls (.composer-workspace-controls) are both gone by
+  // design: the composer is decluttered to attach/settings + command pills
+  // + Autoplay/send, turn actions (Switch/AutoTurn/undo/regenerate/Rf) moved
+  // into TurnControlsHeader mounted as Timeline's sticky header, and the
+  // character bar is now the CharacterSwitchChip pinned atop the chat pane.
+  it('moves Chat/Events turn actions out of the composer and into the Timeline header and character chip', () => {
+    const timelineHeader = cssRule(roleplayTimelineStyles, '.timeline-recent-turns-header .chat-actions');
 
-    expect(controls).toContain('display: flex');
-    expect(controls).toContain('align-items: center');
-    expect(surfaceTabs).toContain('margin-left: auto');
-    expect(surfaceTabs).toContain('align-self: stretch');
-    expect(conversationPanel).toContain('className="composer-workspace-controls"');
+    expect(timelineHeader).toContain('display: flex');
+    expect(timelineHeader).toContain('align-items: center');
+    expect(timelinePanel).toContain('turnControlsHeader');
+    expect(turnControlsHeader).toContain('className="chat-actions"');
+    expect(turnControlsHeader).toContain('className="switch-player-button"');
+    expect(conversationPanel).not.toContain('className="composer-workspace-controls"');
+    expect(conversationPanel).not.toContain('className="chat-actions"');
     expect(appSource).not.toContain('events-workspace-controls');
     expect(appSource).not.toContain('const roleplayWorkspaceControls = (');
-    expect(roleplayShell).toContain('className="studio-character-surface-tabs"');
+    expect(appSource).toContain('<CharacterSwitchChip');
+    expect(roleplayShell).not.toContain('studio-character-surface-tabs');
     expect(roleplayShell).not.toContain('studio-play-footer');
   });
 
@@ -482,8 +499,13 @@ describe('theme coverage for audited Studio surfaces', () => {
     }
   });
 
-  it('keeps the integrated Switch control and removes the pop-out control', () => {
-    expect(appSource).toContain('className="switch-player-button"');
+  // The Switch control was extracted verbatim out of App.tsx into
+  // TurnControlsHeader.tsx (see that component's own doc comment); the
+  // className itself still needs to exist somewhere real, just not inline
+  // in App.tsx anymore.
+  it('keeps the integrated Switch control (now in TurnControlsHeader) and removes the pop-out control', () => {
+    expect(turnControlsHeader).toContain('className="switch-player-button"');
+    expect(appSource).not.toContain('className="switch-player-button"');
     expect(appSource).not.toContain('className="roleplay-detach-button"');
   });
 

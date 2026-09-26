@@ -187,6 +187,8 @@ export const CORE_TOKEN_KEYS = [
   'shell.topbarContextBorder',
   'shell.topbarMutedText',
   'shell.topbarSelectBg',
+  'shell.timelineTurnAccent',
+  'shell.drawerHandleBg',
   // upstream's own global palette (:root in src/styles.css, predates the
   // theme system) -- aliased on .studio so the ~400 existing var(--accent)/
   // var(--surface)/etc. references throughout styles.css pick up the

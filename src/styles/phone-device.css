@@ -77,6 +77,91 @@
     0 0 8px rgba(52, 208, 88, 0.75);
 }
 
+/* Phase 6 persistent app chrome: a top strip (Home/Back/current-app
+   label/mood) and a bottom app switcher, both rendered by PhonePanel on
+   every screen (not just desktop) so users can jump between phone apps
+   without bouncing through the desktop grid. Structural/layout rules only —
+   colors live in phone-widgets.css's phoneHome.* section below. */
+.phone-app-top-strip {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 8px;
+  height: 34px;
+  padding: 0 16px;
+  box-sizing: border-box;
+}
+
+.phone-app-top-strip-nav-button {
+  display: grid;
+  flex: 0 0 auto;
+  width: 19px;
+  height: 19px;
+  place-items: center;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  cursor: pointer;
+}
+
+.phone-app-top-strip-nav-button svg {
+  width: 14px;
+  height: 14px;
+}
+
+.phone-app-top-strip-label {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-align: center;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font: 600 13px system-ui;
+}
+
+.phone-app-chrome-content {
+  display: flex;
+  flex: 1 1 auto;
+  min-width: 0;
+  min-height: 0;
+  max-width: 100%;
+  overflow: hidden;
+}
+
+.phone-app-chrome-content > * {
+  flex: 1 1 auto;
+  min-width: 0;
+  min-height: 0;
+  max-width: 100%;
+}
+
+.phone-app-switcher-strip {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: space-between;
+  gap: 2px;
+  padding: 6px 10px;
+  box-sizing: border-box;
+  overflow-x: auto;
+  --phone-icon: 34px;
+}
+
+.phone-app-switcher-strip .phone-desktop-dock-app {
+  flex: 0 0 auto;
+}
+
+.roleplay-phone-device.landscape .phone-app-top-strip {
+  height: 28px;
+  padding: 0 14px;
+}
+
+.roleplay-phone-device.landscape .phone-app-switcher-strip {
+  padding: 4px 10px;
+  --phone-icon: 28px;
+}
+
 .phone-mood-status-menu {
   position: absolute;
   top: 38px;
@@ -111,6 +196,30 @@
     linear-gradient(180deg, rgba(68, 72, 84, 0.46), rgba(22, 25, 34, 0.58)),
     rgba(17, 19, 27, 0.48);
   backdrop-filter: blur(24px) saturate(1.12);
+}
+
+/* PhoneAppTopStrip's own overlay portal target: unlike
+   .phone-desktop-tray-menus (which is position:relative and sized 100% of
+   .roleplay-phone-overlay-layer, used as the shared positioning context for
+   the settings-tray's own menus), this one must NOT participate in normal
+   flow inside that shared overlay layer — a second 100%-height sibling
+   there would stack below the first and push this menu off the bottom of
+   the device. absolute+inset:0 overlays the same box without adding to it. */
+.phone-app-top-strip-tray {
+  position: absolute;
+  inset: 0;
+}
+
+/* Anchored lower than the base .phone-mood-status-menu (which sits right
+   under the 43px hardware status bar): the mood trigger now lives in this
+   strip, one bar further down, so its dropdown needs a matching offset.
+   Declared after the base rule (equal specificity) so it wins the cascade. */
+.phone-app-top-strip-menu {
+  top: 76px;
+}
+
+.roleplay-phone-device.landscape .phone-app-top-strip-menu {
+  top: 60px;
 }
 
 .phone-mood-status-option {
@@ -552,9 +661,10 @@
    (the base value) is kept rather than `visible`: with fr-based tracks the
    grid can no longer overflow its own box in normal use, so hidden is purely
    a safety net for stale saved layouts, not a mask for expected overflow.
-   Bottom padding grows from 32px to 112px to reserve room for the fixed
-   .phone-desktop-dock bar (see styles.css) below the widget column. */
-.roleplay-phone-screen .phone-desktop { padding: 46px 16px 112px; }
+   Bottom padding back to the base 32px now that the favorites dock is the
+   persistent, globally-mounted .phone-app-switcher-strip (a flex sibling of
+   .phone-desktop, not something absolutely overlaid on top of it anymore). */
+.roleplay-phone-screen .phone-desktop { padding: 46px 16px 32px; }
 
 .roleplay-phone-screen .phone-surface { display: flex; flex-direction: column; }
 

@@ -106,7 +106,10 @@ Fine-grained Play-mode chrome: `chatSurface`, `messageBorder`, `messageText`,
 `badgeGlow`, `tabBorder`, `tabBorderBottom`, `tabText`, `tabBg`, `tabActiveBorder`,
 `tabActiveBg`, `tabActiveText`, `tabSubtext`, `topbarButtonBorder`,
 `topbarButtonText`, `topbarButtonBg`, `topbarHoverBg`, `topbarHoverBorder`,
-`badgeAccentBg`, `topbarContextBorder`, `topbarMutedText`, and `topbarSelectBg`.
+`badgeAccentBg`, `topbarContextBorder`, `topbarMutedText`, `topbarSelectBg`,
+`timelineTurnAccent` (Recent Turns cards in the Context Drawer's Timeline
+content), and `drawerHandleBg` (the Context Drawer's wide-mode resize handle,
+idle state).
 
 ### `tokens.graph`
 

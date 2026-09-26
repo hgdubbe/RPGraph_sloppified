@@ -391,12 +391,17 @@
 .phone-desktop-app > .phone-camera-icon,
 .phone-desktop-dock-app > .phone-camera-icon,
 .phone-desktop-app > .phone-banking-icon,
+.phone-desktop-dock-app > .phone-banking-icon,
 .phone-desktop-app > .phone-fotogram-icon,
+.phone-desktop-dock-app > .phone-fotogram-icon,
 .phone-desktop-app > .phone-onlyfriends-icon,
+.phone-desktop-dock-app > .phone-onlyfriends-icon,
 .phone-desktop-app > .phone-matchme-icon,
+.phone-desktop-dock-app > .phone-matchme-icon,
 .phone-desktop-app > .phone-notes-icon,
 .phone-desktop-dock-app > .phone-notes-icon,
-.phone-desktop-app > .phone-chatgpd-icon {
+.phone-desktop-app > .phone-chatgpd-icon,
+.phone-desktop-dock-app > .phone-chatgpd-icon {
   border-radius: var(--theme-phone-home-icon-radius, 28%);
 }
 
@@ -418,10 +423,13 @@
 .phone-desktop-app > .phone-gallery-icon,
 .phone-desktop-dock-app > .phone-gallery-icon,
 .phone-desktop-app > .phone-banking-icon,
+.phone-desktop-dock-app > .phone-banking-icon,
 .phone-desktop-app > .phone-fotogram-icon,
+.phone-desktop-dock-app > .phone-fotogram-icon,
 .phone-desktop-app > .phone-notes-icon,
 .phone-desktop-dock-app > .phone-notes-icon,
-.phone-desktop-app > .phone-chatgpd-icon {
+.phone-desktop-app > .phone-chatgpd-icon,
+.phone-desktop-dock-app > .phone-chatgpd-icon {
   background: var(--theme-phone-home-icon-background, transparent);
   border-color: var(--theme-phone-home-icon-border, rgba(255, 255, 255, 0.28));
 }
@@ -439,7 +447,9 @@
 }
 
 .phone-desktop-app > .phone-matchme-icon,
-.phone-desktop-app > .phone-onlyfriends-icon {
+.phone-desktop-dock-app > .phone-matchme-icon,
+.phone-desktop-app > .phone-onlyfriends-icon,
+.phone-desktop-dock-app > .phone-onlyfriends-icon {
   background: var(--theme-phone-home-icon-background, linear-gradient(135deg, rgba(236, 72, 153, 0.44), rgba(225, 29, 72, 0.26)));
   border-color: var(--theme-phone-home-icon-border, rgba(244, 114, 182, 0.58));
 }
@@ -524,7 +534,8 @@
     0 0 8px color-mix(in srgb, var(--theme-phone-home-online, #34d058) 75%, transparent);
 }
 
-.phone-desktop-dock {
+.phone-desktop-dock,
+.phone-app-switcher-strip {
   border-color: color-mix(in srgb, var(--theme-phone-home-accent, #b8a8ea) 20%, rgba(255, 255, 255, 0.18));
   background: color-mix(in srgb, var(--theme-phone-home-widget-background, #05070d) 55%, transparent);
   border-radius: var(--theme-phone-home-card-radius, 28px);
@@ -533,9 +544,34 @@
 .phone-desktop-dock-app:active .phone-whatsup-icon,
 .phone-desktop-dock-app:active .phone-camera-icon,
 .phone-desktop-dock-app:active .phone-gallery-icon,
-.phone-desktop-dock-app:active .phone-notes-icon {
+.phone-desktop-dock-app:active .phone-notes-icon,
+.phone-desktop-dock-app:active .phone-banking-icon,
+.phone-desktop-dock-app:active .phone-fotogram-icon,
+.phone-desktop-dock-app:active .phone-onlyfriends-icon,
+.phone-desktop-dock-app:active .phone-matchme-icon,
+.phone-desktop-dock-app:active .phone-chatgpd-icon {
   box-shadow:
     0 6px 16px rgba(0, 0, 0, 0.35),
     inset 0 1px 1px rgba(255, 255, 255, 0.25),
     0 0 0 2px color-mix(in srgb, var(--theme-phone-home-accent, #b8a8ea) 55%, transparent);
+}
+
+/* Active-app indication in the switcher — same segmented-control accent
+   treatment as the settings tray's icon-size/orientation/widget toggles. */
+.phone-app-switcher-strip .phone-desktop-dock-app.active {
+  background: color-mix(in srgb, var(--theme-phone-home-accent, var(--accent)) 24%, transparent);
+  border-radius: var(--theme-phone-home-icon-radius, 28%);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--theme-phone-home-accent, var(--accent)) 55%, transparent);
+}
+
+.phone-app-top-strip-nav-button {
+  color: var(--theme-phone-home-text, rgba(255, 255, 255, 0.94));
+}
+
+.phone-app-top-strip-nav-button:hover {
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.phone-app-top-strip-label {
+  color: var(--theme-phone-home-text-strong, #ffffff);
 }

@@ -115,7 +115,15 @@ export type RoleplayActivityShortcut = {
 
 const phoneAuthorBadgesStorageKey = 'rpgraph-phone-author-badges-enabled';
 const chatReadsPhoneAppsStorageKey = 'rpgraph-chat-reads-phone-apps-enabled';
+const contextDrawerWidthStorageKey = 'rpgraph-context-drawer-width';
 const chatAutoFollowBottomMargin = 48;
+
+// Mirrors the dual-pane drawer's own 900px container-query breakpoint
+// (src/styles/roleplay-dual-pane.css) so layout-dependent JS (inert/aria-hidden,
+// drawer overlay-vs-inline mode) never drifts out of sync with the CSS.
+const narrowLayoutContainerWidthThreshold = 900;
+
+export type ContextDrawerContent = 'phone' | 'timeline' | null;
 
 type UseRoleplayPanelRuntimeOptions = {
   appCharacters: StorybookCharacter[];
@@ -152,8 +160,6 @@ export function useRoleplayPanelRuntime({
 }: UseRoleplayPanelRuntimeOptions) {
   const [panelSessionRevision, setPanelSessionRevision] = useState(0);
   const resetPanelNavigation = usePanelNavigationReset(panelSessionRevision);
-  const [chatPanelView, setChatPanelView] = usePanelNavigationState<ChatPanelView>('panel.chatPanelView', 'chat');
-  const chatVisible = chatPanelView !== 'events';
   const [selectedCharacterId, setSelectedCharacterId] = usePanelNavigationState('panel.selectedCharacterId', '');
   const [viewedPhoneCharacterId, setViewedPhoneCharacterId] = usePanelNavigationState('panel.viewedPhoneCharacterId', '');
   const [selectedPhoneCharacterId, setSelectedPhoneCharacterId] = usePanelNavigationState('panel.selectedPhoneCharacterId', '');
@@ -236,6 +242,65 @@ export function useRoleplayPanelRuntime({
   const [phoneDraftCommands, setPhoneDraftCommands] = useState<CommandInputCommand[]>([]);
   const [phoneImages, setPhoneImages] = useState<ChatImageAttachment[]>([]);
   const [showPhoneEmojiPicker, setShowPhoneEmojiPicker] = useState(false);
+
+  // `drawerContent` is the single source of truth for which panel is showing;
+  // `chatPanelView` below is derived from it for the many reads elsewhere
+  // that predate the Context Drawer / toggle rail.
+  const [drawerContent, setDrawerContent] = usePanelNavigationState<ContextDrawerContent>(
+    'panel.drawerContent', null,
+  );
+  const chatPanelView: ChatPanelView =
+    drawerContent === 'phone' ? 'phone' : drawerContent === 'timeline' ? 'events' : 'chat';
+  const [isNarrowLayout, setIsNarrowLayout] = useState(true);
+  // Chat is always mounted; it is only actually hidden/inert when the drawer
+  // takes over the screen in narrow layout (mirrors the aria-hidden/inert
+  // condition on the chat pane in App.tsx).
+  const chatVisible = !(isNarrowLayout && drawerContent !== null);
+  // A state-backed callback ref (not a plain useRef) so the ResizeObserver
+  // effect below re-runs once the `.studio-play-content` node actually mounts,
+  // per React's rule against reading ref.current during render/deps.
+  const [playContentElement, setPlayContentElement] = useState<HTMLDivElement | null>(null);
+  const setPlayContentRef = useCallback((element: HTMLDivElement | null) => {
+    setPlayContentElement(element);
+  }, []);
+  useEffect(() => {
+    if (!playContentElement || typeof ResizeObserver === 'undefined') {
+      return undefined;
+    }
+    const observer = new ResizeObserver((entries) => {
+      const width = entries[0]?.contentRect.width ?? playContentElement.clientWidth;
+      setIsNarrowLayout(width < narrowLayoutContainerWidthThreshold);
+    });
+    observer.observe(playContentElement);
+    return () => observer.disconnect();
+  }, [playContentElement]);
+  const [contextDrawerWidth, setContextDrawerWidthState] = useState<number | undefined>(() => {
+    try {
+      const stored = Number(window.localStorage.getItem(contextDrawerWidthStorageKey));
+      return Number.isFinite(stored) && stored > 0 ? stored : undefined;
+    } catch {
+      return undefined;
+    }
+  });
+  const setContextDrawerWidth = useCallback((width: number | undefined) => {
+    setContextDrawerWidthState(width);
+    try {
+      if (width) {
+        window.localStorage.setItem(contextDrawerWidthStorageKey, String(width));
+      } else {
+        window.localStorage.removeItem(contextDrawerWidthStorageKey);
+      }
+    } catch {
+      // Non-critical UI preference.
+    }
+  }, []);
+  const pastTurns = useMemo(() => {
+    const latestTurnId = turns.length > 0 ? turns[turns.length - 1].id : undefined;
+    return turns
+      .filter((turn) => !turn.openingHistory && turn.id !== latestTurnId)
+      .slice()
+      .reverse();
+  }, [turns]);
 
   const chatThreadRef = useRef<HTMLDivElement | null>(null);
   const chatAutoFollowBottomRef = useRef(true);
@@ -934,7 +999,7 @@ export function useRoleplayPanelRuntime({
     setSocialDirectMessageOpenRequest(undefined);
     setAccountLinkOpenRequest({ requestId: -(++accountLinkRequestId.current),
       app: target.app, accountId: target.accountId, name: target.name, username: target.username });
-    setChatPanelView('phone');
+    setDrawerContent('phone');
   }
 
   function openEmbeddedSocialMessage(message: EmbeddedSocialMessageLink) {
@@ -977,7 +1042,7 @@ export function useRoleplayPanelRuntime({
       participantName: ownerIsSender ? directMessage.to : directMessage.from,
       participantHandle: ownerIsSender ? directMessage.toHandle : directMessage.fromHandle,
     });
-    setChatPanelView('phone');
+    setDrawerContent('phone');
   }
 
   // Posted photos are stored as Storybook/Gallery image ids; resolve the
@@ -1040,7 +1105,7 @@ export function useRoleplayPanelRuntime({
       app: post.app,
       postId: post.postId,
     });
-    setChatPanelView('phone');
+    setDrawerContent('phone');
   }
 
   function openPhoneGalleryForCharacter(characterId: string) {
@@ -1057,7 +1122,7 @@ export function useRoleplayPanelRuntime({
     setSocialPostOpenRequest(undefined);
     setSocialDirectMessageOpenRequest(undefined);
     setPhoneGalleryOpenRequestId((current) => current + 1);
-    setChatPanelView('phone');
+    setDrawerContent('phone');
   }
 
   const newEventIds = useMemo(
@@ -1156,7 +1221,7 @@ export function useRoleplayPanelRuntime({
       setSocialPostOpenRequest(undefined);
       setSocialDirectMessageOpenRequest(undefined);
     }
-    setChatPanelView(view);
+    setDrawerContent(view === 'phone' ? 'phone' : view === 'events' ? 'timeline' : null);
   }
 
   function selectPhonePanelView() {
@@ -1165,7 +1230,7 @@ export function useRoleplayPanelRuntime({
     setSocialDirectMessageOpenRequest(undefined);
     setAccountLinkOpenRequest(undefined);
     if (chatPanelView !== 'phone') {
-      setChatPanelView('phone');
+      setDrawerContent('phone');
     }
 
     setPhoneHomeRequestId((current) => current + 1);
@@ -1174,14 +1239,14 @@ export function useRoleplayPanelRuntime({
   function openPhoneDesktop() {
     setHighlightedPhoneMessage(undefined);
     setSocialPostOpenRequest(undefined);
-    setChatPanelView('phone');
+    setDrawerContent('phone');
     setPhoneHomeRequestId((current) => current + 1);
   }
 
   function openPhoneApp(app: PhoneAppOpenRequest['app']) {
     setHighlightedPhoneMessage(undefined);
     setSocialPostOpenRequest(undefined);
-    setChatPanelView('phone');
+    setDrawerContent('phone');
     setPhoneAppOpenRequest((current) => ({
       app,
       requestId: (current?.requestId ?? 0) + 1,
@@ -1572,7 +1637,7 @@ export function useRoleplayPanelRuntime({
             badge: unreadChatCount || undefined,
             title: 'Jump to the latest chat output',
             onOpen: () => {
-              setChatPanelView('chat');
+              setDrawerContent(null);
               setLastSeenMessageRecordId(latestMessageRecordId);
               scrollChatThreadToBottom('smooth');
             },
@@ -1652,6 +1717,13 @@ export function useRoleplayPanelRuntime({
     chatPanelView,
     selectChatPanelView,
     selectPhonePanelView,
+    drawerContent,
+    setDrawerContent,
+    isNarrowLayout,
+    setPlayContentRef,
+    contextDrawerWidth,
+    setContextDrawerWidth,
+    pastTurns,
     openPhoneDesktop,
     openPhoneApp,
     cyclePhoneNotificationOwner,
