@@ -1,3 +1,5 @@
+import { ProviderBaseUrlInput } from '../components/ProviderBaseUrlInput';
+import { ProviderModelSwitchIndicator } from '../components/ProviderModelSwitchIndicator';
 import { fastTaskReasoningStart, fastTaskReasoningEnd } from '../llm/fastTaskPrompt';
 import { usePanelNavigationOverlay } from '../navigation/usePanelNavigation';
 import { useSliderPreview } from './useSliderPreview';
@@ -519,7 +521,7 @@ function ProviderCapabilityBadges({
     const description = isReasoning && active
       ? reasoningEnabled === true ? 'enabled' : reasoningEnabled === false
         ? 'supported, disabled' : 'supported, activation unknown'
-      : active ? 'available' : 'not detected';
+      : active ? 'available' : capabilities?.[kind] === false ? 'not supported' : 'unknown';
     return (
       <span
         key={kind}
@@ -609,6 +611,17 @@ const providerPresets = [
     reasoningEffort: 'none',
     models: [''],
     description: 'Image and voice generation server',
+  },
+  {
+    label: 'OpenAI Compatible',
+    kind: 'llm',
+    providerKind: 'openai-compatible',
+    baseUrl: 'http://localhost:8080/v1',
+    apiKey: '',
+    model: '',
+    reasoningEffort: 'auto',
+    models: [''],
+    description: 'Custom API; manual model loading',
   },
 ] satisfies Array<
   Pick<ConnectionPreset, 'kind' | 'providerKind' | 'label' | 'baseUrl' | 'apiKey' | 'model' | 'ttsStreamAudio' | 'comfyWorkflowPath' | 'comfyWidth' | 'comfyHeight' | 'comfyPrompt' | 'comfyCheckpointName' | 'comfyDiffusionModelName' | 'comfyVaeName' | 'comfyTextEncoderName' | 'comfyLoraSlots' | 'reasoningEffort'> & {
@@ -1071,6 +1084,7 @@ export function StudioDialogs({
   );
   const isComfyConnection = editingConnection.kind === 'comfyui';
   const isVoiceOnlyModel =
+    editingConnection.providerKind !== 'openai-compatible' &&
     editingConnectionCapabilities?.voice === true &&
     editingConnectionCapabilities.text !== true &&
     editingConnectionCapabilities.vision !== true &&
@@ -1108,7 +1122,7 @@ export function StudioDialogs({
     ? museGlimmerReasoningEfforts
     : editingProviderKind === 'gemini' ? ['auto'] as const
     : connectionReasoningEfforts.filter((effort) =>
-      (editingProviderKind === 'lm-studio' || editingProviderKind === 'ollama') && editingConnectionReasoning
+      (editingProviderKind === 'lm-studio' || editingProviderKind === 'ollama' || editingProviderKind === 'openai-compatible') && editingConnectionReasoning
         ? supportsReasoningEffort(effort, editingConnectionReasoning)
         : effort !== 'on');
   const selectedReasoningEffort = isMuseGlimmerReasoning
@@ -3397,10 +3411,11 @@ export function StudioDialogs({
                     <label htmlFor="base-url">BASE URL</label>
                     {isComfyConnection ? (
                       <div className="comfy-workflow-row">
-                        <input
-                          id="base-url"
+                        <ProviderBaseUrlInput
+                          key={editingConnection.id + ':' + editingConnection.kind}
                           value={editingConnection.baseUrl}
-                          onChange={(event) => onEditConnection('baseUrl', event.target.value)}
+                          onChange={(value) => onEditConnection('baseUrl', value)}
+                          onCheck={onConnectComfyProvider}
                         />
                         <button
                           type="button"
@@ -3412,10 +3427,11 @@ export function StudioDialogs({
                         </button>
                       </div>
                     ) : (
-                      <input
-                        id="base-url"
+                      <ProviderBaseUrlInput
+                        key={editingConnection.id + ':' + editingProviderKind}
                         value={editingConnection.baseUrl}
-                        onChange={(event) => onEditConnection('baseUrl', event.target.value)}
+                        onChange={(value) => onEditConnection('baseUrl', value)}
+                        onCheck={onCheckConnectionModels}
                       />
                     )}
                   </div>
@@ -3859,7 +3875,9 @@ export function StudioDialogs({
                               capabilities={editingConnectionCapabilities}
                               reasoningEnabled={reasoningActivation(selectedReasoningEffort, editingConnectionReasoning)}
                               kinds={
-                                lmStudioToolsAvailable || ollamaToolsAvailable
+                                editingProviderKind === 'openai-compatible'
+                                  ? (['text', 'reasoning', 'vision', 'tools', 'image', 'voice'] as const).filter((kind) => editingConnectionCapabilities?.[kind] !== undefined)
+                                  : lmStudioToolsAvailable || ollamaToolsAvailable
                                   ? ['text', 'reasoning', 'vision', 'tools']
                                   : llamaCppToolsAvailable
                                     ? ['text', 'vision']
@@ -3876,7 +3894,8 @@ export function StudioDialogs({
                             </span>
                           </div>
                         </div>
-                      ) : (
+                      ) : null}
+                      {(!modelCapabilitiesSourceLabel || (editingProviderKind === 'openai-compatible' && editingConnectionCapabilities?.vision === undefined)) && (
                         <div className="connection-field connection-field-vision">
                           <label className="node-toggle post-output-toggle connection-vision-label nodrag">
                             <input
@@ -3917,7 +3936,7 @@ export function StudioDialogs({
                           </button>
                         </div>
                       </div>
-                      {!isVoiceOnlyModel && <div className="connection-field connection-field-reasoning">
+                      {!isVoiceOnlyModel && !(editingProviderKind === 'openai-compatible' && editingConnectionCapabilities?.reasoning === false) && <div className="connection-field connection-field-reasoning">
                         <div className="connection-field-label-row">
                           <label htmlFor="reasoning-effort">
                             {isMuseGlimmerReasoning ? 'REASONING (MUSE GLIMMER)' : 'REASONING'}
@@ -4282,7 +4301,12 @@ export function StudioDialogs({
                           onApplyProviderPreset(provider);
                         }}
                       >
-                        <strong>{provider.label}</strong>
+                        <strong className="provider-preset-heading">
+                          {provider.label}
+                          {(provider.kind === 'comfyui' || ['lm-studio', 'ollama', 'llama-cpp'].includes(provider.providerKind ?? '')) && (
+                            <ProviderModelSwitchIndicator />
+                          )}
+                        </strong>
                         <span>{provider.description}</span>
                       </button>
                     );

@@ -1,7 +1,7 @@
 {
   "name": "rpgraph-studio",
   "private": true,
-  "version": "0.6.0",
+  "version": "0.6.1",
   "description": "Local-first node graph studio for roleplay workflows.",
   "author": {
     "name": "unrefined803",
@@ -14,14 +14,14 @@
     "node": ">=24"
   },
   "scripts": {
-    "dev": "vite --config config/vite.config.ts",
-    "build": "tsc -b && vite build --config config/vite.config.ts",
+    "dev": "vite --config config/vite.config.mts",
+    "build": "tsc -b && vite build --config config/vite.config.mts",
     "package:linux": "npm run build && electron-builder --config config/electron-builder.yml --linux AppImage --x64",
     "lint": "eslint .",
     "check:unused": "knip --config config/knip.json",
-    "test": "node scripts/run-tests.mjs vitest run --config config/vitest.config.ts",
-    "test:watch": "node scripts/run-tests.mjs vitest --watch --config config/vitest.config.ts",
-    "test:coverage": "node scripts/run-tests.mjs vitest run --coverage --config config/vitest.config.ts",
+    "test": "node scripts/run-tests.mjs vitest run --config config/vitest.config.mts",
+    "test:watch": "node scripts/run-tests.mjs vitest --watch --config config/vitest.config.mts",
+    "test:coverage": "node scripts/run-tests.mjs vitest run --coverage --config config/vitest.config.mts",
     "test:e2e": "node scripts/run-tests.mjs playwright test --config config/playwright.config.ts",
     "test:e2e:headed": "node scripts/run-tests.mjs playwright test --headed --config config/playwright.config.ts",
     "prepare": "node scripts/setup-git-hooks.mjs",
@@ -29,10 +29,10 @@
     "workflow:prompts:merge": "node scripts/workflow-prompts.mjs merge",
     "storybook:redact": "node scripts/storybook-media.mjs redact",
     "storybook:merge": "node scripts/storybook-media.mjs merge",
-    "preview": "vite preview --config config/vite.config.ts",
-    "desktop:dev": "concurrently -k \"vite --config config/vite.config.ts\" \"wait-on tcp:5173 && node scripts/run-electron.mjs --dev --no-sandbox\"",
+    "preview": "vite preview --config config/vite.config.mts",
+    "desktop:dev": "concurrently -k \"vite --config config/vite.config.mts\" \"wait-on tcp:5173 && node scripts/run-electron.mjs --dev --no-sandbox\"",
     "desktop": "node scripts/run-electron.mjs --no-sandbox",
-    "desktop:windows:dev": "concurrently -k \"vite --config config/vite.config.ts\" \"wait-on tcp:5173 && node scripts/run-electron.mjs --dev\"",
+    "desktop:windows:dev": "concurrently -k \"vite --config config/vite.config.mts\" \"wait-on tcp:5173 && node scripts/run-electron.mjs --dev\"",
     "desktop:windows": "node scripts/run-electron.mjs",
     "character:migrate-v3": "node scripts/migrate-character-v3.mjs",
     "character:create": "node scripts/create-character-container.mjs",
@@ -46,7 +46,7 @@
     "character:faces": "node scripts/backfill-character-faces.mjs"
   },
   "dependencies": {
-    "@toon-format/toon": "^2.3.1",
+    "@toon-format/toon": "^4.1.1",
     "@xyflow/react": "^12.11.0",
     "react": "^19.2.7",
     "react-dom": "^19.2.7"
@@ -57,29 +57,30 @@
     "@types/node": "^24.13.2",
     "@types/react": "^19.2.17",
     "@types/react-dom": "^19.1.2",
-    "@vitejs/plugin-react": "^5.2.0",
-    "@vitest/coverage-v8": "^4.1.11",
-    "concurrently": "^9.1.2",
-    "electron": "^41.10.7",
+    "@vitejs/plugin-react": "^6.1.1",
+    "@vitest/coverage-v8": "^5.0.2",
+    "concurrently": "^10.0.5",
+    "electron": "^44.4.5",
     "electron-builder": "^26.15.3",
-    "esbuild": "0.28.1",
+    "esbuild": "0.28.2",
     "eslint": "^10.6.0",
     "eslint-plugin-react-hooks": "^7.1.1",
     "eslint-plugin-react-refresh": "^0.5.3",
     "globals": "^17.7.0",
-    "knip": "^6.24.0",
-    "typescript": "~5.9.3",
+    "knip": "6.38.0",
+    "typescript": "~6.0.3",
     "typescript-eslint": "^8.62.1",
-    "vite": "^7.3.5",
-    "vitest": "^4.1.11",
-    "wait-on": "^8.0.3"
+    "vite": "^8.3.1",
+    "vitest": "^5.0.2",
+    "wait-on": "^9.1.0"
   },
   "overrides": {
-    "esbuild": "0.28.1"
+    "@electron/get@3.1.0": {
+      "global-agent": "4.1.3"
+    }
   },
   "allowScripts": {
-    "electron@41.10.7": true,
-    "esbuild@0.28.1": true,
+    "esbuild@0.28.2": true,
     "electron-winstaller@5.4.0": true
   }
 }
