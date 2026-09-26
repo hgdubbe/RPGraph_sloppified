@@ -335,17 +335,19 @@ describe('theme coverage for audited Studio surfaces', () => {
   it('uses a compact modern composer toolbar instead of stretched action bars', () => {
     const composer = cssRule(studioShellStyles, '.studio-shell-play .composer');
     const input = cssRule(studioShellStyles, '.studio-shell-play .composer .command-composer-input');
-    const actions = cssRule(studioShellStyles, '.studio-shell-play .composer-actions');
-    const runActions = cssRule(studioShellStyles, '.studio-shell-play .composer-run-actions');
+    const inputRow = cssRule(studioShellStyles, '.studio-shell-play .composer-input-row');
+    const inputColumn = cssRule(studioShellStyles, '.studio-shell-play .composer-input-column');
     const submit = cssRule(studioShellStyles, '.studio-shell-play .composer button[type="submit"]');
 
     expect(composer).toContain('position: relative');
     expect(input).toContain('border: 0');
     expect(input).toContain('background: transparent');
-    expect(actions).toContain('display: flex');
-    expect(actions).toContain('flex-wrap: wrap');
-    expect(runActions).toContain('margin-left: auto');
-    expect(runActions).toContain('background: transparent');
+    // One row (attach | growing text column | gear/voice/send) instead of the
+    // text sitting on its own row above a separate always-reserved actions
+    // row -- see the composer-float rework in ChatConversationPanel.tsx.
+    expect(inputRow).toContain('display: flex');
+    expect(inputRow).toContain('align-items: center');
+    expect(inputColumn).toContain('flex: 1 1 auto');
     expect(submit).toContain('width: 44px');
     expect(submit).toContain('min-width: 44px');
     expect(submit).toContain('height: 44px');
@@ -442,17 +444,24 @@ describe('theme coverage for audited Studio surfaces', () => {
   // The old upper character/Chat/Events tab bar and the composer's own
   // turn-action controls (.composer-workspace-controls) are both gone by
   // design: the composer is decluttered to attach/settings + command pills
-  // + Autoplay/send, turn actions (Switch/AutoTurn/undo/regenerate/Rf) moved
-  // into TurnControlsHeader mounted as Timeline's sticky header, and the
+  // + Autoplay/send. AutoTurn (plus the turn-variant picker and counter)
+  // moved into TurnControlsHeader mounted as Timeline's sticky header;
+  // Switch and the back/regenerate/rephrase turn actions moved instead into
+  // their own glass pills in the composer's pills row (composer-switch-pill /
+  // composer-history-pill in App.tsx), not into TurnControlsHeader. The
   // character bar is now the CharacterSwitchChip pinned atop the chat pane.
-  it('moves Chat/Events turn actions out of the composer and into the Timeline header and character chip', () => {
+  it('moves Chat/Events turn actions out of the composer and into the Timeline header, composer pills, and character chip', () => {
     const timelineHeader = cssRule(roleplayTimelineStyles, '.timeline-recent-turns-header .chat-actions');
 
     expect(timelineHeader).toContain('display: flex');
     expect(timelineHeader).toContain('align-items: center');
     expect(timelinePanel).toContain('turnControlsHeader');
     expect(turnControlsHeader).toContain('className="chat-actions"');
-    expect(turnControlsHeader).toContain('className="switch-player-button"');
+    expect(turnControlsHeader).not.toContain('className="switch-player-button"');
+    expect(turnControlsHeader).not.toContain('className="turn-controls"');
+    expect(appSource).toContain('className="composer-glass-pill composer-switch-pill"');
+    expect(appSource).toContain('className="switch-player-button"');
+    expect(appSource).toContain('className="composer-glass-pill composer-history-pill"');
     expect(conversationPanel).not.toContain('className="composer-workspace-controls"');
     expect(conversationPanel).not.toContain('className="chat-actions"');
     expect(appSource).not.toContain('events-workspace-controls');
@@ -499,13 +508,13 @@ describe('theme coverage for audited Studio surfaces', () => {
     }
   });
 
-  // The Switch control was extracted verbatim out of App.tsx into
-  // TurnControlsHeader.tsx (see that component's own doc comment); the
-  // className itself still needs to exist somewhere real, just not inline
-  // in App.tsx anymore.
-  it('keeps the integrated Switch control (now in TurnControlsHeader) and removes the pop-out control', () => {
-    expect(turnControlsHeader).toContain('className="switch-player-button"');
-    expect(appSource).not.toContain('className="switch-player-button"');
+  // The Switch control moved back into App.tsx (roleplaySwitchPill), out of
+  // TurnControlsHeader.tsx -- it's now its own glass pill in the composer's
+  // pills row rather than living in the Timeline header. Guard against a
+  // second, duplicate pop-out control reappearing anywhere.
+  it('keeps a single integrated Switch control (now its own composer pill) and no pop-out control', () => {
+    expect(appSource).toContain('className="switch-player-button"');
+    expect(turnControlsHeader).not.toContain('className="switch-player-button"');
     expect(appSource).not.toContain('className="roleplay-detach-button"');
   });
 

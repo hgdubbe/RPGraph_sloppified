@@ -56,7 +56,7 @@
   border-left: 1px solid color-mix(in srgb, var(--theme-border, rgba(77, 96, 138, 0.72)) 55%, transparent);
   background: var(--theme-panel, #101421);
   box-shadow:
-    inset 1px 0 0 rgba(255, 255, 255, 0.05),
+    inset 1px 0 0 var(--theme-raw-vrgba255255255005, rgba(255, 255, 255, 0.05)),
     -24px 0 48px var(--theme-raw-vrgba000035, rgba(0, 0, 0, 0.35));
   transform: translateX(calc(100% + 24px));
   transition: transform 200ms ease;
@@ -378,16 +378,19 @@
   left: auto;
 }
 
+/* Opens upward: the chip now floats in the pills row just above the
+   composer, near the bottom of the pane, so a downward-opening popover
+   would run off-screen or under the composer itself. */
 .character-switch-chip-hint {
   position: absolute;
-  top: calc(100% + 8px);
+  bottom: calc(100% + 8px);
   left: 12px;
   z-index: 20;
 }
 
 .character-switch-chip-popover {
   position: absolute;
-  top: calc(100% + 8px);
+  bottom: calc(100% + 8px);
   left: 10px;
   z-index: 30;
   width: min(320px, calc(100vw - 32px));
@@ -624,11 +627,11 @@
 /* Composer's center command-pill zone: matches the segmented-control look
    Switch/AutoTurn used to have here before Phase 8 moved them to the
    Timeline sticky header. */
-.studio-shell-play .composer-actions .chat-command-pill-list {
+.studio-shell-play .composer-input-column .chat-command-pill-list {
   flex-wrap: wrap;
 }
 
-.studio-shell-play .composer-actions .chat-command-pill-list .command-pill {
+.studio-shell-play .composer-input-column .chat-command-pill-list .command-pill {
   border-color: var(--theme-border, transparent);
   color: var(--theme-shell-icon-color, currentColor);
   background: var(--theme-shell-segmented-bg, transparent);

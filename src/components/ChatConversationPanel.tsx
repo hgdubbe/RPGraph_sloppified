@@ -18,6 +18,7 @@ import {
   type CSSProperties,
   type Dispatch,
   type FormEvent,
+  type ReactNode,
   type RefObject,
   type SetStateAction,
   useCallback,
@@ -1519,6 +1520,12 @@ const MessageRow = memo(function MessageRow({
 });
 
 type ChatConversationPanelProps = RunProgress & {
+  /** The CharacterSwitchChip, rendered as a pill above the floating composer. */
+  characterPicker: ReactNode;
+  /** The "Switch" (active player) button, in its own pill next to characterPicker. */
+  switchPill: ReactNode;
+  /** Back/regenerate/rephrase, in their own pill on the right of the pills row. */
+  historyActionsPill: ReactNode;
   chatMessageAvatarSize?: number;
   chatMessageAvatarsEnabled?: boolean;
   messageStream: MessageStream;
@@ -1664,6 +1671,9 @@ export function ChatConversationPanel(props: ChatConversationPanelProps) {
 }
 
 const MemoizedChatConversationPanel = memo(function ChatConversationPanelContent({
+  characterPicker,
+  switchPill,
+  historyActionsPill,
   chatMessageAvatarSize = 100,
   chatMessageAvatarsEnabled = true,
   activity,
@@ -2203,6 +2213,23 @@ const MemoizedChatConversationPanel = memo(function ChatConversationPanelContent
           />
         ))}
       </div>
+      <div className="composer-float">
+        <div className="composer-pills-row">
+          {characterPicker}
+          {switchPill}
+          <div className="composer-glass-pill composer-autoplay-pill">
+            <AutoplayControl
+              enabled={autoplayEnabled}
+              mode={autoplayMode}
+              replayDisabled={autoplayReplayDisabled}
+              onEnabledChange={onAutoplayEnabledChange}
+              onModeChange={onAutoplayModeChange}
+              onRunModeNow={onAutoplayRunModeNow}
+            />
+          </div>
+          <div className="composer-pills-row-spacer" />
+          {historyActionsPill}
+        </div>
       {isRunning ? (
         <RunProgressCard
           isRunning
@@ -2231,7 +2258,7 @@ const MemoizedChatConversationPanel = memo(function ChatConversationPanelContent
         onMouseEnter={() => setIsComposerHovered(true)}
         onMouseLeave={() => setIsComposerHovered(false)}
       >
-        <div className="composer-heading">
+        <div className="composer-heading sr-only">
           <label
             htmlFor="chat-prompt"
             style={
@@ -2251,57 +2278,6 @@ const MemoizedChatConversationPanel = memo(function ChatConversationPanelContent
             <CharacterName color={!isNarratorSelected && selectedCharacter ? characterColors.get(selectedCharacter.name) : undefined}>{(isNarratorSelected ? 'Narrator' : selectedCharacter?.name ?? 'CHARACTER').toUpperCase()}</CharacterName> INPUT
           </label>
         </div>
-        <CommandPillComposer
-          ref={commandComposerRef}
-          id="chat-prompt"
-          value={draft}
-          commands={draftCommands}
-          commandsEnabled={rpTimeTrackingEnabled}
-          disabled={false}
-          onValueChange={onDraftChange}
-          onCommandsChange={onDraftCommandsChange}
-          onSubmit={submitMessage}
-          placeholder="Click here or press Enter to write. Type /cmd for commands"
-          rows={3}
-        />
-        {(draft.trim() || draftContextComment.trim()) && (
-          <details className="composer-context-note" open={!!draftContextComment.trim()}>
-            <summary>
-              <span>Context</span>
-              <small>{draftContextComment.trim() ? 'attached' : 'optional'}</small>
-            </summary>
-            <textarea
-              className="composer-context-textarea nodrag"
-              value={draftContextComment}
-              onChange={(event) => onDraftContextCommentChange(event.currentTarget.value)}
-              placeholder="How this should be understood, e.g. clearly sarcastic."
-              rows={2}
-            />
-          </details>
-        )}
-        {!!draftImages.length && (
-          <div className="composer-images">
-            {draftImages.map((image) => (
-              <div className="composer-image" key={image.id}>
-                <button
-                  className="composer-image-preview"
-                  type="button"
-                  onClick={() => onPreviewImage(image)}
-                >
-                  <img src={image.dataUrl} alt={image.name} />
-                </button>
-                <button
-                  className="composer-image-remove"
-                  type="button"
-                  onClick={() => onRemoveDraftImage(image.id)}
-                  title={`Remove ${image.name}`}
-                >
-                  x
-                </button>
-              </div>
-            ))}
-          </div>
-        )}
         <input
           ref={imageInputRef}
           className="composer-file-input"
@@ -2314,22 +2290,83 @@ const MemoizedChatConversationPanel = memo(function ChatConversationPanelContent
             event.target.value = '';
           }}
         />
-        <div className="composer-actions">
-          <div className="composer-left-actions">
-            <button
-              className="attach-image-button"
-              type="button"
-              disabled={isRunning || !imageUploadEnabled}
-              onClick={onSelectDraftImages}
-              title={!imageUploadEnabled ? imageUploadDisabledReason ?? 'Image upload requires a vision-capable provider.' : 'Attach images'}
-              aria-label="Attach images"
-            >
-              <svg className="attach-image-icon" aria-hidden="true" viewBox="0 0 24 24">
-                <rect x="3" y="4" width="18" height="16" rx="2" />
-                <circle cx="8.5" cy="9" r="1.5" />
-                <path d="m4 17 5-5 4 4 2-2 5 4" />
-              </svg>
-            </button>
+        <div className="composer-input-row">
+          <button
+            className="attach-image-button"
+            type="button"
+            disabled={isRunning || !imageUploadEnabled}
+            onClick={onSelectDraftImages}
+            title={!imageUploadEnabled ? imageUploadDisabledReason ?? 'Image upload requires a vision-capable provider.' : 'Attach images'}
+            aria-label="Attach images"
+          >
+            <svg className="attach-image-icon" aria-hidden="true" viewBox="0 0 24 24">
+              <rect x="3" y="4" width="18" height="16" rx="2" />
+              <circle cx="8.5" cy="9" r="1.5" />
+              <path d="m4 17 5-5 4 4 2-2 5 4" />
+            </svg>
+          </button>
+          <div className="composer-input-column">
+            <CommandPillComposer
+              ref={commandComposerRef}
+              id="chat-prompt"
+              value={draft}
+              commands={draftCommands}
+              commandsEnabled={rpTimeTrackingEnabled}
+              disabled={false}
+              onValueChange={onDraftChange}
+              onCommandsChange={onDraftCommandsChange}
+              onSubmit={submitMessage}
+              placeholder="Click here or press Enter to write. Type /cmd for commands"
+              rows={1}
+              autoResize
+            />
+            {(draft.trim() || draftContextComment.trim()) && (
+              <details className="composer-context-note" open={!!draftContextComment.trim()}>
+                <summary>
+                  <span>Context</span>
+                  <small>{draftContextComment.trim() ? 'attached' : 'optional'}</small>
+                </summary>
+                <textarea
+                  className="composer-context-textarea nodrag"
+                  value={draftContextComment}
+                  onChange={(event) => onDraftContextCommentChange(event.currentTarget.value)}
+                  placeholder="How this should be understood, e.g. clearly sarcastic."
+                  rows={2}
+                />
+              </details>
+            )}
+            {!!draftImages.length && (
+              <div className="composer-images">
+                {draftImages.map((image) => (
+                  <div className="composer-image" key={image.id}>
+                    <button
+                      className="composer-image-preview"
+                      type="button"
+                      onClick={() => onPreviewImage(image)}
+                    >
+                      <img src={image.dataUrl} alt={image.name} />
+                    </button>
+                    <button
+                      className="composer-image-remove"
+                      type="button"
+                      onClick={() => onRemoveDraftImage(image.id)}
+                      title={`Remove ${image.name}`}
+                    >
+                      x
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+            {draftCommands.length > 0 && (
+              <CommandPillList
+                className="chat-command-pill-list"
+                commands={draftCommands}
+                onCommandsChange={onDraftCommandsChange}
+                onRequestMessageFocus={() => commandComposerRef.current?.focusMessage()}
+              />
+            )}
+          </div>
             <div className="chat-tab-settings-menu" ref={outsidePhoneMenuRef}>
               <button
                 className="composer-icon-button"
@@ -2461,50 +2498,32 @@ const MemoizedChatConversationPanel = memo(function ChatConversationPanelContent
                 Stop Voices
               </button>
             )}
-          </div>
-          {draftCommands.length > 0 && (
-            <CommandPillList
-              className="chat-command-pill-list"
-              commands={draftCommands}
-              onCommandsChange={onDraftCommandsChange}
-              onRequestMessageFocus={() => commandComposerRef.current?.focusMessage()}
-            />
-          )}
-          <div className="composer-run-actions">
-            <AutoplayControl
-              enabled={autoplayEnabled}
-              mode={autoplayMode}
-              replayDisabled={autoplayReplayDisabled}
-              onEnabledChange={onAutoplayEnabledChange}
-              onModeChange={onAutoplayModeChange}
-              onRunModeNow={onAutoplayRunModeNow}
-            />
-            <button
-              type="submit"
-              disabled={!canRunChat}
-              aria-label={isRunning ? 'Cancel the running chat turn' : 'Run chat'}
-              title={
-                canRunChat || isRunning
-                  ? undefined
-                  : runChatDisabledReason ??
-                    'Add a Storybook with one player and at least one actor to run the chat.'
-              }
-            >
-              <span className="composer-submit-label">{isRunning ? 'Cancel' : 'Run Chat'}</span>
-              {isRunning ? (
-                <svg className="composer-submit-icon" aria-hidden="true" viewBox="0 0 24 24">
-                  <path d="M6 6l12 12M18 6 6 18" />
-                </svg>
-              ) : (
-                <svg className="composer-submit-icon" aria-hidden="true" viewBox="0 0 24 24">
-                  <path d="M12 19V5M6 11l6-6 6 6" />
-                </svg>
-              )}
-            </button>
-          </div>
+          <button
+            type="submit"
+            disabled={!canRunChat}
+            aria-label={isRunning ? 'Cancel the running chat turn' : 'Run chat'}
+            title={
+              canRunChat || isRunning
+                ? undefined
+                : runChatDisabledReason ??
+                  'Add a Storybook with one player and at least one actor to run the chat.'
+            }
+          >
+            <span className="composer-submit-label sr-only">{isRunning ? 'Cancel' : 'Run Chat'}</span>
+            {isRunning ? (
+              <svg className="composer-submit-icon" aria-hidden="true" viewBox="0 0 24 24">
+                <path d="M6 6l12 12M18 6 6 18" />
+              </svg>
+            ) : (
+              <svg className="composer-submit-icon" aria-hidden="true" viewBox="0 0 24 24">
+                <path d="M12 19V5M6 11l6-6 6 6" />
+              </svg>
+            )}
+          </button>
         </div>
       </form>
       )}
+      </div>
       {voicePlaybackDialogOpen && (
         <VoicePlaybackDialog
           mode={dialogueVoiceMode}

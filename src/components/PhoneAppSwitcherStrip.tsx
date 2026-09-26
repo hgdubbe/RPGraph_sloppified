@@ -11,7 +11,7 @@ export type PhoneAppSwitcherAppId =
   | 'gallery'
   | 'camera';
 
-export type PhoneAppSwitcherCounts = {
+type PhoneAppSwitcherCounts = {
   whatsup: number;
   banking: number;
   matchme: number;

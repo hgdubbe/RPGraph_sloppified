@@ -5,6 +5,7 @@ import {
   useImperativeHandle,
   type KeyboardEvent,
   useEffect,
+  useLayoutEffect,
   useRef,
   useState,
 } from 'react';
@@ -27,6 +28,11 @@ type CommandPillComposerProps = {
   rows: number;
   className?: string;
   disabledReason?: string;
+  /** Grows the textarea to fit its content (clamped by CSS max-height) instead
+   * of the fixed collapsed/expanded heights the composer normally toggles
+   * between. Opt-in per usage -- PhonePanel's own composer keeps the fixed
+   * sizing it already had. */
+  autoResize?: boolean;
   onValueChange: (value: string) => void;
   onCommandsChange: (commands: CommandInputCommand[]) => void;
   onSubmit: (event: FormEvent<HTMLFormElement>) => void;
@@ -198,6 +204,7 @@ export const CommandPillComposer = forwardRef<CommandPillComposerHandle, Command
   rows,
   className,
   disabledReason = 'Enable RP Time Tracking in Chat History to use commands.',
+  autoResize = false,
   onValueChange,
   onCommandsChange,
   onSubmit,
@@ -206,6 +213,18 @@ export const CommandPillComposer = forwardRef<CommandPillComposerHandle, Command
   const [activeMenuIndex, setActiveMenuIndex] = useState(0);
   const composerRef = useRef<HTMLDivElement | null>(null);
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
+
+  useLayoutEffect(() => {
+    if (!autoResize) {
+      return;
+    }
+    const element = textareaRef.current;
+    if (!element) {
+      return;
+    }
+    element.style.height = 'auto';
+    element.style.height = `${element.scrollHeight}px`;
+  }, [autoResize, value]);
   const hasTimeCommand = commands.some((command) => command.type === 'time');
   const hasDirectCommand = commands.some((command) => command.type === 'direct');
 

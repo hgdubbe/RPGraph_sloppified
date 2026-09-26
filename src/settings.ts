@@ -282,7 +282,7 @@ function validMaxReferenceImages(value?: number) {
 }
 
 const connectionStorageKey = 'rpgraph.connections';
-export const defaultChatPanelWidth = 779;
+const defaultChatPanelWidth = 779;
 const defaultConnectionReasoningEffort: ConnectionReasoningEffort = 'none';
 export const defaultComfyBaseUrl = 'http://127.0.0.1:8188';
 export type BundledComfyWorkflow = {

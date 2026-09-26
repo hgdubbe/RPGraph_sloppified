@@ -33,6 +33,10 @@
 .studio-shell-play .messages {
   gap: 14px;
   padding: 15px;
+  /* The composer now floats over the thread (see composer-float below)
+     instead of sitting in flow, so scrolled-to-end content needs enough
+     reserved space that it never renders underneath the glass bar. */
+  padding-bottom: 240px;
   background: var(--theme-shell-chat-surface, #0a0d18);
 }
 
@@ -125,11 +129,19 @@
 
 .studio-shell-play .composer {
   position: relative;
-  margin: 10px 15px 14px;
+  /* No longer margined in flow -- composer-float positions the whole
+     pills-row + composer stack as one floating unit over the thread. */
+  margin: 0;
   padding: 12px;
   border: 1px solid var(--theme-border, rgba(77, 96, 138, 0.72));
   border-radius: var(--theme-radius-card, var(--theme-radius, 18px));
-  background: var(--theme-panel, #101421);
+  /* Translucent + blurred so the floating bar reads as glass over the
+     scrolled thread behind it, matching the mockup's "glassy optic" --
+     a fully opaque `--theme-panel` fill here (the previous value) flattens
+     the backdrop-filter below back to a solid card no matter the blur. */
+  background: color-mix(in srgb, var(--theme-panel, #101421) 55%, transparent);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
   box-shadow: var(--theme-card-shadow, none);
   transition: border-color 140ms ease, box-shadow 140ms ease;
 }
@@ -137,6 +149,244 @@
 .studio-shell-play .composer:focus-within {
   border-color: var(--theme-primary, #79d8ef);
   box-shadow: 0 0 0 2px color-mix(in srgb, var(--theme-primary, #79d8ef) 18%, transparent);
+}
+
+/* The floating composer no longer sits in normal document flow, so the
+   shared styles.css hover wobble (`.composer.collapsed.hover-ready`'s
+   translateY(-2px)) reads as an unwanted jitter rather than a lift off the
+   page. Neutralized here instead of edited in place in styles.css. */
+.studio-shell-play .composer.collapsed.hover-ready {
+  transform: none;
+}
+
+/* The composer used to sit in-flow at the bottom of the flex column; this
+   is its positioning context now that it (and the pills row above it)
+   float over the thread instead. */
+.studio-shell-play .roleplay-chat-pane {
+  position: relative;
+}
+
+/* Character-select and Autoplay float as their own pills directly above
+   the composer instead of a "CHARACTER INPUT" text label inside it (see
+   composer-heading below, already hidden) and instead of Autoplay sharing
+   the composer's own action row -- see ChatConversationPanel.tsx's
+   composer-float wrapper. */
+.studio-shell-play .composer-float {
+  position: absolute;
+  /* Inset proportionally to the chat pane's width (10% each side) so the
+     bar visibly "floats" clear of the chat edges instead of nearly
+     spanning it -- clamped to a 16px floor so it doesn't pinch the row of
+     buttons too narrow at small window widths. */
+  left: max(16px, 10%);
+  right: max(16px, 10%);
+  bottom: 16px;
+  z-index: 5;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.studio-shell-play .composer-pills-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding-left: 6px;
+}
+
+/* Pushes historyActionsPill to the right of the row instead of it trailing
+   directly after the Autoplay pill. */
+.studio-shell-play .composer-pills-row-spacer {
+  flex: 1 1 auto;
+}
+
+.studio-shell-play .composer-pills-row .character-switch-chip {
+  padding: 0;
+}
+
+/* Shared glass-pill chrome for every pill in the composer's pills row
+   (character select, Switch, Autoplay, the history actions) so they read
+   as one consistent family instead of each reinventing the same look. */
+.studio-shell-play .composer-pills-row .character-switch-chip-button,
+.studio-shell-play .composer-glass-pill {
+  background: color-mix(in srgb, var(--theme-panel, #101421) 55%, transparent);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+}
+
+.studio-shell-play .composer-glass-pill {
+  display: flex;
+  align-items: center;
+  height: 40px;
+  border: 1px solid var(--theme-border, #363640);
+  border-radius: 999px;
+}
+
+.studio-shell-play .composer-autoplay-pill .autoplay-control {
+  flex: none;
+  width: max-content;
+}
+
+/* Same pill treatment the split-button already had in composer-run-actions
+   before Autoplay moved above the composer -- reused, not reinvented. Its
+   own border/background/shadow are reset here too, so the glass pill above
+   (composer-pills-row) is the only visible surface instead of a second,
+   opaque, differently-colored box nested inside it. */
+.studio-shell-play .composer-autoplay-pill .autoplay-split-button {
+  width: max-content;
+  height: 36px;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  box-shadow: none;
+}
+
+/* Mirrors (.composer .autoplay-menu-trigger / .autoplay-state-toggle) in
+   styles.css -- those are scoped to a `.composer` ancestor, which no longer
+   wraps Autoplay now that it floats in its own pill above the composer
+   instead of inside it. Duplicated rather than broadening that shared
+   selector, per this file's own pattern of layering Play-only chrome on
+   top of styles.css instead of editing its rules in place. */
+.studio-shell-play .composer-autoplay-pill .autoplay-menu-trigger,
+.studio-shell-play .composer-autoplay-pill .autoplay-state-toggle {
+  position: relative;
+  display: grid;
+  height: 100%;
+  place-items: center;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  color: var(--theme-shell-icon-color, currentColor);
+  background: transparent;
+  cursor: pointer;
+}
+
+.studio-shell-play .composer-autoplay-pill .autoplay-menu-trigger {
+  min-width: 70px;
+  padding: 0 10px;
+  font-size: 11px;
+  font-weight: 800;
+}
+
+.studio-shell-play .composer-autoplay-pill .autoplay-state-toggle {
+  width: 32px;
+  border-left: 1px solid var(--theme-border-soft, rgba(77, 96, 138, 0.36));
+}
+
+.studio-shell-play .composer-autoplay-pill .autoplay-menu-trigger:hover,
+.studio-shell-play .composer-autoplay-pill .autoplay-menu-trigger[aria-expanded="true"],
+.studio-shell-play .composer-autoplay-pill .autoplay-state-toggle:hover {
+  color: var(--theme-foreground, currentColor);
+  background: var(--theme-shell-topbar-hover-bg, rgba(255, 255, 255, 0.06));
+}
+
+.studio-shell-play .composer-autoplay-pill .autoplay-menu-help {
+  position: relative;
+  display: grid;
+  width: 17px;
+  height: 17px;
+  flex: none;
+  place-items: center;
+  padding: 0;
+  border: 1px solid var(--theme-border-soft, rgba(77, 96, 138, 0.36));
+  border-radius: 50%;
+  color: var(--theme-muted-foreground, #9fb0df);
+  background: transparent;
+  font-size: 10px;
+  font-weight: 900;
+  cursor: help;
+}
+
+/* The dropdown's own mode rows and their help/play buttons -- like the
+   trigger/toggle above, `.composer .autoplay-menu-option` etc in styles.css
+   are scoped to a `.composer` ancestor that no longer wraps Autoplay now
+   that it floats in its own pill, so without these mirrors the whole
+   dropdown rendered unstyled (default button chrome, no theme colors). */
+.studio-shell-play .composer-autoplay-pill .autoplay-menu-help:hover,
+.studio-shell-play .composer-autoplay-pill .autoplay-menu-help:focus-visible {
+  outline: none;
+  border-color: var(--theme-complete, #4ade80);
+  color: var(--theme-complete, #4ade80);
+}
+
+.studio-shell-play .composer-autoplay-pill .autoplay-menu-help::after {
+  position: absolute;
+  z-index: 2;
+  top: -8px;
+  right: calc(100% + 9px);
+  width: 220px;
+  padding: 8px 10px;
+  border: 1px solid var(--theme-raw-v36445c, #36445c);
+  border-radius: 7px;
+  background: var(--theme-raw-v0c121c, #0c121c);
+  box-shadow: 0 10px 28px var(--theme-raw-vrgba000036, rgba(0, 0, 0, 0.36));
+  color: var(--theme-app-dialog-text, #dbe4f7);
+  content: attr(data-tooltip);
+  font-size: 11px;
+  font-weight: 650;
+  letter-spacing: normal;
+  line-height: 1.4;
+  text-align: left;
+  text-transform: none;
+  opacity: 0;
+  pointer-events: none;
+  transform: translateX(4px);
+  transition: opacity 0.15s, transform 0.15s;
+}
+
+.studio-shell-play .composer-autoplay-pill .autoplay-menu-help:hover::after,
+.studio-shell-play .composer-autoplay-pill .autoplay-menu-help:focus-visible::after {
+  opacity: 1;
+  transform: translateX(0);
+}
+
+.studio-shell-play .composer-autoplay-pill .autoplay-menu-option {
+  display: grid;
+  grid-template-columns: 15px 1fr;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 8px 9px;
+  border: 0;
+  border-radius: 6px;
+  color: var(--theme-app-dialog-text, #dbe4f7);
+  background: transparent;
+  font-size: 12px;
+  font-weight: 700;
+  text-align: left;
+  cursor: pointer;
+}
+
+.studio-shell-play .composer-autoplay-pill .autoplay-menu-option:hover,
+.studio-shell-play .composer-autoplay-pill .autoplay-menu-option:focus-visible,
+.studio-shell-play .composer-autoplay-pill .autoplay-menu-option.active {
+  outline: none;
+  color: var(--theme-foreground, #f6f8ff);
+  background: color-mix(in srgb, var(--theme-primary, #79d8ef) 14%, transparent);
+}
+
+.studio-shell-play .composer-autoplay-pill .autoplay-menu-play {
+  display: grid;
+  width: 30px;
+  min-height: 34px;
+  place-items: center;
+  padding: 0;
+  border: 0;
+  border-radius: 6px;
+  color: var(--theme-muted-foreground, #9fb0df);
+  background: transparent;
+  cursor: pointer;
+}
+
+.studio-shell-play .composer-autoplay-pill .autoplay-menu-play:hover:not(:disabled),
+.studio-shell-play .composer-autoplay-pill .autoplay-menu-play:focus-visible {
+  outline: none;
+  color: var(--theme-complete, #4ade80);
+  background: color-mix(in srgb, var(--theme-complete, #4ade80) 16%, transparent);
+}
+
+.studio-shell-play .composer-autoplay-pill .autoplay-menu-play:disabled {
+  opacity: 0.35;
+  cursor: default;
 }
 
 .studio-shell-play .composer-heading {
@@ -151,17 +401,18 @@
   box-shadow: none;
 }
 
+/* Single line at rest -- this used to be `min-height: 56px` unconditionally,
+   which made the composer multiple lines tall even with no content typed.
+   It only grows on focus (.expanded below), matching the reference mockup. */
 .studio-shell-play .composer .command-composer textarea {
-  min-height: 56px;
+  height: 26px;
+  max-height: 200px;
   padding: 0;
+  overflow-y: auto;
   color: var(--theme-shell-message-text, #f6f8ff);
   font-size: 15px;
   font-weight: 550;
   line-height: 1.45;
-}
-
-.studio-shell-play .composer.expanded .command-composer textarea {
-  height: 64px;
 }
 
 .studio-shell-play .message-edit-textarea {
@@ -169,21 +420,28 @@
   min-width: min(520px, calc(100vw - 96px));
 }
 
-.studio-shell-play .composer-actions {
+/* One row: attach | growing text column | gear/voice/send -- matches the
+   reference mockup's single-line composer that only grows vertically on
+   focus, instead of the text sitting on its own row above a separate
+   always-reserved actions row. */
+/* Centered rather than flex-end: the send button is a 44px circle, taller
+   than the ~34px icon buttons and the column's own 1-line resting height,
+   so bottom-aligning them left the icons visually riding high above the
+   send button's center instead of level with it. The growing text column
+   still expands freely -- it just isn't force-stretched to the row's
+   cross-size, so it keeps its own intrinsic (1-line or grown) height. */
+.studio-shell-play .composer-input-row {
   display: flex;
-  flex-wrap: wrap;
   align-items: center;
   gap: 8px;
 }
 
-.studio-shell-play .composer-run-actions {
+.studio-shell-play .composer-input-column {
   display: flex;
   min-width: 0;
-  margin-left: auto;
-  align-items: center;
-  gap: 8px;
-  background: transparent;
-  overflow: visible;
+  flex: 1 1 auto;
+  flex-direction: column;
+  gap: 6px;
 }
 
 .studio-shell-play .composer button[type="submit"] {
@@ -241,9 +499,7 @@
 
 .studio-shell-play .attach-image-button,
 .studio-shell-play .composer .composer-icon-button,
-.studio-shell-play .switch-player-button,
-.studio-shell-play .auto-turn-button,
-.studio-shell-play .turn-controls button {
+.studio-shell-play .auto-turn-button {
   border-color: var(--theme-border, rgba(77, 96, 138, 0.72));
   border-radius: 8px;
   color: var(--theme-shell-icon-color, #dce8ff);
@@ -251,10 +507,48 @@
   box-shadow: none;
 }
 
-.studio-shell-play .composer-left-actions {
-  display: flex;
-  align-items: center;
-  gap: 6px;
+/* Switch and the back/regenerate/rephrase turn actions now live in their own
+   glass pills (composer-pills-row), not the square-button look above --
+   transparent so the pill itself is the only visible chrome, matching the
+   same treatment already used for the Autoplay split-button. */
+/* .composer-glass-pill.composer-switch-pill (both classes, one element) is
+   deliberate, not decorative: studio-theme.css's
+   `.studio[data-studio-theme] .studio-shell-play .switch-player-button` rule
+   (still needed for the disabled-look state) outranks a plain
+   `.composer-switch-pill .switch-player-button` on specificity alone (4
+   class-level selectors vs 3), which was winning and reimposing that rule's
+   small border-radius and opaque panel background right through this reset
+   -- a small squared-off button visibly clipping the outer pill's smooth
+   curve. Matching its specificity here, with this file loading after
+   studio-theme.css, is what actually wins the tie. */
+.studio-shell-play .composer-glass-pill.composer-switch-pill .switch-player-button,
+.studio-shell-play .composer-history-pill button {
+  height: 100%;
+  padding: 0 12px;
+  border: 0;
+  border-radius: 999px;
+  color: var(--theme-shell-icon-color, #dce8ff);
+  background: transparent;
+  box-shadow: none;
+  cursor: pointer;
+}
+
+.studio-shell-play .composer-history-pill button {
+  padding: 0 10px;
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.studio-shell-play .composer-switch-pill .switch-player-button:hover:not(:disabled),
+.studio-shell-play .composer-history-pill button:hover:not(:disabled) {
+  color: var(--theme-primary, var(--accent));
+  background: color-mix(in srgb, var(--theme-primary, var(--accent)) 12%, transparent);
+}
+
+.studio-shell-play .composer-switch-pill .switch-player-button:disabled,
+.studio-shell-play .composer-history-pill button:disabled {
+  opacity: 0.5;
+  cursor: default;
 }
 
 .studio-shell-play .attach-image-button:not(.voice-stop-button) {
@@ -286,15 +580,33 @@
   height: 17px;
 }
 
-.studio-shell-play .composer-run-actions .autoplay-control {
-  flex: none;
-  width: max-content;
+/* Circular, glass-toned icon buttons for the floating composer specifically
+   -- scoped to composer-float so this doesn't reach the Timeline's
+   Switch/AutoTurn/turn-history buttons, which share the square-button base
+   rule above but keep their own shape. */
+.studio-shell-play .composer-float .attach-image-button,
+.studio-shell-play .composer-float .composer-icon-button {
+  border-radius: 50%;
+  background: transparent;
 }
 
-.studio-shell-play .composer-run-actions .autoplay-split-button {
-  width: max-content;
-  height: 36px;
-  border-radius: 999px;
+.studio-shell-play .composer-float .attach-image-button:hover:not(:disabled),
+.studio-shell-play .composer-float .composer-icon-button:hover,
+.studio-shell-play .composer-float .composer-icon-button:focus-visible,
+.studio-shell-play .composer-float .composer-icon-button[aria-expanded="true"] {
+  border-color: var(--theme-primary, #79d8ef);
+  color: var(--theme-primary, #79d8ef);
+  background: color-mix(in srgb, var(--theme-primary, #79d8ef) 14%, transparent);
+}
+
+/* The gear menu now opens from the middle of the restructured input row
+   instead of the row's left edge, so the popover's old `left: 0` (grow
+   rightward from the button) ran it past the composer's/viewport's right
+   edge. Anchoring to the button's right edge instead keeps it growing
+   leftward, back over the composer where there's room. */
+.studio-shell-play .chat-tab-settings-popover {
+  left: auto;
+  right: 0;
 }
 
 .studio-shell-play .auto-turn-button {
@@ -317,19 +629,6 @@
   max-height: none;
 }
 
-.studio-shell-play .composer:not(.expanded) .composer-actions,
-.studio-shell-play .composer.expanded .composer-actions {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  max-height: none;
-  margin-top: 0;
-  padding-top: 4px;
-  overflow: visible;
-  border-top: 0;
-  opacity: 1;
-  pointer-events: auto;
-}
 
 .studio-play-main {
   display: grid;

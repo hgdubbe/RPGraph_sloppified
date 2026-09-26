@@ -5633,22 +5633,62 @@ function App() {
 
   const roleplayComposerActions = (
     <TurnControlsHeader
-      switchActivePlayer={switchActivePlayer}
-      switchPlayerDisabled={switchPlayerDisabled}
-      switchPlayerTitle={switchPlayerTitle}
       triggerAutoTurn={triggerAutoTurn}
       autoTurnDisabled={autoTurnDisabled}
       autoTurnTitle={autoTurnTitle}
       isEventView={chatPanelView === 'events'}
-      cancelRunOrUndoLastTurn={cancelRunOrUndoLastTurn}
-      undoTurnDisabled={undoTurnDisabled}
-      undoTurnTitle={undoTurnTitle}
       isRunning={isRunning}
-      regenerateLastOutput={regenerateLastOutput}
       currentSessionTurn={currentSessionTurn}
       currentTurnVariants={currentTurnVariants}
       selectLastTurnVariant={selectLastTurnVariant}
     />
+  );
+
+  const roleplaySwitchPill = (
+    <div className="composer-glass-pill composer-switch-pill">
+      <button
+        className="switch-player-button"
+        type="button"
+        onClick={switchActivePlayer}
+        disabled={switchPlayerDisabled}
+        data-disabled-look={switchPlayerDisabled ? 'true' : undefined}
+        title={switchPlayerTitle}
+      >
+        Switch
+      </button>
+    </div>
+  );
+
+  const roleplayHistoryActionsPill = (
+    <div className="composer-glass-pill composer-history-pill" aria-label="Turn actions">
+      <button
+        type="button"
+        onClick={cancelRunOrUndoLastTurn}
+        disabled={undoTurnDisabled}
+        title={undoTurnTitle}
+        aria-label={undoTurnTitle}
+      >
+        {isRunning ? 'x' : '←'}
+      </button>
+      <button
+        type="button"
+        onClick={() => regenerateLastOutput()}
+        disabled={!isRunning && !currentSessionTurn}
+        title={isRunning ? 'Cancel and restart the running RP output' : 'Regenerate the last RP output'}
+        aria-label={isRunning ? 'Cancel and restart the running RP output' : 'Regenerate the last RP output'}
+      >
+        ↶
+      </button>
+      <button
+        type="button"
+        onClick={() => regenerateLastOutput({ reflavor: true })}
+        disabled={isRunning || !currentSessionTurn}
+        title="Rephrase the last output while preserving the same continuity"
+        aria-label="Rephrase the last output while preserving continuity"
+      >
+        Rephrase
+      </button>
+    </div>
   );
 
   const graphCanvas = (
@@ -6521,9 +6561,11 @@ function App() {
             aria-hidden={isNarrowLayout && drawerContent !== null ? true : undefined}
             inert={isNarrowLayout && drawerContent !== null}
           >
-            {roleplayCharacterPicker}
             <ChatConversationPanel
               key={panelSessionRevision}
+              characterPicker={roleplayCharacterPicker}
+              switchPill={roleplaySwitchPill}
+              historyActionsPill={roleplayHistoryActionsPill}
               appCharacters={npcParticipants.characters()}
               {...runProgress(isRunning ? nodes : [])}
               messageStream={messageStream}

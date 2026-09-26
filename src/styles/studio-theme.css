@@ -184,11 +184,24 @@
   background: var(--theme-surface-content);
 }
 
-.studio[data-studio-theme] .chat-lockable,
-.studio[data-studio-theme] .studio-shell-play .composer {
+.studio[data-studio-theme] .chat-lockable {
   border-color: var(--theme-border);
   border-radius: calc(var(--theme-radius) + 2px);
   background: var(--theme-panel);
+  box-shadow: var(--theme-card-shadow, none);
+}
+
+/* Composer gets its own rule instead of sharing `.chat-lockable`'s opaque
+   fill above: the floating composer wants a translucent, blurred glass
+   surface (see studio-shell.css's own `.composer` rule) so the scrolled
+   thread reads through it. A plain `var(--theme-panel)` background here --
+   this selector used to share the .chat-lockable rule above -- always won
+   the cascade over that translucent background (this file applies whenever
+   any theme is active) and flattened the glass back to a solid card. */
+.studio[data-studio-theme] .studio-shell-play .composer {
+  border-color: var(--theme-border);
+  border-radius: calc(var(--theme-radius) + 2px);
+  background: color-mix(in srgb, var(--theme-panel) 55%, transparent);
   box-shadow: var(--theme-card-shadow, none);
 }
 
