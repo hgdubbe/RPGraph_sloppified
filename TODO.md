@@ -24,9 +24,9 @@ into it.
   phone screen simulations. maybe claude can analyze this for better understanding
   how phones work, look and feel, since this is code and claude understands code
   better than "imagination"
-- Phone widgets waste too much space
-- Somehow get more actual space on the phone screen, it's too narrow and feels
-  cramped, especially in apps
+- Phone widgets waste too much space (the widgets' own internal layout/density,
+  not the drawer size fixed below — a bigger drawer doesn't yet mean a
+  better-used one).
 - phone reflection broken
 - NPCs should be able to use the phone's mood indicator
 - Themes per character
@@ -67,6 +67,18 @@ into it.
 
 ## Done
 
+- Ground-up Play mode UI rebuild: chat is now always visible instead of one of
+  three mutually exclusive full-bleed tabs; a resizable Context Drawer shows
+  Phone or the new Timeline (replaces Events, also absorbs turn history)
+  alongside it. Addresses "get more actual space on the phone screen, it's too
+  narrow and feels cramped" above — chat no longer permanently squeezes the
+  phone to a fixed width, the drawer's default and draggable-max width were
+  both increased, and the phone genuinely scales larger on typical window
+  sizes as a result (still height-limited on short windows — an inherent
+  tradeoff of the fixed-aspect simulated handset, not a drawer-width fix).
+  Also: persistent phone chrome (top strip + app switcher) so app-to-app
+  navigation skips the home screen; a visible character-switch chip
+  replacing a hidden edge-hover gesture with no keyboard path.
 - Integrated upstream RPGraph Studio v0.5.3: redesigned Banking and account-link flows,
   13 additional bundled NPCs, v31 default workflows, batched renderer streaming, stable
   node actions, cached NPC runtime projections, and related regression coverage. The new

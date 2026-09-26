@@ -51,14 +51,20 @@ property name, and returns a flat `{name: value}` map ready for
 
 ## The token set
 
-Fourteen leaves, all under one dotted category (`phoneHome.*`), matching the fourteen
+Seventeen leaves, all under one dotted category (`phoneHome.*`), matching the seventeen
 `--theme-phone-home-*` custom properties `phone-widgets.css` consumes:
 
-- **Color (10, all guaranteed):** `scrim`, `accent`, `accentStrong`, `clockBackground`,
-  `clockText`, `widgetBackground`, `label`, `badge`, `badgeBanking`, `online`. Every one
-  of these is force-backfilled from `base` when nothing else supplies it, so every
-  phone-home theme resolves a complete, self-consistent color palette rather than
-  partially falling through to `phone-widgets.css`'s own literal fallbacks.
+- **Color (13, all guaranteed):** `scrim`, `accent`, `accentStrong`, `clockBackground`,
+  `clockText`, `widgetBackground`, `label`, `badge`, `badgeBanking`, `online`, `text`,
+  `textStrong`, and `textMuted` (the last three are readable-text roles on top of the
+  home screen's dark glass — widget titles, the narrative widget's textarea, the
+  draft-context note — added alongside the visual-audit pass that wired the last
+  plain-hex text colors in `phone-widgets.css` to this namespace; `textStrong` is the
+  brightest role, `text` is normal body text, `textMuted` is the dimmer secondary/label
+  role). Every one of these is force-backfilled from `base` when nothing else supplies
+  it, so every phone-home theme resolves a complete, self-consistent color palette
+  rather than partially falling through to `phone-widgets.css`'s own literal
+  fallbacks.
 - **Shape (2, guaranteed):** `iconRadius` (the app-icon grid's corner radius, default
   `28%` — a percentage, not a fixed px, so it scales with icon size) and `cardRadius`
   (shared by the clock widget, desktop widgets, and the bottom dock; each has its own
@@ -101,10 +107,12 @@ those), `background` feeds the surface family (`scrim`/`clockBackground`/
 `widgetBackground` directly, `clockText`/`label` as contrasting text against
 `clockBackground`, `online` as a strong lighten of `background`). A theme.json-style
 advanced `tokens` entry always wins over a derived value — derivation only fills a token
-still unset after the `extends` merge. None of the four shipped manifests (`base`,
-`classic`, `hardcore`, `calm`) currently rely on derivation; they all set every leaf
-explicitly. The hook exists so a future minimal phone-theme editor could offer just a
-two-color picker and still get a coherent result.
+still unset after the `extends` merge. None of the five shipped manifests (`base`,
+`classic`, `hardcore`, `calm`, `mono`) currently rely on derivation for a leaf they
+actually set; `mono` inherits `text`/`textStrong`/`textMuted` from `base` via `extends`
+rather than setting them itself, which is plain inheritance, not the derivation table.
+The hook exists so a future minimal phone-theme editor could offer just a two-color
+picker and still get a coherent result.
 
 ## Isolation from the Studio theme — the load-bearing property
 
@@ -170,8 +178,8 @@ CSS, use the same compound-selector pattern — don't revert to the bare class.*
 
 Add `resources/phone-themes/<id>/phone-theme.json` with `id`, `label`, `extends: "base"`
 (or omit — same default), and a `tokens.phoneHome` block setting whichever of the
-fourteen leaves you want to override (anything left unset derives from `basic`, falls
-back to `base` for the twelve guaranteed leaves, or — for the two icon-coloring leaves
+seventeen leaves you want to override (anything left unset derives from `basic`, falls
+back to `base` for the fifteen guaranteed leaves, or — for the two icon-coloring leaves
 only — stays genuinely absent, preserving each app's own per-icon default). Nothing else
 needs to change — the dev glob loader
 (`phoneHomeThemeLibrary.browser.ts`) and the packaged dual-tier scanner

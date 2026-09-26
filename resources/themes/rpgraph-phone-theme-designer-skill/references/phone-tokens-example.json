@@ -7,12 +7,19 @@
 // bare "R, G, B" triplets (no "#", no "rgb()").
 {
   "tokens": {
-    // Not registered in CORE_TOKEN_KEYS, unlike its five siblings below (see
-    // phone-capability-map.md) — still a real, working namespace; every leaf here
-    // has a matching var(--theme-phone-home-<kebab-leaf>, ...) in phone-widgets.css.
-    // Backs the wallpaper scrim, clock widget, desktop widgets, app-icon labels,
-    // notification badges, the mood-status dot, and the bottom favorites dock
-    // (the dock has no leaf of its own — it reuses widgetBackground/accent).
+    // WARNING, verified in a running app, not just read from source: this block
+    // has NO visible effect while the phone renders. The phone's own separate
+    // "Theme" engine (resources/phone-themes/<id>/phone-theme.json, always
+    // active, defaulting to "base") writes these exact custom-property names as
+    // an inline style directly on the phone's own root element, which always
+    // wins over a value this namespace applies further up the tree. Confirmed
+    // by forcing --theme-phone-home-scrim on document.documentElement and
+    // reading the phone element's own computed value back unchanged. Kept here
+    // only because two bundled Studio themes (neon-social, kawaii-dream)
+    // already set this block; do not add more values expecting them to render
+    // — retint resources/phone-themes/<id>/phone-theme.json instead. See
+    // phone-capability-map.md's "shadowed by the phone's own separate theme
+    // engine" section.
     "phoneHome": {
       "scrim": "#0d0f11",
       "accent": "#e5a84f",
@@ -23,7 +30,13 @@
       "label": "#f7ead2",
       "badge": "#e78888",
       "badgeBanking": "#e78383",
-      "online": "#83d39b"
+      "online": "#83d39b",
+      "text": "#f7ead2",
+      "textStrong": "#fff8e9",
+      "textMuted": "#c9b8a0"
+      // No iconRadius/cardRadius/iconBackground/iconBorder here — those are
+      // scoped to the phone's own separate theme engine only, not this
+      // namespace (see phone-capability-map.md).
     },
 
     // Phone apps are independent on purpose. These retint Notes only.

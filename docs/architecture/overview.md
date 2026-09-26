@@ -14,7 +14,7 @@ This document is the first high-level map of the current codebase. It is intenti
 - [Phone And JSON Outputs](#phone-and-json-outputs)
 - [Workflow Graph](#workflow-graph)
 - [Node Run Colors](#node-run-colors)
-- [Chat, Phone, And Events](#chat-phone-and-events)
+- [Chat, Phone, And Timeline](#chat-phone-and-timeline)
 - [Story And Session Data](#story-and-session-data)
 - [Providers And Model Connections](#providers-and-model-connections)
 - [Built-in AI Assistant](#built-in-ai-assistant)
@@ -41,7 +41,7 @@ The main app shell is built in [`src/App.tsx`](../../src/App.tsx). It renders a 
 - **Graph panel**: the main React Flow canvas where workflow nodes are placed and connected.
 - **Graph toolbar**: reset workflow, save workflow, save RP session, runtime report, workflow capability indicators, and system toast messages.
 - **Node palette**: a side drawer of available node types grouped by purpose. Nodes can be dragged onto the graph, and favorite nodes can be added to the quick-add menu.
-- **Chat drawer**: a resizable right panel with `Chat`, `Phone`, and `Events` tabs.
+- **Play mode**: chat is always visible; a resizable Context Drawer shows either `Phone` or `Timeline` alongside it (an overlay below ~900px container width, an in-flow sibling above it).
 - **Dialogs**: options, files, providers, storybook creator, assistant, custom node assistant, output help, image preview, system log, and ComfyUI generated image preview.
 
 ## Core User Flow
@@ -140,15 +140,16 @@ During execution, `executeGraph` sets `runActive`, `runCompleted`, `runPrepared`
 
 LLM-capable node cards show a compact route heading followed by aligned call rows for input tokens, output tokens, reasoning tokens, and duration. Prompt Switch calls use short stage labels such as `Step: Planning`, `Step: Main`, `Action: Create character phone image`, and `Command: Bank transfer` instead of repeating the selected output and prompt titles on every row. While a roleplay run is active, the Chat tab temporarily replaces the composer with a compact progress island containing the current node or LLM sub-step, an optional live `RSN` reasoning-token counter, a green elapsed-time clock, an activity animation, and a Cancel button. LM Studio uses its native reasoning events; llama.cpp, Ollama, and OpenRouter use their streamed reasoning fields. Helper calls use streaming for these providers even when they do not render response text. The counter appears only after the provider emits a reasoning delta and is reconciled with final usage when available; providers that expose only final reasoning usage do not show a misleading live counter. The progress island disappears when the run finishes or is cancelled, restoring the collapsed composer so the resulting story, phone, banking, or information cards remain the focus.
 
-## Chat, Phone, And Events
+## Chat, Phone, And Timeline
 
-The right-side chat drawer has three user-facing modes:
+Play mode ([`src/components/RoleplayStudioShell.tsx`](../../src/components/RoleplayStudioShell.tsx)) is built around one always-visible surface plus an on-demand side panel, not three mutually exclusive tabs:
 
-- **Chat**: the main roleplay conversation view. It supports character selection, narrator mode, drafts, image attachments, reference images, editing/regeneration, output actions, dialogue highlighting, phone-message display inside chat, and turn controls.
-- **Phone**: a character-owned phone desktop with WhatsUp, Gallery, Camera, Banking, Fotogram, OnlyFriends, and Notes apps.
-- **Events**: a view for upcoming scheduled roleplay events. Events can be selected, cancelled, or run through the workflow.
+- **Chat**: the main roleplay conversation view, mounted at all times. It supports character selection (via the `CharacterSwitchChip` popover pinned above the message log — the accessible replacement for a removed hidden edge-hover gesture), narrator mode, drafts, image attachments, reference images, editing/regeneration, output actions, dialogue highlighting, and phone-message display inside chat.
+- **Context Drawer** ([`src/components/ContextDrawer.tsx`](../../src/components/ContextDrawer.tsx)): a resizable panel that shows either `Phone` or `Timeline`, never both. Below ~900px container width it behaves as an absolute-positioned overlay with a backdrop and a close button; at or above that width it becomes an ordinary in-flow flex sibling of chat, user-resizable via a drag handle and persisted as `contextDrawerWidth`.
+  - **Phone**: a character-owned phone desktop with WhatsUp, Gallery, Camera, Banking, Fotogram, OnlyFriends, Notes, ChatGPD, and MatchMe apps. `PhoneAppTopStrip` and `PhoneAppSwitcherStrip` give the phone persistent chrome (a top nav strip plus a 9-app switcher bar) so switching apps no longer requires returning to the home desktop grid first.
+  - **Timeline** ([`src/components/TimelinePanel.tsx`](../../src/components/TimelinePanel.tsx)): replaces the old standalone Events tab. Its "Upcoming" section is the former Events content verbatim (scheduled roleplay events can be selected, cancelled, or run through the workflow); its "Recent Turns" section makes prior turns browsable. Only the actual latest turn stays regenerate/reflavor/undo-able — the run engine has no rollback mechanism for older turns. `TurnControlsHeader` (Switch/AutoTurn/undo/regenerate/Rf/turn-counter) is mounted here as a sticky header, the single source of truth for those controls instead of being duplicated or relabeled per tab.
 
-Panel navigation uses an in-memory, session-local history in `src/navigation`. Mouse Back/Forward, native Electron browser commands, and Alt+Left/Right traverse tab, app, conversation, and social/dating view changes. App back buttons use the same history, with their original parent destination as a fallback. Related state changes are grouped into one visit; navigating after going back discards the forward branch. Only navigation state is restored, never messages, transactions, or other content. Missing keys in older visits do not overwrite mounted app state; explicitly stored empty selections still restore normally. Visible overlays take priority: Back closes the topmost registered dialog or gallery detail, and Forward leaves the underlying panel unchanged while it is open. The shared backdrop hook registers only mounted dialogs; other dialog owners register their existing close/cancel handlers explicitly. Registration order remains stable across rerenders, preserving nested dialogs and unsaved-change confirmations. Loading a new session clears the history.
+Panel navigation uses an in-memory, session-local history in `src/navigation`. Mouse Back/Forward, native Electron browser commands, and Alt+Left/Right traverse drawer, app, conversation, and social/dating view changes. App back buttons use the same history, with their original parent destination as a fallback. Related state changes are grouped into one visit; navigating after going back discards the forward branch. Only navigation state is restored, never messages, transactions, or other content. Missing keys in older visits do not overwrite mounted app state; explicitly stored empty selections still restore normally. Visible overlays take priority: Back closes the topmost registered dialog or gallery detail, and Forward leaves the underlying panel unchanged while it is open. The shared backdrop hook registers only mounted dialogs; other dialog owners register their existing close/cancel handlers explicitly. Registration order remains stable across rerenders, preserving nested dialogs and unsaved-change confirmations. Loading a new session clears the history.
 
 These UI panels are backed by chat parsing, phone message parsing, timeline selectors, event entities, and session runtime state.
 

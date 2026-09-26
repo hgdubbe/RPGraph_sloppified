@@ -6,7 +6,7 @@ dialogs, typography, geometry, shadows, textures, and motion. It is data-driven:
 theme is a folder containing one `theme.json` file; no code change or rebuild is needed.
 
 The complete commented reference is next to this document:
-[`example.json`](example.json). It is intentionally broad rather than pretty. Copy it,
+[`example.json`](rpgraph-theme-designer-skill/references/example.json). It is intentionally broad rather than pretty. Copy it,
 remove the comments, and make it your own. The runtime currently parses strict JSON;
 comments are for the reference file only.
 
@@ -152,11 +152,30 @@ Phone apps keep their own visual identities by default. They do not automaticall
 inherit `color.primary`, so changing the Studio accent does not unexpectedly repaint
 an in-world banking or social app. You can opt in to each app independently:
 
-- `phoneHome`: the phone's home screen/launcher (icon grid, clock, widgets, the
-  bottom favorites dock) — `scrim`, `accent`, `accentStrong`, `clockBackground`,
-  `clockText`, `widgetBackground`, `label`, `badge`, `badgeBanking`, `online`,
-  `text`, `textStrong`, and `textMuted`. The favorites dock reuses
-  `widgetBackground` and `accent`; it has no tokens of its own.
+- `phoneHome`: **known not to work in practice — read before using.** In
+  principle a `theme.json` here can set `scrim`, `accent`, `accentStrong`,
+  `clockBackground`, `clockText`, `widgetBackground`, `label`, `badge`,
+  `badgeBanking`, `online`, `text`, `textStrong`, `textMuted`, `iconRadius`,
+  `cardRadius`, `iconBackground`, and `iconBorder` for the phone's home
+  screen/launcher, and (unlike the other five namespaces here) it has no
+  entry in this system's registered token list, so nothing guarantees or
+  autocompletes it — it just flattens forward-compatibly like any nested
+  `tokens` string. In practice, the phone has its own separate, always-on
+  "Theme" engine (`phone-theme.json` files under
+  `resources/phone-themes/<id>/`, picked from its settings-tray "Theme"
+  selector, defaulting to `base` — see
+  `resources/themes/PHONE-HOME-THEME-INTERNALS.md`) that writes the exact
+  same custom-property names as an inline style directly on the phone's own
+  root element. An inline style on the element always wins over a value
+  inherited from an ancestor, so for every leaf that engine resolves — all
+  of them except `iconBackground`/`iconBorder` when the active phone-home
+  theme leaves those two unset — whatever this folder's `theme.json` sets
+  under `tokens.phoneHome` is silently shadowed and never visibly renders.
+  Confirmed by forcing `--theme-phone-home-scrim` on `document.documentElement`
+  and reading the phone element's own computed value back: it did not
+  change. Two bundled Studio themes (`neon-social`, `kawaii-dream`) currently
+  set a `phoneHome` block that this affects. Retint the phone by editing
+  `resources/phone-themes/<id>/phone-theme.json` instead.
 - `phoneNotes`: `background`, `text`, `textStrong`, `accent`, `accentLight`,
   `accentStrong`, `accentDeep`, `danger`, and the eight RGB-triplet note tints
   `tintNeutral`, `tintSand`, `tintCoral`, `tintPeach`, `tintMint`, `tintSky`,

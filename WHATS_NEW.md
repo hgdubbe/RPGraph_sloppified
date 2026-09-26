@@ -37,3 +37,13 @@ TBD — for now just a plain running list.
 - **New LLM provider support.** Added LM Studio, Unsloth, Venice AI, and a
   "Composite" provider (combine multiple backends behind one connection) as
   selectable provider types, alongside upstream's existing ones.
+
+- **Rebuilt Play mode UI.** Chat, Phone, and Events used to be three
+  mutually exclusive full-screen tabs — closing chat every time you glanced
+  at the phone or your turn history. Chat now stays open at all times; a
+  resizable Context Drawer shows either the Phone or a new Timeline (which
+  replaces Events and also holds browsable past turns) alongside it. The
+  phone gained a persistent top strip and app switcher so you can jump
+  between apps directly instead of returning to its home screen each time,
+  and a visible character-switch chip above chat replaces a hidden
+  edge-hover gesture that had no keyboard-accessible equivalent.

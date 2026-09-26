@@ -80,7 +80,9 @@
       "badgeAccentBg": "#e58b52",
       "topbarContextBorder": "rgba(190, 211, 203, 0.26)",
       "topbarMutedText": "#a7b1ad",
-      "topbarSelectBg": "#1d2529"
+      "topbarSelectBg": "#1d2529",
+      "timelineTurnAccent": "#e58b52",
+      "drawerHandleBg": "rgba(190, 211, 203, 0.38)"
     },
 
     // Explicit Graph values make this surface intentionally different.
