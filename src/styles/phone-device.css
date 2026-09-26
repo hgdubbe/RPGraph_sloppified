@@ -70,7 +70,8 @@
   width: 8px;
   height: 8px;
   border-radius: 999px;
-  background: #34d058;
+  /* Background color (phoneHome.online token) lives in phone-widgets.css,
+     which isn't subject to themeExclusions' phone-* token guard. */
   box-shadow:
     0 0 0 1px rgba(255, 255, 255, 0.25),
     0 0 8px rgba(52, 208, 88, 0.75);
@@ -808,13 +809,28 @@
   transform: translateY(50%);
 }
 
-/* The dock's fixed padding/positioning is solved against the portrait canvas
-   only; landscape's own tighter, separately-solved grid (see the comment on
-   `--phone-columns`/`--phone-cell-w` above) has no reserved room for it, so
-   it's hidden here rather than rendered mis-sized until it gets a real
-   landscape layout of its own. */
+/* The dock's portrait positioning (a full-width bar pinned to the bottom of
+   the screen) has no reserved room in landscape's much shorter 310px-tall
+   content area, so it used to just be hidden outright — but its 4 apps
+   (WhatsUp/Camera/Gallery/Notes) then had no *other* affordance either,
+   since the landscape widget defaults (see phoneDesktopWidgetLandscapeFallbacks
+   in PhonePanel.tsx) used to overlap the app-icon grid's row 3 and swallow
+   its clicks. That overlap is now fixed (widgets stay at column >= 4, clear
+   of the icon grid's columns 1-3), which already restores the icon grid as a
+   real path to every app including MatchMe/Notes/OnlyFriends. The dock is
+   kept visible here too, as a compact icon-only strip pinned to the bottom
+   right — landing in the same columns 9-12/rows 3-4 area the widget layout
+   deliberately leaves empty (see the comment above `narrative` in
+   phoneDesktopWidgetLandscapeFallbacks), so it can't collide with either the
+   icon grid or the widgets. */
 .roleplay-phone-device.landscape .phone-desktop-dock {
-  display: none;
+  left: auto;
+  right: 14px;
+  bottom: 14px;
+  width: auto;
+  gap: 8px;
+  padding: 8px 10px;
+  border-radius: 20px;
 }
 
 .roleplay-phone-device.landscape .phone-desktop-widget {

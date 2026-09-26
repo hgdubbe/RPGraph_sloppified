@@ -56,6 +56,40 @@
   background: var(--social-screen-bg);
 }
 
+/* Matches the MatchMe/Gallery empty-state pattern (icon + heading + subtext,
+   under a real app header with a back affordance) instead of a bare
+   unstyled line of text — shown when Fotogram/OnlyFriends has no selected
+   character/account to render. */
+.phone-social-app-empty {
+  display: flex;
+  min-height: 320px;
+  flex: 1;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  padding: 32px;
+  color: var(--theme-phone-social-text, #dce6f5);
+  text-align: center;
+}
+
+.phone-social-app-empty > span {
+  display: grid;
+  width: 54px;
+  height: 54px;
+  margin-bottom: 4px;
+  place-items: center;
+  border-radius: 17px;
+  color: var(--theme-phone-social-muted, #9eb1cc);
+  background: var(--theme-phone-social-panel, #1d2a3e);
+  font-size: 22px;
+  font-weight: 800;
+}
+
+.phone-social-app-empty small {
+  color: var(--theme-phone-social-muted, #7f90aa);
+}
+
 .phone-social-notice {
   position: absolute;
   z-index: 40;

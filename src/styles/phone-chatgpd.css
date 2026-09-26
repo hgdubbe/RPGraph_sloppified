@@ -365,6 +365,10 @@
   animation-delay: 0.3s;
 }
 
+@media (prefers-reduced-motion: reduce) {
+  .phone-chatgpd-typing i { animation: none; }
+}
+
 .phone-chatgpd-composer {
   display: flex;
   flex: none;

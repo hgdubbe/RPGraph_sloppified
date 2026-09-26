@@ -581,11 +581,14 @@ export function PhoneBankingScreen({
               })}
             </ul>
           ) : (
-            <span className="phone-banking-empty">
-              {transactionFilter === 'all'
-                ? 'No transactions yet.'
-                : `No ${transactionFilter} transactions found.`}
-            </span>
+            <div className="phone-banking-empty">
+              <strong>
+                {transactionFilter === 'all'
+                  ? 'No transactions yet.'
+                  : `No ${transactionFilter} transactions found.`}
+              </strong>
+              <small>Money you send or receive will show up here.</small>
+            </div>
           )}
         </section>
       </div>

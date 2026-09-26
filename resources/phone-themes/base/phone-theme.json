@@ -14,6 +14,9 @@
       "badge": "#ef4444",
       "badgeBanking": "#f43f5e",
       "online": "#34d058",
+      "text": "#f8fbff",
+      "textStrong": "#ffffff",
+      "textMuted": "#a9b8dd",
       "iconRadius": "28%",
       "cardRadius": "20px"
     }

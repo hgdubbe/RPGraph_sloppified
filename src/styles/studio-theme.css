@@ -85,6 +85,30 @@
   box-shadow: var(--theme-button-shadow-hover, none);
 }
 
+/* Disabled AutoTurn/Switch used to stay at the full-saturation accent
+   background above and rely only on `opacity: 0.5` (see .auto-turn-button
+   and .switch-player-button base rules in styles.css) — easy to mistake for
+   an enabled, clickable button at a glance. This explicit
+   `data-disabled-look="true"` hook (set alongside the native `disabled`
+   attribute in App.tsx — a data attribute rather than an extra class so it
+   doesn't disturb the plain `className="switch-player-button"` string a
+   themeCoverage test asserts on) swaps in a real neutral/muted look instead
+   of just dimming the accent color.
+   Text/background both blend toward `--theme-background` (rather than
+   sitting at full `--theme-muted-foreground` on the same `--theme-panel`
+   the enabled Switch button already uses, per the plain rule below) —
+   some themes' mutedForeground stays fairly bright/saturated (it's a
+   secondary-text color, not a disabled-control color) and read as "active,
+   just dim" when placed on the same panel surface as the real button. */
+.studio[data-studio-theme] .studio-shell-play .auto-turn-button[data-disabled-look="true"],
+.studio[data-studio-theme] .studio-shell-play .switch-player-button[data-disabled-look="true"] {
+  color: color-mix(in srgb, var(--theme-muted-foreground) 65%, var(--theme-background) 35%);
+  background: color-mix(in srgb, var(--theme-panel) 55%, var(--theme-background) 45%);
+  border-color: transparent;
+  box-shadow: none;
+  opacity: 1;
+}
+
 .studio[data-studio-theme] .studio-rail-button.active,
 .studio[data-studio-theme] .studio-mode-button {
   text-transform: var(--theme-text-transform, none);

@@ -24,6 +24,15 @@ export const PHONE_HOME_CORE_TOKEN_KEYS = [
   'phoneHome.badge',
   'phoneHome.badgeBanking',
   'phoneHome.online',
+  // Readable text roles on top of the home screen's dark glass, added
+  // alongside the visual-audit pass that wired the last plain-hex text
+  // colors in phone-widgets.css (widget titles, the narrative textarea,
+  // the draft-context note) to this namespace. `textStrong` is the
+  // brightest role (widget card titles); `text` is normal readable body
+  // text; `textMuted` is the dimmer secondary/label role.
+  'phoneHome.text',
+  'phoneHome.textStrong',
+  'phoneHome.textMuted',
   // Shape: corner geometry for the icon grid and for the clock/widget/dock
   // cards. Guaranteed (see below) — every theme resolves a real radius, not
   // a CSS-literal fallback, so "sharp-cornered" is a genuine per-theme knob.

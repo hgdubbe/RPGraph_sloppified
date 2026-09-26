@@ -126,13 +126,21 @@ const phoneDesktopAppIds: readonly PhoneDesktopAppId[] =
 // read as an oversized card relative to that content, so their default
 // footprint is trimmed to 3 columns. `narrative` holds an actual textarea
 // (plus label/actions) and stays at its wider footprint.
+// The fixed app-icon grid (see defaultPhoneDesktopLayout.apps in settings.ts)
+// occupies columns 1-3, rows 1-3 in every orientation — that block is never
+// reflowed for landscape, so every landscape widget default is placed at
+// column >= 4 to stay clear of it. Placing a widget over columns 1-3 used to
+// visually cover the MatchMe/Notes/OnlyFriends icon row (row 3) and swallow
+// their clicks, making those three apps unreachable even though the dock
+// (the icons' only other route) is hidden in landscape (see the comment on
+// .roleplay-phone-device.landscape .phone-desktop-dock in phone-device.css).
 const phoneDesktopWidgetLandscapeFallbacks: Record<PhoneDesktopWidgetId, PhoneDesktopWidgetLayout> = {
-  gallery: { column: 5, row: 1, width: 3, height: 2, enabled: true },
-  chat: { column: 5, row: 1, width: 3, height: 2, enabled: true },
-  notes: { column: 5, row: 3, width: 3, height: 2, enabled: true },
-  social: { column: 9, row: 1, width: 2, height: 2, enabled: true },
-  banking: { column: 9, row: 3, width: 2, height: 2, enabled: true },
-  narrative: { column: 1, row: 3, width: 4, height: 2, enabled: true },
+  gallery: { column: 4, row: 1, width: 3, height: 2, enabled: true },
+  chat: { column: 4, row: 1, width: 3, height: 2, enabled: true },
+  notes: { column: 4, row: 3, width: 3, height: 2, enabled: true },
+  social: { column: 7, row: 1, width: 2, height: 2, enabled: true },
+  banking: { column: 7, row: 3, width: 2, height: 2, enabled: true },
+  narrative: { column: 9, row: 1, width: 4, height: 2, enabled: true },
 };
 
 const phoneDesktopWidgetPortraitFallbacks: Record<PhoneDesktopWidgetId, PhoneDesktopWidgetLayout> = {

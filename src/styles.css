@@ -6593,6 +6593,12 @@ input[type="number"]::-webkit-outer-spin-button {
   cursor: default;
 }
 
+.switch-player-button[data-disabled-look="true"] {
+  color: var(--theme-app-muted, var(--muted, #6b7686));
+  background: var(--theme-raw-vrgba255255255004, rgba(255, 255, 255, 0.04));
+  box-shadow: none;
+}
+
 .header-turn-actions {
   display: inline-flex;
   flex: none;
@@ -6671,6 +6677,12 @@ input[type="number"]::-webkit-outer-spin-button {
 .auto-turn-button:disabled {
   opacity: 0.35;
   cursor: default;
+}
+
+.auto-turn-button[data-disabled-look="true"] {
+  color: var(--theme-app-muted, var(--muted, #6b7686));
+  background: var(--theme-raw-vrgba255255255004, rgba(255, 255, 255, 0.04));
+  box-shadow: none;
 }
 
 .turn-controls {
@@ -6800,6 +6812,20 @@ input[type="number"]::-webkit-outer-spin-button {
   white-space: nowrap;
 }
 
+/* Keyboard focus ring, in the phone's own accent color (see the
+   --phone-ui-accent alias to --accent set on .roleplay-phone-screen) rather
+   than the browser's default outline — matches the outline/outline-offset
+   pattern used for focus rings elsewhere in the app (e.g. the npc library
+   dialog, .option-stepper-button). Radius matches the icon's own 28%
+   border-radius (see .phone-whatsup-icon and siblings) so the ring hugs the
+   icon shape instead of the button's own square hit target. */
+.phone-desktop-app:focus-visible,
+.phone-desktop-dock-app:focus-visible {
+  outline: 2px solid var(--accent, #8a73c9);
+  outline-offset: 3px;
+  border-radius: 28%;
+}
+
 .phone-desktop-app-badge {
   position: absolute;
   top: -8px;
@@ -6856,7 +6882,14 @@ input[type="number"]::-webkit-outer-spin-button {
   display: grid;
   place-items: center;
   flex: 0 0 auto;
-  padding: 0;
+  /* A few extra px of hit area beyond the visible icon glyph (which is sized
+     from --phone-icon, same as the home-screen grid icons) — without this
+     the dock's own hit target is just the icon's tight bounding box, which
+     measured under the ~44px touch-target guideline even after the phone's
+     overall scale-with-width fix (see roleplay-dual-pane.css) made the
+     home-screen grid icons (sized to their full grid cell, not just the
+     icon glyph) comfortably clear it. */
+  padding: 4px;
   border: 0;
   background: none;
   cursor: pointer;
@@ -9116,7 +9149,7 @@ input[type="number"]::-webkit-outer-spin-button {
   border: 1px solid #334155;
   border-radius: 10px;
   background: #0b1120;
-  padding: 4px 10px;
+  padding: 7px 10px;
   transition: all 0.15s ease;
 }
 
@@ -9149,13 +9182,13 @@ input[type="number"]::-webkit-outer-spin-button {
 .phone-banking-quick-chips {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 8px;
   flex: 1;
 }
 
 .phone-banking-quick-chip {
   flex: 1;
-  padding: 7px 4px;
+  padding: 8px 6px;
   border: 1px solid rgba(255, 255, 255, 0.1);
   border-radius: 8px;
   background: rgba(255, 255, 255, 0.05);
@@ -10046,15 +10079,41 @@ input[type="number"]::-webkit-outer-spin-button {
   pointer-events: none;
 }
 
-.events-disabled-overlay span {
+.events-disabled-message {
+  display: flex;
   max-width: 260px;
-  padding: 10px 14px;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  padding: 18px 16px;
   border: var(--theme-border-width, 1px) var(--theme-border-style, solid) var(--theme-border);
-  border-radius: 10px;
+  border-radius: 12px;
   background: var(--theme-card-strong);
   box-shadow: var(--theme-card-shadow, none);
-  font-size: 12px;
+  text-align: center;
+}
+
+.events-disabled-overlay span {
+  display: grid;
+  width: 40px;
+  height: 40px;
+  margin-bottom: 2px;
+  place-items: center;
+  border-radius: 12px;
+  color: var(--theme-app-accent, var(--accent));
+  background: color-mix(in srgb, var(--theme-app-accent, var(--accent)) 18%, transparent);
+}
+
+.events-disabled-message strong {
+  color: var(--theme-foreground);
+  font-size: 13px;
   font-weight: 700;
+}
+
+.events-disabled-message small {
+  color: var(--theme-muted-foreground);
+  font-size: 11.5px;
+  line-height: 1.4;
 }
 
 .events-list {
@@ -12925,6 +12984,7 @@ button.message-timeline-row.phone:focus-visible {
 
 .composer-actions {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   gap: 10px;
   justify-content: space-between;
@@ -12944,8 +13004,15 @@ button.message-timeline-row.phone:focus-visible {
   pointer-events: none;
 }
 
+/* Tall enough for the row to wrap onto a second (or third) line at narrow
+   widths — e.g. the Switch/AutoTurn/turn-history controls plus the
+   Autoplay/Run controls no longer fit on one line around ~480px wide —
+   instead of clipping at a single-line 52px cap. `overflow-y: auto` is a
+   last-resort safety net if a future addition still doesn't fit even
+   wrapped, so content scrolls into view instead of being cut off. */
 .composer.expanded .composer-actions {
-  max-height: 52px;
+  max-height: 140px;
+  overflow-y: auto;
   margin-top: 10px;
   padding-top: 11px;
   opacity: 1;
@@ -17283,6 +17350,10 @@ button.message-timeline-row.phone:focus-visible {
   animation: pulseAvatar 2s infinite;
 }
 
+@media (prefers-reduced-motion: reduce) {
+  .assistant-avatar-large { animation: none; }
+}
+
 @keyframes pulseAvatar {
   0% {
     box-shadow: 0 0 0 0 color-mix(in srgb, var(--accent) calc(0.42 * 100%), transparent);
@@ -17601,6 +17672,10 @@ button.message-timeline-row.phone:focus-visible {
 
 .typing-indicator span:nth-child(2) {
   animation-delay: -0.16s;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .typing-indicator span { animation: none; }
 }
 
 @keyframes bounce {

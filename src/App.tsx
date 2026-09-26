@@ -5633,6 +5633,7 @@ function App() {
         type="button"
         onClick={switchActivePlayer}
         disabled={switchPlayerDisabled}
+        data-disabled-look={switchPlayerDisabled ? 'true' : undefined}
         title={switchPlayerTitle}
       >
         Switch
@@ -5643,6 +5644,7 @@ function App() {
           type="button"
           onClick={triggerAutoTurn}
           disabled={autoTurnDisabled}
+          data-disabled-look={autoTurnDisabled ? 'true' : undefined}
           title={autoTurnTitle}
         >
           {chatPanelView === 'events' ? 'Run Event' : 'AutoTurn'}

@@ -137,14 +137,41 @@
 }
 
 .phone-notes-empty {
+  /* Matches the Gallery/MatchMe/Fotogram/OnlyFriends empty-state pattern
+     (icon badge + heading + subtext, vertically centered in the available
+     space) instead of the bare top-anchored icon + single line this used to
+     be — the outlier the visual audit's normalization spot-check flagged. */
   display: flex;
+  min-height: 320px;
+  flex: 1;
   flex-direction: column;
   align-items: center;
-  gap: 10px;
-  padding: 42px 8px;
+  justify-content: center;
+  gap: 7px;
+  padding: 32px;
   color: color-mix(in srgb, var(--theme-phone-notes-text, #f2eee6) calc(0.45 * 100%), transparent);
   font-size: 13px;
   text-align: center;
+}
+
+.phone-notes-empty-icon {
+  display: grid;
+  width: 54px;
+  height: 54px;
+  margin-bottom: 4px;
+  place-items: center;
+  border-radius: 17px;
+  color: var(--theme-phone-notes-accent-light, #fbbf24);
+  background: color-mix(in srgb, var(--theme-phone-notes-accent, #d97706) 16%, transparent);
+}
+
+.phone-notes-empty strong {
+  color: var(--theme-phone-notes-text-strong, #fff7e6);
+  font-size: 14px;
+}
+
+.phone-notes-empty small {
+  color: color-mix(in srgb, var(--theme-phone-notes-text, #f2eee6) calc(0.5 * 100%), transparent);
 }
 
 .phone-notes-add-button {

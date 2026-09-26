@@ -232,12 +232,15 @@ export function PhoneNotesScreen({
           </div>
         ) : (
           <div className="phone-notes-empty">
-            <svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-              <path d="M5 3h11l3 3v15a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1Z" />
-              <path d="M15 3v4h4" />
-              <path d="M8 11h8M8 15h8M8 19h5" />
-            </svg>
-            <span>No notes yet.</span>
+            <span className="phone-notes-empty-icon" aria-hidden="true">
+              <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M5 3h11l3 3v15a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1Z" />
+                <path d="M15 3v4h4" />
+                <path d="M8 11h8M8 15h8M8 19h5" />
+              </svg>
+            </span>
+            <strong>No notes yet.</strong>
+            <small>Tap the button below to write your first one.</small>
           </div>
         )}
       </div>

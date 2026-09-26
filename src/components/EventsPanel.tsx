@@ -48,7 +48,16 @@ export function EventsPanel({
     <div className="events-surface">
       {!eventManagerAvailable && (
         <div className="events-disabled-overlay">
-          <span>Connect Event Manager to the workflow.</span>
+          <div className="events-disabled-message">
+            <span className="events-disabled-icon" aria-hidden="true">
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M9 7V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v3" />
+                <path d="M8 7h8l-1 6a4 4 0 0 1-3 3.9V20h2a1 1 0 0 1 1 1H7a1 1 0 0 1 1-1h2v-3.1A4 4 0 0 1 7 13z" />
+              </svg>
+            </span>
+            <strong>Event Manager not connected</strong>
+            <small>Connect it to the workflow to schedule and run events.</small>
+          </div>
         </div>
       )}
       <div className="events-list" aria-label="Upcoming events">

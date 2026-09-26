@@ -97,7 +97,7 @@
 
 .phone-desktop-widget strong {
   overflow: hidden;
-  color: #ffffff;
+  color: var(--theme-phone-home-text-strong, #ffffff);
   font-size: 15px;
   font-weight: 900;
   line-height: 1.1;
@@ -126,7 +126,7 @@
 }
 
 .phone-desktop-widget-label {
-  color: #a9b8dd;
+  color: var(--theme-phone-home-text-muted, #a9b8dd);
   font-size: 10px;
   font-weight: 850;
   text-transform: uppercase;
@@ -177,9 +177,17 @@
 .phone-narrative-widget {
   z-index: 3;
   display: flex;
-  align-self: stretch;
+  /* Was `align-self: stretch`, forcing the card to fill its full 2-row grid
+     span even though its content (label + textarea + action row) never
+     needed that much height — the "dominates the lower two-thirds of the
+     home screen" space-waste flagged in the visual audit. Shrink-wrapping
+     to content height (the same `align-self: start` every passive widget
+     already uses, from `.phone-desktop-widget`) lets the wallpaper show
+     through the reclaimed space below the card instead of stretching an
+     oversized, mostly-empty card over it. */
   justify-content: flex-start;
   cursor: default;
+  padding: 10px 14px;
 }
 
 .phone-narrative-widget.expanded {
@@ -188,13 +196,13 @@
 
 .phone-narrative-widget textarea {
   width: 100%;
-  min-height: 58px;
+  min-height: 46px;
   flex: 1;
   resize: none;
   padding: 9px 10px;
   border: 1px solid rgba(255, 255, 255, 0.14);
   border-radius: 12px;
-  color: #f8fbff;
+  color: var(--theme-phone-home-text, #f8fbff);
   background: rgba(3, 5, 12, 0.56);
   box-shadow: inset 0 1px 8px rgba(0, 0, 0, 0.32);
   font: 760 14px/1.35 var(--rpgraph-ui-font);
@@ -242,10 +250,10 @@
 }
 
 .phone-narrative-widget-actions button {
-  min-height: 32px;
+  min-height: 28px;
   border: 1px solid rgba(255, 255, 255, 0.16);
   border-radius: 11px;
-  color: #eef5ff;
+  color: var(--theme-phone-home-text, #eef5ff);
   background: rgba(5, 9, 18, 0.48);
   font-size: 12px;
   font-weight: 850;
@@ -297,7 +305,7 @@
   justify-content: space-between;
   gap: 8px;
   padding: 7px 9px;
-  color: #d9f3ff;
+  color: var(--theme-phone-home-text, #d9f3ff);
   cursor: pointer;
   font-size: 11px;
   font-weight: 800;
@@ -309,7 +317,7 @@
 }
 
 .phone-draft-context-note summary small {
-  color: #8bdaf9;
+  color: var(--theme-phone-home-text-muted, #8bdaf9);
   font-size: 9px;
   text-transform: uppercase;
 }
@@ -322,7 +330,7 @@
   padding: 8px 9px;
   border: 0;
   border-top: 1px solid rgba(125, 211, 252, 0.14);
-  color: #f4f8ff;
+  color: var(--theme-phone-home-text, #f4f8ff);
   background: rgba(5, 9, 18, 0.84);
   font: inherit;
   font-size: 12px;
@@ -343,7 +351,7 @@
   border: 1px solid rgba(186, 230, 253, 0.45);
   border-radius: 4px;
   background: rgba(8, 47, 73, 0.88);
-  color: #e0f2fe;
+  color: var(--theme-phone-home-text, #e0f2fe);
   font-size: 8px;
   font-weight: 800;
   letter-spacing: 0;
@@ -504,6 +512,10 @@
   box-shadow:
     inset 0 0 0 1px color-mix(in srgb, var(--theme-phone-home-accent, #b8a8ea) 45%, rgba(255, 255, 255, 0.18)),
     0 8px 18px rgba(0, 0, 0, 0.18);
+}
+
+.phone-mood-status-dot {
+  background: var(--theme-phone-home-online, #34d058);
 }
 
 .phone-mood-status-button.online .phone-mood-status-dot {

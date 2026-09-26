@@ -1,6 +1,18 @@
+/* The phone column/row is sized from the *container's own width* first —
+   `RoleplayPhoneDevice` already clamps its actual render size to whatever
+   height is really available (it measures its own box and never renders
+   taller than that), so this track only needs a generous, width-driven
+   share plus a sane pixel ceiling. It used to size off `100cqh` (portrait)
+   / cap at `62%` of the container's height (landscape) instead — both
+   percentages of the *cross* axis, which stays flat while only the window's
+   width grows, so the phone barely grew with the window at all. Dropping
+   that cross-axis dependency (and loosening the landscape safety cap) lets
+   the phone scale with available width as intended, while the pixel
+   ceiling keeps it from becoming absurd on an ultra-wide window and the
+   pixel floor keeps it usable on a narrow one. */
 .studio-shell-play .chat-lockable.roleplay-dual-pane {
   display: grid;
-  grid-template-columns: minmax(0, min(42%, calc(100cqh * 430 / 932))) minmax(0, 1fr);
+  grid-template-columns: minmax(240px, min(46%, 520px)) minmax(0, 1fr);
   gap: 18px;
   box-sizing: border-box;
   border: 0;
@@ -11,10 +23,13 @@
 /* Landscape phone: wide and short, so it wastes width sitting beside a
    narrow chat column. Stack it above the chat pane instead — full width,
    height driven by the landscape aspect ratio against the container's
-   width rather than its height. */
+   width rather than its height. The `78%`-of-container-height term is only
+   a safety backstop for a short-but-wide window (so the chat pane below
+   never gets squeezed to nothing); at typical window heights the
+   width-driven `calc()` term is the one that actually wins. */
 .studio-shell-play .roleplay-dual-pane:has(.roleplay-phone-stage.landscape) {
   grid-template-columns: 1fr;
-  grid-template-rows: minmax(0, min(62%, calc(100cqw * 430 / 932))) minmax(0, 1fr);
+  grid-template-rows: minmax(140px, min(78%, clamp(140px, calc(100cqw * 430 / 932), 560px))) minmax(0, 1fr);
   gap: 14px;
 }
 

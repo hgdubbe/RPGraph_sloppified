@@ -1246,7 +1246,25 @@ export function PhoneSocialFeedScreen({
     name={owner.name} profileImage={owner.profileImage} images={phoneGalleryImages} locked={false}
     onSave={(profile) => { const saved = onCreateSocialAccount(owner, app.id, accountHandle(profile), profile); if (saved) { setAccount(accountHandle(profile)); setEditingProfile(false); } return saved; }}
     onCancel={onBack} />;
-  if (!account) return <p>Select a character to open this app.</p>;
+  if (!account) return (
+    <div className="phone-social-screen">
+      <header className="phone-gallery-header phone-social-header">
+        <button type="button" onClick={onBack} aria-label="Back" title="Back">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+            <polyline points="15 18 9 12 15 6" />
+          </svg>
+        </button>
+        <div className="phone-social-brand">
+          <strong>{app.name}</strong>
+        </div>
+      </header>
+      <div className="phone-social-app-empty">
+        <span aria-hidden="true">{app.id === 'onlyfriends' ? 'OF' : '◎'}</span>
+        <strong>No character selected</strong>
+        <small>Select a character to open {app.name}.</small>
+      </div>
+    </div>
+  );
 
 
   const directMessageCommentAccounts: SocialDirectMessageParticipant[] = posts.flatMap((post) => [
