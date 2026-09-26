@@ -1,3 +1,4 @@
+import { createStableDerivedValueSelector } from '../chat/stableDerivedValue';
 import { useMemo, useState, type CSSProperties } from 'react';
 import type { StorybookCharacter } from '../storybook/runtime';
 import {
@@ -6,6 +7,8 @@ import {
 } from '../chat/characterColors';
 
 export function useCharacterColors(characters: StorybookCharacter[], players: StorybookCharacter[], interactedIds: string[]) {
+  const [selectColors] = useState(() => createStableDerivedValueSelector<Map<string, string>>());
+  const [selectStyle] = useState(() => createStableDerivedValueSelector<CSSProperties>());
   const [savedSlots, setCharacterColorSlots] = useState<CharacterColorSlots>({});
   // Reserve initial players first; existing slots always win, including promoted NPCs.
   const characterColorSlots = reserveCharacterColors(savedSlots, [...players.map((character) => character.sourceId), ...interactedIds]);
@@ -14,10 +17,10 @@ export function useCharacterColors(characters: StorybookCharacter[], players: St
     const ids = new Set([...players.map((character) => character.sourceId), ...interactedIds]);
     return characters.filter((character) => ids.has(character.sourceId));
   }, [characters, players, interactedIds]);
-  const characterColors = useMemo(() => new Map(eligibleCharacters.map((character) => [character.name, characterColorToken(character)])), [eligibleCharacters]);
-  const characterColorStyle = useMemo(() => Object.fromEntries(eligibleCharacters.map((character) => [
+  const characterColors = useMemo(() => selectColors(new Map(eligibleCharacters.map((character) => [character.name, characterColorToken(character)]))), [eligibleCharacters, selectColors]);
+  const characterColorStyle = useMemo(() => selectStyle(Object.fromEntries(eligibleCharacters.map((character) => [
     characterColorToken(character).slice(4, -1),
     characterColorValue(characterColorSlots[character.sourceId], character.playerSelectable !== false),
-  ])) as CSSProperties, [eligibleCharacters, characterColorSlots]);
+  ])) as CSSProperties), [eligibleCharacters, characterColorSlots, selectStyle]);
   return { characterColors, characterColorSlots, setCharacterColorSlots, characterColorStyle };
 }

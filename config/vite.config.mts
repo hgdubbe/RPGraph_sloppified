@@ -13,7 +13,12 @@ import react from '@vitejs/plugin-react';
  */
 const localCjsExportStatement = /\bmodule\.exports\s*=\s*\{([^}]*)\};?\s*$/;
 
-export default defineConfig({
+export default defineConfig(({ mode }) => ({
+  resolve: {
+    alias: mode === 'profiling'
+      ? [{ find: /^react-dom\/client$/, replacement: 'react-dom/profiling' }]
+      : [],
+  },
   plugins: [
     react(),
     {
@@ -69,4 +74,4 @@ export default defineConfig({
       },
     },
   },
-});
+}));

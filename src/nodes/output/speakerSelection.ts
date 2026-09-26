@@ -9,8 +9,14 @@ function normalizedMention(value: string) {
 function mentions(text: string, alias: string) {
   const needle = normalizedMention(alias).replace(/^@/, '').trim();
   if (!needle) return false;
-  const escaped = needle.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-  return new RegExp(`(^|[^\\p{L}\\p{N}])${escaped}($|[^\\p{L}\\p{N}])`, 'u').test(text);
+  // Reuse two boundary expressions instead of compiling a Unicode expression
+  // for every name/account. Slice at most two UTF-16 units to retain astral letters.
+  for (let index = text.indexOf(needle); index !== -1; index = text.indexOf(needle, index + 1)) {
+    const end = index + needle.length;
+    if (!/[\p{L}\p{N}]$/u.test(text.slice(Math.max(0, index - 2), index)) &&
+        !/^[\p{L}\p{N}]/u.test(text.slice(end, end + 2))) return true;
+  }
+  return false;
 }
 
 export type HighlightingSpeakerContext = {

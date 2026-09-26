@@ -1,3 +1,4 @@
+import { UiPerformanceDiagnostics } from '../components/UiPerformanceDiagnostics';
 import { ProviderBaseUrlInput } from '../components/ProviderBaseUrlInput';
 import { ProviderModelSwitchIndicator } from '../components/ProviderModelSwitchIndicator';
 import { fastTaskReasoningStart, fastTaskReasoningEnd } from '../llm/fastTaskPrompt';
@@ -1025,6 +1026,40 @@ export function StudioDialogs({
   const [storybookInfoStatus, setStorybookInfoStatus] = useState('');
   const textEffectPreview = useSliderPreview(showOptions);
   const [activeOptionsTab, setActiveOptionsTab] = useState<OptionsTabId>('chat');
+  const [developerOptionsVisible, setDeveloperOptionsVisible] = useState(false);
+  useEffect(() => {
+    if (developerOptionsVisible) return;
+    const pressed = new Set<string>();
+    const clear = () => pressed.clear();
+    const keyDown = (event: KeyboardEvent) => {
+      const target = event.target;
+      if (event.ctrlKey || event.altKey || event.metaKey || event.isComposing ||
+          (target instanceof HTMLElement &&
+            (target.isContentEditable || target.closest('input, textarea, select')))) {
+        clear();
+        return;
+      }
+      const key = event.key.toLowerCase();
+      if (!['d', 'e', 'v'].includes(key)) return;
+      pressed.add(key);
+      if (pressed.has('d') && pressed.has('e') && pressed.has('v')) {
+        setDeveloperOptionsVisible(true);
+        clear();
+      }
+    };
+    const keyUp = (event: KeyboardEvent) => pressed.delete(event.key.toLowerCase());
+    window.addEventListener('keydown', keyDown);
+    window.addEventListener('keyup', keyUp);
+    window.addEventListener('blur', clear);
+    document.addEventListener('visibilitychange', clear);
+    return () => {
+      window.removeEventListener('keydown', keyDown);
+      window.removeEventListener('keyup', keyUp);
+      window.removeEventListener('blur', clear);
+      document.removeEventListener('visibilitychange', clear);
+    };
+  }, [developerOptionsVisible]);
+
   const [deleteFileCandidate, setDeleteFileCandidate] = useState<SavedFileSummary | null>(null);
   const [fileFilter, setFileFilter] = useState<'all' | 'workflow' | 'storybook' | 'session' | 'character-card'>('all');
   const [characterImportFilters, setCharacterImportFilters] = useState<Record<CharacterImportChoice['source'], boolean>>({
@@ -1931,7 +1966,7 @@ export function StudioDialogs({
             </div>
             <div className="options-layout">
               <aside className="options-sidebar">
-                {OPTIONS_TABS.map((tab) => {
+                {OPTIONS_TABS.filter((tab) => tab.id !== 'reliability' || developerOptionsVisible).map((tab) => {
                   const isActive = activeOptionsTab === tab.id;
                   let Icon = ChatUiIcon;
                   if (tab.id === 'translation') Icon = TranslationIcon;
@@ -2516,13 +2551,14 @@ export function StudioDialogs({
                   </div>
                 )}
 
-                {activeOptionsTab === 'reliability' && (
+                {developerOptionsVisible && activeOptionsTab === 'reliability' && (
                   <div className="options-tab-content">
                     <div className="options-tab-header">
                       <h3>Run Reliability</h3>
                       <p>Automatic retry when an LLM response has an invalid format</p>
                     </div>
                     <div className="options-tab-body">
+                      <UiPerformanceDiagnostics />
                       <div className="option-info">
                         <strong>Why retry format errors?</strong>
                         <p>

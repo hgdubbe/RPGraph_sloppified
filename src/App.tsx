@@ -1,3 +1,5 @@
+import { needsOpeningMessageSync } from './chat/openingMessage';
+import { markUiEvent, measureUiWork, profileUiRender, setUiPerformanceContext } from './diagnostics/uiPerformance';
 import { highlightingSpeakerReferences, type HighlightingSpeakerContext } from './nodes/output/speakerSelection';
 import { textEffectsStyle } from './chat/textEffects';
 import { CharacterName } from './components/CharacterName';
@@ -23,6 +25,7 @@ import { matchMeState, matchMeMessageAllowed, migrateDatingHistory, matchMeLikeP
 import { prepareMatchMePromptSlots } from './chat/matchMePrompt';
 import type { DatingProfile } from './chat/datingProfile';
 import {
+  Profiler,
   type FormEvent,
   useCallback,
   useEffect,
@@ -879,6 +882,7 @@ function App() {
   const [flowInstance, setFlowInstance] = useState<ReactFlowInstance<WorkflowNode> | null>(null);
   const flowInstanceRef = useRef<ReactFlowInstance<WorkflowNode> | null>(null);
   const npcParticipants = useNpcParticipants(nodesRef, npcLibrary.snapshot, setNodes);
+  useEffect(() => { markUiEvent('run.state', { isRunning }); }, [isRunning]);
   const lifecycleRunningRef = useRef(isRunning);
   useEffect(() => { lifecycleRunningRef.current = isRunning; }, [isRunning]);
   const imageInputRef = useRef<HTMLInputElement | null>(null);
@@ -1839,6 +1843,9 @@ function App() {
   }, [connections, defaultConnectionId, settingsLoadComplete, setDefaultConnectionId, setNodes]);
 
   useEffect(() => {
+    // setMessages also reconciles contacts and publishes the live snapshot.
+    // An unrelated App render must not trigger those writes for an unchanged opening.
+    if (!needsOpeningMessageSync(messagesRef.current, openingSituation)) return;
     setMessages((currentMessages) => {
       const hasStartedConversation = currentMessages.some(
         (message) => !message.isOpening && message.role !== 'error' && message.channel !== 'phone',
@@ -1921,23 +1928,23 @@ function App() {
       return;
     }
     const characters = historyAppCharacters();
-    const rawHistory = JSON.stringify(messages, null, 2);
-    const originalHistory = formatChatHistory(
+    const rawHistory = measureUiWork('history.serialize', () => JSON.stringify(messages, null, 2), { messageCount: messages.length });
+    const originalHistory = measureUiWork('history.originalHistory', () => formatChatHistory(
       messages,
       false,
       rpDateTimeFormat,
       rpWeekdayLanguage,
       undefined,
       characters,
-    );
-    const translatedHistory = formatChatHistory(
+    ));
+    const translatedHistory = measureUiWork('history.translatedHistory', () => formatChatHistory(
       messages,
       true,
       rpDateTimeFormat,
       rpWeekdayLanguage,
       undefined,
       characters,
-    );
+    ));
     const latestHistoryMessage = [...messages].reverse().find(
       (message) =>
         message.includeInHistory !== false &&
@@ -3158,7 +3165,8 @@ function App() {
 
     const highlightDialogue = outputNode.data.dialogueHighlightEnabled ?? false;
     const extractedQuotes = highlightDialogue ? extractDialogueQuotes(text) : [];
-    const selection = highlightingSpeakerReferences(cast, interactedCharacterIds, `${sourceText}\n${text}`, speakerContext);
+    const selection = measureUiWork('highlighting.selectSpeakers', () =>
+      highlightingSpeakerReferences(cast, interactedCharacterIds, `${sourceText}\n${text}`, speakerContext));
     cast = selection.map((entry) => entry.character);
     const speakerReferences = selection.map(({ speakerId, name, details }) => ({ speakerId, name, details }));
     const speakerFormat = outputSpeakerResponseFormat(outputNode.data.outputSpeakerResponseFormat);
@@ -3799,6 +3807,7 @@ function App() {
       workflowVariableSetCommands,
     });
     if (sound) {
+      markUiEvent('phone.messageSound', { sound });
       playPhoneMessageSound(sound);
     }
     const conversationKey = phoneConversationKey(canonicalMessage.from, canonicalMessage.to);
@@ -5027,6 +5036,14 @@ function App() {
     (node) => node.data.kind === undefined && node.data.nodeType === 'output',
   );
   const dialogueColorsEnabled = outputNode?.data.dialogueHighlightEnabled ?? false;
+  useEffect(() => {
+    setUiPerformanceContext({
+      messageCount: messages.length, nodeCount: nodes.length, chatPanelView, isRunning,
+      smoothChatAutoScrollEnabled, smoothChatAutoScrollMinSpeed,
+      dialogueColorsEnabled, isChatPanelOpen,
+    });
+  }, [messages.length, nodes.length, chatPanelView, isRunning, smoothChatAutoScrollEnabled,
+    smoothChatAutoScrollMinSpeed, dialogueColorsEnabled, isChatPanelOpen]);
   let editableUserMessageId: number | undefined;
   for (let index = messages.length - 1; index >= 0; index -= 1) {
     const message = messages[index];
@@ -5310,6 +5327,7 @@ function App() {
           </div>
           <NodeActionsContext.Provider value={nodeActions}>
             <NodeViewContext.Provider value={nodeViewValues}>
+              <Profiler id="Graph" onRender={profileUiRender}>
               <ReactFlow
                 nodes={nodes}
                 edges={renderedEdges}
@@ -5380,6 +5398,7 @@ function App() {
                 <Controls position="bottom-left" showInteractive={false} />
                 <ResourceMonitor />
               </ReactFlow>
+              </Profiler>
             </NodeViewContext.Provider>
           </NodeActionsContext.Provider>
           <aside className="node-palette" aria-label="Available nodes">
@@ -5661,6 +5680,7 @@ function App() {
           </div>
           <div className="chat-lockable">
           {chatPanelView === 'chat' ? (
+            <Profiler id="Chat" onRender={profileUiRender}>
             <ChatConversationPanel
               key={panelSessionRevision}
               appCharacters={npcParticipants.characters()}
@@ -5804,6 +5824,7 @@ function App() {
               onSelectDraftImages={() => void selectDraftImages()}
               onMessageContentLoaded={() => scrollChatThreadToBottomIfFollowing('smooth')}
             />
+            </Profiler>
           ) : chatPanelView === 'phone' ? (
             <AppMessageAvatars enabled={appMessageAvatarsEnabled} size={chatMessageAvatarSize} colors={characterColors}>
             <PhonePanel

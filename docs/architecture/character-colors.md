@@ -6,6 +6,18 @@
 
 Slots are never reassigned when characters are sorted, renamed, promoted, demoted or removed. A new character receives the next unused slot. `runtime.current.characterColorSlots` persists the record in RP Saves. Older saves initialize the record from their playable characters and interacted participants. Starting a new RP resets it. Undo does not recycle slots. Standalone character and Storybook files do not carry RP-specific slot assignments.
 
+The roleplay runtime uses a session-local `createCharacterUsageSelector` for this
+classification. Matchers prepare identity prefixes, quoted IDs and name patterns
+once per identity signature. Weak object caches reuse results for immutable
+history branches; a bounded string cache reuses field-name and text comparisons.
+History edits and undo replace branches, and identity changes replace the matcher,
+so removed references can make an NPC inactive again. Starting a new RP drops the
+selector. Callers must replace history objects when their content changes.
+
+Color maps and CSS token dictionaries retain their references when their contents
+are unchanged, even if equivalent character or activity arrays are recreated.
+Actual renames, role changes, slot changes and removals still update the colors.
+
 ## Paired palette
 
 `characterColorPalette` has twenty pairs. The first ten playable colors retain the original palette exactly. The second ten extend it with shifted vivid colors. NPC variants shift the hue again and reduce saturation while retaining a clearly visible pastel tint. Both roles use the same slot; promotion changes only the variant and enables the existing gradients. After twenty slots, the pairs repeat.

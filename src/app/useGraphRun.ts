@@ -2699,6 +2699,7 @@ export function useGraphRun(options: UseGraphRunOptions) {
           incoming: ParsedIncomingSocialDirectMessage,
           defaultRecipient?: { name: string; handle: string },
           runPost?: SocialPostRecord,
+          deferPublication = false,
         ): Promise<EmbeddedSocialMessageLink | undefined> => {
           if (incoming.app === 'matchme') {
             // Direct runs accept their single bound reply only; commands cannot add another MatchMe message.
@@ -2718,7 +2719,7 @@ export function useGraphRun(options: UseGraphRunOptions) {
             const socialMessageId = appendMessage({ role: 'output', includeInHistory: true,
               originalText: socialDirectMessageHistoryText(record),
               translatedText: displayText ? socialDirectMessageHistoryText({ ...record, text: displayText }) : undefined,
-              socialDirectMessage: { ...record, ...(displayText ? { displayText } : {}) } });
+              socialDirectMessage: { ...record, ...(displayText ? { displayText } : {}) } }, { deferPublication });
             return { socialMessageId, app: 'matchme', from: record.from, to: record.to,
               message: record.text, translatedMessage: displayText, sourceOrder: incoming.sourceOrder };
           }
@@ -2832,7 +2833,7 @@ export function useGraphRun(options: UseGraphRunOptions) {
               : undefined,
             includeInHistory: true,
             socialDirectMessage: persistedRecord,
-          });
+          }, { deferPublication });
           return {
             socialMessageId,
             app: record.app,
@@ -2843,16 +2844,16 @@ export function useGraphRun(options: UseGraphRunOptions) {
             sourceOrder: incoming.sourceOrder,
           };
         };
+        const deferEmbeddedPublication = !isPhoneMessage && liveOutputMessageId !== undefined;
         for (const incomingSocialDm of embeddedSocialDirectMessages) {
-          const link = await appendIncomingSocialDirectMessage(incomingSocialDm);
-          if (link) {
-            embeddedSocialMessageLinks.push(link);
-          }
+          const link = await appendIncomingSocialDirectMessage(
+            incomingSocialDm, undefined, undefined, deferEmbeddedPublication,
+          );
+          if (link) embeddedSocialMessageLinks.push(link);
         }
-        // Always replace the streamed placeholder previews (negative ids):
-        // with real links when messages were stored, or with nothing when the
-        // final output kept no social messages (e.g. blocked by validation).
-        if (!isPhoneMessage && liveOutputMessageId !== undefined) {
+        // Publish records and replace preview IDs together. The run's existing
+        // failure/cancellation handler removes collected records if preparation fails.
+        if (deferEmbeddedPublication && liveOutputMessageId !== undefined) {
           updateMessage(liveOutputMessageId, {
             embeddedSocialMessages: embeddedSocialMessageLinks.length > 0
               ? embeddedSocialMessageLinks.map((link) => ({ ...link }))

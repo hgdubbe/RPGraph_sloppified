@@ -1,3 +1,5 @@
+import { measureUiWork, countChatRowRender } from '../diagnostics/uiPerformance';
+import { createRowTimelineSelector } from '../chat/rowTimeline';
 import { gradientPhaseStyle } from '../chat/gradientPhase';
 import { isNpcCharacterColor } from '../chat/characterColors';
 import { ChatBubbleText } from './ChatBubbleText';
@@ -384,22 +386,25 @@ type MessageRowProps = {
  * touching a different message elsewhere in the history. This is the
  * primary target of the "full per-message row memoization" follow-up: see
  * docs/performance-stuttering-investigation.md. */
-const MessageRow = memo(function MessageRow({
-  message, previousDay, englishProcessingEnabled, appCharacters, showProfileNames,
-  chatMessageAvatarsEnabled, socialMessageRpDateTimeById,
-  characterColors, dialogueHighlightEnabled, dialogueVoiceSpeakerNames, activeDialogueVoiceKey,
-  onSpeakDialogue, onGenerateVoiceMessageClip, chatColorIntensity, thoughtTextStyle, chatTextSize,
-  phoneAuthorBadgesEnabled, rpTimeTrackingEnabled, rpDateTimeFormat, rpWeekdayLanguage,
-  editingMessageId, editableUserMessageId, editingDraft, isRunning, contextualReferenceImageIds,
-  selectedReferenceImageIds, referenceImageContextEnabled, referenceImageContextDisabledReason,
-  onBeginEditMessage, onCancelEditMessage, onRegenerateEditedMessage, onEditingDraftChange,
-  onPreviewImage, onToggleReferenceImage, onPreviewImageCaptionChange, onOpenEmbeddedPhoneMessage,
-  onOpenEmbeddedSocialMessage, onOpenSocialPost, socialImageById, onOutputActionChoice,
-  onMessageContentLoaded, phoneMessagesById, socialMessagesById, socialTimeline,
-  phoneTimelineGroupsByFirstMessageId, skippedPhoneTimelineMessageIds,
-  outsidePhoneDisplayMode, expandedPhoneGroups, setExpandedPhoneGroups,
-  socialEngagementByApp,
-}: MessageRowProps) {
+const MessageRow = memo(function MessageRow(props: MessageRowProps) {
+  const [diagnosticIdentity] = useState(() => ({}));
+  countChatRowRender(props.message.id, props, diagnosticIdentity);
+  const {
+    message, previousDay, englishProcessingEnabled, appCharacters, showProfileNames,
+    chatMessageAvatarsEnabled, socialMessageRpDateTimeById,
+    characterColors, dialogueHighlightEnabled, dialogueVoiceSpeakerNames, activeDialogueVoiceKey,
+    onSpeakDialogue, onGenerateVoiceMessageClip, chatColorIntensity, thoughtTextStyle, chatTextSize,
+    phoneAuthorBadgesEnabled, rpTimeTrackingEnabled, rpDateTimeFormat, rpWeekdayLanguage,
+    editingMessageId, editableUserMessageId, editingDraft, isRunning, contextualReferenceImageIds,
+    selectedReferenceImageIds, referenceImageContextEnabled, referenceImageContextDisabledReason,
+    onBeginEditMessage, onCancelEditMessage, onRegenerateEditedMessage, onEditingDraftChange,
+    onPreviewImage, onToggleReferenceImage, onPreviewImageCaptionChange, onOpenEmbeddedPhoneMessage,
+    onOpenEmbeddedSocialMessage, onOpenSocialPost, socialImageById, onOutputActionChoice,
+    onMessageContentLoaded, phoneMessagesById, socialMessagesById, socialTimeline,
+    phoneTimelineGroupsByFirstMessageId, skippedPhoneTimelineMessageIds,
+    outsidePhoneDisplayMode, expandedPhoneGroups, setExpandedPhoneGroups,
+    socialEngagementByApp,
+  } = props;
   if (skippedPhoneTimelineMessageIds.has(message.id) || socialTimeline.skippedIds.has(message.id)) {
     return null;
   }
@@ -1746,6 +1751,7 @@ const MemoizedChatConversationPanel = memo(function ChatConversationPanelContent
     onStreamContentChange();
   }, [messages, onStreamContentChange]);
   const commandComposerRef = useRef<CommandPillComposerHandle | null>(null);
+  const [selectRowTimelines] = useState(() => createRowTimelineSelector<PhoneTimelineGroup>());
   const [selectTimeline] = useState(() => createStableDerivedValueSelector<Pick<MessageRowProps,
     'phoneMessagesById' | 'socialMessagesById' | 'socialMessageRpDateTimeById' |
     'socialTimeline' | 'phoneTimelineGroupsByFirstMessageId' | 'skippedPhoneTimelineMessageIds'
@@ -1932,7 +1938,7 @@ const MemoizedChatConversationPanel = memo(function ChatConversationPanelContent
 
   const { phoneMessagesById, socialMessagesById, socialMessageRpDateTimeById, visibleMessages, socialTimeline,
     phoneTimelineGroupsByFirstMessageId, skippedPhoneTimelineMessageIds,
-    previousDays } = useMemo(() => {
+    previousDays } = useMemo(() => measureUiWork('chat.timeline', () => {
     const phoneMessagesById = selectPhoneMessagesById(messages);
     const socialMessagesById = new Map(
       messages.flatMap((message) =>
@@ -2106,7 +2112,15 @@ const MemoizedChatConversationPanel = memo(function ChatConversationPanelContent
       visibleMessages,
       previousDays,
     };
-  }, [messages, englishProcessingEnabled, selectTimeline]);
+  }, { messageCount: messages.length }), [messages, englishProcessingEnabled, selectTimeline]);
+
+  const rowTimelines = useMemo(() => measureUiWork('chat.rowTimelines', () =>
+    selectRowTimelines(visibleMessages, {
+      phoneMessagesById, socialMessagesById, socialMessageRpDateTimeById, socialTimeline,
+      phoneTimelineGroupsByFirstMessageId, skippedPhoneTimelineMessageIds,
+    })), [selectRowTimelines, visibleMessages, phoneMessagesById, socialMessagesById,
+    socialMessageRpDateTimeById, socialTimeline, phoneTimelineGroupsByFirstMessageId,
+    skippedPhoneTimelineMessageIds]);
 
   return (
     <>
@@ -2124,7 +2138,6 @@ const MemoizedChatConversationPanel = memo(function ChatConversationPanelContent
             key={message.id}
             message={message}
             chatMessageAvatarsEnabled={chatMessageAvatarsEnabled}
-            socialMessageRpDateTimeById={socialMessageRpDateTimeById}
             previousDay={previousDays[index]}
             englishProcessingEnabled={englishProcessingEnabled}
             appCharacters={appCharacters}
@@ -2142,9 +2155,9 @@ const MemoizedChatConversationPanel = memo(function ChatConversationPanelContent
             rpTimeTrackingEnabled={rpTimeTrackingEnabled}
             rpDateTimeFormat={rpDateTimeFormat}
             rpWeekdayLanguage={rpWeekdayLanguage}
-            editingMessageId={editingMessageId}
-            editableUserMessageId={editableUserMessageId}
-            editingDraft={editingDraft}
+            editingMessageId={editingMessageId === message.id ? message.id : null}
+            editableUserMessageId={editableUserMessageId === message.id ? message.id : undefined}
+            editingDraft={editingMessageId === message.id ? editingDraft : ''}
             isRunning={isRunning}
             contextualReferenceImageIds={contextualReferenceImageIds}
             selectedReferenceImageIds={selectedReferenceImageIds}
@@ -2163,11 +2176,7 @@ const MemoizedChatConversationPanel = memo(function ChatConversationPanelContent
             socialImageById={socialImageById}
             onOutputActionChoice={onOutputActionChoice}
             onMessageContentLoaded={onMessageContentLoaded}
-            phoneMessagesById={phoneMessagesById}
-            socialMessagesById={socialMessagesById}
-            socialTimeline={socialTimeline}
-            phoneTimelineGroupsByFirstMessageId={phoneTimelineGroupsByFirstMessageId}
-            skippedPhoneTimelineMessageIds={skippedPhoneTimelineMessageIds}
+            {...rowTimelines.get(message.id)!}
             outsidePhoneDisplayMode={outsidePhoneDisplayMode}
             expandedPhoneGroups={expandedPhoneGroups}
             setExpandedPhoneGroups={setExpandedPhoneGroups}

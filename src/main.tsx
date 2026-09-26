@@ -1,4 +1,5 @@
-import { StrictMode } from 'react';
+import { Profiler, StrictMode } from 'react';
+import { profileUiRender } from './diagnostics/uiPerformance';
 import { createRoot } from 'react-dom/client';
 import './browserRpgraphStub';
 import '@xyflow/react/dist/style.css';
@@ -8,6 +9,6 @@ import { PanelNavigation } from './navigation/PanelNavigation';
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
-    <PanelNavigation><App /></PanelNavigation>
+    <PanelNavigation><Profiler id="App" onRender={profileUiRender}><App /></Profiler></PanelNavigation>
   </StrictMode>,
 );
