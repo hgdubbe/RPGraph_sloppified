@@ -81,19 +81,12 @@ export function NodeCustomSelect<TValue extends SelectValue>({
       ? document.querySelector<HTMLElement>('.studio.glass-design-active')
       : null;
   const isGlassDesignActive = glassDesignElement !== null;
-  const glassPopoverStyle = isGlassDesignActive
-    ? ({
-        ...popoverStyle,
-        '--glass-opacity':
-          getComputedStyle(glassDesignElement).getPropertyValue('--glass-opacity') || undefined,
-      } as CSSProperties)
-    : popoverStyle;
   const popover = isPopoverOpen && popoverStyle ? (
     <div
       className={`node-custom-select-popover${isGlassDesignActive ? ' glass-design-popover' : ''}`}
       ref={popoverRef}
       role="menu"
-      style={glassPopoverStyle ?? undefined}
+      style={popoverStyle ?? undefined}
     >
       {options.map((opt) => (
         <button

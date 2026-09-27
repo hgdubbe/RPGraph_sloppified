@@ -647,13 +647,24 @@ export function ImageGenerationAssistantDialog({
                     </button>
                   </div>
                 </label>
-                {!imageSupportsLora && imageProvider && <label>Image Format
-                  <select value={aspectRatio} disabled={isSubmitting || isGenerating} onChange={(event) => setAspectRatio(event.target.value)}>
-                    <option value="3:4">Portrait · 3:4</option><option value="4:5">Portrait · 4:5</option>
-                    <option value="9:16">Portrait · 9:16</option><option value="1:1">Square · 1:1</option>
-                    <option value="4:3">Landscape · 4:3</option><option value="16:9">Landscape · 16:9</option>
-                  </select>
-                </label>}
+                {!imageSupportsLora && imageProvider && (
+                  <label className="image-generation-provider-label">
+                    <span>Image Format</span>
+                    <NodeCustomSelect
+                      value={aspectRatio}
+                      disabled={isSubmitting || isGenerating}
+                      onChange={(val) => setAspectRatio(String(val))}
+                      options={[
+                        { value: '3:4', label: 'Portrait · 3:4' },
+                        { value: '4:5', label: 'Portrait · 4:5' },
+                        { value: '9:16', label: 'Portrait · 9:16' },
+                        { value: '1:1', label: 'Square · 1:1' },
+                        { value: '4:3', label: 'Landscape · 4:3' },
+                        { value: '16:9', label: 'Landscape · 16:9' },
+                      ]}
+                    />
+                  </label>
+                )}
                 {modelActionError && <p className="image-generation-provider-error" role="alert">{modelActionError}</p>}
               </div>
             </div>
@@ -775,13 +786,45 @@ export function ImageGenerationAssistantDialog({
                         const rect = target.getBoundingClientRect();
                         setHoverReference({ image: reference, x: Math.max(8, Math.min(rect.left, window.innerWidth - 272)), y: Math.max(8, Math.min(rect.bottom + 8, window.innerHeight - 272)) });
                       };
-                      return <>
-                        <button className="image-reference-link" type="button" onMouseEnter={(event) => preview(event.currentTarget)} onMouseLeave={() => setHoverReference(null)} onFocus={(event) => preview(event.currentTarget)} onBlur={() => setHoverReference(null)} onClick={(event) => hoverReference?.image === reference ? setHoverReference(null) : preview(event.currentTarget)}>
-                          <span>{reference.name} · {activeIndex >= 0 ? `Image ${activeIndex + 1}` : 'Not used'}</span>
-                          <img src={reference.dataUrl} alt="" />
-                        </button>
-                        {activeIndex >= 0 && <button className="image-reference-remove" type="button" aria-label={`Remove Image ${activeIndex + 1}`} disabled={isSubmitting || isGenerating} onClick={() => removeReference(activeIndex)}>×</button>}
-                      </>;
+                      return (
+                        <div className="image-reference-bubble-inner">
+                          <button
+                            className="image-reference-thumb-btn"
+                            type="button"
+                            onMouseEnter={(event) => preview(event.currentTarget)}
+                            onMouseLeave={() => setHoverReference(null)}
+                            onFocus={(event) => preview(event.currentTarget)}
+                            onBlur={() => setHoverReference(null)}
+                            onClick={(event) => hoverReference?.image === reference ? setHoverReference(null) : preview(event.currentTarget)}
+                            title="Click or hover to preview full image"
+                          >
+                            <img src={reference.dataUrl} alt={reference.name} />
+                          </button>
+                          <div className="image-reference-info">
+                            <span className="image-reference-badge">
+                              {activeIndex >= 0 ? `Image ${activeIndex + 1}` : 'Not used'}
+                            </span>
+                            <span className="image-reference-title" title={reference.name}>
+                              {reference.name}
+                            </span>
+                          </div>
+                          {activeIndex >= 0 && (
+                            <button
+                              className="image-reference-remove"
+                              type="button"
+                              aria-label={`Remove Image ${activeIndex + 1}`}
+                              title={`Remove Image ${activeIndex + 1}`}
+                              disabled={isSubmitting || isGenerating}
+                              onClick={() => removeReference(activeIndex)}
+                            >
+                              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                                <line x1="18" y1="6" x2="6" y2="18" />
+                                <line x1="6" y1="6" x2="18" y2="18" />
+                              </svg>
+                            </button>
+                          )}
+                        </div>
+                      );
                     })() : <p>{message.text}</p>}
                   </div>
                 </div>
@@ -796,33 +839,57 @@ export function ImageGenerationAssistantDialog({
               )}
             </div>
             {referenceError && <p className="image-generation-error" role="alert">{referenceError}</p>}
-            <form className="storybook-chat-form" onSubmit={submitMessage}>
-              <textarea
-                rows={4}
-                value={draft}
-                placeholder="Describe the picture or request a change..."
-                onChange={(event) => setDraft(event.currentTarget.value)}
-                onKeyDown={(event) => {
-                  if (event.key === 'Enter' && !event.shiftKey) {
-                    event.preventDefault();
-                    event.currentTarget.form?.requestSubmit();
-                  }
-                }}
-              />
-              {referencesSupported && (
-                <button type="button" className="send-message-button"
-                  disabled={isSubmitting || isGenerating || activeReferences.length >= maxImageGenerationReferences}
-                  onClick={() => { setReferenceError(''); setReferenceGalleryOpen(true); }}>
-                  Reference ({activeReferences.length}/3)
-                </button>
-              )}
-              <button
-                type="submit"
-                className="send-message-button"
-                disabled={!draft.trim() || !assistantProvider || isSubmitting || isGenerating}
-              >
-                {isSubmitting ? 'Sending...' : 'Send'}
-              </button>
+            <form className="storybook-chat-form image-generation-chat-form" onSubmit={submitMessage}>
+              <div className="image-chat-input-box">
+                <textarea
+                  className="image-chat-textarea"
+                  rows={2}
+                  value={draft}
+                  placeholder="Describe the picture or request a change..."
+                  onChange={(event) => setDraft(event.currentTarget.value)}
+                  onKeyDown={(event) => {
+                    if (event.key === 'Enter' && !event.shiftKey) {
+                      event.preventDefault();
+                      event.currentTarget.form?.requestSubmit();
+                    }
+                  }}
+                />
+                <div className="image-chat-input-toolbar">
+                  <div className="image-chat-input-left">
+                    {referencesSupported && (
+                      <button
+                        type="button"
+                        className="image-chat-reference-btn"
+                        disabled={isSubmitting || isGenerating || activeReferences.length >= maxImageGenerationReferences}
+                        onClick={() => { setReferenceError(''); setReferenceGalleryOpen(true); }}
+                        title={activeReferences.length >= maxImageGenerationReferences ? 'Maximum references reached (3/3)' : 'Add reference image'}
+                      >
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                          <rect x="3" y="3" width="18" height="18" rx="2" ry="2" />
+                          <circle cx="8.5" cy="8.5" r="1.5" />
+                          <polyline points="21 15 16 10 5 21" />
+                        </svg>
+                        <span>Reference</span>
+                        <span className="image-chat-reference-count">{activeReferences.length}/3</span>
+                      </button>
+                    )}
+                  </div>
+                  <div className="image-chat-input-right">
+                    <button
+                      type="submit"
+                      className="image-chat-send-btn"
+                      disabled={!draft.trim() || !assistantProvider || isSubmitting || isGenerating}
+                      title="Send message (Enter)"
+                    >
+                      <span>{isSubmitting ? 'Sending...' : 'Send'}</span>
+                      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                        <line x1="22" y1="2" x2="11" y2="13" />
+                        <polygon points="22 2 15 22 11 13 2 9 22 2" />
+                      </svg>
+                    </button>
+                  </div>
+                </div>
+              </div>
             </form>
           </section>
         </div>
@@ -830,23 +897,86 @@ export function ImageGenerationAssistantDialog({
         {referenceGalleryOpen && referencesSupported && (
           <div className="storybook-confirm-backdrop" role="presentation" onClick={() => setReferenceGalleryOpen(false)}>
             <section className="storybook-confirm-dialog image-reference-gallery" role="dialog" aria-modal="true" aria-label="Choose a reference from the phone gallery" onClick={(event) => event.stopPropagation()}>
-              <h3>Choose a Reference Image</h3>
-              <label>Character
-                <select value={referenceCharacterId} onChange={(event) => setReferenceCharacterId(event.target.value)} autoFocus>
-                  {saveCharacters.map((character) => <option key={character.id} value={character.id}>{character.name}</option>)}
-                </select>
-              </label>
-              <div className="image-reference-gallery-grid">
-                {(saveCharacters.find((character) => character.id === referenceCharacterId)?.images ?? []).map((image) => (
-                  <button type="button" key={image.id} disabled={referenceImages.some((entry) => entry.dataUrl === image.dataUrl)} onClick={() => addReference(image)}>
-                    <img src={image.dataUrl} alt={image.description || image.name} loading="lazy" />
-                    <span>{image.name || image.id}</span>
-                  </button>
-                ))}
+              <div className="image-reference-gallery-header">
+                <div className="image-reference-gallery-title-group">
+                  <h3>Choose a Reference Image</h3>
+                  <p>Select an image from the gallery to use as reference.</p>
+                </div>
+                <button
+                  type="button"
+                  className="image-reference-modal-close"
+                  onClick={() => setReferenceGalleryOpen(false)}
+                  aria-label="Close reference gallery"
+                  title="Close"
+                >
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <line x1="18" y1="6" x2="6" y2="18" />
+                    <line x1="6" y1="6" x2="18" y2="18" />
+                  </svg>
+                </button>
               </div>
-              {!saveCharacters.find((character) => character.id === referenceCharacterId)?.images.length && <p>This character's gallery is empty.</p>}
-              {referenceError && <p role="alert">{referenceError}</p>}
-              <button type="button" className="inspect-button" onClick={() => setReferenceGalleryOpen(false)}>Cancel</button>
+
+              <div className="image-reference-gallery-character-select">
+                <label className="image-generation-provider-label">
+                  <span>Character</span>
+                  <NodeCustomSelect
+                    value={referenceCharacterId}
+                    onChange={(val) => setReferenceCharacterId(String(val))}
+                    options={saveCharacters.length
+                      ? saveCharacters.map((character) => ({
+                          value: character.id,
+                          label: character.name,
+                        }))
+                      : [{ value: '', label: 'No characters available' }]
+                    }
+                  />
+                </label>
+              </div>
+
+              <div className="image-reference-gallery-grid">
+                {(saveCharacters.find((character) => character.id === referenceCharacterId)?.images ?? []).map((image) => {
+                  const isSelected = referenceImages.some((entry) => entry.dataUrl === image.dataUrl);
+                  return (
+                    <button
+                      type="button"
+                      className={`image-reference-card${isSelected ? ' is-selected' : ''}`}
+                      key={image.id}
+                      disabled={isSelected}
+                      onClick={() => addReference(image)}
+                      title={isSelected ? 'Already selected as reference' : `Select ${image.name || image.id}`}
+                    >
+                      <div className="image-reference-card-preview">
+                        <img src={image.dataUrl} alt={image.description || image.name} loading="lazy" />
+                        {isSelected && (
+                          <span className="image-reference-selected-badge">
+                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+                              <polyline points="20 6 9 17 4 12" />
+                            </svg>
+                            Selected
+                          </span>
+                        )}
+                      </div>
+                      <div className="image-reference-card-label">
+                        <span title={image.name || image.id}>{image.name || image.id}</span>
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+              {!saveCharacters.find((character) => character.id === referenceCharacterId)?.images.length && (
+                <div className="image-reference-empty">
+                  <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                    <rect x="3" y="3" width="18" height="18" rx="2" />
+                    <circle cx="8.5" cy="8.5" r="1.5" />
+                    <polyline points="21 15 16 10 5 21" />
+                  </svg>
+                  <p>This character's gallery is empty.</p>
+                </div>
+              )}
+              {referenceError && <p className="image-generation-error" role="alert">{referenceError}</p>}
+              <div className="image-reference-gallery-actions">
+                <button type="button" className="inspect-button" onClick={() => setReferenceGalleryOpen(false)}>Cancel</button>
+              </div>
             </section>
           </div>
         )}
