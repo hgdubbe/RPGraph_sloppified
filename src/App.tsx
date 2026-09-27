@@ -5722,7 +5722,7 @@ function App() {
         title="Rephrase the last output while preserving the same continuity"
         aria-label="Rephrase the last output while preserving continuity"
       >
-        Rephrase
+        ↻
       </button>
     </div>
   );
