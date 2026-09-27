@@ -1,3 +1,6 @@
+import { supportsImageGenerationReferences } from './images/providers';
+import { imageReferenceAttachments } from './images/references';
+import { isComfyImageConnection } from './comfy/connectionRole';
 import { needsOpeningMessageSync } from './chat/openingMessage';
 import { markUiEvent, measureUiWork, profileUiRender, setUiPerformanceContext } from './diagnostics/uiPerformance';
 import { highlightingSpeakerReferences, type HighlightingSpeakerContext } from './nodes/output/speakerSelection';
@@ -5983,6 +5986,7 @@ function App() {
                 currentPrompt,
                 currentSettings,
                 currentImage,
+                referenceImages = [],
                 availableCharacterLoras,
                 characterContext,
                 chatHistoryContext,
@@ -5995,14 +5999,14 @@ function App() {
                   llmProviderId: connectionId,
                   comfyProviderId: imageProviderId,
                 });
-                const attachImage = !!currentImage && !describeFromPromptOnly;
-                if (attachImage) {
+                const attachImage = !!currentImage && !describeFromPromptOnly && (describeImage || referenceImages.length === 0);
+                if (attachImage || referenceImages.length > 0) {
                   const visionEnabled = await nodeLlm.supportsVision(
                     connectionId,
                     'Image Generation Assistant',
                   );
                   if (!visionEnabled) {
-                    throw new Error('The selected assistant provider needs vision enabled to inspect the generated image.');
+                    throw new Error('The selected assistant provider needs vision enabled to inspect generated or reference images.');
                   }
                 }
                 const completion = await nodeLlm.complete({
@@ -6019,15 +6023,18 @@ function App() {
                     userMessage,
                     describeImage,
                     describeFromPromptOnly,
+                    connections.some((connection) => connection.id === imageProviderId && isComfyImageConnection(connection)),
+                    referenceImages,
+                    supportsImageGenerationReferences(connections.find((connection) => connection.id === imageProviderId)),
                   ),
-                  images: attachImage ? [{
+                  images: [...imageReferenceAttachments(referenceImages), ...(attachImage && currentImage ? [{
                     id: 'image-generation-assistant-current',
                     name: 'Currently selected generated image',
                     mimeType: /^data:([^;,]+)/.exec(currentImage.dataUrl)?.[1] ?? 'image/png',
                     size: encodedDataUrlBytes(currentImage.dataUrl),
                     dataUrl: currentImage.dataUrl,
                     description: currentImage.description,
-                  }] : undefined,
+                  }] : [])],
                   temperature: 0.2,
                 });
                 return parseImageGenerationAssistantResult(completion.text, describeImage);

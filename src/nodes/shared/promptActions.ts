@@ -151,7 +151,7 @@ export function promptActionConditions(actionId: PromptActionId): PromptActionCo
       ];
     case 'createImage':
       return [
-        { id: 'comfyProvider', label: 'ComfyUI provider connected and online' },
+        { id: 'comfyProvider', label: 'Image provider connected and online' },
         { id: 'createImageCharacters', label: 'Storybook character available' },
       ];
     default:
@@ -1279,6 +1279,7 @@ export type PromptActionAvailabilityOptions = {
   visionEnabled?: boolean;
   hasImageInput?: boolean;
   comfyProviderIds?: string[];
+  apiImageProviderIds?: string[];
   providerHealthById?: Record<string, ProviderConnectionHealth>;
   createImageCharacters?: StorybookCreateImageCharacter[];
 };
@@ -1297,7 +1298,7 @@ function createImageProviderStatus(
     return undefined;
   }
   if (options.comfyProviderIds.length === 0) {
-    return { available: false, tone: 'error', label: 'No ComfyUI provider' };
+    return { available: false, tone: 'error', label: 'No image provider' };
   }
   const providerId = action.comfyProviderId?.trim();
   const providerIds = providerId ? [providerId] : options.comfyProviderIds;
@@ -1315,10 +1316,10 @@ function createImageProviderStatus(
     return { available: false, tone: 'warning', label: 'Checking provider' };
   }
   if (healthValues.some((health) => health?.status === 'warning')) {
-    return { available: false, tone: 'warning', label: 'ComfyUI setup needed' };
+    return { available: false, tone: 'warning', label: 'Image provider setup needed' };
   }
   if (healthValues.some((health) => health?.status === 'offline')) {
-    return { available: false, tone: 'error', label: 'ComfyUI offline' };
+    return { available: false, tone: 'error', label: 'Image provider offline' };
   }
   return { available: false, tone: 'warning', label: 'Checking provider' };
 }
@@ -1432,15 +1433,24 @@ export function promptActionInstructionText(
   if (config.actionId !== 'createImage') {
     return withInputImageTargetInstruction(withPlan, config.actionId, imageNumber);
   }
-  const availableCharacters = createImageAvailableCharactersText(options);
+  const providerId = config.comfyProviderId?.trim() || options.comfyProviderIds?.[0];
+  const usesApiImages = !!providerId && options.apiImageProviderIds?.includes(providerId);
+  const availableCharacters = createImageAvailableCharactersText(usesApiImages
+    ? { ...options, createImageCharacters: options.createImageCharacters?.map((character) => ({
+        ...character, createImage: { ...character.createImage, hasLora: false },
+      })) }
+    : options);
   const rendered = withPlan
     .split('{{availableCharacters}}').join(availableCharacters)
     .split('<Available Characters>').join(availableCharacters)
     .split('<availableCharacters>').join(availableCharacters)
     .split('<available characters>').join(availableCharacters);
-  return rendered === withPlan
+  const instruction = rendered === withPlan
     ? `${withPlan.trim()}\n\nAvailable characters:\n${availableCharacters}`
     : rendered;
+  return usesApiImages
+    ? `${instruction}\n\nThe selected image provider does not support LoRAs. Set loraCharacter to 0 and describe every visible character fully in the prompt using their appearance and story context.`
+    : instruction;
 }
 
 function withInputImageTargetInstruction(

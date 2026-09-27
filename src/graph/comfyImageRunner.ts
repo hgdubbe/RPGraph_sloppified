@@ -1,3 +1,4 @@
+import { generateApiImages, isImageGenerationConnection } from '../images/providers';
 import { localModelApi } from '../llm/localModelApi';
 import type { NodeLlmApi } from '../llm/NodeLlmApi';
 import { getRegisteredNode } from '../nodes/registry';
@@ -101,7 +102,7 @@ function throwIfAborted(signal?: AbortSignal) {
 
 /**
  * Builds a `CreateComfyImageForCharacterRunner`: resolves a phone owner/LoRA character by
- * name or id, runs the actual ComfyUI generation, captions the result (if vision is
+ * name or id, runs image generation with the selected provider, captions the result (if vision is
  * available) and ensures the generated images land in that character's Storybook. Shared
  * by `executeGraph.ts` (the legacy/Structured v1 graph-evaluation path, one runner per
  * graph run) and the live `actions-v1`/`staged-v1` action bridge (one runner per turn,
@@ -229,18 +230,15 @@ export function createComfyImageRunner(options: ComfyImageRunnerOptions): Create
       throw new Error(`Create character phone image action could not find LoRA character "${loraCharacterName}".`);
     }
     const resolvedLoraCharacter = loraCharacter?.character;
-    if (resolvedLoraCharacter && !resolvedLoraCharacter.createImage.hasLora) {
-      throw new Error(`Create character phone image action requires a configured LoRA for ${resolvedLoraCharacter.name}.`);
-    }
 
     const comfyProviderId = request.comfyProviderId?.trim();
     const comfyConnection = comfyProviderId
-      ? options.connections.find((connection) => isComfyImageConnection(connection) && connection.id === comfyProviderId)
-      : options.connections.find(isComfyImageConnection);
+      ? options.connections.find((connection) => isImageGenerationConnection(connection, options.providerHealthById[connection.id]) && connection.id === comfyProviderId)
+      : options.connections.find((connection) => isImageGenerationConnection(connection, options.providerHealthById[connection.id]));
     if (!comfyConnection) {
       throw new Error(comfyProviderId
-        ? 'Create character phone image action requires the selected ComfyUI provider.'
-        : 'Create character phone image action requires a saved ComfyUI provider.');
+        ? 'Create character phone image action requires the selected image provider.'
+        : 'Create character phone image action requires a saved image provider.');
     }
     const comfyHealth = options.providerHealthById[comfyConnection.id];
     if (comfyHealth?.status === 'offline') {
@@ -249,14 +247,18 @@ export function createComfyImageRunner(options: ComfyImageRunnerOptions): Create
     if (comfyHealth?.status === 'warning') {
       throw new Error(`Create character phone image action skipped because ${comfyConnection.label} is not fully set up${comfyHealth.detail ? `: ${comfyHealth.detail}` : '.'}`);
     }
-    const missingComfyFields = missingComfySetupFields(comfyConnection);
+    const usesComfy = isComfyImageConnection(comfyConnection);
+    if (usesComfy && resolvedLoraCharacter && !resolvedLoraCharacter.createImage.hasLora) {
+      throw new Error(`Create character phone image action requires a configured LoRA for ${resolvedLoraCharacter.name}.`);
+    }
+    const missingComfyFields = usesComfy ? missingComfySetupFields(comfyConnection) : [];
     if (missingComfyFields.length > 0) {
       throw new Error(comfySetupRequiredMessage(missingComfyFields));
     }
 
     // With only API LLM providers in play, nothing competes with ComfyUI
     // for local VRAM, so its model can stay loaded across generations.
-    const localConnections = (request.manageModelMemory ?? true)
+    const localConnections = usesComfy && (request.manageModelMemory ?? true)
       ? await activeLocalLlmConnections(request.llmConnectionId)
       : [];
     const manageModelMemory = localConnections.length > 0;
@@ -265,31 +267,45 @@ export function createComfyImageRunner(options: ComfyImageRunnerOptions): Create
       await unloadLocalLlmModelsBeforeComfy(warn, localConnections);
     }
 
-    const generationPrompt = prompt;
+    const generationPrompt = !usesComfy && resolvedLoraCharacter
+      ? `${prompt}\nCharacter appearance: ${resolvedLoraCharacter.createImage.appearance || resolvedLoraCharacter.name}`
+      : prompt;
     throwIfAborted(options.signal);
     const characterLoraName = resolvedLoraCharacter?.createImage.loraName ?? '';
 
-    let result: Awaited<ReturnType<typeof window.rpgraph.runComfyWorkflowPath>>;
+    let result: { images: Array<{ dataUrl: string; filename: string }> };
     try {
       options.onComfyGenerationActive?.(true);
-      result = await window.rpgraph.runComfyWorkflowPath({
-        baseUrl: comfyConnection.baseUrl,
-        workflowPath: comfyConnection.comfyWorkflowPath || defaultComfyWorkflowPath,
-        width: comfyConnection.comfyWidth ?? defaultComfyWidth,
-        height: comfyConnection.comfyHeight ?? defaultComfyHeight,
-        prompt: generationPrompt,
-        checkpointName: comfyConnection.comfyCheckpointName ?? defaultComfyCheckpointName,
-        diffusionModelName: comfyConnection.comfyDiffusionModelName ?? defaultComfyDiffusionModelName,
-        vaeName: comfyConnection.comfyVaeName ?? defaultComfyVaeName,
-        textEncoderName: comfyConnection.comfyTextEncoderName ?? defaultComfyTextEncoderName,
-        steps: comfyConnection.comfySteps ?? defaultComfySteps,
-        cfg: comfyConnection.comfyCfg ?? defaultComfyCfg,
-        sampler: comfyConnection.comfySampler ?? defaultComfySampler,
-        scheduler: comfyConnection.comfyScheduler ?? defaultComfyScheduler,
-        loraSlots: characterComfyLoraSlots(comfyConnection.comfyLoraSlots ?? defaultComfyLoraSlots, characterLoraName),
-        deleteOutputs: comfyConnection.comfyDeleteImageOutputs !== false,
-        timeoutMs: 180000,
-      });
+      if (usesComfy) {
+        result = await window.rpgraph.runComfyWorkflowPath({
+          baseUrl: comfyConnection.baseUrl,
+          workflowPath: comfyConnection.comfyWorkflowPath || defaultComfyWorkflowPath,
+          width: comfyConnection.comfyWidth ?? defaultComfyWidth,
+          height: comfyConnection.comfyHeight ?? defaultComfyHeight,
+          prompt: generationPrompt,
+          checkpointName: comfyConnection.comfyCheckpointName ?? defaultComfyCheckpointName,
+          diffusionModelName: comfyConnection.comfyDiffusionModelName ?? defaultComfyDiffusionModelName,
+          vaeName: comfyConnection.comfyVaeName ?? defaultComfyVaeName,
+          textEncoderName: comfyConnection.comfyTextEncoderName ?? defaultComfyTextEncoderName,
+          steps: comfyConnection.comfySteps ?? defaultComfySteps,
+          cfg: comfyConnection.comfyCfg ?? defaultComfyCfg,
+          sampler: comfyConnection.comfySampler ?? defaultComfySampler,
+          scheduler: comfyConnection.comfyScheduler ?? defaultComfyScheduler,
+          loraSlots: characterComfyLoraSlots(comfyConnection.comfyLoraSlots ?? defaultComfyLoraSlots, characterLoraName),
+          deleteOutputs: comfyConnection.comfyDeleteImageOutputs !== false,
+          timeoutMs: 180000,
+        });
+      } else {
+        const generated = await generateApiImages({
+          connection: comfyConnection,
+          prompt: generationPrompt,
+          width: defaultComfyWidth,
+          height: defaultComfyHeight,
+        });
+        result = { images: generated.images.map((dataUrl, index) => ({
+          dataUrl, filename: `generated-image-${index + 1}.png`,
+        })) };
+      }
     } finally {
       options.onComfyGenerationActive?.(false);
       if (manageModelMemory) {
@@ -346,14 +362,14 @@ export function createComfyImageRunner(options: ComfyImageRunnerOptions): Create
       runStorybookJsonByNodeId.set(storybookNode.id, nextStorybookJson);
       options.updateRuntimeNode(storybookNode.id, {
         storybookJson: nextStorybookJson,
-        storybookStatus: `Generated ${ensureResult.imageIds.length} image${ensureResult.imageIds.length === 1 ? '' : 's'} for ${phoneOwner.name}${resolvedLoraCharacter ? ` using ${resolvedLoraCharacter.name}'s LoRA` : ''}.`,
+        storybookStatus: `Generated ${ensureResult.imageIds.length} image${ensureResult.imageIds.length === 1 ? '' : 's'} for ${phoneOwner.name}${usesComfy && resolvedLoraCharacter ? ` using ${resolvedLoraCharacter.name}'s LoRA` : ''}.`,
       });
     }
 
     const imagesById = new Map(ensureResult.images.map((image) => [image.id, image]));
     return {
       phoneOwnerName: phoneOwner.name,
-      ...(resolvedLoraCharacter ? { loraCharacterName: resolvedLoraCharacter.name } : {}),
+      ...(usesComfy && resolvedLoraCharacter ? { loraCharacterName: resolvedLoraCharacter.name } : {}),
       imageIds: ensureResult.imageIds,
       images: ensureResult.imageIds.flatMap((imageId) => {
         const image = imagesById.get(imageId);

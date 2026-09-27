@@ -59,6 +59,14 @@ declare global {
         connection: ConnectionPreset;
         input: string;
       }) => Promise<{ dataUrl: string; filename: string }>;
+      generateOpenRouterImages: (request: {
+        connection: ConnectionPreset;
+        prompt: string;
+        width: number;
+        height: number;
+        referenceImages?: string[];
+  aspectRatio?: string;
+      }) => Promise<{ images: string[] }>;
       generateVeniceImages: (request: {
         connection: ConnectionPreset;
         prompt: string;

@@ -1,3 +1,5 @@
+import type { ImageGenerationReference } from '../images/references';
+import { generateApiImages, isImageGenerationConnection, supportsImageGenerationReferences } from '../images/providers';
 import { localModelApi } from '../llm/localModelApi';
 import type { CompatibleModelInfo } from '../../shared/compatibleModels.cjs';
 import { normalizeReasoningEffort } from '../../shared/reasoning.cjs';
@@ -2003,11 +2005,11 @@ export function useProviderConnections({
     appearance: string;
     scenarioPrompt: string;
   }) {
-    const connection = connections.find((entry) => entry.id === request.providerId && isComfyImageConnection(entry));
+    const connection = connections.find((entry) => entry.id === request.providerId && isImageGenerationConnection(entry, providerHealthByIdRef.current[entry.id]));
     if (!connection) {
-      throw new Error('Choose a ComfyUI image provider first.');
+      throw new Error('Choose an image provider first.');
     }
-    const missingFields = missingComfySetupFields(connection);
+    const missingFields = isComfyImageConnection(connection) ? missingComfySetupFields(connection) : [];
     if (missingFields.length > 0) {
       const message = comfySetupRequiredMessage(missingFields);
       updateProviderHealth(connection.id, comfySetupHealth(connection, message));
@@ -2018,6 +2020,14 @@ export function useProviderConnections({
     const prompt = appearance
       ? `character reference image of ${request.characterName}, ${appearance}${scenarioPrompt ? `, ${scenarioPrompt}` : ''}`
       : `character reference image of ${request.characterName}, ${request.characterContext}${scenarioPrompt ? `, ${scenarioPrompt}` : ''}`;
+    if (!isComfyImageConnection(connection)) {
+      const images = await generateImageAssistantImages({
+        providerId: connection.id,
+        prompt,
+        settings: { width: defaultComfyWidth, height: defaultComfyHeight, characterLora: '' },
+      });
+      return images.map((dataUrl, index) => ({ dataUrl, filename: `generated-image-${index + 1}.png` }));
+    }
     await unloadLocalLlmModelsForComfy('Local LLM unload before character preview failed');
     const result = await window.rpgraph.runComfyWorkflowPath({
       baseUrl: connection.baseUrl,
@@ -2051,14 +2061,18 @@ export function useProviderConnections({
   async function generateImageAssistantImages(request: {
     providerId: string;
     prompt: string;
-    settings: { width: number; height: number; characterLora: string };
+    settings: { width: number; height: number; characterLora: string; aspectRatio?: string };
+    referenceImages?: ImageGenerationReference[];
   }) {
     const connection = connections.find(
       (entry) => entry.id === request.providerId &&
-        (isComfyImageConnection(entry) || isVeniceConnection(entry)),
+        isImageGenerationConnection(entry, providerHealthByIdRef.current[entry.id]),
     );
     if (!connection) {
       throw new Error('Choose an image provider first.');
+    }
+    if (request.referenceImages?.length && !supportsImageGenerationReferences(connection)) {
+      throw new Error('The selected image provider does not support reference images.');
     }
     const health = providerHealthByIdRef.current[connection.id];
     if (health?.status === 'offline') {
@@ -2113,9 +2127,11 @@ export function useProviderConnections({
         }
         images = result.images.map((image) => image.dataUrl);
       } else {
-        const result = await window.rpgraph.generateVeniceImages({
+        const result = await generateApiImages({
           connection,
           prompt: request.prompt.trim(),
+          referenceImages: request.referenceImages?.map((image) => image.dataUrl),
+          aspectRatio: request.settings.aspectRatio || '3:4',
           width: validComfyDimension(request.settings.width, defaultComfyWidth),
           height: validComfyDimension(request.settings.height, defaultComfyHeight),
         });
@@ -2124,14 +2140,14 @@ export function useProviderConnections({
       updateProviderHealth(connection.id, {
         status: 'online',
         detail: `Generated ${images.length} image${images.length === 1 ? '' : 's'}.`,
-        capabilities: { image: true },
+        capabilities: { ...health?.capabilities, image: true },
         checkedAt: providerCheckedAt(),
       });
       setImageAssistantModelState(connection.id, 'loaded');
       return images;
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
-      updateProviderHealth(connection.id, {
+      if (isComfyImageConnection(connection)) updateProviderHealth(connection.id, {
         status: 'offline',
         detail: message,
         capabilities: { image: true },

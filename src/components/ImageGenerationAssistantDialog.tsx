@@ -1,3 +1,5 @@
+import { addImageGenerationReference, maxImageGenerationReferences, type ImageGenerationReference } from '../images/references';
+import { isImageGenerationConnection, supportsImageGenerationReferences } from '../images/providers';
 import { usePanelNavigationOverlay } from '../navigation/usePanelNavigation';
 import { useCallback, useEffect, useRef, useState, type FormEvent } from 'react';
 import { createPortal } from 'react-dom';
@@ -12,7 +14,7 @@ import type {
   ImageGenerationSettings,
   ImageAssistantModelState,
 } from '../chat/imageGenerationAssistant';
-import { imageGenerationAssistantInstructions } from '../chat/imageGenerationAssistant';
+import { imageAssistantInstructions } from '../chat/imageGenerationAssistant';
 import { defaultComfyHeight, defaultComfyWidth, validComfyDimension } from '../settings';
 import { isLocalProviderConnection } from '../llm/providerKind';
 import { TextMetricsApi } from '../llm/tokenMetrics';
@@ -25,6 +27,7 @@ type GeneratedImageDraft = {
 type ImageSaveCharacter = {
   id: string;
   name: string;
+  images: ImageGenerationReference[];
 };
 
 class ImageSettingsError extends Error {
@@ -54,6 +57,7 @@ type ImageGenerationAssistantDialogProps = {
     imageProviderId: string;
     currentPrompt: string;
     currentSettings: ImageGenerationSettings;
+    referenceImages?: ImageGenerationReference[];
     currentImage?: GeneratedImageDraft;
     availableCharacterLoras: string[];
     characterContext: string;
@@ -67,6 +71,7 @@ type ImageGenerationAssistantDialogProps = {
     providerId: string;
     prompt: string;
     settings: ImageGenerationSettings;
+    referenceImages?: ImageGenerationReference[];
   }) => Promise<string[]>;
   onSaveImage: (request: {
     characterId: string;
@@ -95,11 +100,20 @@ export function ImageGenerationAssistantDialog({
   onSaveImage,
 }: ImageGenerationAssistantDialogProps) {
   const llmConnections = connections.filter((connection) => connection.kind !== 'comfyui');
-  const comfyConnections = connections.filter(isComfyImageConnection);
+  const imageConnections = connections.filter((connection) => isImageGenerationConnection(connection, providerHealthById[connection.id]));
 
   const [assistantProvider, setAssistantProvider] = useState(() => llmConnections[0]?.id ?? '');
-  const [imageProvider, setImageProvider] = useState(() => comfyConnections[0]?.id ?? '');
-  const initialImageConnection = comfyConnections[0];
+  const [imageProvider, setImageProvider] = useState(() => imageConnections[0]?.id ?? '');
+  const initialImageConnection = imageConnections[0];
+  const imageSupportsLora = !!connections.find((connection) => connection.id === imageProvider && isComfyImageConnection(connection));
+  const referencesSupported = supportsImageGenerationReferences(connections.find((connection) => connection.id === imageProvider));
+  const [referenceImages, setReferenceImages] = useState<ImageGenerationReference[]>([]);
+  const [referenceGalleryOpen, setReferenceGalleryOpen] = useState(false);
+  const [referenceCharacterId, setReferenceCharacterId] = useState(preferredSaveCharacterId ?? saveCharacters[0]?.id ?? '');
+  const [aspectRatio, setAspectRatio] = useState('3:4');
+  const [hoverReference, setHoverReference] = useState<{ image: ImageGenerationReference; x: number; y: number } | null>(null);
+  const [referenceError, setReferenceError] = useState('');
+  const activeReferences = referencesSupported ? referenceImages : [];
   const [prompt, setPrompt] = useState('');
   const [editorMode, setEditorMode] = useState<'prompt' | 'settings'>('prompt');
   const [settingsText, setSettingsText] = useState(() => JSON.stringify({
@@ -127,6 +141,10 @@ export function ImageGenerationAssistantDialog({
   const currentImage = currentImageIndex >= 0 ? generatedImages[currentImageIndex] : undefined;
   const hasUnsavedImages = generatedImages.some((image) => !savedImageDataUrls.has(image.dataUrl));
   const requestClose = useCallback(() => {
+    if (referenceGalleryOpen) {
+      setReferenceGalleryOpen(false);
+      return;
+    }
     if (isSubmitting || isGenerating || isSavingImage) {
       return;
     }
@@ -135,13 +153,14 @@ export function ImageGenerationAssistantDialog({
       return;
     }
     onClose();
-  }, [hasUnsavedImages, isGenerating, isSavingImage, isSubmitting, onClose]);
+  }, [hasUnsavedImages, isGenerating, isSavingImage, isSubmitting, onClose, referenceGalleryOpen]);
   const backdropDismiss = useBackdropDismiss<HTMLDivElement>(requestClose);
   usePanelNavigationOverlay(() => setDiscardConfirmOpen(false), discardConfirmOpen);
+  usePanelNavigationOverlay(() => setReferenceGalleryOpen(false), referenceGalleryOpen);
   const textMetrics = new TextMetricsApi(estimatedTokenBytesPerToken);
   const characterContextTokens = textMetrics.measure(characterContext).tokens;
   const chatHistoryContextTokens = textMetrics.measure(chatHistoryContext).tokens;
-  const assistantPromptTokens = textMetrics.measure(imageGenerationAssistantInstructions).tokens;
+  const assistantPromptTokens = textMetrics.measure(imageAssistantInstructions(imageSupportsLora, referencesSupported)).tokens;
   const availableLoraEntries = availableCharacterLoras.map((entry) => {
     const separatorIndex = entry.indexOf(': ');
     return separatorIndex >= 0
@@ -167,6 +186,30 @@ export function ImageGenerationAssistantDialog({
     return left.name.localeCompare(right.name);
   });
 
+  function addReference(image: ImageGenerationReference) {
+    if (!referencesSupported || isSubmitting || isGenerating) return;
+    try {
+      const next = addImageGenerationReference(referenceImages, image);
+      setReferenceImages(next);
+      setReferenceError('');
+      setReferenceGalleryOpen(false);
+      setMessages((current) => [...current, { role: 'reference', reference: next[next.length - 1], text: `${next[next.length - 1].name} is now used as Image ${next.length}.` }]);
+    } catch (error) {
+      setReferenceError(error instanceof Error ? error.message : String(error));
+    }
+  }
+
+  function removeReference(index: number) {
+    const removed = referenceImages[index];
+    const next = referenceImages.filter((_, entryIndex) => entryIndex !== index);
+    setReferenceImages(next);
+    setReferenceError('');
+    setMessages((current) => [...current, { role: 'reference', text:
+      `${removed.name} was removed from the references. ${next.length
+        ? next.map((image, imageIndex) => `Image ${imageIndex + 1}: ${image.name}`).join('; ')
+        : 'No reference images selected.'}` }]);
+  }
+
   async function saveCurrentImage(characterId: string) {
     if (!currentImage?.description.trim() || isSavingImage) {
       return;
@@ -189,6 +232,7 @@ export function ImageGenerationAssistantDialog({
   }
 
   function readSettings(): ImageGenerationSettings {
+    if (!imageSupportsLora) return { width: defaultComfyWidth, height: defaultComfyHeight, characterLora: '', aspectRatio };
     let value: unknown;
     try {
       value = JSON.parse(settingsText);
@@ -206,7 +250,7 @@ export function ImageGenerationAssistantDialog({
     ) {
       throw new ImageSettingsError('Image Settings require whole-number width and height plus a Character LoRA string.');
     }
-    const characterLora = record.characterLora.trim();
+    const characterLora = imageSupportsLora ? record.characterLora.trim() : '';
     if (characterLora && !availableLoraEntries.some((entry) => entry.loraName === characterLora)) {
       throw new ImageSettingsError('Image Settings must use a Character LoRA defined in the Storybook.');
     }
@@ -227,13 +271,13 @@ export function ImageGenerationAssistantDialog({
       ));
     }
     if (
-      result.settings?.characterLora &&
+      imageSupportsLora && result.settings?.characterLora &&
       !availableLoraEntries.some((entry) => entry.loraName === result.settings?.characterLora)
     ) {
       throw new ImageSettingsError('The assistant selected a Character LoRA that is not defined in the Storybook. Prompt and description were applied; the settings were kept unchanged.');
     }
-    if (result.settings !== null) {
-      setSettingsText(JSON.stringify(result.settings, null, 2));
+    if (imageSupportsLora && result.settings !== null) {
+      setSettingsText(JSON.stringify({ ...result.settings, characterLora: imageSupportsLora ? result.settings.characterLora : '' }, null, 2));
       setSettingsError('');
     }
   }
@@ -270,7 +314,7 @@ export function ImageGenerationAssistantDialog({
   async function submitMessage(event: FormEvent) {
     event.preventDefault();
     const message = draft.trim();
-    if (!message || !assistantProvider || isSubmitting) {
+    if (!message || !assistantProvider || isSubmitting || isGenerating) {
       return;
     }
     const previousMessages = messages;
@@ -282,6 +326,7 @@ export function ImageGenerationAssistantDialog({
       const result = await onSubmitAssistantMessage({
         connectionId: assistantProvider,
         imageProviderId: imageProvider,
+        referenceImages: activeReferences,
         currentPrompt: prompt,
         currentSettings: settings,
         currentImage,
@@ -315,6 +360,7 @@ export function ImageGenerationAssistantDialog({
       const result = await onSubmitAssistantMessage({
         connectionId: assistantProvider,
         imageProviderId: imageProvider,
+        referenceImages: selectedAssistantConnection?.vision ? activeReferences : [],
         currentPrompt: prompt,
         currentSettings: readSettings(),
         currentImage,
@@ -340,7 +386,7 @@ export function ImageGenerationAssistantDialog({
   }
 
   async function handleGenerateImage() {
-    if (!prompt.trim() || !imageProvider || isGenerating) {
+    if (!prompt.trim() || !imageProvider || isGenerating || isSubmitting) {
       return;
     }
     setIsGenerating(true);
@@ -348,7 +394,7 @@ export function ImageGenerationAssistantDialog({
     try {
       const settings = readSettings();
       setSettingsError('');
-      const images = await onGenerateImages({ providerId: imageProvider, prompt, settings });
+      const images = await onGenerateImages({ providerId: imageProvider, prompt, settings, referenceImages: activeReferences });
       setGeneratedImages((current) => {
         const next = [...current, ...images.map((dataUrl) => ({ dataUrl, description: '' }))];
         setCurrentImageIndex(next.length - 1);
@@ -367,7 +413,7 @@ export function ImageGenerationAssistantDialog({
     }
   }
 
-  const selectedImageConnection = comfyConnections.find((connection) => connection.id === imageProvider);
+  const selectedImageConnection = imageConnections.find((connection) => connection.id === imageProvider);
   const selectedAssistantConnection = llmConnections.find((connection) => connection.id === assistantProvider);
   const selectedImageHealth = imageProvider ? providerHealthById[imageProvider] : undefined;
   const assistantModelState = assistantProvider ? modelStateById[assistantProvider] ?? 'unknown' : 'unknown';
@@ -383,7 +429,7 @@ export function ImageGenerationAssistantDialog({
   const generateDisabledReason = !prompt.trim()
     ? 'Enter an image prompt first.'
     : !selectedImageConnection
-      ? 'No ComfyUI image provider selected.'
+      ? 'No image provider selected.'
       : selectedImageHealth?.status === 'offline'
         ? `Provider is offline${selectedImageHealth.detail ? `: ${selectedImageHealth.detail}` : '.'}`
         : selectedImageHealth?.status === 'warning'
@@ -439,6 +485,13 @@ export function ImageGenerationAssistantDialog({
                   >
                     →
                   </button>
+                  {referencesSupported && currentImage && (
+                    <button type="button" className="preview-describe-btn"
+                      disabled={isSubmitting || isGenerating || referenceImages.length >= maxImageGenerationReferences || referenceImages.some((image) => image.dataUrl === currentImage.dataUrl)}
+                      onClick={() => addReference({ id: `generated-${currentImageIndex + 1}`, name: `Generated image ${currentImageIndex + 1}`, ...currentImage })}>
+                      Use as Reference
+                    </button>
+                  )}
                   {currentImage?.description.trim() ? (
                     <div className="image-save-menu-container" ref={saveMenuRef}>
                       <button
@@ -547,13 +600,22 @@ export function ImageGenerationAssistantDialog({
                   </div>
                 </label>
                 <label className="image-generation-provider-label">
-                  <span>ComfyUI Image Provider</span>
+                  <span>Image Provider</span>
                   <div className="image-generation-provider-row">
                     <NodeCustomSelect
                       value={imageProvider}
+                      disabled={isSubmitting || isGenerating}
                       onChange={(providerId) => {
                       setImageProvider(providerId);
-                      const connection = comfyConnections.find((entry) => entry.id === providerId);
+                      setEditorMode('prompt');
+                      setHoverReference(null);
+                      setReferenceGalleryOpen(false);
+                      setReferenceError('');
+                      if (!supportsImageGenerationReferences(connections.find((connection) => connection.id === providerId)) && referenceImages.length) {
+                        setReferenceImages([]);
+                        setMessages((current) => [...current, { role: 'reference', text: 'Reference images cleared: this provider does not support references.' }]);
+                      }
+                      const connection = imageConnections.find((entry) => entry.id === providerId);
                       setSettingsText(JSON.stringify({
                         width: connection?.comfyWidth ?? defaultComfyWidth,
                         height: connection?.comfyHeight ?? defaultComfyHeight,
@@ -561,16 +623,16 @@ export function ImageGenerationAssistantDialog({
                       }, null, 2));
                       setSettingsError('');
                       }}
-                      options={comfyConnections.length
-                        ? comfyConnections.map((c) => providerOption(c, providerHealthById[c.id]))
+                      options={imageConnections.length
+                        ? imageConnections.map((c) => providerOption(c, providerHealthById[c.id]))
                         : [{ value: '', label: 'No image providers available' }]
                       }
                     />
                     <button
                       type="button"
                       className={`image-model-state-button ${imageModelState}`}
-                      disabled={!imageProvider || imageModelState !== 'loaded'}
-                      title={imageModelState === 'loaded'
+                      disabled={!imageSupportsLora || imageModelState !== 'loaded'}
+                      title={!imageSupportsLora ? 'API providers generate images remotely.' : imageModelState === 'loaded'
                         ? 'Unload the ComfyUI model'
                         : 'ComfyUI loads image models when Generate Image runs. Its API has no separate load-only action.'}
                       onClick={() => {
@@ -581,10 +643,17 @@ export function ImageGenerationAssistantDialog({
                         }
                       }}
                     >
-                      {modelStateLabel(imageModelState)}
+                      {imageSupportsLora ? modelStateLabel(imageModelState) : 'API'}
                     </button>
                   </div>
                 </label>
+                {!imageSupportsLora && imageProvider && <label>Image Format
+                  <select value={aspectRatio} disabled={isSubmitting || isGenerating} onChange={(event) => setAspectRatio(event.target.value)}>
+                    <option value="3:4">Portrait · 3:4</option><option value="4:5">Portrait · 4:5</option>
+                    <option value="9:16">Portrait · 9:16</option><option value="1:1">Square · 1:1</option>
+                    <option value="4:3">Landscape · 4:3</option><option value="16:9">Landscape · 16:9</option>
+                  </select>
+                </label>}
                 {modelActionError && <p className="image-generation-provider-error" role="alert">{modelActionError}</p>}
               </div>
             </div>
@@ -606,6 +675,7 @@ export function ImageGenerationAssistantDialog({
                     role="tab"
                     aria-selected={editorMode === 'settings'}
                     className={editorMode === 'settings' ? 'active' : ''}
+                    disabled={!imageSupportsLora}
                     onClick={() => setEditorMode('settings')}
                   >
                     Image Settings
@@ -619,13 +689,13 @@ export function ImageGenerationAssistantDialog({
                     type="button"
                     className="prompt-generate-btn"
                     onClick={() => void handleGenerateImage()}
-                    disabled={!!generateDisabledReason || isGenerating}
+                    disabled={!!generateDisabledReason || isGenerating || isSubmitting}
                   >
                     {isGenerating ? 'Generating...' : 'Generate Image'}
                   </button>
                 </span>
               </div>
-              {editorMode === 'prompt' && settingsCharacterLora && (
+              {imageSupportsLora && editorMode === 'prompt' && settingsCharacterLora && (
                 <div className="image-generation-lora-meter" aria-label="Selected Character LoRA">
                   <span className="image-generation-lora-pill">
                     LoRA · {selectedLoraEntry?.characterName || settingsCharacterLora}
@@ -668,7 +738,7 @@ export function ImageGenerationAssistantDialog({
                 <button
                   type="button"
                   className="prompt-generate-btn"
-                  onClick={() => setMessages([])}
+                  onClick={() => setMessages(activeReferences.map((reference) => ({ role: 'reference', text: reference.name, reference })))}
                   title="Clear all chat history"
                   disabled={isSubmitting}
                 >
@@ -689,15 +759,31 @@ export function ImageGenerationAssistantDialog({
                   <div className="assistant-avatar-large">AI</div>
                   <p className="empty-title">Create a picture</p>
                   <p className="empty-description">
-                    Tell the assistant who and what should be visible. Story context and character appearances will be added later.
+                    Describe the picture you want. If references are selected, use Image 1, Image 2, or Image 3 to explain what should change.
                   </p>
                 </div>
               ) : messages.map((message, index) => (
                 <div className={`chat-message-row ${message.role}`} key={`${message.role}-${index}`}>
                   <div className="message-sender-avatar">
-                    {message.role === 'user' ? 'U' : message.role === 'assistant' ? 'AI' : '!'}
+                    {message.role === 'user' ? 'U' : message.role === 'assistant' ? 'AI' : message.role === 'reference' ? 'IMG' : '!'}
                   </div>
-                  <div className="chat-message-bubble"><p>{message.text}</p></div>
+                  <div className={`chat-message-bubble${message.reference ? ' image-reference-notice' : ''}`}>
+                    {message.reference ? (() => {
+                      const reference = message.reference;
+                      const activeIndex = activeReferences.findIndex((image) => image.dataUrl === reference.dataUrl);
+                      const preview = (target: HTMLElement) => {
+                        const rect = target.getBoundingClientRect();
+                        setHoverReference({ image: reference, x: Math.max(8, Math.min(rect.left, window.innerWidth - 272)), y: Math.max(8, Math.min(rect.bottom + 8, window.innerHeight - 272)) });
+                      };
+                      return <>
+                        <button className="image-reference-link" type="button" onMouseEnter={(event) => preview(event.currentTarget)} onMouseLeave={() => setHoverReference(null)} onFocus={(event) => preview(event.currentTarget)} onBlur={() => setHoverReference(null)} onClick={(event) => hoverReference?.image === reference ? setHoverReference(null) : preview(event.currentTarget)}>
+                          <span>{reference.name} · {activeIndex >= 0 ? `Image ${activeIndex + 1}` : 'Not used'}</span>
+                          <img src={reference.dataUrl} alt="" />
+                        </button>
+                        {activeIndex >= 0 && <button className="image-reference-remove" type="button" aria-label={`Remove Image ${activeIndex + 1}`} disabled={isSubmitting || isGenerating} onClick={() => removeReference(activeIndex)}>×</button>}
+                      </>;
+                    })() : <p>{message.text}</p>}
+                  </div>
                 </div>
               ))}
               {isSubmitting && (
@@ -709,6 +795,7 @@ export function ImageGenerationAssistantDialog({
                 </div>
               )}
             </div>
+            {referenceError && <p className="image-generation-error" role="alert">{referenceError}</p>}
             <form className="storybook-chat-form" onSubmit={submitMessage}>
               <textarea
                 rows={4}
@@ -722,16 +809,47 @@ export function ImageGenerationAssistantDialog({
                   }
                 }}
               />
+              {referencesSupported && (
+                <button type="button" className="send-message-button"
+                  disabled={isSubmitting || isGenerating || activeReferences.length >= maxImageGenerationReferences}
+                  onClick={() => { setReferenceError(''); setReferenceGalleryOpen(true); }}>
+                  Reference ({activeReferences.length}/3)
+                </button>
+              )}
               <button
                 type="submit"
                 className="send-message-button"
-                disabled={!draft.trim() || !assistantProvider || isSubmitting}
+                disabled={!draft.trim() || !assistantProvider || isSubmitting || isGenerating}
               >
                 {isSubmitting ? 'Sending...' : 'Send'}
               </button>
             </form>
           </section>
         </div>
+        {hoverReference && createPortal(<div className="image-reference-hover" style={{ left: hoverReference.x, top: hoverReference.y }}><img src={hoverReference.image.dataUrl} alt={hoverReference.image.name} /></div>, document.body)}
+        {referenceGalleryOpen && referencesSupported && (
+          <div className="storybook-confirm-backdrop" role="presentation" onClick={() => setReferenceGalleryOpen(false)}>
+            <section className="storybook-confirm-dialog image-reference-gallery" role="dialog" aria-modal="true" aria-label="Choose a reference from the phone gallery" onClick={(event) => event.stopPropagation()}>
+              <h3>Choose a Reference Image</h3>
+              <label>Character
+                <select value={referenceCharacterId} onChange={(event) => setReferenceCharacterId(event.target.value)} autoFocus>
+                  {saveCharacters.map((character) => <option key={character.id} value={character.id}>{character.name}</option>)}
+                </select>
+              </label>
+              <div className="image-reference-gallery-grid">
+                {(saveCharacters.find((character) => character.id === referenceCharacterId)?.images ?? []).map((image) => (
+                  <button type="button" key={image.id} disabled={referenceImages.some((entry) => entry.dataUrl === image.dataUrl)} onClick={() => addReference(image)}>
+                    <img src={image.dataUrl} alt={image.description || image.name} loading="lazy" />
+                    <span>{image.name || image.id}</span>
+                  </button>
+                ))}
+              </div>
+              {!saveCharacters.find((character) => character.id === referenceCharacterId)?.images.length && <p>This character's gallery is empty.</p>}
+              {referenceError && <p role="alert">{referenceError}</p>}
+              <button type="button" className="inspect-button" onClick={() => setReferenceGalleryOpen(false)}>Cancel</button>
+            </section>
+          </div>
+        )}
         {discardConfirmOpen && (
           <div className="storybook-confirm-backdrop" role="presentation" onClick={() => setDiscardConfirmOpen(false)}>
             <section

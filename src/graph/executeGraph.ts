@@ -1,3 +1,5 @@
+import { isComfyImageConnection } from '../comfy/connectionRole';
+import { isImageGenerationConnection } from '../images/providers';
 import type { TurnTraceNodeExecution } from '../app/turnTrace';
 import { sanitizeDataUrlsInText } from '../utils/sanitize';
 import type { Edge } from '@xyflow/react';
@@ -9,7 +11,6 @@ import type { EventEntity } from '../data-management/types';
 import { runtimePortValueKey } from '../nodes/shared/portRuntime';
 import { wireLinkName } from '../nodes/memory-slot/model';
 import { customNodeDefinition } from '../nodes/custom-node/model';
-import { isComfyImageConnection } from '../comfy/connectionRole';
 import type {
   ChatImageAttachment,
   ConnectionPreset,
@@ -419,8 +420,11 @@ export async function executeGraph({
             referenceImages,
             retryFormatErrorsEnabled,
             runScratch,
+            apiImageProviderIds: connections
+              .filter((connection) => !isComfyImageConnection(connection) && isImageGenerationConnection(connection, providerHealthById[connection.id]))
+              .map((connection) => connection.id),
             comfyProviderIds: connections
-              .filter(isComfyImageConnection)
+              .filter((connection) => isImageGenerationConnection(connection, providerHealthById[connection.id]))
               .map((connection) => connection.id),
             providerHealthById,
             executeInput: async (sourceNodeId, sourceHandle) => {

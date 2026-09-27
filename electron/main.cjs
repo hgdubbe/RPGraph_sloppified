@@ -11,6 +11,7 @@ const http = require('node:http');
 const https = require('node:https');
 const os = require('node:os');
 const path = require('node:path');
+const { openRouterImageBody, openRouterResponseImages } = require('./openRouterImages.cjs');
 const { createUnslothApi } = require('./unslothApi.cjs');
 const { createTextStreamBatch } = require('./streamBatch.cjs');
 const { currentScryptParameters } = require('./encryptionFormat.cjs');
@@ -4131,6 +4132,24 @@ ipcMain.handle('venice:generate-speech', async (_event, request) => {
       dataUrl: `data:${responseContentType || 'audio/mpeg'};base64,${audio.toString('base64')}`,
       filename: `venice-tts-${Date.now()}.mp3`,
     };
+  } finally {
+    abort.dispose();
+  }
+});
+
+ipcMain.handle('openrouter:generate-images', async (_event, request) => {
+  const abort = createLlmAbortController(request);
+  try {
+    const response = await requestLlmResponse(endpoint(request.connection.baseUrl, 'images'), {
+      method: 'POST',
+      headers: requestHeaders(request.connection),
+      body: JSON.stringify(openRouterImageBody(request)),
+    }, abort);
+    if (!response.ok) throw new Error(await readError(response));
+    return openRouterResponseImages(await response.json());
+  } catch (error) {
+    if (abort.signal.aborted) return cancelledLlmIpcResult();
+    return failedLlmIpcResult(error);
   } finally {
     abort.dispose();
   }

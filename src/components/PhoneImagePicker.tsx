@@ -1,3 +1,4 @@
+import type { ImageGenerationReference } from '../images/references';
 import { useEffect, useRef, useState } from 'react';
 import type { ConnectionPreset, ProviderConnectionHealth } from '../types';
 import type { StorybookCharacter } from '../storybook/runtime';
@@ -37,6 +38,7 @@ type PhoneImagePickerProps = {
     imageProviderId: string;
     currentPrompt: string;
     currentSettings: ImageGenerationSettings;
+    referenceImages?: ImageGenerationReference[];
     currentImage?: { dataUrl: string; description: string };
     availableCharacterLoras: string[];
     characterContext: string;
@@ -50,6 +52,7 @@ type PhoneImagePickerProps = {
     providerId: string;
     prompt: string;
     settings: ImageGenerationSettings;
+    referenceImages?: ImageGenerationReference[];
   }) => Promise<string[]>;
   onSaveImageAssistantImage: (request: {
     characterId: string;
@@ -208,7 +211,7 @@ export function PhoneImagePicker({
           characterCount={characterCount}
           chatHistoryContext={chatHistoryContext}
           estimatedTokenBytesPerToken={estimatedTokenBytesPerToken}
-          saveCharacters={saveCharacters.map((character) => ({ id: character.id, name: character.name }))}
+          saveCharacters={saveCharacters.map((character) => ({ id: character.id, name: character.name, images: character.images ?? [] }))}
           preferredSaveCharacterId={preferredSaveCharacterId}
           modelStateById={imageAssistantModelStateById}
           onSetLlmModelLoaded={onSetImageAssistantLlmModelLoaded}

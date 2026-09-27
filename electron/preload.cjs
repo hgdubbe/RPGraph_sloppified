@@ -112,6 +112,8 @@ contextBridge.exposeInMainWorld('rpgraph', {
     ipcRenderer.invoke('venice:generate-speech', request),
   generateVeniceImages: (request) =>
     ipcRenderer.invoke('venice:generate-images', request),
+  generateOpenRouterImages: (request) =>
+    abortableLlmInvoke('openrouter:generate-images', request),
   loadLmStudioModel: (connection) =>
     ipcRenderer.invoke('lmstudio:load-model', { connection })
       .then(throwIfLlmCancelled)

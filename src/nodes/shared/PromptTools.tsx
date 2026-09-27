@@ -1,3 +1,4 @@
+import { isImageGenerationConnection } from '../../images/providers';
 import { useEffect, useLayoutEffect, useRef, useState, type CSSProperties } from 'react';
 import { createPortal } from 'react-dom';
 import {
@@ -33,7 +34,6 @@ import { HighlightedPreviewText } from './HighlightedPreviewText';
 import { NodeCustomSelect } from './NodeCustomSelect';
 import { providerOption } from './providerHealthLabels';
 import { storybookCreateImageCharactersFromNodes, type StorybookCreateImageCharacter } from '../../storybook/runtime';
-import { isComfyImageConnection } from '../../comfy/connectionRole';
 import { useBackdropDismiss } from '../../components/useBackdropDismiss';
 
 const promptActionResultLineHeight = 19;
@@ -320,7 +320,7 @@ export function PromptActionModal({
   const resultPanelBasis = promptActionResultChromeHeight + resultVisibleRows * promptActionResultLineHeight;
   const templateVariableStatuses = promptActionTemplateVariableStatuses(draft, visionEnabled);
   const instructionVariableStatuses = promptActionInstructionVariableStatuses(draft);
-  const comfyConnections = connections.filter(isComfyImageConnection);
+  const comfyConnections = connections.filter((connection) => isImageGenerationConnection(connection, providerHealthById[connection.id]));
   const comfyProviderIds = comfyConnections.map((connection) => connection.id);
   const createImageCharacters = storybookCreateImageCharactersFromNodes(nodes);
   const selectedComfyProviderId = comfyProviderIds.includes(draft.comfyProviderId ?? '')
@@ -624,13 +624,13 @@ export function PromptActionModal({
             {draft.actionId === 'createImage' ? (
               <>
                 <div className="prompt-action-field">
-                  <label className="node-field-label" htmlFor={`${id}-comfy-provider`}>COMFYUI PROVIDER</label>
+                  <label className="node-field-label" htmlFor={`${id}-comfy-provider`}>IMAGE PROVIDER</label>
                   <NodeCustomSelect
                     id={`${id}-comfy-provider`}
                     value={selectedComfyProviderId}
                     options={comfyConnections.length
                       ? comfyConnections.map((connection) => providerOption(connection, providerHealthById[connection.id]))
-                      : [{ value: '', label: 'No ComfyUI provider', disabled: true }]}
+                      : [{ value: '', label: 'No image provider', disabled: true }]}
                     onChange={(providerId) => updateRuntimeConfig({ comfyProviderId: String(providerId) })}
                   />
                 </div>

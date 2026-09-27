@@ -90,6 +90,7 @@ export type ExecuteContext<TLlm = NodeLlmApi, TTextMetrics = TextMetricsApi> = {
   retryFormatErrorsEnabled: boolean;
   runScratch: Map<string, unknown>;
   comfyProviderIds: string[];
+  apiImageProviderIds?: string[];
   providerHealthById: Record<string, ProviderConnectionHealth>;
   executeInput: (nodeId: string, sourceHandle?: string | null) => Promise<string>;
   updateHistoryMessageTimes: (patches: Array<{ id: number; rpDateTime: string }>) => void;

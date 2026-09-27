@@ -1,6 +1,8 @@
+import { imageReferencePrompt, type ImageGenerationReference } from '../images/references';
 export type ImageGenerationAssistantMessage = {
-  role: 'user' | 'assistant' | 'error';
+  role: 'user' | 'assistant' | 'error' | 'reference';
   text: string;
+  reference?: ImageGenerationReference;
 };
 
 export type ImageAssistantModelState = 'unknown' | 'loading' | 'loaded' | 'unloading' | 'unloaded';
@@ -16,6 +18,7 @@ export type ImageGenerationSettings = {
   width: number;
   height: number;
   characterLora: string;
+  aspectRatio?: string;
 };
 
 type ImageGenerationCharacter = {
@@ -42,19 +45,12 @@ export function imageGenerationCharacterContext(characters: ImageGenerationChara
   ].join('\n')).join('\n\n');
 }
 
-export const imageGenerationAssistantInstructions = [
+const commonImageInstructions = [
   'You are the image-generation prompt assistant for an RP game inside RPGraph.',
   'Your job is to create and refine one complete image prompt, its generation settings, and the description of the currently selected generated image.',
-  'You receive a Storybook character database with each character\'s description, personality, speech style, visual appearance, and optional exact Character LoRA filename.',
   'You receive the last four RP turns as story context. Use them to understand references, relationships, locations, actions, mood, and what is currently happening.',
-  'You can see the currently selected generated image whenever one exists. Treat it as the image the user refers to when they mention this image, the current image, or visible details.',
+  'When attached, you can see the currently selected generated image. Treat it as the image the user refers to when they mention this image, the current image, or visible details.',
   'The scene does not have to show a Storybook character. Users may also request photos a character would take: their pet or another animal, an outdoor shot such as the house, garden, or street, an interior shot such as a decorated room, an object, food, or a pure mood or landscape scene.',
-  'The image settings support at most one Character LoRA per image.',
-  'When a requested character has an available LoRA, use its exact filename in characterLora. The LoRA already carries that character\'s look, so keep their visual description short: state pose, expression, clothing, and action, but do not restate face, hair, or body details from the database.',
-  'When a requested character has no LoRA, their appearance comes entirely from the prompt text: describe them in full visual detail from the character database, including face, hair, body, and typical style.',
-  'A LoRA character and non-LoRA characters may appear together in one scene: describe the LoRA character briefly and the non-LoRA characters in detail.',
-  'Never use two Character LoRAs. If the user requests two or more characters that each have a LoRA, set characterLora to the one whose LoRA fits the request best, describe the remaining LoRA characters from their text appearance only, and clearly warn in reply that only one Character LoRA is possible per image.',
-  'If none of the requested characters has a defined LoRA, describe all of them from their text-based appearance information and leave characterLora empty.',
   'Use the character database and recent story context as facts. Do not invent conflicting identity or appearance details.',
   'The current image prompt, settings, and image description are editable by the user and are the source of truth.',
   'Keep prompt editing and selected-image description as two separate tasks.',
@@ -72,20 +68,43 @@ export const imageGenerationAssistantInstructions = [
   'Write rich, thorough image prompts of roughly 80 to 120 words. Describe subjects and their visible appearance first, then their positions, poses, expressions, and interaction, followed by the setting and background objects, camera angle and composition, lighting and time of day, and the visible atmosphere.',
   'Prefer specific visual descriptions over generic wording. Every added detail must stay consistent with the character database and the recent story context.',
   'When the user asks a general question or asks for advice without requesting a prompt change, set prompt to null.',
-  'Only return settings when the user requests a settings change or when the correct Character LoRA selection must change. Preserve unchanged settings.',
-  'width and height must be whole pixels from 64 through 4096. Use the requested aspect ratio and approximately requested pixel count.',
-  'characterLora must be one exact available Character LoRA filename or an empty string. Other provider LoRA slots are outside these settings and remain unchanged.',
   'Only return imageDescription when describing or correcting the selected image. Write a concise 20 to 40 word scene description.',
   'When describing the selected image, read it against the last four RP turns: when visible people, places, or actions plausibly match story characters or events, name them accordingly instead of describing them generically.',
   'Keep reply brief and conversational. Summarize what changed without repeating the image prompt.',
   'Return only valid JSON with all four fields. Start from this unchanged result and replace only fields that changed:',
   '{"reply":"Short chat response","prompt":null,"settings":null,"imageDescription":null}',
+].join('\n');
+const comfyImageInstructions = [
+  'You receive a Storybook character database with each character\'s description, personality, speech style, visual appearance, and optional exact Character LoRA filename.',
+  'The image settings support at most one Character LoRA per image.',
+  'When a requested character has an available LoRA, use its exact filename in characterLora. The LoRA already carries that character\'s look, so keep their visual description short: state pose, expression, clothing, and action, but do not restate face, hair, or body details from the database.',
+  'When a requested character has no LoRA, their appearance comes entirely from the prompt text: describe them in full visual detail from the character database, including face, hair, body, and typical style.',
+  'A LoRA character and non-LoRA characters may appear together in one scene: describe the LoRA character briefly and the non-LoRA characters in detail.',
+  'Never use two Character LoRAs. If the user requests two or more characters that each have a LoRA, set characterLora to the one whose LoRA fits the request best, describe the remaining LoRA characters from their text appearance only, and clearly warn in reply that only one Character LoRA is possible per image.',
+  'If none of the requested characters has a defined LoRA, describe all of them from their text-based appearance information and leave characterLora empty.',
+  'Only return settings when the user requests a settings change or when the correct Character LoRA selection must change. Preserve unchanged settings.',
+  'width and height must be whole pixels from 64 through 4096. Use the requested aspect ratio and approximately requested pixel count.',
+  'characterLora must be one exact available Character LoRA filename or an empty string. Other provider LoRA slots are outside these settings and remain unchanged.',
   'A changed settings value must be {"width":1024,"height":1024,"characterLora":"exact filename or empty"}.',
 ].join('\n');
 
+export function imageAssistantInstructions(usesComfy: boolean, supportsReferences = false) {
+  return [commonImageInstructions, usesComfy ? comfyImageInstructions : [
+    'API image generation: always return settings as null. Do not include pixel dimensions or technical rendering settings in the prompt.',
+    'Describe composition using an aspect ratio. Default to portrait 3:4 unless the user requests another format. Include the chosen format explicitly in the JSON prompt field, for example: Portrait composition, aspect ratio 3:4.',
+    'Without references, describe visible subjects fully from the character database and story context.',
+  ].join('\n'), ...(supportsReferences ? [
+    'REFERENCE EDITING: When references are selected, the JSON prompt field itself MUST refer explicitly to the relevant Image 1, Image 2, or Image 3. Mentioning them only in reply is insufficient.',
+    'Write an editing instruction, not a replacement standalone scene description. Specify which image supplies each identity, pose, setting, or style, which details to preserve, and the requested changes. Do not replace reference identity with an invented generic person.',
+    'Example prompt: Portrait composition, aspect ratio 3:4. Use the woman from Image 1, preserving her face and hair. Place her in the seated pose from Image 2, with the cat from Image 3 on her lap.',
+  ] : [])].join('\n');
+}
+
+export const imageGenerationAssistantInstructions = imageAssistantInstructions(true);
+
 function assistantConversation(messages: ImageGenerationAssistantMessage[]) {
   return messages
-    .filter((message) => message.role !== 'error')
+    .filter((message) => message.role === 'user' || message.role === 'assistant')
     .map((message) => `${message.role === 'user' ? 'User' : 'Assistant'}: ${message.text}`)
     .join('\n');
 }
@@ -101,22 +120,27 @@ export function imageGenerationAssistantPrompt(
   userMessage: string,
   describeImage = false,
   describeFromPromptOnly = false,
+  supportsCharacterLora = true,
+  referenceImages: ImageGenerationReference[] = [],
+  supportsReferences = !supportsCharacterLora,
 ) {
   return [
-    imageGenerationAssistantInstructions,
+    imageAssistantInstructions(supportsCharacterLora, supportsReferences),
     ...(describeImage
       ? [describeFromPromptOnly
         ? 'The Describe Image button was pressed, but the selected assistant provider cannot see images. Write the description from the current image prompt below and the last four RP turns instead: infer matching characters, places, and events from the prompt text. Do not claim to have viewed the image. Return exactly this update shape: {"reply":"Short confirmation","prompt":null,"settings":null,"imageDescription":"20 to 40 word description"}.'
         : 'The Describe Image button was pressed. This is strictly a selected-image description task, not a prompt-editing task. Inspect the attached image, interpret it in the context of the last four RP turns, and name matching characters, places, and events. Return exactly this update shape: {"reply":"Short confirmation","prompt":null,"settings":null,"imageDescription":"20 to 40 word description"}.']
       : []),
     '',
+    ...(supportsReferences ? [imageReferencePrompt(referenceImages)] : []),
+    '',
     `Current image prompt:\n${currentPrompt.trim() || '(empty)'}`,
     '',
-    `Current image settings:\n${JSON.stringify(currentSettings, null, 2)}`,
+    ...(supportsCharacterLora ? [`Current image settings:\n${JSON.stringify(currentSettings, null, 2)}`] : [`Output format: ${currentSettings.aspectRatio || '3:4'}. Include this aspect ratio in the generation prompt.`]),
     '',
-    `Available Character LoRAs (character name: exact filename):\n${availableCharacterLoras.join('\n') || '(none)'}`,
+    ...(supportsCharacterLora ? [`Available Character LoRAs (character name: exact filename):\n${availableCharacterLoras.join('\n') || '(none)'}`] : []),
     '',
-    `Storybook Characters:\n${characterContext || '(none)'}`,
+    `Storybook Characters:\n${(supportsCharacterLora ? characterContext : characterContext.split('\n').filter((line) => !line.includes('LoRA')).join('\n')) || '(none)'}`,
     '',
     `Last Four RP Turns:\n${chatHistoryContext || '(none)'}`,
     '',
