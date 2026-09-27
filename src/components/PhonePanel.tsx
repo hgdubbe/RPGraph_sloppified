@@ -339,6 +339,7 @@ type PhonePanelProps = {
     messages: ImageGenerationAssistantMessage[];
     userMessage: string;
     describeImage?: boolean;
+    describeFromPromptOnly?: boolean;
   }) => Promise<ImageGenerationAssistantResult>;
   onGenerateImageAssistantImages: (request: {
     providerId: string;

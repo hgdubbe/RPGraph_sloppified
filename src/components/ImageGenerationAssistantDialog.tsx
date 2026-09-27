@@ -62,6 +62,7 @@ type ImageGenerationAssistantDialogProps = {
     messages: ImageGenerationAssistantMessage[];
     userMessage: string;
     describeImage?: boolean;
+    describeFromPromptOnly?: boolean;
   }) => Promise<ImageGenerationAssistantResult>;
   onGenerateImages: (request: {
     providerId: string;
@@ -344,6 +345,7 @@ export function ImageGenerationAssistantDialog({
         messages,
         userMessage: 'Describe the currently selected image.',
         describeImage: true,
+        describeFromPromptOnly: !selectedAssistantConnection?.vision,
       });
       applyAssistantResult(result);
       setMessages((current) => [...current, { role: 'assistant', text: result.reply }]);
@@ -497,14 +499,16 @@ export function ImageGenerationAssistantDialog({
                   ) : (
                     <span
                       className="prompt-generate-tooltip"
-                      title={!selectedAssistantConnection?.vision
-                        ? 'Describe Image requires an assistant provider with vision enabled.'
-                        : 'Describe the currently selected image'}
+                      title={!assistantProvider
+                        ? 'Select an assistant provider to describe this image.'
+                        : selectedAssistantConnection?.vision
+                          ? 'Describe the currently selected image'
+                          : 'The selected assistant provider has no vision — the description will be written from the image prompt instead.'}
                     >
                       <button
                         type="button"
                         className="preview-describe-btn"
-                        disabled={!selectedAssistantConnection?.vision || isSubmitting}
+                        disabled={!assistantProvider || isSubmitting}
                         onClick={() => void describeCurrentImage()}
                       >
                         Describe Image
