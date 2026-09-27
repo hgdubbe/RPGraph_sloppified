@@ -103,8 +103,6 @@ export function imageAssistantInstructions(usesComfy: boolean, supportsReference
   ] : [])].join('\n');
 }
 
-export const imageGenerationAssistantInstructions = imageAssistantInstructions(true);
-
 function assistantConversation(messages: ImageGenerationAssistantMessage[]) {
   return messages
     .filter((message) => message.role === 'user' || message.role === 'assistant')

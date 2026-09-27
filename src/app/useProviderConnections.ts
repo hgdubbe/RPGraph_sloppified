@@ -1214,12 +1214,15 @@ export function useProviderConnections({
   }
   const checkProviderConnectionByIdRef = useRef(checkProviderConnectionById);
   const checkProviderConnectionsRef = useRef(checkProviderConnections);
-  const inspectComfyWorkflowRef = useRef(inspectComfyWorkflow);
+  const inspectComfyWorkflowRef = useRef<
+    (
+      connectionOverride?: ConnectionPreset,
+      options?: { showStatus?: boolean },
+    ) => Promise<ComfyWorkflowInspection | null>
+  >(async () => null);
   const editingConnectionRef = useRef(editingConnection);
   const isRunningRef = useRef(isRunning);
   const showConnectionsRef = useRef(showConnections);
-  isRunningRef.current = isRunning;
-  showConnectionsRef.current = showConnections;
   const checkProviderConnectionByIdStable = useCallback(
     (connectionId: string, showStatus = false) => checkProviderConnectionByIdRef.current(connectionId, showStatus),
     [],
@@ -1227,8 +1230,9 @@ export function useProviderConnections({
   useEffect(() => {
     checkProviderConnectionByIdRef.current = checkProviderConnectionById;
     checkProviderConnectionsRef.current = checkProviderConnections;
-    inspectComfyWorkflowRef.current = inspectComfyWorkflow;
     editingConnectionRef.current = editingConnection;
+    isRunningRef.current = isRunning;
+    showConnectionsRef.current = showConnections;
   });
 
   useEffect(() => {
@@ -1757,6 +1761,10 @@ export function useProviderConnections({
       return inspection;
     }
   }
+
+  useEffect(() => {
+    inspectComfyWorkflowRef.current = inspectComfyWorkflow;
+  });
 
   async function repairComfyWorkflow(llmConnectionId: string) {
     const connection = connectionFromEditingConnection();
