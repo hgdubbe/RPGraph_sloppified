@@ -36,7 +36,7 @@ function lmStudioCliCommand({
   if (platform !== 'win32') {
     return 'lms';
   }
-  const homeInstall = path.join(homeDir, '.lmstudio', 'bin', 'lms.exe');
+  const homeInstall = path.win32.join(homeDir, '.lmstudio', 'bin', 'lms.exe');
   if (exists(homeInstall)) {
     return homeInstall;
   }

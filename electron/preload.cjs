@@ -113,9 +113,13 @@ contextBridge.exposeInMainWorld('rpgraph', {
   generateVeniceImages: (request) =>
     ipcRenderer.invoke('venice:generate-images', request),
   loadLmStudioModel: (connection) =>
-    ipcRenderer.invoke('lmstudio:load-model', { connection }),
+    ipcRenderer.invoke('lmstudio:load-model', { connection })
+      .then(throwIfLlmCancelled)
+      .then(throwIfRpgraphIpcError),
   isLmStudioModelLoaded: (connection) =>
-    ipcRenderer.invoke('lmstudio:model-loaded', { connection }),
+    ipcRenderer.invoke('lmstudio:model-loaded', { connection })
+      .then(throwIfLlmCancelled)
+      .then(throwIfRpgraphIpcError),
   unloadLmStudioModels: (connection) =>
     ipcRenderer.invoke('lmstudio:unload-models', { connection }),
   listOllamaModels: (connection, onAbort) =>
