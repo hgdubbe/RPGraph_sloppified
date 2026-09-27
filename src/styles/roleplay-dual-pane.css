@@ -344,8 +344,8 @@
   overflow: hidden;
   border: 2px solid var(--theme-border, #363640);
   border-radius: 50%;
-  background: #253347;
-  color: #edf1ff;
+  background: var(--theme-card-strong, #253347);
+  color: var(--theme-foreground, #edf1ff);
   font-size: 13px;
   font-weight: 700;
 }
@@ -449,8 +449,8 @@
   overflow: hidden;
   border: 2px solid var(--theme-border, #363640);
   border-radius: 50%;
-  background: #253347;
-  color: #edf1ff;
+  background: var(--theme-card-strong, #253347);
+  color: var(--theme-foreground, #edf1ff);
   font-size: 14px;
   font-weight: 700;
 }

@@ -24,14 +24,19 @@ const EXCLUDED_STYLESHEETS = [
  * test below),
  * which is the reset mechanism that keeps everything inside it isolated —
  * excluding it here would make this scanner flag that reset's own
- * definitions as if they were violations. */
+ * definitions as if they were violations. .phone-timeline-group- is the one
+ * exception among the .phone- names: despite the prefix, it's the main
+ * conversation log's "N phone messages" disclosure control (collapsed
+ * phone-message groups rendered inline in the Studio chat thread), not
+ * simulated-phone hardware or app-screen content, so it's genuine Studio UI
+ * and belongs in scope. */
 const MIXED_STYLESHEETS = [
   'src/styles/phone-device.css',
   'src/styles/roleplay-dual-pane.css',
   'src/styles.css',
 ];
 
-const EXCLUDE_SELECTOR_RE = /\.phone-|\.pt-|\.social-profile-|\.roleplay-phone-(?!screen\b)/;
+const EXCLUDE_SELECTOR_RE = /\.phone-(?!timeline-group-)|\.pt-|\.social-profile-|\.roleplay-phone-(?!screen\b)/;
 
 /** Walks a CSS file tracking brace depth and whether the selector that
  * opened the current block matched an exclusion pattern; returns every

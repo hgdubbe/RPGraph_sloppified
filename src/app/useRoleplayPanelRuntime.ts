@@ -316,6 +316,7 @@ export function useRoleplayPanelRuntime({
   const chatAutoFollowAnimatingRef = useRef(false);
   const chatAutoFollowProgrammaticScrollRef = useRef(false);
   const chatAutoFollowProgrammaticClearFrameRef = useRef(0);
+  const chatWheelFollowCheckFrameRef = useRef(0);
   const phoneImageInputRef = useRef<HTMLInputElement | null>(null);
   const phoneEmojiPickerRef = useRef<HTMLDivElement | null>(null);
   const phoneThreadRef = useRef<HTMLDivElement | null>(null);
@@ -1528,10 +1529,14 @@ export function useRoleplayPanelRuntime({
     smoothChatAutoScrollEnabled,
   ]);
 
-  function chatThreadIsNearBottom(thread: HTMLDivElement) {
+  function chatThreadIsNearBottom(thread: HTMLDivElement, strict = false) {
     // Re-engage auto-follow anywhere in the lower stretch of the viewport, not
-    // only within a few pixels of the bottom, so "almost at the bottom" counts.
-    const followMargin = Math.max(chatAutoFollowBottomMargin, thread.clientHeight * 0.1);
+    // only within a few pixels of the bottom, so "almost at the bottom"
+    // counts. A wheel-driven check asks for the strict, fixed margin instead
+    // -- see the wheel handler below for why.
+    const followMargin = strict
+      ? chatAutoFollowBottomMargin
+      : Math.max(chatAutoFollowBottomMargin, thread.clientHeight * 0.1);
     return (
       thread.scrollHeight - thread.scrollTop - thread.clientHeight <= followMargin
     );
@@ -1552,12 +1557,41 @@ export function useRoleplayPanelRuntime({
       return undefined;
     }
     // Pause the follow animation while the user interacts (wheel, touch,
-    // scrollbar drag, keys) so it never fights their input. Whether follow
-    // stays engaged is decided purely by where actual scrolling ends up: a
-    // click that scrolls nothing leaves auto-follow untouched.
-    const markUserScrollIntent = () => {
+    // scrollbar drag, keys) so it never fights their input.
+    //
+    // Wheel input gets its own, stronger path instead of relying on the
+    // native 'scroll' event: that event is dispatched asynchronously, with
+    // no guaranteed ordering against a streamed message update (which is
+    // driven by network/timer callbacks, not by the scroll/rAF pipeline).
+    // Every previous fix here tried to win that race by shrinking or
+    // bypassing it and kept losing, because the race itself was the wrong
+    // thing to fight. Instead: cancel any in-flight animation synchronously
+    // (so it can't keep writing scrollTop this frame), then, once the
+    // browser has actually applied the wheel's scroll (one rAF later --
+    // this is deterministic, unlike waiting on 'scroll'), read the thread's
+    // real position with the strict/fixed margin and write the follow ref
+    // directly. Only the most recent wheel tick's check is kept, so a fast
+    // scroll gesture doesn't pile up stale reads against a moving target.
+    const markUserScrollIntent = (event: Event) => {
       cancelChatAutoFollowAnimation();
+      if (event?.type !== 'wheel') {
+        return;
+      }
+      if (chatWheelFollowCheckFrameRef.current) {
+        cancelAnimationFrame(chatWheelFollowCheckFrameRef.current);
+      }
+      chatWheelFollowCheckFrameRef.current = requestAnimationFrame(() => {
+        chatWheelFollowCheckFrameRef.current = 0;
+        const currentThread = chatThreadRef.current;
+        if (!currentThread) {
+          return;
+        }
+        chatAutoFollowBottomRef.current = chatThreadIsNearBottom(currentThread, true);
+      });
     };
+    // Non-wheel interactions (touch, scrollbar drag, keyboard) still decide
+    // follow purely from where the native 'scroll' event lands: a click or
+    // key press that scrolls nothing leaves auto-follow untouched.
     const updateAutoFollow = () => {
       if (
         chatAutoFollowProgrammaticScrollRef.current ||
@@ -1575,6 +1609,10 @@ export function useRoleplayPanelRuntime({
     thread.addEventListener('scroll', updateAutoFollow, { passive: true });
     return () => {
       cancelChatAutoFollowAnimation();
+      if (chatWheelFollowCheckFrameRef.current) {
+        cancelAnimationFrame(chatWheelFollowCheckFrameRef.current);
+        chatWheelFollowCheckFrameRef.current = 0;
+      }
       thread.removeEventListener('wheel', markUserScrollIntent);
       thread.removeEventListener('touchstart', markUserScrollIntent);
       thread.removeEventListener('pointerdown', markUserScrollIntent);
