@@ -55,6 +55,7 @@ type PhoneImagePickerProps = {
     dataUrl: string;
     description: string;
   }) => Promise<void>;
+  onUseImageAssistantImageInChat?: (dataUrl: string) => Promise<void>;
 };
 
 export function PhoneImagePicker({
@@ -83,6 +84,7 @@ export function PhoneImagePicker({
   onSubmitImageAssistantMessage,
   onGenerateImageAssistantImages,
   onSaveImageAssistantImage,
+  onUseImageAssistantImageInChat,
 }: PhoneImagePickerProps) {
   const [menuOpen, setMenuOpen] = useState(false);
   const [generationAssistantOpen, setGenerationAssistantOpen] = useState(openCameraOnMount);
@@ -217,6 +219,7 @@ export function PhoneImagePicker({
           onSubmitAssistantMessage={onSubmitImageAssistantMessage}
           onGenerateImages={onGenerateImageAssistantImages}
           onSaveImage={onSaveImageAssistantImage}
+          onUseImage={onUseImageAssistantImageInChat}
           onClose={() => {
             setGenerationAssistantOpen(false);
             onCameraClose?.();

@@ -350,6 +350,7 @@ type PhonePanelProps = {
     dataUrl: string;
     description: string;
   }) => Promise<void>;
+  onUseImageAssistantImageInChat?: (dataUrl: string) => Promise<void>;
   onPhoneWallpaperChange: (character: StorybookCharacter, wallpaperId: string) => void;
   bankTransferMessages: MessageRecord[];
   bankingContactNames: string[];
@@ -518,6 +519,7 @@ export function PhonePanel({
   onSubmitImageAssistantMessage,
   onGenerateImageAssistantImages,
   onSaveImageAssistantImage,
+  onUseImageAssistantImageInChat,
   onPhoneWallpaperChange,
   bankTransferMessages,
   bankingContactNames,
@@ -1599,6 +1601,7 @@ export function PhonePanel({
             onSubmitImageAssistantMessage={onSubmitImageAssistantMessage}
             onGenerateImageAssistantImages={onGenerateImageAssistantImages}
             onSaveImageAssistantImage={onSaveImageAssistantImage}
+            onUseImageAssistantImageInChat={onUseImageAssistantImageInChat}
             imageAssistantModelStateById={imageAssistantModelStateById}
             onSetImageAssistantLlmModelLoaded={onSetImageAssistantLlmModelLoaded}
             onUnloadImageAssistantComfyModel={onUnloadImageAssistantComfyModel}

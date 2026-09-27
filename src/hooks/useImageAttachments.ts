@@ -2,6 +2,7 @@ import type { Dispatch, RefObject, SetStateAction } from 'react';
 import type { ChatImageAttachment } from '../types';
 import {
   assertSelectedImageSize,
+  encodedDataUrlBytes,
   normalizeImageAttachment,
   normalizeImageFile,
   type SelectedImageSource,
@@ -82,6 +83,21 @@ export function useImageAttachments({
     }
   }
 
+  async function addGeneratedImageToDraft(dataUrl: string) {
+    try {
+      const mimeType = /^data:([^;]+);base64,/.exec(dataUrl)?.[1] ?? 'image/png';
+      const attachment = await readImageAttachmentSource({
+        name: `generated-image.${mimeType.split('/')[1] ?? 'png'}`,
+        mimeType,
+        size: encodedDataUrlBytes(dataUrl),
+        dataUrl,
+      });
+      setDraftImages((current) => [...current, attachment]);
+    } catch (error) {
+      onError(error);
+    }
+  }
+
   async function selectPhoneImages() {
     try {
       const result = await window.rpgraph.selectImages(false);
@@ -99,6 +115,7 @@ export function useImageAttachments({
   return {
     addDraftImages,
     addPhoneImages,
+    addGeneratedImageToDraft,
     selectDraftImages,
     selectPhoneImages,
   };

@@ -1,5 +1,5 @@
 import { usePanelNavigationOverlay } from '../navigation/usePanelNavigation';
-import { useCallback, useEffect, useRef, useState, type FormEvent } from 'react';
+import { useCallback, useEffect, useState, type FormEvent } from 'react';
 import { createPortal } from 'react-dom';
 import { useBackdropDismiss } from './useBackdropDismiss';
 import type { ConnectionPreset, ProviderConnectionHealth } from '../types';
@@ -73,6 +73,7 @@ type ImageGenerationAssistantDialogProps = {
     dataUrl: string;
     description: string;
   }) => Promise<void>;
+  onUseImage?: (dataUrl: string) => Promise<void>;
 };
 
 export function ImageGenerationAssistantDialog({
@@ -94,6 +95,7 @@ export function ImageGenerationAssistantDialog({
   onSubmitAssistantMessage,
   onGenerateImages,
   onSaveImage,
+  onUseImage,
 }: ImageGenerationAssistantDialogProps) {
   const llmConnections = connections.filter((connection) => connection.kind !== 'comfyui');
   const imageProviderConnections = connections.filter((connection) =>
@@ -121,12 +123,10 @@ export function ImageGenerationAssistantDialog({
   const [isGenerating, setIsGenerating] = useState(false);
   const [generationError, setGenerationError] = useState('');
   const [modelActionError, setModelActionError] = useState('');
-  const [saveMenuOpen, setSaveMenuOpen] = useState(false);
   const [isSavingImage, setIsSavingImage] = useState(false);
   const [saveImageError, setSaveImageError] = useState('');
   const [savedImageDataUrls, setSavedImageDataUrls] = useState<Set<string>>(() => new Set());
   const [discardConfirmOpen, setDiscardConfirmOpen] = useState(false);
-  const saveMenuRef = useRef<HTMLDivElement | null>(null);
 
   const currentImage = currentImageIndex >= 0 ? generatedImages[currentImageIndex] : undefined;
   const hasUnsavedImages = generatedImages.some((image) => !savedImageDataUrls.has(image.dataUrl));
@@ -165,15 +165,13 @@ export function ImageGenerationAssistantDialog({
     }
   })();
   const selectedLoraEntry = availableLoraEntries.find((entry) => entry.loraName === settingsCharacterLora);
-  const orderedSaveCharacters = [...saveCharacters].sort((left, right) => {
-    if (left.id === preferredSaveCharacterId) return -1;
-    if (right.id === preferredSaveCharacterId) return 1;
-    return left.name.localeCompare(right.name);
-  });
+  const preferredSaveCharacterName = saveCharacters.find(
+    (character) => character.id === preferredSaveCharacterId,
+  )?.name;
 
-  async function saveCurrentImage(characterId: string) {
+  async function saveCurrentImage(characterId: string): Promise<boolean> {
     if (!currentImage?.description.trim() || isSavingImage) {
-      return;
+      return false;
     }
     setIsSavingImage(true);
     setSaveImageError('');
@@ -184,12 +182,43 @@ export function ImageGenerationAssistantDialog({
         description: currentImage.description.trim(),
       });
       setSavedImageDataUrls((current) => new Set(current).add(currentImage.dataUrl));
-      setSaveMenuOpen(false);
+      return true;
     } catch (error) {
       setSaveImageError(error instanceof Error ? error.message : String(error));
+      return false;
     } finally {
       setIsSavingImage(false);
     }
+  }
+
+  async function sendCurrentImageToChat() {
+    if (!currentImage?.description.trim() || !preferredSaveCharacterId || !onUseImage || isSavingImage) {
+      return;
+    }
+    const saved = savedImageDataUrls.has(currentImage.dataUrl) || await saveCurrentImage(preferredSaveCharacterId);
+    if (!saved) {
+      return;
+    }
+    await onUseImage(currentImage.dataUrl);
+    onClose();
+  }
+
+  function discardCurrentImage() {
+    if (currentImageIndex < 0 || !currentImage) {
+      return;
+    }
+    const removedDataUrl = currentImage.dataUrl;
+    const nextImages = generatedImages.filter((_, index) => index !== currentImageIndex);
+    setGeneratedImages(nextImages);
+    setCurrentImageIndex(nextImages.length === 0 ? -1 : Math.min(currentImageIndex, nextImages.length - 1));
+    setSavedImageDataUrls((current) => {
+      if (!current.has(removedDataUrl)) {
+        return current;
+      }
+      const next = new Set(current);
+      next.delete(removedDataUrl);
+      return next;
+    });
   }
 
   function readSettings(): ImageGenerationSettings {
@@ -257,19 +286,6 @@ export function ImageGenerationAssistantDialog({
     document.addEventListener('keydown', handleKeyDown);
     return () => document.removeEventListener('keydown', handleKeyDown);
   }, [isGenerating, isSubmitting, requestClose]);
-
-  useEffect(() => {
-    if (!saveMenuOpen) {
-      return;
-    }
-    const closeSaveMenu = (event: PointerEvent) => {
-      if (event.target instanceof Node && !saveMenuRef.current?.contains(event.target)) {
-        setSaveMenuOpen(false);
-      }
-    };
-    document.addEventListener('pointerdown', closeSaveMenu);
-    return () => document.removeEventListener('pointerdown', closeSaveMenu);
-  }, [saveMenuOpen]);
 
   async function submitMessage(event: FormEvent) {
     event.preventDefault();
@@ -444,31 +460,40 @@ export function ImageGenerationAssistantDialog({
                     →
                   </button>
                   {currentImage?.description.trim() ? (
-                    <div className="image-save-menu-container" ref={saveMenuRef}>
+                    <>
                       <button
                         type="button"
-                        className="preview-save-btn"
-                        disabled={isSavingImage || orderedSaveCharacters.length === 0}
-                        onClick={() => setSaveMenuOpen((current) => !current)}
+                        className="preview-icon-btn save"
+                        disabled={isSavingImage || !preferredSaveCharacterId || savedImageDataUrls.has(currentImage.dataUrl)}
+                        onClick={() => void saveCurrentImage(preferredSaveCharacterId!)}
+                        title={!preferredSaveCharacterId
+                          ? 'No character selected to save to.'
+                          : savedImageDataUrls.has(currentImage.dataUrl)
+                            ? `Already saved to ${preferredSaveCharacterName ?? 'this phone'}`
+                            : `Save to ${preferredSaveCharacterName ?? 'this phone'}`}
+                        aria-label="Save image to current character's phone"
                       >
-                        {isSavingImage ? 'Saving...' : 'Save Image in Phone'}
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                          <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z" />
+                          <polyline points="17 21 17 13 7 13 7 21" />
+                          <polyline points="7 3 7 8 15 8" />
+                        </svg>
                       </button>
-                      {saveMenuOpen && (
-                        <div className="image-save-character-menu" role="menu" aria-label="Save image for character">
-                          {orderedSaveCharacters.map((character) => (
-                            <button
-                              type="button"
-                              role="menuitem"
-                              key={character.id}
-                              onClick={() => void saveCurrentImage(character.id)}
-                            >
-                              <strong>{character.name}</strong>
-                              {character.id === preferredSaveCharacterId && <small>Current phone</small>}
-                            </button>
-                          ))}
-                        </div>
+                      {onUseImage && (
+                        <button
+                          type="button"
+                          className="preview-icon-btn use-chat"
+                          disabled={isSavingImage || !preferredSaveCharacterId}
+                          onClick={() => void sendCurrentImageToChat()}
+                          title="Save and use this image in the current chat"
+                          aria-label="Use image in chat"
+                        >
+                          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                            <path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z" />
+                          </svg>
+                        </button>
                       )}
-                    </div>
+                    </>
                   ) : (
                     <span
                       className="prompt-generate-tooltip"
@@ -486,6 +511,22 @@ export function ImageGenerationAssistantDialog({
                       </button>
                     </span>
                   )}
+                  <button
+                    type="button"
+                    className="preview-icon-btn discard"
+                    disabled={currentImageIndex < 0 || isSavingImage || isSubmitting || isGenerating}
+                    onClick={discardCurrentImage}
+                    title="Discard this image"
+                    aria-label="Discard this image"
+                  >
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                      <polyline points="3 6 5 6 21 6" />
+                      <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6" />
+                      <path d="M10 11v6" />
+                      <path d="M14 11v6" />
+                      <path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2" />
+                    </svg>
+                  </button>
                 </div>
               )}
             </div>

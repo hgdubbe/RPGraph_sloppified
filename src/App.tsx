@@ -1805,6 +1805,7 @@ function App() {
   const {
     addDraftImages,
     addPhoneImages,
+    addGeneratedImageToDraft,
     selectDraftImages,
     selectPhoneImages,
   } = useImageAttachments({
@@ -7022,6 +7023,7 @@ function App() {
                 }
                 notifySystem('info', `Saved generated image in ${character.name}'s Phone Gallery.`);
               }}
+              onUseImageAssistantImageInChat={(dataUrl) => addGeneratedImageToDraft(dataUrl)}
               onPhoneWallpaperChange={changeStorybookPhoneWallpaper}
               chatGpd={chatGpd}
               chatGpdSidebarOpen={chatGpdSidebarOpen}

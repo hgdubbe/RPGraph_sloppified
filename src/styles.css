@@ -23480,34 +23480,64 @@ button.message-timeline-row.phone:focus-visible {
   text-align: center;
 }
 
-.preview-save-btn {
+.preview-icon-btn {
   display: inline-flex;
   align-items: center;
   justify-content: center;
+  width: 28px;
   height: 28px;
-  padding: 0 14px;
-  font-size: 12px;
-  font-weight: 700;
+  padding: 0;
   border-radius: 999px;
   cursor: pointer;
   transition: all 0.2s ease;
+  background: var(--theme-app-surface-alt);
+  border: 1px solid var(--theme-app-line);
+  color: var(--theme-app-text);
+}
+
+.preview-icon-btn:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--accent) calc(0.28 * 100%), transparent);
+  border-color: color-mix(in srgb, var(--accent) calc(0.55 * 100%), transparent);
+}
+
+.preview-icon-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.preview-icon-btn.save {
   background: var(--theme-button-background, var(--theme-primary));
-  border: 1px solid color-mix(in srgb, var(--accent-light) calc(0.5 * 100%), transparent);
+  border-color: color-mix(in srgb, var(--accent-light) calc(0.5 * 100%), transparent);
   color: var(--theme-primary-foreground);
   box-shadow: 0 4px 14px color-mix(in srgb, var(--accent) calc(0.3 * 100%), transparent);
 }
 
-.preview-save-btn:hover:not(:disabled) {
+.preview-icon-btn.save:hover:not(:disabled) {
   background: color-mix(in srgb, var(--theme-primary) 84%, var(--theme-secondary));
   border-color: var(--theme-secondary);
-  transform: translateY(-1px);
   box-shadow: 0 6px 18px color-mix(in srgb, var(--accent) calc(0.4 * 100%), transparent);
 }
 
-.preview-save-btn:disabled {
-  opacity: 0.4;
-  cursor: not-allowed;
-  transform: none;
+.preview-icon-btn.use-chat {
+  background: var(--success-soft);
+  border-color: color-mix(in srgb, var(--success) calc(0.5 * 100%), transparent);
+  color: var(--success);
+}
+
+.preview-icon-btn.use-chat:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--success) calc(0.32 * 100%), transparent);
+  border-color: var(--success);
+}
+
+.preview-icon-btn.discard {
+  background: var(--danger-soft);
+  border-color: color-mix(in srgb, var(--danger) calc(0.5 * 100%), transparent);
+  color: var(--danger);
+}
+
+.preview-icon-btn.discard:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--danger) calc(0.32 * 100%), transparent);
+  border-color: var(--danger);
 }
 
 /* Prompt Header button styling */
@@ -23673,50 +23703,6 @@ button.message-timeline-row.phone:focus-visible {
   background: rgba(41, 117, 76, 0.22);
   font-size: 11px;
   font-weight: 700;
-  white-space: nowrap;
-}
-
-.image-save-menu-container {
-  position: relative;
-}
-
-.image-save-character-menu {
-  position: absolute;
-  z-index: 20;
-  top: calc(100% + 7px);
-  right: 0;
-  min-width: 210px;
-  max-height: 280px;
-  overflow-y: auto;
-  padding: 6px;
-  border: 1px solid color-mix(in srgb, var(--accent) calc(0.35 * 100%), transparent);
-  border-radius: 12px;
-  background: var(--theme-raw-vrgba172539098, rgba(17, 25, 39, 0.98));
-  box-shadow: 0 18px 40px var(--theme-raw-vrgba000055, rgba(0, 0, 0, 0.55));
-}
-
-.image-save-character-menu button {
-  width: 100%;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  padding: 9px 10px;
-  border: 0;
-  border-radius: 6px;
-  color: #e6ebf7;
-  background: transparent;
-  text-align: left;
-  cursor: pointer;
-}
-
-.image-save-character-menu button:hover {
-  background: color-mix(in srgb, var(--accent) calc(0.2 * 100%), transparent);
-}
-
-.image-save-character-menu small {
-  color: #9fadd0;
-  font-size: 10px;
   white-space: nowrap;
 }
 
