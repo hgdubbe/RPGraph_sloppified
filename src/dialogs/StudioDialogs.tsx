@@ -12,12 +12,14 @@ import type { StorybookCharacter } from '../storybook/runtime';
 import {
   useCallback,
   useEffect,
+  useId,
   useRef,
   useState,
   type KeyboardEvent as ReactKeyboardEvent,
   type MouseEvent,
   type PointerEvent as ReactPointerEvent,
 } from 'react';
+import { createPortal } from 'react-dom';
 import { CharacterSaveOptions } from '../components/CharacterSaveOptions';
 import { StatLine } from '../components/StatLine';
 import { ModelIdPicker } from '../components/ModelIdPicker';
@@ -537,12 +539,84 @@ function ProviderCapabilityBadges({
         className={`provider-capability-badge ${state}`}
         data-tooltip={`${label}: ${description}`}
         aria-label={`${label}: ${description}`}
+        title={`${label}: ${description}`}
       >
         <ProviderCapabilityIcon kind={kind} />
       </span>
     );
   });
   return badges.length ? <span className="provider-capability-badges">{badges}</span> : null;
+}
+
+function ProviderPresetCapabilityBadge({
+  kind,
+  title,
+  description,
+  ariaLabel,
+}: {
+  kind: ProviderCapabilityKind;
+  title: string;
+  description: string;
+  ariaLabel?: string;
+}) {
+  const id = useId();
+  const [anchor, setAnchor] = useState<DOMRect | null>(null);
+
+  useEffect(() => {
+    if (!anchor) return;
+    const close = () => setAnchor(null);
+    window.addEventListener('scroll', close, true);
+    window.addEventListener('resize', close);
+    return () => {
+      window.removeEventListener('scroll', close, true);
+      window.removeEventListener('resize', close);
+    };
+  }, [anchor]);
+
+  return (
+    <>
+      <span
+        className="provider-capability-badge active"
+        tabIndex={0}
+        aria-label={ariaLabel || `${title}: ${description}`}
+        aria-describedby={anchor ? id : undefined}
+        onMouseEnter={(event) => setAnchor(event.currentTarget.getBoundingClientRect())}
+        onMouseLeave={() => setAnchor(null)}
+        onFocus={(event) => setAnchor(event.currentTarget.getBoundingClientRect())}
+        onBlur={() => setAnchor(null)}
+        onClick={(event) => event.stopPropagation()}
+        onKeyDown={(event) => {
+          if (event.key === 'Escape') {
+            event.stopPropagation();
+            setAnchor(null);
+          }
+          if (event.key === 'Enter' || event.key === ' ') {
+            event.preventDefault();
+            event.stopPropagation();
+          }
+        }}
+      >
+        <ProviderCapabilityIcon kind={kind} />
+      </span>
+      {anchor &&
+        createPortal(
+          <div
+            id={id}
+            role="tooltip"
+            className="provider-model-switch-tooltip"
+            style={{
+              left: Math.max(12, Math.min(anchor.right - 300, window.innerWidth - 312)),
+              top: anchor.top > window.innerHeight / 2 ? anchor.top - 8 : anchor.bottom + 8,
+              transform: anchor.top > window.innerHeight / 2 ? 'translateY(-100%)' : undefined,
+            }}
+          >
+            <strong>{title}</strong>
+            <p>{description}</p>
+          </div>,
+          document.body,
+        )}
+    </>
+  );
 }
 
 const providerPresets = [
@@ -3980,7 +4054,10 @@ export function StudioDialogs({
                             </div>
                           </div>
                           <div className="connection-field connection-field-checkbox">
-                            <label className="node-toggle nodrag">
+                            <label
+                              className="node-toggle nodrag"
+                              title="The generated image stays embedded in RPGraph and goes to the ComfyUI temp folder instead of the output folder; ComfyUI empties the temp folder when it shuts down or starts. Requires the standard Save Image node in the workflow."
+                            >
                               <input
                                 className="nodrag nowheel"
                                 type="checkbox"
@@ -3989,11 +4066,6 @@ export function StudioDialogs({
                               />
                               <span>Store images in the ComfyUI temp folder so ComfyUI deletes them</span>
                             </label>
-                            <p className="character-voice-hint">
-                              The generated image stays embedded in RPGraph and goes to the ComfyUI temp folder
-                              instead of the output folder; ComfyUI empties the temp folder when it shuts down or
-                              starts. Requires the standard Save Image node in the workflow.
-                            </p>
                           </div>
                         </>
                       ) : null}
@@ -4446,12 +4518,18 @@ export function StudioDialogs({
                           {provider.label}
                           {provider.providerKind === 'openrouter' && (
                             <span className="provider-capability-badges">
-                              <span className="provider-capability-badge active" data-tooltip="Image generation, for example Gemini 3.1 Flash Image. Image output takes priority over text output." aria-label="Image generation supported">
-                                <ProviderCapabilityIcon kind="image" />
-                              </span>
-                              <span className="provider-capability-badge active" data-tooltip="Audio generation, for example Gemini 3.1 Flash TTS Preview. Audio-only models are used as voice providers." aria-label="Audio generation supported">
-                                <ProviderCapabilityIcon kind="voice" />
-                              </span>
+                              <ProviderPresetCapabilityBadge
+                                kind="image"
+                                title="Provider supports image generation"
+                                description="Provider supports image generation, for example Gemini 3.1 Flash Image."
+                                ariaLabel="Provider supports image generation"
+                              />
+                              <ProviderPresetCapabilityBadge
+                                kind="voice"
+                                title="Provider supports audio generation"
+                                description="Provider supports audio generation, for example Gemini 3.1 Flash TTS Preview. Audio-only models are used as voice providers."
+                                ariaLabel="Provider supports audio generation"
+                              />
                             </span>
                           )}
                           {(provider.kind === 'comfyui' || ['lm-studio', 'ollama', 'llama-cpp'].includes(provider.providerKind ?? '')) && (

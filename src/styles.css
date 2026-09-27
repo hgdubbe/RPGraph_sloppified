@@ -14265,6 +14265,7 @@ button.message-timeline-row.phone:focus-visible {
   border-radius: 18px;
   background: #111722;
   box-shadow: 0 22px 80px rgba(0, 0, 0, 0.55);
+  color-scheme: dark;
 }
 
 .connection-dialog .dialog-header {
@@ -20625,6 +20626,38 @@ button.message-timeline-row.phone:focus-visible {
   border-radius: 3px;
 }
 
+.provider-presets .provider-capability-badges {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.provider-presets .provider-capability-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+  width: 18px;
+  height: 18px;
+  color: #7eb9c5;
+  cursor: default;
+}
+
+.provider-presets .provider-capability-badge.active {
+  color: #7eb9c5;
+}
+
+.provider-presets .provider-capability-badge.active svg,
+.provider-presets .provider-capability-badge svg {
+  color: #7eb9c5;
+  stroke: #7eb9c5;
+}
+
+.provider-presets .provider-capability-badge:focus-visible {
+  outline: 1px solid #7eb9c5;
+  border-radius: 3px;
+}
+
 .provider-model-switch-tooltip {
   position: fixed;
   z-index: 100060;
@@ -21353,7 +21386,7 @@ button.message-timeline-row.phone:focus-visible {
   font-size: 10px;
 }
 
-.connection-field input:not([type="checkbox"]):not([type="radio"]),
+.connection-field input:not([type="checkbox"]):not([type="radio"]):not([type="range"]),
 .connection-field select {
   width: 100%;
   min-width: 0;
@@ -21364,6 +21397,95 @@ button.message-timeline-row.phone:focus-visible {
   background: #0c111a;
   padding: 10px 12px;
   font-size: 13px;
+}
+
+.connection-field input[type="range"] {
+  appearance: none;
+  -webkit-appearance: none;
+  width: 100%;
+  height: 38px;
+  padding: 0;
+  margin: 0;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  outline: none;
+  color-scheme: dark;
+}
+
+.connection-field input[type="range"]::-webkit-slider-runnable-track {
+  width: 100%;
+  height: 6px;
+  border-radius: 999px;
+  background: #253347;
+  transition: background-color 0.15s ease;
+}
+
+.connection-field input[type="range"]:hover::-webkit-slider-runnable-track {
+  background: #2f4059;
+}
+
+.connection-field input[type="range"]::-webkit-slider-thumb {
+  appearance: none;
+  -webkit-appearance: none;
+  width: 16px;
+  height: 16px;
+  margin-top: -5px;
+  border: 2px solid #0c111a;
+  border-radius: 50%;
+  background: #7eb9c5;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.45);
+  cursor: pointer;
+  transition: transform 0.15s ease, background-color 0.15s ease;
+}
+
+.connection-field input[type="range"]:hover::-webkit-slider-thumb {
+  transform: scale(1.15);
+  background: #9ed6e2;
+}
+
+.connection-field input[type="range"]:focus-visible::-webkit-slider-thumb {
+  outline: 2px solid #7eb9c5;
+  outline-offset: 2px;
+}
+
+.connection-field input[type="range"]::-moz-range-track {
+  width: 100%;
+  height: 6px;
+  border-radius: 999px;
+  background: #253347;
+  border: none;
+  transition: background-color 0.15s ease;
+}
+
+.connection-field input[type="range"]:hover::-moz-range-track {
+  background: #2f4059;
+}
+
+.connection-field input[type="range"]::-moz-range-thumb {
+  width: 16px;
+  height: 16px;
+  border: 2px solid #0c111a;
+  border-radius: 50%;
+  background: #7eb9c5;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.45);
+  cursor: pointer;
+  transition: transform 0.15s ease, background-color 0.15s ease;
+}
+
+.connection-field input[type="range"]:hover::-moz-range-thumb {
+  transform: scale(1.15);
+  background: #9ed6e2;
+}
+
+.connection-field input[type="range"]:focus-visible::-moz-range-thumb {
+  outline: 2px solid #7eb9c5;
+  outline-offset: 2px;
+}
+
+.connection-field input[type="range"]:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
 }
 
 .connection-field input[type="checkbox"] {
