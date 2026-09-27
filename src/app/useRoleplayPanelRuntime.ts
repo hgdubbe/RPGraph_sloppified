@@ -1,5 +1,6 @@
+import { measureUiWork, markUiEvent } from '../diagnostics/uiPerformance';
 import { usePanelNavigationState, usePanelNavigationReset } from '../navigation/usePanelNavigation';
-import { characterUsageReasons } from '../characters/lifecycle';
+import { createCharacterUsageSelector } from '../characters/lifecycle';
 import { useStorybookContentNodes } from '../storybook/useStorybookContentNodes';
 import { nextAutoScrollSpeed } from '../chat/autoScrollSpeed';
 import { bankingRecipientByName } from '../chat/bankingRecipients';
@@ -359,14 +360,14 @@ export function useRoleplayPanelRuntime({
     [storyCharacters],
   );
   const socialDirectory = useMemo(
-    () => buildSocialDirectory({
+    () => measureUiWork('phone.socialDirectory', () => buildSocialDirectory({
       storyCharacters: appCharacters,
       messages,
       savedDynamicUsers: savedDynamicSocialUsers,
-    }),
+    })),
     [messages, savedDynamicSocialUsers, appCharacters],
   );
-  const persistedSocialConnectionsByCharacter = useMemo(() => {
+  const persistedSocialConnectionsByCharacter = useMemo(() => measureUiWork('phone.accountLinkGrants', () => {
     let connections = savedSocialConnectionsByCharacter;
     for (const { owner, link } of automaticAccountLinkGrants(messages, appCharacters)) {
       if (link.app === 'matchme' || link.app === 'banking') continue;
@@ -375,13 +376,13 @@ export function useRoleplayPanelRuntime({
       if (targetId) connections = withSocialConnectionAdded(connections, owner.sourceId, link.app, targetId);
     }
     return connections;
-  }, [savedSocialConnectionsByCharacter, messages, appCharacters, socialDirectory]);
-  const socialConnectionsByCharacter = useMemo(() => withAuthoredSocialConnections(
+  }), [savedSocialConnectionsByCharacter, messages, appCharacters, socialDirectory]);
+  const socialConnectionsByCharacter = useMemo(() => measureUiWork('phone.authoredConnections', () => withAuthoredSocialConnections(
     persistedSocialConnectionsByCharacter, appCharacters, socialDirectory.users,
-  ), [persistedSocialConnectionsByCharacter, appCharacters, socialDirectory.users]);
+  )), [persistedSocialConnectionsByCharacter, appCharacters, socialDirectory.users]);
   const phoneCharacters = useMemo(
-    () => phoneRuntimeCharactersFromMessages(appCharacters, messages,
-      new Set(Object.values(socialConnectionsByCharacter).flatMap((apps) => apps.whatsup ?? []))),
+    () => measureUiWork('phone.runtimeCharacters', () => phoneRuntimeCharactersFromMessages(appCharacters, messages,
+      new Set(Object.values(socialConnectionsByCharacter).flatMap((apps) => apps.whatsup ?? [])))),
     [messages, appCharacters, socialConnectionsByCharacter],
   );
   const characterActivity = useMemo(() => [
@@ -390,11 +391,14 @@ export function useRoleplayPanelRuntime({
     phoneNotesByCharacter, chatGpdChatsByCharacter,
   ], [storybooksByNodeId, turns, messages, socialLikesByAccount, persistedSocialConnectionsByCharacter,
     phoneNotesByCharacter, chatGpdChatsByCharacter]);
-  const interactedCharacterIds = useMemo(() => appCharacters.filter((character) =>
-    character.playerSelectable === false && characterUsageReasons({
+  // A new RP releases all cached identities and text from the previous session.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const selectCharacterUsage = useMemo(() => createCharacterUsageSelector(), [panelSessionRevision]);
+  const interactedCharacterIds = useMemo(() => measureUiWork('characters.interactedIds', () => appCharacters.filter((character) =>
+    character.playerSelectable === false && selectCharacterUsage({
       id: character.sourceId, name: character.name, apps: character.apps, images: character.images ?? [],
-    }, character.identityAliases ?? {}, characterActivity).length > 0,
-  ).map((character) => character.sourceId), [appCharacters, characterActivity]);
+    }, character.identityAliases ?? {}, characterActivity),
+  ).map((character) => character.sourceId)), [appCharacters, characterActivity, selectCharacterUsage]);
   const { characterColors, characterColorSlots, setCharacterColorSlots, characterColorStyle } =
     useCharacterColors(appCharacters, playerCharacters, interactedCharacterIds);
   const fotogramContactsByCharacter = useMemo(
@@ -462,7 +466,7 @@ export function useRoleplayPanelRuntime({
       )
     : 0;
 
-  const phoneAppNotifications = useMemo(() => {
+  const phoneAppNotifications = useMemo(() => measureUiWork('phone.notifications', () => {
     const byCharacter = new Map<string, {
       counts: Record<'notes' | 'ai' | 'fotogram' | 'onlyfriends' | 'matchme', number>;
       unreadDirectMessages: Record<SocialMessengerAppKind, SocialDmUnreadByHandle>;
@@ -541,7 +545,7 @@ export function useRoleplayPanelRuntime({
       });
     });
     return byCharacter;
-  }, [chatReadsPhoneAppsEnabled, messages, phoneAppSeenByCharacter, storyCharacters]);
+  }), [chatReadsPhoneAppsEnabled, messages, phoneAppSeenByCharacter, storyCharacters]);
   const phoneAppNotificationCounts = phoneAppNotifications.get(viewedPhoneCharacter?.id ?? '')?.counts ?? {
     notes: 0,
     ai: 0,
@@ -631,7 +635,7 @@ export function useRoleplayPanelRuntime({
   }
 
   const phoneConversationInfo = useMemo(() => {
-    return phoneConversationInfoFromMessages(messages, phoneSeenByConversation);
+    return measureUiWork('phone.conversations', () => phoneConversationInfoFromMessages(messages, phoneSeenByConversation));
   }, [messages, phoneSeenByConversation]);
 
   const phoneContactVisibleForViewer = useCallback((
@@ -1454,9 +1458,10 @@ export function useRoleplayPanelRuntime({
         return;
       }
 
-      const targetTop = Math.max(0, currentThread.scrollHeight - currentThread.clientHeight);
+      const targetTop = measureUiWork('scroll.readLayout', () => Math.max(0, currentThread.scrollHeight - currentThread.clientHeight));
       const distance = targetTop - currentThread.scrollTop;
       if (distance <= 1) {
+        markUiEvent('scroll.bottomReached');
         cancelChatAutoFollowAnimation();
         markChatProgrammaticScroll();
         currentThread.scrollTop = targetTop;
@@ -1474,11 +1479,12 @@ export function useRoleplayPanelRuntime({
 
       markChatProgrammaticScroll();
       scrollPosition = Math.min(targetTop, scrollPosition + delta);
-      currentThread.scrollTop = scrollPosition;
+      measureUiWork('scroll.writePosition', () => { currentThread.scrollTop = scrollPosition; });
       chatAutoFollowAnimationFrameRef.current = requestAnimationFrame(step);
     };
 
     if (!chatAutoFollowAnimationFrameRef.current) {
+      markUiEvent('scroll.animationStarted');
       chatAutoFollowAnimatingRef.current = true;
       chatAutoFollowAnimationFrameRef.current = requestAnimationFrame(step);
     }

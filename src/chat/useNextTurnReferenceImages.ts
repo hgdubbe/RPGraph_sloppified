@@ -1,3 +1,5 @@
+import { measureUiWork } from '../diagnostics/uiPerformance';
+import { createStableDerivedValueSelector } from './stableDerivedValue';
 import { useStorybookContentNodes } from '../storybook/useStorybookContentNodes';
 import { useCallback, useMemo, useRef, useState } from 'react';
 import type { ChatImageAttachment, MessageRecord, WorkflowNode } from '../types';
@@ -33,6 +35,8 @@ export function useNextTurnReferenceImages({
   options: ReferenceImageOptions;
   replyToMessage?: MessageRecord;
 }) {
+  const [selectContextualIds] = useState(() => createStableDerivedValueSelector<Set<string>>());
+  const [selectSelectedIds] = useState(() => createStableDerivedValueSelector<Set<string>>());
   const [selectedImageIds, setSelectedImageIds] = useState<string[]>([]);
   const selectedImageIdsRef = useRef<string[]>([]);
 
@@ -84,14 +88,17 @@ export function useNextTurnReferenceImages({
   );
   const storybookContentNodes = useStorybookContentNodes(nodes);
   const contextualImageIds = useMemo(
-    () => new Set(
+    () => measureUiWork('images.contextualIds', () => selectContextualIds(new Set(
       collectRecentReferenceImages({ messages, nodes: storybookContentNodes, options: nextTurnOptions })
         .map((reference) => reference.imageId)
         .filter(Boolean),
-    ),
-    [messages, nextTurnOptions, storybookContentNodes],
+    ))),
+    [messages, nextTurnOptions, storybookContentNodes, selectContextualIds],
   );
-  const selectedImageIdSet = useMemo(() => new Set(selectedImageIds), [selectedImageIds]);
+  const selectedImageIdSet = useMemo(
+    () => selectSelectedIds(new Set(selectedImageIds)),
+    [selectedImageIds, selectSelectedIds],
+  );
 
   const optionsForRun = useCallback((replyMessage?: MessageRecord): ReferenceImageOptions => ({
     ...options,

@@ -5,8 +5,10 @@ import type { EffectiveCharacter, CharacterRegistryAliases } from './registry';
 import type { NpcParticipantSnapshots } from './npcParticipants';
 import type { RpStorybook } from '../nodes/rp-storybook/model';
 
-/** Inspect historical values only, never the character definitions or snapshot archive itself. */
-export function characterUsageReasons(character: Pick<Character, 'id' | 'name' | 'apps' | 'images'>, aliases: CharacterRegistryAliases, history: unknown): string[] {
+type UsageCharacter = Pick<Character, 'id' | 'name' | 'apps' | 'images'>;
+const excludedUsageKeys = new Set(['npcParticipants', 'voiceMedia', 'dataUrl', 'graphText', 'nodeSnapshots']);
+
+function usageIdentity(character: UsageCharacter, aliases: CharacterRegistryAliases) {
   // Social directories persist prefixed character/account IDs, including legacy aliases.
   const directoryIds = [character.id, ...(aliases.characterIds ?? []),
     ...Object.values(character.apps ?? {}).map((account) => account.accountId),
@@ -16,22 +18,58 @@ export function characterUsageReasons(character: Pick<Character, 'id' | 'name' |
     ...character.images.map((image) => image.id),
     ...Object.values(character.apps ?? {}).flatMap((account) => account.initialPosts?.map((post) => post.id) ?? [])]);
   const name = character.name.trim();
-  const escapedName = name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-  const namePattern = name ? new RegExp(`(^|[^\\p{L}\\p{N}_])${escapedName}($|[^\\p{L}\\p{N}_])`, 'iu') : undefined;
+  return { identities: [...identities], name };
+}
+
+function createUsageMatcher(identity: ReturnType<typeof usageIdentity>, cacheObjects: boolean) {
+  const identities = new Set(identity.identities);
+  const prefixes = identity.identities.map((id) => `${id}/`);
+  const quotedIds = identity.identities.map((id) => JSON.stringify(id));
+  const escapedName = identity.name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const namePattern = identity.name ? new RegExp(`(^|[^\\p{L}\\p{N}_])${escapedName}($|[^\\p{L}\\p{N}_])`, 'iu') : undefined;
+  const objects = cacheObjects ? new WeakMap<object, boolean>() : undefined;
+  const strings = new Map<string, boolean>();
   const references = (value: unknown): boolean => {
     if (typeof value === 'string') {
       if (value.startsWith('data:')) return false;
-      return identities.has(value) || !!namePattern?.test(value) ||
-        [...identities].some((id) => value.startsWith(`${id}/`) || value.includes(JSON.stringify(id)));
+      const cached = strings.get(value);
+      if (cached !== undefined) return cached;
+      const result = identities.has(value) || !!namePattern?.test(value) ||
+        prefixes.some((prefix) => value.startsWith(prefix)) || quotedIds.some((id) => value.includes(id));
+      // Bound retained text while reusing repeated field names and unchanged text.
+      if (strings.size < 2048) strings.set(value, result);
+      return result;
     }
-    if (Array.isArray(value)) return value.some(references);
-    if (value && typeof value === 'object') return Object.entries(value).some(([key, entry]) =>
-      !['npcParticipants', 'voiceMedia', 'dataUrl', 'graphText', 'nodeSnapshots'].includes(key) && (references(key) || references(entry)));
-    return false;
+    if (!value || typeof value !== 'object') return false;
+    const cached = objects?.get(value);
+    if (cached !== undefined) return cached;
+    const result = Array.isArray(value) ? value.some(references) :
+      Object.entries(value).some(([key, entry]) => !excludedUsageKeys.has(key) && (references(key) || references(entry)));
+    objects?.set(value, result);
+    return result;
   };
-  const reasons: string[] = [];
-  if (references(history)) reasons.push('Referenced by chat, Opening History or saved app activity.');
-  return reasons;
+  return references;
+}
+
+/** Inspect historical values only, never character definitions or snapshot archives. */
+export function characterUsageReasons(character: UsageCharacter, aliases: CharacterRegistryAliases, history: unknown): string[] {
+  return createUsageMatcher(usageIdentity(character, aliases), false)(history)
+    ? ['Referenced by chat, Opening History or saved app activity.'] : [];
+}
+
+/** Session-local selector for immutable history. Removed history can retract usage. */
+export function createCharacterUsageSelector() {
+  const matchers = new Map<string, { signature: string; references: (value: unknown) => boolean }>();
+  return (character: UsageCharacter, aliases: CharacterRegistryAliases, history: unknown): boolean => {
+    const identity = usageIdentity(character, aliases);
+    const signature = JSON.stringify(identity);
+    let matcher = matchers.get(character.id);
+    if (matcher?.signature !== signature) {
+      matcher = { signature, references: createUsageMatcher(identity, true) };
+      matchers.set(character.id, matcher);
+    }
+    return matcher.references(history);
+  };
 }
 
 export type CharacterRemovalInfo = {

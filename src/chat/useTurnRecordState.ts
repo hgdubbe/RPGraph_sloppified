@@ -1,3 +1,4 @@
+import { isUiPerformanceRecording, measureUiWork } from '../diagnostics/uiPerformance';
 import { createMessageStream } from './messageStream';
 import { bindAccountLinks } from './accountLinks';
 import { canonicalSocialDirectMessage } from './socialMessageValidation';
@@ -77,7 +78,7 @@ export function useTurnRecordState({
   // state without ref writes during render.
   function setMessages(update: SetStateAction<MessageRecord[]>) {
     const next = typeof update === 'function' ? update(messagesRef.current) : update;
-    reconcileNpcMessages(next);
+    measureUiWork('characters.reconcileMessages', () => reconcileNpcMessages(next));
     messagesRef.current = next;
     setMessagesState(next);
     messageStream.publish(next);
@@ -94,7 +95,12 @@ export function useTurnRecordState({
     setTurnCheckpointsState(nextCheckpoints);
   }
 
-  function appendMessage({
+  function appendMessage(input: AppendMessageInput, options?: { deferPublication?: boolean }) {
+    return measureUiWork('messages.append', () => appendMessageImpl(input, options),
+      isUiPerformanceRecording() ? { fields: Object.keys(input), messageCount: messagesRef.current.length } : undefined);
+  }
+
+  function appendMessageImpl({
     role,
     originalText,
     translatedText,
@@ -148,7 +154,7 @@ export function useTurnRecordState({
     createdPhoneNote,
     deletedPhoneNote,
     simulatedAiChat,
-  }: AppendMessageInput) {
+  }: AppendMessageInput, options?: { deferPublication?: boolean }) {
     if (socialDirectMessage && socialDirectMessage.app !== 'matchme') {
       socialDirectMessage = canonicalSocialDirectMessage(socialDirectMessage, appCharacters(), messagesRef.current);
     }
@@ -226,7 +232,7 @@ export function useTurnRecordState({
       message.socialDirectMessage = { ...message.socialDirectMessage,
         accountLinks: bindAccountLinks(message.socialDirectMessage.text, appCharacters()) };
     }
-    captureNpcMessages([...messagesRef.current, message]);
+    measureUiWork('characters.captureMessages', () => captureNpcMessages([...messagesRef.current, message]));
     if (collector) {
       const collectedMessages =
         collector.part === 'input' ? collector.inputMessages : collector.outputMessages;
@@ -234,12 +240,23 @@ export function useTurnRecordState({
     }
     messagesRef.current = [...messagesRef.current, message];
     // Appending can establish reciprocal contacts but cannot retract existing ones.
-    setMessagesState(messagesRef.current);
-    messageStream.publish(messagesRef.current);
+    // Embedded social records are published together with their parent links.
+    // Refs, contacts and the active collector remain current during preparation.
+    if (!options?.deferPublication) {
+      setMessagesState(messagesRef.current);
+      messageStream.publish(messagesRef.current);
+    }
     return id;
   }
 
   function updateMessage(messageId: number, patch: Partial<MessageRecord>, options?: { streaming?: boolean }) {
+    return measureUiWork(options?.streaming ? 'messages.stream' : 'messages.update',
+      () => updateMessageImpl(messageId, patch, options), isUiPerformanceRecording() ? {
+        messageId, fields: Object.keys(patch), messageCount: messagesRef.current.length,
+      } : undefined);
+  }
+
+  function updateMessageImpl(messageId: number, patch: Partial<MessageRecord>, options?: { streaming?: boolean }) {
     if (patch.socialDirectMessage) {
       const previous = messagesRef.current.find((entry) => entry.id === messageId)?.socialDirectMessage;
       patch = { ...patch, socialDirectMessage: { ...patch.socialDirectMessage,
@@ -275,7 +292,7 @@ export function useTurnRecordState({
     }
     const nextMessages = patchMessages(messagesRef.current);
     const updatedMessage = nextMessages.find((message) => message.id === messageId);
-    if (updatedMessage && !options?.streaming) captureNpcMessages(nextMessages);
+    if (updatedMessage && !options?.streaming) measureUiWork('characters.captureMessages', () => captureNpcMessages(nextMessages));
     messagesRef.current = nextMessages;
     // Stream only to the chat subscriber. App and its graph/phone/social
     // derivations consume committed state, while refs and the collector stay live.
@@ -284,6 +301,11 @@ export function useTurnRecordState({
   }
 
   function updateHistoryMessageTimes(patches: Array<{ id: number; rpDateTime: string }>) {
+    return measureUiWork('messages.timestamps', () => updateHistoryMessageTimesImpl(patches),
+      { patchCount: patches.length, messageCount: messagesRef.current.length });
+  }
+
+  function updateHistoryMessageTimesImpl(patches: Array<{ id: number; rpDateTime: string }>) {
     const timeById = new Map(patches.map((patch) => [patch.id, patch.rpDateTime]));
     const patchMessages = (current: MessageRecord[]) => {
       let changed = false;

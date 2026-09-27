@@ -9,6 +9,7 @@ const llmProviderKinds = [
   'gemini',
   'composite',
   'venice',
+  'openai-compatible',
 ] as const satisfies readonly LlmProviderKind[];
 
 export function validLlmProviderKind(value: unknown): LlmProviderKind | undefined {

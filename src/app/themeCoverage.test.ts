@@ -121,7 +121,7 @@ describe('theme coverage for audited Studio surfaces', () => {
       '.connection-provider-actions {\n  display: flex;',
       '.connection-field label {',
     );
-    const inputs = cssRange(styles, '.connection-field input:not([type="checkbox"]):not([type="radio"]),', '.connection-field input[type="checkbox"] {');
+    const inputs = cssRange(styles, '.connection-field input:not([type="checkbox"]):not([type="radio"]):not([type="range"]),', '.connection-field input[type="checkbox"] {');
 
     for (const block of [tabs, sampling, modelActions, inputs]) {
       expect(block).not.toMatch(/--theme-raw-/);

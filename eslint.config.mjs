@@ -24,7 +24,7 @@ export default tseslint.config(
     },
   },
   {
-    files: ['electron/**/*.cjs'],
+    files: ['electron/**/*.cjs', 'tools/temp-rimraf/*.cjs'],
     extends: [js.configs.recommended],
     languageOptions: {
       ecmaVersion: 2022,
@@ -33,7 +33,7 @@ export default tseslint.config(
     },
   },
   {
-    files: ['scripts/**/*.mjs', 'config/vite.config.ts', 'config/vitest.config.ts'],
+    files: ['scripts/**/*.mjs', 'config/vite.config.mts', 'config/vitest.config.mts'],
     extends: [js.configs.recommended],
     languageOptions: {
       ecmaVersion: 2022,

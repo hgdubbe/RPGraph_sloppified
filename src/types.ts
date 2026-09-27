@@ -30,7 +30,8 @@ export type LlmProviderKind =
   | 'openrouter'
   | 'gemini'
   | 'composite'
-  | 'venice';
+  | 'venice'
+  | 'openai-compatible';
 
 export type ComfyConnectionRole = 'image' | 'voice';
 
@@ -76,6 +77,7 @@ export type ConnectionPreset = {
   comfyScheduler?: string;
   reasoningEffort?: ConnectionReasoningEffort;
   reasoningCapabilities?: ReasoningCapabilities;
+  compatibleReasoningFormat?: 'reasoning' | 'reasoning_effort';
   vision?: boolean;
   temperature?: number;
   topP?: number;

@@ -140,3 +140,38 @@ it('captures appended phone contacts without reconciling all previous messages',
   state.removeMessage(id);
   expect(reconcileNpcMessages).toHaveBeenCalledTimes(1);
 });
+
+it('publishes prepared embedded messages and parent links as one consistent snapshot', () => {
+  const { state } = harness();
+  const parentId = state.appendMessage({ role: 'output', originalText: 'Streaming preview' });
+  const previousSnapshot = state.messageStream.getSnapshot();
+  const listener = vi.fn();
+  state.messageStream.subscribe(listener);
+  const ids = ['First', 'Second', 'Third'].map((originalText) => state.appendMessage(
+    { role: 'output', originalText }, { deferPublication: true },
+  ));
+  expect(state.messagesRef.current).toHaveLength(4);
+  expect(state.messageStream.getSnapshot()).toBe(previousSnapshot);
+  expect(listener).not.toHaveBeenCalled();
+  state.updateMessage(parentId, { embeddedSocialMessages: ids.map((socialMessageId) => ({
+    socialMessageId, app: 'fotogram', from: 'Sender', to: 'Recipient', message: 'Delivered',
+  })) });
+  expect(listener).toHaveBeenCalledOnce();
+  const snapshot = state.messageStream.getSnapshot();
+  expect(snapshot).toHaveLength(4);
+  expect(snapshot[0].embeddedSocialMessages?.map((link) => link.socialMessageId)).toEqual(ids);
+});
+
+it('can discard deferred records without publishing them when a run is cancelled', () => {
+  const { state } = harness();
+  const before: MessageRecord[] = [{ id: 1, role: 'output', originalText: 'Previous turn' }];
+  state.setMessages(before);
+  state.nextMessageIdRef.current = 2;
+  const listener = vi.fn();
+  state.messageStream.subscribe(listener);
+  state.appendMessage({ role: 'output', originalText: 'Prepared record' }, { deferPublication: true });
+  state.setMessages(before);
+  expect(state.messagesRef.current).toBe(before);
+  expect(state.messageStream.getSnapshot()).toBe(before);
+  expect(listener).not.toHaveBeenCalled();
+});

@@ -1,3 +1,4 @@
+import { measureUiWork } from '../diagnostics/uiPerformance';
 import type { WorkflowNode } from '../types';
 import { isStorybookSourceNode } from '../storybook/runtime';
 import { appCharactersFromRegistry } from './appRuntime';
@@ -22,9 +23,11 @@ export function createNpcRuntimeCache() {
         book.id === previous!.books[index].id && book.json === previous!.books[index].json)) {
       return previous;
     }
-    const entries = [...library, ...storybookRegistryEntries(nodes)];
-    const registry = buildCharacterRegistry([...entries, ...npcSnapshotEntries(snapshots)]);
-    previous = { library, snapshots, books, entries, registry, characters: appCharactersFromRegistry(registry) };
-    return previous;
+    return measureUiWork('characters.runtimeRebuild', () => {
+      const entries = [...library, ...storybookRegistryEntries(nodes)];
+      const registry = buildCharacterRegistry([...entries, ...npcSnapshotEntries(snapshots)]);
+      previous = { library, snapshots, books, entries, registry, characters: appCharactersFromRegistry(registry) };
+      return previous;
+    });
   };
 }

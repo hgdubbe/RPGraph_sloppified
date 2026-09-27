@@ -3,17 +3,27 @@ import type { SetStateAction } from 'react';
 import type { StorybookCharacter } from '../storybook/runtime';
 import type { CharacterColorSlots } from '../chat/characterColors';
 import { characterColorPalette } from '../chat/characterColors';
-import { useCharacterColors } from './useCharacterColors';
+import { useCharacterColors as useCharacterColorsHook } from './useCharacterColors';
 
-const hooks = vi.hoisted(() => ({ slots: {} as CharacterColorSlots }));
+const hooks = vi.hoisted(() => ({ slots: {} as CharacterColorSlots, selectors: [] as unknown[], index: 0 }));
 vi.mock('react', () => ({
-  useState: () => [hooks.slots, (update: SetStateAction<CharacterColorSlots>) => {
-    hooks.slots = typeof update === 'function' ? update(hooks.slots) : update;
-  }],
+  useState: (initial: unknown) => {
+    const index = hooks.index++;
+    if (typeof initial === 'function') {
+      hooks.selectors[index] ??= initial();
+      return [hooks.selectors[index], () => {}];
+    }
+    return [hooks.slots, (update: SetStateAction<CharacterColorSlots>) => {
+      hooks.slots = typeof update === 'function' ? update(hooks.slots) : update;
+    }];
+  },
   useMemo: <T,>(compute: () => T) => compute(),
-  useCallback: <T,>(callback: T) => callback,
 }));
-beforeEach(() => { hooks.slots = {}; });
+beforeEach(() => { hooks.slots = {}; hooks.selectors = []; hooks.index = 0; });
+function useCharacterColors(...args: Parameters<typeof useCharacterColorsHook>) {
+  hooks.index = 0;
+  return useCharacterColorsHook(...args);
+}
 const character = (id: string, playable: boolean) => ({ id, sourceId: id, name: id, playerSelectable: playable }) as StorybookCharacter;
 
 it('reserves only encountered NPCs and retains their slot when promoted, renamed or demoted', () => {
@@ -62,4 +72,20 @@ it('does not color inactive catalog entries even if an earlier version reserved 
   const active = useCharacterColors([player, npc], [player], ['npc']);
   expect(active.characterColorSlots.npc).toBe(7);
   expect(active.characterColors.has('npc')).toBe(true);
+});
+
+it('retains color references across equivalent activity and character snapshots', () => {
+  const player = character('player', true);
+  const npc = character('npc', false);
+  const initial = useCharacterColors([player, npc], [player], ['npc']);
+  const repeated = useCharacterColors([{ ...player }, { ...npc }], [{ ...player }], ['npc']);
+  expect(repeated.characterColors).toBe(initial.characterColors);
+  expect(repeated.characterColorStyle).toBe(initial.characterColorStyle);
+  const renamed = useCharacterColors([player, { ...npc, name: 'New name' }], [player], ['npc']);
+  expect(renamed.characterColors).not.toBe(initial.characterColors);
+  expect(renamed.characterColors.has('New name')).toBe(true);
+  expect(renamed.characterColors.has('npc')).toBe(false);
+  const inactive = useCharacterColors([player, npc], [player], []);
+  expect(inactive.characterColors.has('npc')).toBe(false);
+  expect(inactive.characterColorStyle).not.toBe(initial.characterColorStyle);
 });

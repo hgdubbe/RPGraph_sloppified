@@ -1,3 +1,4 @@
+import { normalizePhoneName } from '../../chat/phoneMessages';
 import { expect, it } from 'vitest';
 import type { StorybookCharacter } from '../../storybook/runtime';
 import { selectHighlightingSpeakers, highlightingSpeakerReferences } from './speakerSelection';
@@ -62,4 +63,23 @@ it('includes structured message participants absent from narrative text', () => 
   expect(highlightingSpeakerReferences([npc], [], '', {
     participants: [{ app: 'WhatsUp', role: 'sender', identity: 'Mira' }],
   })).toEqual([]);
+});
+
+it('preserves literal alias matching and Unicode boundaries from the previous matcher', () => {
+  const normalize = (value: string) => normalizePhoneName(value).replace(/[_-]+/g, ' ').replace(/\s+/g, ' ');
+  const aliases = ['Mira', '@trace_hunter', 'a+a', '(guest)', 'a.b', '[x]', '$a', 'aa', 'é', '李', '𐐨', '🦊', 'a\\b', 'a|b'];
+  const boundaries = ['', ' ', '.', '!', 'é', '李', '𐐨', '𝟙', '9', '\u0301', '🦊'];
+  for (const alias of aliases) {
+    const needle = normalize(alias).replace(/^@/, '').trim();
+    const escaped = needle.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const previous = new RegExp(`(^|[^\\p{L}\\p{N}])${escaped}($|[^\\p{L}\\p{N}])`, 'u');
+    const npc = character('Unmentioned Person', false, { fotogram: { username: alias, accountId: alias } });
+    for (const left of boundaries) for (const right of boundaries) {
+      for (const text of [`${left}${alias}${right}`, `x${alias}x ${left}${alias}${right}`, `${left}${alias}${right} ${alias}!`]) {
+        const expected = previous.test(normalize(text));
+        const result = highlightingSpeakerReferences([npc], [], text);
+        expect(result.some((entry) => entry.details.includes(`Account alias: ${alias}`)), JSON.stringify({ alias, text })).toBe(expected);
+      }
+    }
+  }
 });
