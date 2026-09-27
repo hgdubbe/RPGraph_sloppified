@@ -1,3 +1,4 @@
+import { isTextGenerationConnection } from '../llm/textProvider';
 import { UiPerformanceDiagnostics } from '../components/UiPerformanceDiagnostics';
 import { ProviderBaseUrlInput } from '../components/ProviderBaseUrlInput';
 import { ProviderModelSwitchIndicator } from '../components/ProviderModelSwitchIndicator';
@@ -11,12 +12,14 @@ import type { StorybookCharacter } from '../storybook/runtime';
 import {
   useCallback,
   useEffect,
+  useId,
   useRef,
   useState,
   type KeyboardEvent as ReactKeyboardEvent,
   type MouseEvent,
   type PointerEvent as ReactPointerEvent,
 } from 'react';
+import { createPortal } from 'react-dom';
 import { CharacterSaveOptions } from '../components/CharacterSaveOptions';
 import { StatLine } from '../components/StatLine';
 import { ModelIdPicker } from '../components/ModelIdPicker';
@@ -530,6 +533,7 @@ function ProviderCapabilityBadges({
     const description = isReasoning && active
       ? reasoningEnabled === true ? 'enabled' : reasoningEnabled === false
         ? 'supported, disabled' : 'supported, activation unknown'
+      : kind === 'image' && active ? 'used as an image generation provider, even when text output is supported'
       : active ? 'available' : capabilities?.[kind] === false ? 'not supported' : 'unknown';
     return (
       <span
@@ -537,12 +541,84 @@ function ProviderCapabilityBadges({
         className={`provider-capability-badge ${state}`}
         data-tooltip={`${label}: ${description}`}
         aria-label={`${label}: ${description}`}
+        title={`${label}: ${description}`}
       >
         <ProviderCapabilityIcon kind={kind} />
       </span>
     );
   });
   return badges.length ? <span className="provider-capability-badges">{badges}</span> : null;
+}
+
+function ProviderPresetCapabilityBadge({
+  kind,
+  title,
+  description,
+  ariaLabel,
+}: {
+  kind: ProviderCapabilityKind;
+  title: string;
+  description: string;
+  ariaLabel?: string;
+}) {
+  const id = useId();
+  const [anchor, setAnchor] = useState<DOMRect | null>(null);
+
+  useEffect(() => {
+    if (!anchor) return;
+    const close = () => setAnchor(null);
+    window.addEventListener('scroll', close, true);
+    window.addEventListener('resize', close);
+    return () => {
+      window.removeEventListener('scroll', close, true);
+      window.removeEventListener('resize', close);
+    };
+  }, [anchor]);
+
+  return (
+    <>
+      <span
+        className="provider-capability-badge active"
+        tabIndex={0}
+        aria-label={ariaLabel || `${title}: ${description}`}
+        aria-describedby={anchor ? id : undefined}
+        onMouseEnter={(event) => setAnchor(event.currentTarget.getBoundingClientRect())}
+        onMouseLeave={() => setAnchor(null)}
+        onFocus={(event) => setAnchor(event.currentTarget.getBoundingClientRect())}
+        onBlur={() => setAnchor(null)}
+        onClick={(event) => event.stopPropagation()}
+        onKeyDown={(event) => {
+          if (event.key === 'Escape') {
+            event.stopPropagation();
+            setAnchor(null);
+          }
+          if (event.key === 'Enter' || event.key === ' ') {
+            event.preventDefault();
+            event.stopPropagation();
+          }
+        }}
+      >
+        <ProviderCapabilityIcon kind={kind} />
+      </span>
+      {anchor &&
+        createPortal(
+          <div
+            id={id}
+            role="tooltip"
+            className="provider-model-switch-tooltip"
+            style={{
+              left: Math.max(12, Math.min(anchor.right - 300, window.innerWidth - 312)),
+              top: anchor.top > window.innerHeight / 2 ? anchor.top - 8 : anchor.bottom + 8,
+              transform: anchor.top > window.innerHeight / 2 ? 'translateY(-100%)' : undefined,
+            }}
+          >
+            <strong>{title}</strong>
+            <p>{description}</p>
+          </div>,
+          document.body,
+        )}
+    </>
+  );
 }
 
 const providerPresets = [
@@ -1121,6 +1197,7 @@ export function StudioDialogs({
   const [workflowVariableStatus, setWorkflowVariableStatus] = useState('');
   const [comfyWorkflowCopyStatus, setComfyWorkflowCopyStatus] = useState('');
   const [apiKeyVisible, setApiKeyVisible] = useState(false);
+  const [pendingProviderType, setPendingProviderType] = useState<(typeof providerPresets)[number] | null>(null);
   const [llamaCppRouterNoticePending, setLlamaCppRouterNoticePending] = useState(false);
   const [narratorVoiceTestText, setNarratorVoiceTestText] = useState(
     'The night was quiet as the rain fell softly against the window. Somewhere in the distance, a clock struck midnight.',
@@ -1166,6 +1243,7 @@ export function StudioDialogs({
     ),
   );
   const isComfyConnection = editingConnection.kind === 'comfyui';
+  const isImageModel = editingConnectionCapabilities?.image === true;
   const isVoiceOnlyModel =
     editingConnection.providerKind !== 'openai-compatible' &&
     editingConnectionCapabilities?.voice === true &&
@@ -1222,7 +1300,7 @@ export function StudioDialogs({
     : normalizeReasoningEffort(editingConnection.reasoningEffort, editingConnectionReasoning);
   const comfyLoraSlots = validComfyLoraSlots(editingConnection.comfyLoraSlots ?? defaultComfyLoraSlots);
   const [comfyRepairProviderId, setComfyRepairProviderId] = useState('');
-  const llmConnections = connections.filter((connection) => connection.kind !== 'comfyui');
+  const llmConnections = connections.filter((connection) => isTextGenerationConnection(connection, providerHealthById[connection.id]));
   const comfyWorkflowModelSource = comfyWorkflowInspection?.modelSource ?? 'missing';
   const comfyCheckpointDisabled =
     isComfyConnection && comfyWorkflowModelSource === 'diffusion_model';
@@ -1619,6 +1697,7 @@ export function StudioDialogs({
   useEffect(() => {
     if (!showConnections) {
       queueMicrotask(() => {
+        setPendingProviderType(null);
         setApiKeyVisible(false);
         setComfyWorkflowCopyStatus('');
         setLlamaCppRouterNoticePending(false);
@@ -1698,14 +1777,15 @@ export function StudioDialogs({
     function handleKeyboard(event: KeyboardEvent) {
       if (event.key === 'Escape') {
         event.preventDefault();
-        closeActiveDialog();
+        if (document.getElementById('provider-type-confirm-title')) setPendingProviderType(null);
+        else closeActiveDialog();
         return;
       }
       if (event.key !== 'Tab') {
         return;
       }
 
-      const dialog = activeDialogRef.current;
+      const dialog = document.getElementById('provider-type-confirm-title')?.closest('section') ?? activeDialogRef.current;
       const focusable = dialog
         ? Array.from(dialog.querySelectorAll<HTMLElement>(
             'button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])',
@@ -3993,7 +4073,10 @@ export function StudioDialogs({
                             </div>
                           </div>
                           <div className="connection-field connection-field-checkbox">
-                            <label className="node-toggle nodrag">
+                            <label
+                              className="node-toggle nodrag"
+                              title="The generated image stays embedded in RPGraph and goes to the ComfyUI temp folder instead of the output folder; ComfyUI empties the temp folder when it shuts down or starts. Requires the standard Save Image node in the workflow."
+                            >
                               <input
                                 className="nodrag nowheel"
                                 type="checkbox"
@@ -4002,11 +4085,6 @@ export function StudioDialogs({
                               />
                               <span>Store images in the ComfyUI temp folder so ComfyUI deletes them</span>
                             </label>
-                            <p className="character-voice-hint">
-                              The generated image stays embedded in RPGraph and goes to the ComfyUI temp folder
-                              instead of the output folder; ComfyUI empties the temp folder when it shuts down or
-                              starts. Requires the standard Save Image node in the workflow.
-                            </p>
                           </div>
                         </>
                       ) : null}
@@ -4412,7 +4490,7 @@ export function StudioDialogs({
                       Check Models
                       </button>
                     )}
-                    {!isComfyConnection && !isVoiceOnlyModel && (
+                    {!isComfyConnection && !isVoiceOnlyModel && !isImageModel && (
                       <button type="button" onClick={onApplyConnectionToAllNodes}>
                         Apply to all nodes
                       </button>
@@ -4431,11 +4509,6 @@ export function StudioDialogs({
                 <span className="presets-sidebar-title">
                   {connectionDraftPending ? 'CHOOSE A PROVIDER TYPE' : 'PROVIDER TYPES'}
                 </span>
-                <span className="presets-sidebar-hint">
-                  {connectionDraftPending
-                    ? 'Pick a type to create the new preset.'
-                    : 'Applying a type to the selected preset resets its Base URL and defaults.'}
-                </span>
                 <div
                   className={`provider-presets${connectionDraftPending ? ' choose' : ''}`}
                   aria-label="Provider types"
@@ -4452,12 +4525,32 @@ export function StudioDialogs({
                         key={provider.label}
                         className={activeType ? 'active' : ''}
                         onClick={() => {
+                          if (!connectionDraftPending && editingConnection.apiKey.trim() && editingConnection.apiKey !== provider.apiKey) {
+                            setPendingProviderType(provider);
+                            return;
+                          }
                           setLlamaCppRouterNoticePending(provider.providerKind === 'llama-cpp');
                           onApplyProviderPreset(provider);
                         }}
                       >
                         <strong className="provider-preset-heading">
                           {provider.label}
+                          {provider.providerKind === 'openrouter' && (
+                            <span className="provider-capability-badges">
+                              <ProviderPresetCapabilityBadge
+                                kind="image"
+                                title="Provider supports image generation"
+                                description="Provider supports image generation, for example Gemini 3.1 Flash Image."
+                                ariaLabel="Provider supports image generation"
+                              />
+                              <ProviderPresetCapabilityBadge
+                                kind="voice"
+                                title="Provider supports audio generation"
+                                description="Provider supports audio generation, for example Gemini 3.1 Flash TTS Preview. Audio-only models are used as voice providers."
+                                ariaLabel="Provider supports audio generation"
+                              />
+                            </span>
+                          )}
                           {(provider.kind === 'comfyui' || ['lm-studio', 'ollama', 'llama-cpp'].includes(provider.providerKind ?? '')) && (
                             <ProviderModelSwitchIndicator />
                           )}
@@ -4468,6 +4561,22 @@ export function StudioDialogs({
                   })}
                 </div>
               </div>
+            </div>
+          </section>
+        </div>
+      )}
+      {pendingProviderType && showConnections && (
+        <div className="storybook-confirm-backdrop file-confirm-backdrop" role="presentation" onClick={() => setPendingProviderType(null)}>
+          <section className="storybook-confirm-dialog" role="alertdialog" aria-modal="true" aria-labelledby="provider-type-confirm-title" aria-describedby="provider-type-confirm-message" onClick={(event) => event.stopPropagation()}>
+            <h3 id="provider-type-confirm-title">Change provider type?</h3>
+            <p id="provider-type-confirm-message">Switching to {pendingProviderType.label} will remove the API key from this preset and reset its Base URL and defaults. Continue?</p>
+            <div className="storybook-confirm-actions">
+              <button type="button" className="secondary" autoFocus onClick={() => setPendingProviderType(null)}>Cancel</button>
+              <button type="button" className="danger" onClick={() => {
+                setLlamaCppRouterNoticePending(pendingProviderType.providerKind === 'llama-cpp');
+                onApplyProviderPreset(pendingProviderType);
+                setPendingProviderType(null);
+              }}>Yes, change type</button>
             </div>
           </section>
         </div>

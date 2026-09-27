@@ -298,6 +298,7 @@ export async function runActionAwarePrompt({
     visionEnabled,
     hasImageInput: images.length > 0,
     comfyProviderIds: context.comfyProviderIds,
+    apiImageProviderIds: context.apiImageProviderIds,
     providerHealthById: context.providerHealthById,
     createImageCharacters,
   };

@@ -1,5 +1,6 @@
 import { createPortal } from 'react-dom';
 import { PhoneStatusTrayContext } from './RoleplayPhoneDevice';
+import type { ImageGenerationReference } from '../images/references';
 import { usePanelNavigationState, usePanelNavigationBack } from '../navigation/usePanelNavigation';
 import { ChatBubbleText } from './ChatBubbleText';
 import { CharacterName } from './CharacterName';
@@ -332,6 +333,7 @@ type PhonePanelProps = {
     imageProviderId: string;
     currentPrompt: string;
     currentSettings: ImageGenerationSettings;
+    referenceImages?: ImageGenerationReference[];
     currentImage?: { dataUrl: string; description: string };
     availableCharacterLoras: string[];
     characterContext: string;
@@ -340,11 +342,13 @@ type PhonePanelProps = {
     userMessage: string;
     describeImage?: boolean;
     describeFromPromptOnly?: boolean;
+    characterLoraOverride?: boolean;
   }) => Promise<ImageGenerationAssistantResult>;
   onGenerateImageAssistantImages: (request: {
     providerId: string;
     prompt: string;
     settings: ImageGenerationSettings;
+    referenceImages?: ImageGenerationReference[];
   }) => Promise<string[]>;
   onSaveImageAssistantImage: (request: {
     characterId: string;

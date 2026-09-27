@@ -1,6 +1,8 @@
+import { isTextGenerationConnection } from '../llm/textProvider';
+import { isImageGenerationConnection } from '../images/providers';
 import { reasoningActivation } from '../../shared/reasoning.cjs';
 import { useMemo, useState } from 'react';
-import { isComfyImageConnection, isComfyVoiceConnection } from '../comfy/connectionRole';
+import { isComfyVoiceConnection } from '../comfy/connectionRole';
 import { isGeminiConnection, isOpenRouterConnection } from '../llm/providerKind';
 import {
   configForPromptActionToken,
@@ -178,10 +180,12 @@ export function useWorkflowCapabilities({
 
     const connectionIsOnline = (connectionId: string) =>
       providerHealthById[connectionId]?.status === 'online';
-    // Plain OpenAI-compatible providers may not report capabilities. Only an
-    // explicit text:false value disqualifies one as a text provider.
-    const connectionTextCapable = (connectionId: string) =>
-      providerHealthById[connectionId]?.capabilities?.text !== false;
+    // Unknown API capabilities remain eligible; image output takes priority
+    // over text, and audio-only models belong to voice generation.
+    const connectionTextCapable = (connectionId: string) => {
+      const connection = connections.find((entry) => entry.id === connectionId);
+      return !!connection && isTextGenerationConnection(connection, providerHealthById[connectionId]);
+    };
     const everyConnectionReady = (
       connectionIds: Set<string>,
       predicate: (connection: ConnectionPreset, id: string) => boolean,
@@ -217,7 +221,7 @@ export function useWorkflowCapabilities({
         connection.vision === true &&
         connectionIsOnline(connectionId),
     );
-    const imageProviders = connections.filter(isComfyImageConnection);
+    const imageProviders = connections.filter((connection) => isImageGenerationConnection(connection, providerHealthById[connection.id]));
     const voiceProviders = connections.filter(isComfyVoiceConnection);
     const anyImageConnected = imageProviders.some((connection) =>
       connectionIsOnline(connection.id),
@@ -304,7 +308,7 @@ export function useWorkflowCapabilities({
             ? usesImage
               ? 'Image generation: required and connected'
               : 'Image generation: connected'
-            : 'Image generation: required, but the ComfyUI provider is not connected',
+            : 'Image generation: required, but the image provider is not connected',
       });
     }
     if (usesAudio || anyVoiceConnected || audioGenerationActive) {

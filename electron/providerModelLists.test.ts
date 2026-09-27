@@ -37,3 +37,29 @@ describe.each([
     await expect(api[method]({})).rejects.toThrow('Provider unavailable');
   });
 });
+
+describe.each([
+  ['loadLmStudioModel', 'lmstudio:load-model', { loadedModel: 'local-model', method: 'rest' }],
+  ['isLmStudioModelLoaded', 'lmstudio:model-loaded', { loaded: false }],
+] as const)('%s lifecycle IPC', (method, channel, successResult) => {
+  it('preserves successful responses and the selected connection', async () => {
+    const invoke = vi.fn().mockResolvedValue(successResult);
+    const connection = { model: 'local-model' };
+    await expect(bridge(invoke)[method](connection)).resolves.toEqual(successResult);
+    expect(invoke).toHaveBeenCalledWith(channel, { connection });
+  });
+
+  it('rejects structured failures so callers cannot report a successful load', async () => {
+    const api = bridge(vi.fn().mockResolvedValue({
+      __rpgraphLlmError: true,
+      name: 'Error',
+      message: 'Model could not be loaded',
+    }));
+    await expect(api[method]({})).rejects.toThrow('Model could not be loaded');
+  });
+
+  it('rejects cancelled operations instead of returning a success result', async () => {
+    const api = bridge(vi.fn().mockResolvedValue({ __rpgraphLlmCancelled: true }));
+    await expect(api[method]({})).rejects.toThrow('The LLM request was cancelled.');
+  });
+});

@@ -1,3 +1,6 @@
+import { isTextGenerationConnection } from '../llm/textProvider';
+import type { ImageGenerationReference } from '../images/references';
+import { generateApiImages, isImageGenerationConnection, supportsImageGenerationReferences } from '../images/providers';
 import { localModelApi } from '../llm/localModelApi';
 import type { CompatibleModelInfo } from '../../shared/compatibleModels.cjs';
 import { normalizeReasoningEffort } from '../../shared/reasoning.cjs';
@@ -223,7 +226,10 @@ export function useProviderConnections({
   const voiceCleanupWarningCountsRef = useRef<Record<string, number>>({});
 
   function isLlmConnection(connection: ConnectionPreset) {
-    return connection.kind !== 'comfyui';
+    const health = providerHealthByIdRef.current[connection.id];
+    return isTextGenerationConnection(connection, isOpenRouterConnection(connection) && openRouterModelsByConnectionIdRef.current[connection.id]
+      ? { status: health?.status ?? 'unknown', capabilities: openRouterCapabilitiesForConnection(connection, openRouterModelsByConnectionIdRef.current[connection.id]) }
+      : health);
   }
 
   function setImageAssistantModelState(connectionId: string, state: ImageAssistantModelState) {
@@ -627,7 +633,7 @@ export function useProviderConnections({
   function updateProviderHealth(connectionId: string, health: ProviderConnectionHealth) {
     providerHealthByIdRef.current = {
       ...providerHealthByIdRef.current,
-      [connectionId]: health,
+      [connectionId]: { ...health, comfyImageReferences: health.comfyImageReferences ?? providerHealthByIdRef.current[connectionId]?.comfyImageReferences },
     };
     setProviderHealthById(providerHealthByIdRef.current);
   }
@@ -842,6 +848,9 @@ export function useProviderConnections({
           }
           return health;
         }
+        const inspection = await window.rpgraph.inspectComfyWorkflow({
+          workflowPath: comfyWorkflowPathForConnection(connection), role: comfyConnectionRole(connection) ?? 'image',
+        });
         const devices = Array.isArray(result.devices) ? result.devices.length : 0;
         health = comfySetupHealth(
           connection,
@@ -849,6 +858,10 @@ export function useProviderConnections({
             ? `Connected to ComfyUI. ${devices} device${devices === 1 ? '' : 's'} reported.`
             : 'Connected to ComfyUI.',
         );
+        health.comfyImageReferences = {
+          workflowPath: connection.comfyWorkflowPath ?? '',
+          supported: inspection.ok && inspection.supportsImageReferences === true,
+        };
       } else if (
         connectionRequiresApiKeyForModelList(connection) &&
         connection.apiKey.trim().length === 0
@@ -1154,6 +1167,9 @@ export function useProviderConnections({
             detail: providerErrorMessage(error),
             checkedAt: providerCheckedAt(),
           };
+      if (connection.kind === 'comfyui') {
+        health.comfyImageReferences = { workflowPath: connection.comfyWorkflowPath ?? '', supported: false };
+      }
       if (fallbackModels && editingConnection.id === connection.id) {
         setAvailableConnectionModels(fallbackModels);
       }
@@ -1198,12 +1214,14 @@ export function useProviderConnections({
   }
   const checkProviderConnectionByIdRef = useRef(checkProviderConnectionById);
   const checkProviderConnectionsRef = useRef(checkProviderConnections);
-  const inspectComfyWorkflowRef = useRef(inspectComfyWorkflow);
+  const inspectComfyWorkflowRef = useRef<
+    (
+      connectionOverride?: ConnectionPreset,
+      options?: { showStatus?: boolean },
+    ) => Promise<ComfyWorkflowInspection | null>
+  >(async () => null);
   const editingConnectionRef = useRef(editingConnection);
   const isRunningRef = useRef(isRunning);
-  const showConnectionsRef = useRef(showConnections);
-  isRunningRef.current = isRunning;
-  showConnectionsRef.current = showConnections;
   const checkProviderConnectionByIdStable = useCallback(
     (connectionId: string, showStatus = false) => checkProviderConnectionByIdRef.current(connectionId, showStatus),
     [],
@@ -1211,7 +1229,6 @@ export function useProviderConnections({
   useEffect(() => {
     checkProviderConnectionByIdRef.current = checkProviderConnectionById;
     checkProviderConnectionsRef.current = checkProviderConnections;
-    inspectComfyWorkflowRef.current = inspectComfyWorkflow;
     editingConnectionRef.current = editingConnection;
   });
 
@@ -1702,6 +1719,14 @@ export function useProviderConnections({
     try {
       const inspection = await window.rpgraph.inspectComfyWorkflow({ workflowPath, role });
       setComfyWorkflowInspection(inspection);
+      updateProviderHealth(connection.id, {
+        ...providerHealthByIdRef.current[connection.id],
+        status: providerHealthByIdRef.current[connection.id]?.status ?? 'unknown',
+        comfyImageReferences: {
+          workflowPath: connection.comfyWorkflowPath ?? '',
+          supported: inspection.ok && inspection.supportsImageReferences === true,
+        },
+      });
       if (inspection.ok) {
         setPendingComfyWorkflowRepair(null);
         setComfyWorkflowRepairStatus('');
@@ -1722,12 +1747,21 @@ export function useProviderConnections({
         fileName: workflowPath.split(/[\\/]/).pop() ?? workflowPath,
       };
       setComfyWorkflowInspection(inspection);
+      updateProviderHealth(connection.id, {
+        ...providerHealthByIdRef.current[connection.id],
+        status: providerHealthByIdRef.current[connection.id]?.status ?? 'unknown',
+        comfyImageReferences: { workflowPath: connection.comfyWorkflowPath ?? '', supported: false },
+      });
       if (options.showStatus !== false) {
         setConnectionStatus(`ComfyUI workflow check failed: ${inspection.missing[0]}.`);
       }
       return inspection;
     }
   }
+
+  useEffect(() => {
+    inspectComfyWorkflowRef.current = inspectComfyWorkflow;
+  });
 
   async function repairComfyWorkflow(llmConnectionId: string) {
     const connection = connectionFromEditingConnection();
@@ -2003,11 +2037,11 @@ export function useProviderConnections({
     appearance: string;
     scenarioPrompt: string;
   }) {
-    const connection = connections.find((entry) => entry.id === request.providerId && isComfyImageConnection(entry));
+    const connection = connections.find((entry) => entry.id === request.providerId && isImageGenerationConnection(entry, providerHealthByIdRef.current[entry.id]));
     if (!connection) {
-      throw new Error('Choose a ComfyUI image provider first.');
+      throw new Error('Choose an image provider first.');
     }
-    const missingFields = missingComfySetupFields(connection);
+    const missingFields = isComfyImageConnection(connection) ? missingComfySetupFields(connection) : [];
     if (missingFields.length > 0) {
       const message = comfySetupRequiredMessage(missingFields);
       updateProviderHealth(connection.id, comfySetupHealth(connection, message));
@@ -2018,6 +2052,14 @@ export function useProviderConnections({
     const prompt = appearance
       ? `character reference image of ${request.characterName}, ${appearance}${scenarioPrompt ? `, ${scenarioPrompt}` : ''}`
       : `character reference image of ${request.characterName}, ${request.characterContext}${scenarioPrompt ? `, ${scenarioPrompt}` : ''}`;
+    if (!isComfyImageConnection(connection)) {
+      const images = await generateImageAssistantImages({
+        providerId: connection.id,
+        prompt,
+        settings: { width: defaultComfyWidth, height: defaultComfyHeight, characterLora: '' },
+      });
+      return images.map((dataUrl, index) => ({ dataUrl, filename: `generated-image-${index + 1}.png` }));
+    }
     await unloadLocalLlmModelsForComfy('Local LLM unload before character preview failed');
     const result = await window.rpgraph.runComfyWorkflowPath({
       baseUrl: connection.baseUrl,
@@ -2051,14 +2093,18 @@ export function useProviderConnections({
   async function generateImageAssistantImages(request: {
     providerId: string;
     prompt: string;
-    settings: { width: number; height: number; characterLora: string };
+    settings: { width: number; height: number; characterLora: string; aspectRatio?: string };
+    referenceImages?: ImageGenerationReference[];
   }) {
     const connection = connections.find(
       (entry) => entry.id === request.providerId &&
-        (isComfyImageConnection(entry) || isVeniceConnection(entry)),
+        isImageGenerationConnection(entry, providerHealthByIdRef.current[entry.id]),
     );
     if (!connection) {
       throw new Error('Choose an image provider first.');
+    }
+    if (request.referenceImages?.length && !supportsImageGenerationReferences(connection, providerHealthByIdRef.current[connection.id])) {
+      throw new Error('The selected image provider does not support reference images.');
     }
     const health = providerHealthByIdRef.current[connection.id];
     if (health?.status === 'offline') {
@@ -2093,6 +2139,7 @@ export function useProviderConnections({
           width: validComfyDimension(request.settings.width, connection.comfyWidth ?? defaultComfyWidth),
           height: validComfyDimension(request.settings.height, connection.comfyHeight ?? defaultComfyHeight),
           prompt: request.prompt.trim(),
+          referenceImages: request.referenceImages?.map((image) => image.dataUrl),
           checkpointName: connection.comfyCheckpointName ?? defaultComfyCheckpointName,
           diffusionModelName: connection.comfyDiffusionModelName ?? defaultComfyDiffusionModelName,
           vaeName: connection.comfyVaeName ?? defaultComfyVaeName,
@@ -2113,9 +2160,11 @@ export function useProviderConnections({
         }
         images = result.images.map((image) => image.dataUrl);
       } else {
-        const result = await window.rpgraph.generateVeniceImages({
+        const result = await generateApiImages({
           connection,
           prompt: request.prompt.trim(),
+          referenceImages: request.referenceImages?.map((image) => image.dataUrl),
+          aspectRatio: request.settings.aspectRatio || '3:4',
           width: validComfyDimension(request.settings.width, defaultComfyWidth),
           height: validComfyDimension(request.settings.height, defaultComfyHeight),
         });
@@ -2124,14 +2173,14 @@ export function useProviderConnections({
       updateProviderHealth(connection.id, {
         status: 'online',
         detail: `Generated ${images.length} image${images.length === 1 ? '' : 's'}.`,
-        capabilities: { image: true },
+        capabilities: { ...health?.capabilities, image: true },
         checkedAt: providerCheckedAt(),
       });
       setImageAssistantModelState(connection.id, 'loaded');
       return images;
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
-      updateProviderHealth(connection.id, {
+      if (isComfyImageConnection(connection)) updateProviderHealth(connection.id, {
         status: 'offline',
         detail: message,
         capabilities: { image: true },
@@ -2539,7 +2588,7 @@ export function useProviderConnections({
       throw new Error(`Select an LLM connection for ${purpose} first.`);
     }
     if (!isLlmConnection(connection)) {
-      throw new Error(`Select an LLM connection for ${purpose}; "${connection.label}" is a ComfyUI image provider.`);
+      throw new Error(`Select an LLM connection for ${purpose}; "${connection.label}" is not a text generation provider.`);
     }
 
     if (connection.model.trim() &&
@@ -2596,6 +2645,9 @@ export function useProviderConnections({
       cleanupAbort?.();
     }
     if (signal?.aborted) throw new Error('The LLM request was cancelled.');
+    if (!isLlmConnection(connection)) {
+      throw new Error(`Select a text generation provider for ${purpose}.`);
+    }
     if (connection.model.trim()) {
       return connectionWithReasoning(connection);
     }
@@ -2605,6 +2657,7 @@ export function useProviderConnections({
     }
 
     const updated = connectionWithDetectedCapabilities({ ...connection, model: models[0] });
+    if (!isLlmConnection(updated)) throw new Error(`Select a text generation model for ${purpose}.`);
     setConnections((current) =>
       current.map((entry) =>
         entry.id === connection.id && !entry.model.trim() &&

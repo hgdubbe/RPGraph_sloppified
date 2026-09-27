@@ -1,3 +1,4 @@
+import type { ImageGenerationReference } from '../../images/references';
 import { usePanelNavigationState, usePanelNavigationBack } from '../../navigation/usePanelNavigation';
 import { CharacterName } from '../CharacterName';
 import { accountHandle } from '../../characters/character';
@@ -188,6 +189,7 @@ type PhoneSocialFeedScreenProps = {
     imageProviderId: string;
     currentPrompt: string;
     currentSettings: ImageGenerationSettings;
+    referenceImages?: ImageGenerationReference[];
     currentImage?: { dataUrl: string; description: string };
     availableCharacterLoras: string[];
     characterContext: string;
@@ -196,11 +198,13 @@ type PhoneSocialFeedScreenProps = {
     userMessage: string;
     describeImage?: boolean;
     describeFromPromptOnly?: boolean;
+    characterLoraOverride?: boolean;
   }) => Promise<ImageGenerationAssistantResult>;
   onGenerateImageAssistantImages: (request: {
     providerId: string;
     prompt: string;
     settings: ImageGenerationSettings;
+    referenceImages?: ImageGenerationReference[];
   }) => Promise<string[]>;
   onSaveImageAssistantImage: (request: {
     characterId: string;

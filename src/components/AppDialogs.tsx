@@ -1,3 +1,5 @@
+import { isTextGenerationConnection } from '../llm/textProvider';
+import { isImageGenerationConnection } from '../images/providers';
 import { usePanelNavigationOverlay } from '../navigation/usePanelNavigation';
 import { parseStorybookContinuation } from '../storybook/assistantConversation';
 import { CharacterAgencyField } from './CharacterAgencyField';
@@ -463,6 +465,7 @@ const customNodePromptSuggestions = [
 ];
 
 type CustomNodeAssistantDialogProps = {
+  providerHealthById: Record<string, ProviderConnectionHealth>;
   node: WorkflowNode;
   connections: ConnectionPreset[];
   defaultConnectionId: string;
@@ -480,6 +483,7 @@ type CustomNodeAssistantDialogProps = {
 };
 
 export function CustomNodeAssistantDialog({
+  providerHealthById,
   node,
   connections,
   defaultConnectionId,
@@ -497,7 +501,7 @@ export function CustomNodeAssistantDialog({
 }: CustomNodeAssistantDialogProps) {
   const [draft, setDraft] = useState('');
   const [viewMode, setViewMode] = useState<'ui' | 'code' | 'edit'>('ui');
-  const llmConnections = connections.filter((connection) => connection.kind !== 'comfyui');
+  const llmConnections = connections.filter((connection) => isTextGenerationConnection(connection, providerHealthById[connection.id]));
   const fallbackConnectionId = defaultConnectionId || llmConnections[0]?.id || '';
   const [selectedConnectionId, setSelectedConnectionId] = useState(
     [node.data.connectionId, fallbackConnectionId].find((connectionId) =>
@@ -1267,7 +1271,7 @@ function storybookCharacterComfyStatus({
   if (!characterConfigured) {
     return {
       active: false,
-      text: 'ComfyUI character generation is not configured for this character.',
+      text: 'Character image generation is not configured for this character.',
     };
   }
   if (createImageActions.length === 0) {
@@ -1284,15 +1288,15 @@ function storybookCharacterComfyStatus({
   if (selectedProviderIds.length === 0) {
     return {
       active: false,
-      text: 'This function is not used because no ComfyUI provider is selected in the Create character phone image action.',
+      text: 'This function is not used because no image provider is selected in the Create character phone image action.',
     };
   }
-  const comfyProviderIds = new Set(connections.filter(isComfyImageConnection).map((connection) => connection.id));
+  const comfyProviderIds = new Set(connections.filter((connection) => isImageGenerationConnection(connection, providerHealthById[connection.id])).map((connection) => connection.id));
   const missingProvider = selectedProviderIds.find((providerId) => !comfyProviderIds.has(providerId));
   if (missingProvider) {
     return {
       active: false,
-      text: 'This function is not used because the selected ComfyUI provider is no longer available.',
+      text: 'This function is not used because the selected image provider is no longer available.',
     };
   }
   const healthValues = selectedProviderIds.map((providerId) => providerHealthById[providerId]);
@@ -1305,18 +1309,18 @@ function storybookCharacterComfyStatus({
   if (healthValues.some((health) => health?.status === 'checking' || health?.status === 'unknown')) {
     return {
       active: false,
-      text: 'This function is not used yet because the selected ComfyUI provider has not been checked.',
+      text: 'This function is not used yet because the selected image provider has not been checked.',
     };
   }
   if (healthValues.some((health) => health?.status === 'warning')) {
     return {
       active: false,
-      text: 'This function is not used yet because the selected ComfyUI provider setup is incomplete.',
+      text: 'This function is not used yet because the selected image provider setup is incomplete.',
     };
   }
   return {
     active: false,
-    text: 'This function is not used because ComfyUI is offline.',
+    text: 'This function is not used because the image provider is offline.',
   };
 }
 
@@ -2380,8 +2384,9 @@ function CharacterImageSetupSection({
     character.description ? `Description: ${character.description}` : '',
     character.role ? `Role: ${character.role}` : '',
   ].filter(Boolean).join('\n') || `Name: ${characterName}`;
-  const comfyConnections = connections.filter(isComfyImageConnection);
+  const comfyConnections = connections.filter((connection) => isImageGenerationConnection(connection, providerHealthById[connection.id]));
   const [providerId, setProviderId] = useState(comfyConnections[0]?.id ?? '');
+  const imageUsesComfy = connections.some((connection) => connection.id === providerId && isComfyImageConnection(connection));
   const [loraOptions, setLoraOptions] = useState<string[]>([]);
   const [previewScenarioId, setPreviewScenarioId] = useState<(typeof characterComfyPreviewScenarios)[number]['id']>('mirror-selfie');
   const [status, setStatus] = useState('');
@@ -2407,7 +2412,7 @@ function CharacterImageSetupSection({
 
   useEffect(() => {
     let active = true;
-    if (!providerId) {
+    if (!providerId || !imageUsesComfy) {
       queueMicrotask(() => {
         if (active) {
           setLoraOptions([]);
@@ -2457,7 +2462,7 @@ function CharacterImageSetupSection({
     return () => {
       active = false;
     };
-  }, [onLoadCharacterComfyLoras, providerId]);
+  }, [onLoadCharacterComfyLoras, providerId, imageUsesComfy]);
 
   async function copyLoraUrl() {
     const loraUrl = draft.loraUrl?.trim() ?? '';
@@ -2471,7 +2476,7 @@ function CharacterImageSetupSection({
 
   async function generatePreview() {
     if (!providerId) {
-      setStatus('Choose a ComfyUI provider first.');
+      setStatus('Choose an image provider first.');
       return;
     }
     const scenario =
@@ -2479,7 +2484,7 @@ function CharacterImageSetupSection({
       characterComfyPreviewScenarios[0];
     setGenerating(true);
     setPreviewImage(null);
-    setStatus('Unloading local LLM models and generating test image ...');
+    setStatus(imageUsesComfy ? 'Unloading local LLM models and generating test image ...' : 'Generating test image ...');
     try {
       const images = await onGenerateCharacterComfyPreview({
         providerId,
@@ -2500,7 +2505,7 @@ function CharacterImageSetupSection({
 
   async function unloadModels() {
     if (!providerId) {
-      setStatus('Choose a ComfyUI provider first.');
+      setStatus('Choose an image provider first.');
       return;
     }
     setUnloading(true);

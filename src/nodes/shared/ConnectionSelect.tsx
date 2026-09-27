@@ -1,3 +1,4 @@
+import { isTextGenerationConnection } from '../../llm/textProvider';
 import { useNodeActions } from '../NodeActionsContext';
 import { useNodeView } from '../NodeViewContext';
 import { NodeCustomSelect } from './NodeCustomSelect';
@@ -16,7 +17,7 @@ export function ConnectionSelect({
   const { connections, providerHealthById } = useNodeView();
 
   const options = connections
-    .filter((connection) => connection.kind !== 'comfyui')
+    .filter((connection) => isTextGenerationConnection(connection, providerHealthById[connection.id]))
     .map((connection) => providerOption(connection, providerHealthById[connection.id]));
 
   return (

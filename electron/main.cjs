@@ -1,3 +1,4 @@
+const { supportsComfyImageReferences, prepareComfyImageReferences, uploadComfyImageReference } = require('./comfyImageReferences.cjs');
 const { compatibleModel, compatibleReasoningOptions, mergeCompatibleNativeModels } = require('../shared/compatibleModels.cjs');
 const { normalizeReasoningCapabilities, normalizeReasoningEffort, normalizeLmStudioReasoning, normalizeOllamaReasoning, ollamaReasoningOptions } = require('../shared/reasoning.cjs');
 const { safeWorkflowBaseName, safeStorybookBaseName, safeCharacterCardBaseName } = require('./fileNames.cjs');
@@ -11,6 +12,7 @@ const http = require('node:http');
 const https = require('node:https');
 const os = require('node:os');
 const path = require('node:path');
+const { openRouterImageBody, openRouterResponseImages } = require('./openRouterImages.cjs');
 const { createUnslothApi } = require('./unslothApi.cjs');
 const { createTextStreamBatch } = require('./streamBatch.cjs');
 const { currentScryptParameters } = require('./encryptionFormat.cjs');
@@ -2838,6 +2840,7 @@ function comfyWorkflowInspection(value, workflowPath = '', role = 'image') {
         : 'missing';
 
   return {
+    supportsImageReferences: role === 'image' && format === 'api' && supportsComfyImageReferences(prompt),
     ok: format === 'api' && missing.length === 0,
     format,
     role: comfyWorkflowRole(role),
@@ -4289,6 +4292,24 @@ ipcMain.handle('venice:generate-speech', async (_event, request) => {
   }
 });
 
+ipcMain.handle('openrouter:generate-images', async (_event, request) => {
+  const abort = createLlmAbortController(request);
+  try {
+    const response = await requestLlmResponse(endpoint(request.connection.baseUrl, 'images'), {
+      method: 'POST',
+      headers: requestHeaders(request.connection),
+      body: JSON.stringify(openRouterImageBody(request)),
+    }, abort);
+    if (!response.ok) throw new Error(await readError(response));
+    return openRouterResponseImages(await response.json());
+  } catch (error) {
+    if (abort.signal.aborted) return cancelledLlmIpcResult();
+    return failedLlmIpcResult(error);
+  } finally {
+    abort.dispose();
+  }
+});
+
 ipcMain.handle('venice:generate-images', async (_event, request) => {
   const abort = createLlmAbortController(request);
   const connection = request?.connection;
@@ -5215,7 +5236,15 @@ ipcMain.handle('comfy:run-workflow-path', async (_event, request) => {
       parsedWorkflow,
       comfyWorkflowVariables(request),
     );
-    const workflow = comfyPromptFromWorkflow(workflowJson);
+    const workflow = await prepareComfyImageReferences(
+      comfyPromptFromWorkflow(workflowJson),
+      request?.referenceImages,
+      (dataUrl) => uploadComfyImageReference(dataUrl, async (init) => {
+        const response = await requestLlmResponse(comfyEndpoint(request?.baseUrl, 'upload/image'), init, abort);
+        if (!response.ok) throw new Error(await readError(response));
+        return JSON.parse(await response.text());
+      }),
+    );
     if (request?.deleteOutputs === true) {
       withTempOutputs(workflow, comfyImageSaveNodeTypes, 'PreviewImage');
     }

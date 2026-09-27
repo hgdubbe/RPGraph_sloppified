@@ -1,3 +1,4 @@
+import { isTextGenerationConnection } from '../../llm/textProvider';
 import type { NodeProps } from '@xyflow/react';
 import type { WorkflowNode } from '../../types';
 import { useNodeActions } from '../NodeActionsContext';
@@ -13,7 +14,7 @@ export function PhoneAppsNodeCard({ id, data }: NodeProps<WorkflowNode>) {
 
   const nodeBodyRef = useNodeLayoutSync(id);
   const notesOptions = connections
-    .filter((connection) => connection.kind !== 'comfyui')
+    .filter((connection) => isTextGenerationConnection(connection, providerHealthById[connection.id]))
     .map((connection) => providerOption(connection, providerHealthById[connection.id]));
 
   return (

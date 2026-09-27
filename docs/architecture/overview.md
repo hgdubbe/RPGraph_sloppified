@@ -1,6 +1,6 @@
 # RPGraph Studio Overview
 
-RPGraph Studio is a local-first desktop studio for building and running roleplay workflows as a node graph. The app combines a visual workflow editor, roleplay chat, a multi-app character phone, scheduled events, story data, session saves, provider management, voice playback, and optional image generation through ComfyUI.
+RPGraph Studio is a local-first desktop studio for building and running roleplay workflows as a node graph. The app combines a visual workflow editor, roleplay chat, a multi-app character phone, scheduled events, story data, session saves, provider management, voice playback, and optional image generation through ComfyUI and OpenRouter.
 
 This document is the first high-level map of the current codebase. It is intentionally broad: later documents can expand each section into deeper implementation notes.
 
@@ -87,12 +87,12 @@ Prompt Actions are internal helper calls that can be inserted into an LLM prompt
 
 1. In the normal prompt, each available pre-reply action expands only to a compact request hint. The model requests one by returning its action name and a short plan.
 2. RPGraph keeps the same text input but replaces the normal prompt-after text with that action's full follow-up template. The plan is inserted into this focused pass, and the model returns the complete action parameters.
-3. RPGraph executes the action internally, then replays the original prompt with the same `@action` location replaced by the result, such as found image IDs or a generated ComfyUI image ID.
+3. RPGraph executes the action internally, then replays the original prompt with the same `@action` location replaced by the result, such as found image IDs or a generated image ID.
 4. The final model pass writes the visible roleplay or phone response using those returned results. Unused actions remain compact hints, so the model can request another action when necessary.
 
 After-reply caption actions remain separate focused passes because their instructions depend on the already completed visible reply.
 
-This makes actions feel like normal prompt context to the model, while the app controls the real side effects. Image-list actions read Storybook image libraries and identify earlier recipients of each match so the model does not resend the same photo to them. Caption actions return a compact JSON record for the latest incoming phone image, and Create character phone image actions generate and store a new outgoing character phone image through ComfyUI before replaying the prompt.
+This makes actions feel like normal prompt context to the model, while the app controls the real side effects. Image-list actions read Storybook image libraries and identify earlier recipients of each match so the model does not resend the same photo to them. Caption actions return a compact JSON record for the latest incoming phone image, and Create character phone image actions generate and store a new outgoing character phone image through the selected image provider before replaying the prompt. See [image-generation.md](image-generation.md) for provider routing.
 
 ## Phone And JSON Outputs
 
@@ -267,7 +267,7 @@ The runtime:
 - Handles post-output nodes.
 - Emits warnings and format diagnostics.
 - Streams output text when enabled.
-- Coordinates ComfyUI image creation and storybook image updates.
+- Coordinates image creation and storybook image updates.
 
 ## Important Code Areas
 

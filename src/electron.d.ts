@@ -61,6 +61,14 @@ declare global {
         connection: ConnectionPreset;
         input: string;
       }) => Promise<{ dataUrl: string; filename: string }>;
+      generateOpenRouterImages: (request: {
+        connection: ConnectionPreset;
+        prompt: string;
+        width: number;
+        height: number;
+        referenceImages?: string[];
+  aspectRatio?: string;
+      }) => Promise<{ images: string[] }>;
       generateVeniceImages: (request: {
         connection: ConnectionPreset;
         prompt: string;
@@ -323,6 +331,7 @@ declare global {
         role?: 'image' | 'voice';
       }) => Promise<{
         ok: boolean;
+        supportsImageReferences?: boolean;
         format: 'api' | 'ui' | 'unknown';
         role: 'image' | 'voice';
         modelSource: 'checkpoint' | 'diffusion_model' | 'both' | 'missing';
@@ -380,6 +389,7 @@ declare global {
         width?: number;
         height?: number;
         prompt?: string;
+        referenceImages?: string[];
         checkpointName?: string;
         diffusionModelName?: string;
         vaeName?: string;

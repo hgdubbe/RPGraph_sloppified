@@ -514,27 +514,9 @@ export function runtimeComfyLoraSlots(value: unknown): ComfyLoraSlot[] {
 export function characterComfyLoraSlots(value: unknown, loraName: string): ComfyLoraSlot[] {
   const requestedLora = loraName.trim();
   const slots = validComfyLoraSlots(value);
-  let replacedCharacterSlot = false;
-  const replacedSlots = slots.map((slot) => {
-    if (slot.name.trim() !== comfyCharacterLoraName) {
-      return slot;
-    }
-    replacedCharacterSlot = true;
-    return { ...slot, name: requestedLora || 'None' };
-  });
-
-  if (!requestedLora || replacedCharacterSlot) {
-    return runtimeComfyLoraSlots(replacedSlots);
-  }
-
-  const fallbackSlotIndex = replacedSlots.findIndex((slot) => {
-    const slotName = slot.name.trim().toLowerCase();
-    return slotName === 'none' || slotName.length === 0;
-  });
-  const targetIndex = fallbackSlotIndex >= 0 ? fallbackSlotIndex : 0;
-  return runtimeComfyLoraSlots(replacedSlots.map((slot, index) =>
-    index === targetIndex
-      ? { ...slot, name: requestedLora }
+  return runtimeComfyLoraSlots(slots.map((slot) =>
+    slot.name.trim() === comfyCharacterLoraName
+      ? { ...slot, name: requestedLora || 'None' }
       : slot,
   ));
 }
