@@ -39,9 +39,15 @@ describe('Image generation references', () => {
     expect(imageReferencePrompt([])).toContain('No reference images are selected');
   });
 
-  it('enables reference controls only for the currently supported API provider', () => {
+  it('enables references for OpenRouter and inspected ComfyUI edit workflows', () => {
     expect(supportsImageGenerationReferences({ ...defaultConnection, providerKind: 'openrouter' })).toBe(true);
     expect(supportsImageGenerationReferences({ ...defaultConnection, kind: 'comfyui', comfyRole: 'image' })).toBe(false);
+    const connection = { ...defaultConnection, kind: 'comfyui' as const, comfyRole: 'image' as const, comfyWorkflowPath: '/workflows/renamed.json' };
+    const health = { status: 'online' as const, comfyImageReferences: { workflowPath: connection.comfyWorkflowPath, supported: true } };
+    expect(supportsImageGenerationReferences(connection, health)).toBe(true);
+    expect(supportsImageGenerationReferences(connection)).toBe(false);
+    expect(supportsImageGenerationReferences({ ...connection, comfyWorkflowPath: '/workflows/text-only.json' }, health)).toBe(false);
+    expect(supportsImageGenerationReferences(connection, { ...health, comfyImageReferences: { ...health.comfyImageReferences, supported: false } })).toBe(false);
     expect(supportsImageGenerationReferences(undefined)).toBe(false);
   });
 });

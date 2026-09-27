@@ -1,3 +1,4 @@
+const { supportsComfyImageReferences, prepareComfyImageReferences, uploadComfyImageReference } = require('./comfyImageReferences.cjs');
 const { compatibleModel, compatibleReasoningOptions, mergeCompatibleNativeModels } = require('../shared/compatibleModels.cjs');
 const { normalizeReasoningCapabilities, normalizeReasoningEffort, normalizeLmStudioReasoning, normalizeOllamaReasoning, ollamaReasoningOptions } = require('../shared/reasoning.cjs');
 const { safeWorkflowBaseName, safeStorybookBaseName, safeCharacterCardBaseName } = require('./fileNames.cjs');
@@ -2686,6 +2687,7 @@ function comfyWorkflowInspection(value, workflowPath = '', role = 'image') {
         : 'missing';
 
   return {
+    supportsImageReferences: role === 'image' && format === 'api' && supportsComfyImageReferences(prompt),
     ok: format === 'api' && missing.length === 0,
     format,
     role: comfyWorkflowRole(role),
@@ -5080,7 +5082,15 @@ ipcMain.handle('comfy:run-workflow-path', async (_event, request) => {
       parsedWorkflow,
       comfyWorkflowVariables(request),
     );
-    const workflow = comfyPromptFromWorkflow(workflowJson);
+    const workflow = await prepareComfyImageReferences(
+      comfyPromptFromWorkflow(workflowJson),
+      request?.referenceImages,
+      (dataUrl) => uploadComfyImageReference(dataUrl, async (init) => {
+        const response = await requestLlmResponse(comfyEndpoint(request?.baseUrl, 'upload/image'), init, abort);
+        if (!response.ok) throw new Error(await readError(response));
+        return JSON.parse(await response.text());
+      }),
+    );
     if (request?.deleteOutputs === true) {
       withTempOutputs(workflow, comfyImageSaveNodeTypes, 'PreviewImage');
     }

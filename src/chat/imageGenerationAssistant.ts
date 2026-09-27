@@ -77,7 +77,9 @@ const commonImageInstructions = [
 const comfyImageInstructions = [
   'You receive a Storybook character database with each character\'s description, personality, speech style, visual appearance, and optional exact Character LoRA filename.',
   'The image settings support at most one Character LoRA per image.',
-  'When a requested character has an available LoRA, use its exact filename in characterLora. The LoRA already carries that character\'s look, so keep their visual description short: state pose, expression, clothing, and action, but do not restate face, hair, or body details from the database.',
+  'Compare the model family in the exact LoRA filename with the supplied diffusion model (or workflow name if the model is unknown). Only matching, identifiable model families can activate automatically. Missing or different model names leave the LoRA selected but disabled. Explain this in reply. A missing Character LoRA slot also prevents activation. Manual user activation can override a model warning, but cannot create a slot.',
+  'When a selected LoRA cannot activate, describe the character fully from their text appearance; do not rely on the LoRA for identity. Still return the exact selected filename in characterLora so the UI can display its warning.',
+  'When a requested character has an available LoRA, use its exact filename in characterLora. If that LoRA can activate, it carries that character\'s look, so keep their visual description short: state pose, expression, clothing, and action, but do not restate face, hair, or body details from the database.',
   'When a requested character has no LoRA, their appearance comes entirely from the prompt text: describe them in full visual detail from the character database, including face, hair, body, and typical style.',
   'A LoRA character and non-LoRA characters may appear together in one scene: describe the LoRA character briefly and the non-LoRA characters in detail.',
   'Never use two Character LoRAs. If the user requests two or more characters that each have a LoRA, set characterLora to the one whose LoRA fits the request best, describe the remaining LoRA characters from their text appearance only, and clearly warn in reply that only one Character LoRA is possible per image.',
@@ -123,9 +125,11 @@ export function imageGenerationAssistantPrompt(
   supportsCharacterLora = true,
   referenceImages: ImageGenerationReference[] = [],
   supportsReferences = !supportsCharacterLora,
+  modelContext = '',
 ) {
   return [
     imageAssistantInstructions(supportsCharacterLora, supportsReferences),
+    modelContext,
     ...(describeImage
       ? [describeFromPromptOnly
         ? 'The Describe Image button was pressed, but the selected assistant provider cannot see images. Write the description from the current image prompt below and the last four RP turns instead: infer matching characters, places, and events from the prompt text. Do not claim to have viewed the image. Return exactly this update shape: {"reply":"Short confirmation","prompt":null,"settings":null,"imageDescription":"20 to 40 word description"}.'

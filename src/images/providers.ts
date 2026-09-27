@@ -11,9 +11,15 @@ export function isImageGenerationConnection(
   );
 }
 
-// Extend this capability when a local workflow can accept reference images.
-export function supportsImageGenerationReferences(connection?: ConnectionPreset): boolean {
-  return !!connection && isOpenRouterConnection(connection);
+// ComfyUI support comes from inspecting the current workflow, never its filename.
+export function supportsImageGenerationReferences(
+  connection?: ConnectionPreset,
+  health?: ProviderConnectionHealth,
+): boolean {
+  return !!connection && (isOpenRouterConnection(connection) || (
+    isComfyImageConnection(connection) && health?.comfyImageReferences?.supported === true &&
+    health.comfyImageReferences.workflowPath === (connection.comfyWorkflowPath ?? '')
+  ));
 }
 
 export async function generateApiImages(request: {

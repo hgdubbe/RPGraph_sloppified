@@ -629,7 +629,7 @@ export function useProviderConnections({
   function updateProviderHealth(connectionId: string, health: ProviderConnectionHealth) {
     providerHealthByIdRef.current = {
       ...providerHealthByIdRef.current,
-      [connectionId]: health,
+      [connectionId]: { ...health, comfyImageReferences: health.comfyImageReferences ?? providerHealthByIdRef.current[connectionId]?.comfyImageReferences },
     };
     setProviderHealthById(providerHealthByIdRef.current);
   }
@@ -844,6 +844,9 @@ export function useProviderConnections({
           }
           return health;
         }
+        const inspection = await window.rpgraph.inspectComfyWorkflow({
+          workflowPath: comfyWorkflowPathForConnection(connection), role: comfyConnectionRole(connection) ?? 'image',
+        });
         const devices = Array.isArray(result.devices) ? result.devices.length : 0;
         health = comfySetupHealth(
           connection,
@@ -851,6 +854,10 @@ export function useProviderConnections({
             ? `Connected to ComfyUI. ${devices} device${devices === 1 ? '' : 's'} reported.`
             : 'Connected to ComfyUI.',
         );
+        health.comfyImageReferences = {
+          workflowPath: connection.comfyWorkflowPath ?? '',
+          supported: inspection.ok && inspection.supportsImageReferences === true,
+        };
       } else if (
         connectionRequiresApiKeyForModelList(connection) &&
         connection.apiKey.trim().length === 0
@@ -1156,6 +1163,9 @@ export function useProviderConnections({
             detail: providerErrorMessage(error),
             checkedAt: providerCheckedAt(),
           };
+      if (connection.kind === 'comfyui') {
+        health.comfyImageReferences = { workflowPath: connection.comfyWorkflowPath ?? '', supported: false };
+      }
       if (fallbackModels && editingConnection.id === connection.id) {
         setAvailableConnectionModels(fallbackModels);
       }
@@ -1704,6 +1714,14 @@ export function useProviderConnections({
     try {
       const inspection = await window.rpgraph.inspectComfyWorkflow({ workflowPath, role });
       setComfyWorkflowInspection(inspection);
+      updateProviderHealth(connection.id, {
+        ...providerHealthByIdRef.current[connection.id],
+        status: providerHealthByIdRef.current[connection.id]?.status ?? 'unknown',
+        comfyImageReferences: {
+          workflowPath: connection.comfyWorkflowPath ?? '',
+          supported: inspection.ok && inspection.supportsImageReferences === true,
+        },
+      });
       if (inspection.ok) {
         setPendingComfyWorkflowRepair(null);
         setComfyWorkflowRepairStatus('');
@@ -1724,6 +1742,11 @@ export function useProviderConnections({
         fileName: workflowPath.split(/[\\/]/).pop() ?? workflowPath,
       };
       setComfyWorkflowInspection(inspection);
+      updateProviderHealth(connection.id, {
+        ...providerHealthByIdRef.current[connection.id],
+        status: providerHealthByIdRef.current[connection.id]?.status ?? 'unknown',
+        comfyImageReferences: { workflowPath: connection.comfyWorkflowPath ?? '', supported: false },
+      });
       if (options.showStatus !== false) {
         setConnectionStatus(`ComfyUI workflow check failed: ${inspection.missing[0]}.`);
       }
@@ -2071,7 +2094,7 @@ export function useProviderConnections({
     if (!connection) {
       throw new Error('Choose an image provider first.');
     }
-    if (request.referenceImages?.length && !supportsImageGenerationReferences(connection)) {
+    if (request.referenceImages?.length && !supportsImageGenerationReferences(connection, providerHealthByIdRef.current[connection.id])) {
       throw new Error('The selected image provider does not support reference images.');
     }
     const health = providerHealthByIdRef.current[connection.id];
@@ -2107,6 +2130,7 @@ export function useProviderConnections({
           width: validComfyDimension(request.settings.width, connection.comfyWidth ?? defaultComfyWidth),
           height: validComfyDimension(request.settings.height, connection.comfyHeight ?? defaultComfyHeight),
           prompt: request.prompt.trim(),
+          referenceImages: request.referenceImages?.map((image) => image.dataUrl),
           checkpointName: connection.comfyCheckpointName ?? defaultComfyCheckpointName,
           diffusionModelName: connection.comfyDiffusionModelName ?? defaultComfyDiffusionModelName,
           vaeName: connection.comfyVaeName ?? defaultComfyVaeName,

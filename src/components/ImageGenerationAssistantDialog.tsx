@@ -1,3 +1,4 @@
+import { characterLoraStatus } from '../images/loraCompatibility';
 import { addImageGenerationReference, maxImageGenerationReferences, type ImageGenerationReference } from '../images/references';
 import { isImageGenerationConnection, supportsImageGenerationReferences } from '../images/providers';
 import { usePanelNavigationOverlay } from '../navigation/usePanelNavigation';
@@ -106,7 +107,7 @@ export function ImageGenerationAssistantDialog({
   const [imageProvider, setImageProvider] = useState(() => imageConnections[0]?.id ?? '');
   const initialImageConnection = imageConnections[0];
   const imageSupportsLora = !!connections.find((connection) => connection.id === imageProvider && isComfyImageConnection(connection));
-  const referencesSupported = supportsImageGenerationReferences(connections.find((connection) => connection.id === imageProvider));
+  const referencesSupported = supportsImageGenerationReferences(connections.find((connection) => connection.id === imageProvider), providerHealthById[imageProvider]);
   const [referenceImages, setReferenceImages] = useState<ImageGenerationReference[]>([]);
   const [referenceGalleryOpen, setReferenceGalleryOpen] = useState(false);
   const [referenceCharacterId, setReferenceCharacterId] = useState(preferredSaveCharacterId ?? saveCharacters[0]?.id ?? '');
@@ -179,6 +180,19 @@ export function ImageGenerationAssistantDialog({
       return '';
     }
   })();
+  const loraConnection = connections.find((connection) => connection.id === imageProvider);
+  const loraKey = JSON.stringify([loraConnection?.id, loraConnection?.comfyWorkflowPath, loraConnection?.comfyDiffusionModelName, loraConnection?.comfyCheckpointName, loraConnection?.comfyLoraSlots, settingsCharacterLora]);
+  const [loraOverride, setLoraOverride] = useState('');
+  const loraStatus = characterLoraStatus(loraConnection, settingsCharacterLora, loraOverride === loraKey);
+  const loraNotice = imageSupportsLora && settingsCharacterLora && !loraStatus.active
+    ? `Character LoRA "${settingsCharacterLora}" disabled. ${loraStatus.reason}` : '';
+  const lastLoraNotice = useRef('');
+  useEffect(() => {
+    if (loraNotice && loraNotice !== lastLoraNotice.current) {
+      setMessages((current) => [...current, { role: 'assistant', text: loraNotice }]);
+    }
+    lastLoraNotice.current = loraNotice;
+  }, [loraNotice]);
   const selectedLoraEntry = availableLoraEntries.find((entry) => entry.loraName === settingsCharacterLora);
   const orderedSaveCharacters = [...saveCharacters].sort((left, right) => {
     if (left.id === preferredSaveCharacterId) return -1;
@@ -393,6 +407,7 @@ export function ImageGenerationAssistantDialog({
     setGenerationError('');
     try {
       const settings = readSettings();
+      if (!loraStatus.active) settings.characterLora = '';
       setSettingsError('');
       const images = await onGenerateImages({ providerId: imageProvider, prompt, settings, referenceImages: activeReferences });
       setGeneratedImages((current) => {
@@ -611,7 +626,7 @@ export function ImageGenerationAssistantDialog({
                       setHoverReference(null);
                       setReferenceGalleryOpen(false);
                       setReferenceError('');
-                      if (!supportsImageGenerationReferences(connections.find((connection) => connection.id === providerId)) && referenceImages.length) {
+                      if (!supportsImageGenerationReferences(connections.find((connection) => connection.id === providerId), providerHealthById[providerId]) && referenceImages.length) {
                         setReferenceImages([]);
                         setMessages((current) => [...current, { role: 'reference', text: 'Reference images cleared: this provider does not support references.' }]);
                       }
@@ -708,9 +723,20 @@ export function ImageGenerationAssistantDialog({
               </div>
               {imageSupportsLora && editorMode === 'prompt' && settingsCharacterLora && (
                 <div className="image-generation-lora-meter" aria-label="Selected Character LoRA">
-                  <span className="image-generation-lora-pill">
-                    LoRA · {selectedLoraEntry?.characterName || settingsCharacterLora}
-                  </span>
+                  <button type="button"
+                    className={`image-generation-lora-pill${!loraStatus.hasSlot ? ' is-blocked' : !loraStatus.active ? ' is-inactive' : ''}`}
+                    disabled={!loraStatus.hasSlot || isGenerating || isSubmitting}
+                    title={`${loraStatus.reason}${loraStatus.hasSlot && !loraStatus.active ? ' Activate despite model mismatch.' : ''}`}
+                    aria-pressed={loraStatus.active}
+                    onClick={() => {
+                      if (!loraStatus.active && loraStatus.hasSlot) {
+                        setLoraOverride(loraKey);
+                        setMessages((current) => [...current, { role: 'assistant', text: `Character LoRA "${settingsCharacterLora}" activated manually despite the model warning.` }]);
+                      }
+                    }}>
+
+                    LoRA · {selectedLoraEntry?.characterName || settingsCharacterLora} · {loraStatus.active ? 'Active' : loraStatus.hasSlot ? 'Inactive' : 'No slot'}
+                  </button>
                 </div>
               )}
               {editorMode === 'prompt' ? (

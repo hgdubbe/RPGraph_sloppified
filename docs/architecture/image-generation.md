@@ -33,8 +33,20 @@ API reference: [OpenRouter Image Generation](https://openrouter.ai/docs/guides/o
 ## Reference Images
 
 The image assistant supports up to three ordered references for OpenRouter image
-connections. `supportsImageGenerationReferences` is the capability boundary; ComfyUI
-workflow reference detection is not enabled yet. The gallery picker defaults to the
+connections and the bundled `Qwen-Image-2.1+Edit.json` ComfyUI image workflow.
+`supportsImageGenerationReferences` is the capability boundary. ComfyUI workflow
+inspection detects `LoadImage` together with the supported `TextEncodeQwenImage21`
+encoder, including templates whose optional image inputs are disconnected. A loader
+alone does not establish support for an arbitrary editing model. The filename is irrelevant.
+Provider checks and workflow inspections refresh this capability in provider health;
+the renderer only uses results matching the selected workflow path. Unknown workflows
+keep reference controls disabled until inspected. The main process applies the same
+node-based check before uploading reference images.
+Before submission, it uploads references to ComfyUI temp storage and connects dedicated
+`LoadImage` nodes to `images.image_1` through `images.image_3` in selection order.
+Unused optional inputs are removed, including all three for text-only generation.
+Original template files and unrelated graph connections remain unchanged. Upload errors
+stop generation; servers control the lifetime of uploaded temp files. The gallery picker defaults to the
 current phone character. Saved gallery images and generated previews both enter the
 same selection. Duplicates are rejected; removing an image renumbers the remaining
 references, and switching to an unsupported provider clears the selection.
@@ -51,3 +63,17 @@ order. The backend validates the maximum count and raster data URL formats befor
 request. The image model determines the actual reference-image support; provider errors
 remain visible without automatic retries. References live only in the current assistant
 dialog and are not saved into chat/session history.
+
+## Character LoRA Compatibility
+
+The image assistant checks character LoRA filenames against recognized model families
+(Qwen, Krea 2, Flux 1/2, SDXL, SD 1.5), preferring the configured model over the
+workflow filename. This is a naming heuristic, not weight-file validation. Unrecognized
+or mismatched names remain selected but inactive (yellow); clicking the badge explicitly
+activates them for the current provider configuration and LoRA selection. Without an
+assigned Character LoRA slot, the badge is blocked (red) and cannot be overridden.
+Tooltips include all applicable reasons and the chat reports inactive selections and
+manual activation. Generation omits inactive character LoRAs. Slot resolution never
+inserts a character LoRA into an unassigned slot or replaces a provider's fixed LoRA.
+The assistant receives workflow, diffusion-model, checkpoint, and slot context, and must
+describe character appearance fully when the selected LoRA cannot activate.

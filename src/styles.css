@@ -15164,6 +15164,8 @@ button.message-timeline-row.phone:focus-visible {
 }
 
 .image-generation-preview-stage {
+  position: relative;
+  overflow: hidden;
   flex: 1;
   min-height: 0;
   display: grid;
@@ -15175,6 +15177,11 @@ button.message-timeline-row.phone:focus-visible {
 }
 
 .image-generation-preview-stage > img {
+  position: absolute;
+  inset: 22px;
+  width: calc(100% - 44px);
+  height: calc(100% - 44px);
+  object-fit: contain;
   box-shadow: 0 18px 50px rgba(0, 0, 0, 0.55);
 }
 
@@ -27534,4 +27541,17 @@ button.message-timeline-row.phone:focus-visible {
   max-width: 256px;
   max-height: 256px;
   object-fit: contain;
+}
+
+.image-generation-lora-pill.is-inactive {
+  color: #ffe29a;
+  border-color: #c99935;
+  background: rgba(180, 130, 25, 0.2);
+  cursor: pointer;
+}
+.image-generation-lora-pill.is-blocked {
+  color: #ffb8b8;
+  border-color: #ba5656;
+  background: rgba(160, 45, 45, 0.2);
+  opacity: 1;
 }

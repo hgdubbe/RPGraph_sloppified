@@ -95,6 +95,7 @@ export type ProviderConnectionCapabilities = {
 };
 
 export type ProviderConnectionHealth = {
+  comfyImageReferences?: { workflowPath: string; supported: boolean };
   status: 'unknown' | 'checking' | 'online' | 'warning' | 'offline';
   detail?: string;
   capabilities?: ProviderConnectionCapabilities;

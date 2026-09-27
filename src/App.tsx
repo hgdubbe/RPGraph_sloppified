@@ -1,3 +1,4 @@
+import { imageModelContext } from './images/loraCompatibility';
 import { supportsImageGenerationReferences } from './images/providers';
 import { imageReferenceAttachments } from './images/references';
 import { isComfyImageConnection } from './comfy/connectionRole';
@@ -6025,7 +6026,8 @@ function App() {
                     describeFromPromptOnly,
                     connections.some((connection) => connection.id === imageProviderId && isComfyImageConnection(connection)),
                     referenceImages,
-                    supportsImageGenerationReferences(connections.find((connection) => connection.id === imageProviderId)),
+                    supportsImageGenerationReferences(connections.find((connection) => connection.id === imageProviderId), providerHealthById[imageProviderId]),
+                    imageModelContext(connections.find((connection) => connection.id === imageProviderId)),
                   ),
                   images: [...imageReferenceAttachments(referenceImages), ...(attachImage && currentImage ? [{
                     id: 'image-generation-assistant-current',
