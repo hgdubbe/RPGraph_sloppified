@@ -24,4 +24,6 @@ it('keeps local settings and reference capability independent', () => {
   expect(local).not.toContain('REFERENCE EDITING');
   const futureLocal = imageGenerationAssistantPrompt('', { width: 832, height: 1216, characterLora: '' }, '', [], '', '', [], 'Edit', false, false, true, [], true);
   expect(futureLocal).toContain('REFERENCE EDITING');
+  expect(futureLocal).toContain('Only when references are selected');
+  expect(futureLocal).toContain('Without selected references, write a standalone scene prompt');
 });

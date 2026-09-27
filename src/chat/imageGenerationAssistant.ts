@@ -97,7 +97,8 @@ export function imageAssistantInstructions(usesComfy: boolean, supportsReference
     'Without references, describe visible subjects fully from the character database and story context.',
   ].join('\n'), ...(supportsReferences ? [
     'REFERENCE EDITING: When references are selected, the JSON prompt field itself MUST refer explicitly to the relevant Image 1, Image 2, or Image 3. Mentioning them only in reply is insufficient.',
-    'Write an editing instruction, not a replacement standalone scene description. Specify which image supplies each identity, pose, setting, or style, which details to preserve, and the requested changes. Do not replace reference identity with an invented generic person.',
+    'Only when references are selected, write an editing instruction, not a replacement standalone scene description. Specify which image supplies each identity, pose, setting, or style, which details to preserve, and the requested changes. Do not replace reference identity with an invented generic person.',
+    'For reference editing, preserving the requested reference details takes priority over the standalone prompt length and character-description rules. Without selected references, write a standalone scene prompt.',
     'Example prompt: Portrait composition, aspect ratio 3:4. Use the woman from Image 1, preserving her face and hair. Place her in the seated pose from Image 2, with the cat from Image 3 on her lap.',
   ] : [])].join('\n');
 }

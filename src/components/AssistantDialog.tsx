@@ -1,3 +1,4 @@
+import { isTextGenerationConnection } from '../llm/textProvider';
 import React, { useState, useRef, useEffect, useMemo, type FormEvent } from 'react';
 import type { ConnectionPreset, ProviderConnectionHealth, SystemLogEntry, WorkflowNode } from '../types';
 import { NodeCustomSelect } from '../nodes/shared/NodeCustomSelect';
@@ -84,7 +85,7 @@ export function AssistantDialog({
   const title = isNodeMode ? `Ask me anything about: ${node.data.label}` : 'Ask me anything about this workflow';
   const subtitle = isNodeMode ? <>Type: <code>{node.data.nodeType}</code></> : <>Current graph overview</>;
   const [draft, setDraft] = useState('');
-  const llmConnections = connections.filter((connection) => connection.kind !== 'comfyui');
+  const llmConnections = connections.filter((connection) => isTextGenerationConnection(connection, providerHealthById[connection.id]));
   const fallbackConnectionId = defaultConnectionId || llmConnections[0]?.id || '';
   const initialConnectionId = [
     preferredConnectionId,
@@ -190,7 +191,7 @@ export function AssistantDialog({
   }, []);
 
   useEffect(() => {
-    const validConnections = connections.filter((connection) => connection.kind !== 'comfyui');
+    const validConnections = connections.filter((connection) => isTextGenerationConnection(connection, providerHealthById[connection.id]));
     const preferredDialogConnectionId = [
       preferredConnectionId,
       isNodeMode ? node.data.connectionId : undefined,
@@ -206,7 +207,7 @@ export function AssistantDialog({
           : preferredDialogConnectionId
       ));
     });
-  }, [connections, defaultConnectionId, isNodeMode, node, preferredConnectionId]);
+  }, [connections, defaultConnectionId, isNodeMode, node, preferredConnectionId, providerHealthById]);
 
   useEffect(() => {
     let active = true;

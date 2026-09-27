@@ -1,3 +1,4 @@
+import { isTextGenerationConnection } from '../llm/textProvider';
 import { isImageGenerationConnection } from '../images/providers';
 import { usePanelNavigationOverlay } from '../navigation/usePanelNavigation';
 import { parseStorybookContinuation } from '../storybook/assistantConversation';
@@ -465,6 +466,7 @@ const customNodePromptSuggestions = [
 ];
 
 type CustomNodeAssistantDialogProps = {
+  providerHealthById: Record<string, ProviderConnectionHealth>;
   node: WorkflowNode;
   connections: ConnectionPreset[];
   defaultConnectionId: string;
@@ -482,6 +484,7 @@ type CustomNodeAssistantDialogProps = {
 };
 
 export function CustomNodeAssistantDialog({
+  providerHealthById,
   node,
   connections,
   defaultConnectionId,
@@ -499,7 +502,7 @@ export function CustomNodeAssistantDialog({
 }: CustomNodeAssistantDialogProps) {
   const [draft, setDraft] = useState('');
   const [viewMode, setViewMode] = useState<'ui' | 'code' | 'edit'>('ui');
-  const llmConnections = connections.filter((connection) => connection.kind !== 'comfyui');
+  const llmConnections = connections.filter((connection) => isTextGenerationConnection(connection, providerHealthById[connection.id]));
   const fallbackConnectionId = defaultConnectionId || llmConnections[0]?.id || '';
   const [selectedConnectionId, setSelectedConnectionId] = useState(
     [node.data.connectionId, fallbackConnectionId].find((connectionId) =>

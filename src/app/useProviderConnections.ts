@@ -1,3 +1,4 @@
+import { isTextGenerationConnection } from '../llm/textProvider';
 import type { ImageGenerationReference } from '../images/references';
 import { generateApiImages, isImageGenerationConnection, supportsImageGenerationReferences } from '../images/providers';
 import { localModelApi } from '../llm/localModelApi';
@@ -225,7 +226,10 @@ export function useProviderConnections({
   const voiceCleanupWarningCountsRef = useRef<Record<string, number>>({});
 
   function isLlmConnection(connection: ConnectionPreset) {
-    return connection.kind !== 'comfyui';
+    const health = providerHealthByIdRef.current[connection.id];
+    return isTextGenerationConnection(connection, isOpenRouterConnection(connection) && openRouterModelsByConnectionIdRef.current[connection.id]
+      ? { status: health?.status ?? 'unknown', capabilities: openRouterCapabilitiesForConnection(connection, openRouterModelsByConnectionIdRef.current[connection.id]) }
+      : health);
   }
 
   function setImageAssistantModelState(connectionId: string, state: ImageAssistantModelState) {
@@ -2579,7 +2583,7 @@ export function useProviderConnections({
       throw new Error(`Select an LLM connection for ${purpose} first.`);
     }
     if (!isLlmConnection(connection)) {
-      throw new Error(`Select an LLM connection for ${purpose}; "${connection.label}" is a ComfyUI image provider.`);
+      throw new Error(`Select an LLM connection for ${purpose}; "${connection.label}" is not a text generation provider.`);
     }
 
     if (connection.model.trim() &&
@@ -2636,6 +2640,9 @@ export function useProviderConnections({
       cleanupAbort?.();
     }
     if (signal?.aborted) throw new Error('The LLM request was cancelled.');
+    if (!isLlmConnection(connection)) {
+      throw new Error(`Select a text generation provider for ${purpose}.`);
+    }
     if (connection.model.trim()) {
       return connectionWithReasoning(connection);
     }
@@ -2645,6 +2652,7 @@ export function useProviderConnections({
     }
 
     const updated = connectionWithDetectedCapabilities({ ...connection, model: models[0] });
+    if (!isLlmConnection(updated)) throw new Error(`Select a text generation model for ${purpose}.`);
     setConnections((current) =>
       current.map((entry) =>
         entry.id === connection.id && !entry.model.trim() &&

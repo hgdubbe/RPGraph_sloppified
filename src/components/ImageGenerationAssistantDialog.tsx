@@ -1,3 +1,4 @@
+import { isTextGenerationConnection } from '../llm/textProvider';
 import { characterLoraStatus } from '../images/loraCompatibility';
 import { addImageGenerationReference, maxImageGenerationReferences, type ImageGenerationReference } from '../images/references';
 import { isImageGenerationConnection, supportsImageGenerationReferences } from '../images/providers';
@@ -67,6 +68,7 @@ type ImageGenerationAssistantDialogProps = {
     userMessage: string;
     describeImage?: boolean;
     describeFromPromptOnly?: boolean;
+    characterLoraOverride?: boolean;
   }) => Promise<ImageGenerationAssistantResult>;
   onGenerateImages: (request: {
     providerId: string;
@@ -100,7 +102,7 @@ export function ImageGenerationAssistantDialog({
   onGenerateImages,
   onSaveImage,
 }: ImageGenerationAssistantDialogProps) {
-  const llmConnections = connections.filter((connection) => connection.kind !== 'comfyui');
+  const llmConnections = connections.filter((connection) => isTextGenerationConnection(connection, providerHealthById[connection.id]));
   const imageConnections = connections.filter((connection) => isImageGenerationConnection(connection, providerHealthById[connection.id]));
 
   const [assistantProvider, setAssistantProvider] = useState(() => llmConnections[0]?.id ?? '');
@@ -343,6 +345,7 @@ export function ImageGenerationAssistantDialog({
         referenceImages: activeReferences,
         currentPrompt: prompt,
         currentSettings: settings,
+        characterLoraOverride: loraOverride === loraKey,
         currentImage,
         availableCharacterLoras,
         characterContext,
@@ -377,6 +380,7 @@ export function ImageGenerationAssistantDialog({
         referenceImages: selectedAssistantConnection?.vision ? activeReferences : [],
         currentPrompt: prompt,
         currentSettings: readSettings(),
+        characterLoraOverride: loraOverride === loraKey,
         currentImage,
         availableCharacterLoras,
         characterContext,

@@ -5995,12 +5995,13 @@ function App() {
                 userMessage,
                 describeImage,
                 describeFromPromptOnly,
+                characterLoraOverride,
               }) => {
                 await prepareImageAssistantLlmProvider({
                   llmProviderId: connectionId,
                   comfyProviderId: imageProviderId,
                 });
-                const attachImage = !!currentImage && !describeFromPromptOnly && (describeImage || referenceImages.length === 0);
+                const attachImage = !!currentImage && !describeFromPromptOnly;
                 if (attachImage || referenceImages.length > 0) {
                   const visionEnabled = await nodeLlm.supportsVision(
                     connectionId,
@@ -6027,7 +6028,7 @@ function App() {
                     connections.some((connection) => connection.id === imageProviderId && isComfyImageConnection(connection)),
                     referenceImages,
                     supportsImageGenerationReferences(connections.find((connection) => connection.id === imageProviderId), providerHealthById[imageProviderId]),
-                    imageModelContext(connections.find((connection) => connection.id === imageProviderId)),
+                    imageModelContext(connections.find((connection) => connection.id === imageProviderId), currentSettings.characterLora, characterLoraOverride),
                   ),
                   images: [...imageReferenceAttachments(referenceImages), ...(attachImage && currentImage ? [{
                     id: 'image-generation-assistant-current',
@@ -6208,6 +6209,7 @@ function App() {
 
       {customNodeAssistantNode && customNodeAssistantNode.data.nodeType === 'custom' && (
         <CustomNodeAssistantDialog
+          providerHealthById={providerHealthById}
           node={customNodeAssistantNode}
           connections={connections}
           defaultConnectionId={defaultConnectionId}
@@ -6601,7 +6603,7 @@ function App() {
         />
       )}
       {showCharacterAssistant && (
-        <CharacterAssistantDialog referenceCharacters={npcParticipants.registry().characters.map((entry) => entry.character)} initialEntry={characterAssistantEntry} nodeLlm={nodeLlm} connections={connections} defaultConnectionId={defaultConnectionId}
+        <CharacterAssistantDialog providerHealthById={providerHealthById} referenceCharacters={npcParticipants.registry().characters.map((entry) => entry.character)} initialEntry={characterAssistantEntry} nodeLlm={nodeLlm} connections={connections} defaultConnectionId={defaultConnectionId}
           requiredPassword={workspacePassword}
           rpBusy={isRunning}
           onApplyToRp={characterAssistantEntry?.source === `snapshot:${characterAssistantEntry?.character.id}` ? (character) => {

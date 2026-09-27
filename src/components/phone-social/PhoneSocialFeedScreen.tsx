@@ -198,6 +198,7 @@ type PhoneSocialFeedScreenProps = {
     userMessage: string;
     describeImage?: boolean;
     describeFromPromptOnly?: boolean;
+    characterLoraOverride?: boolean;
   }) => Promise<ImageGenerationAssistantResult>;
   onGenerateImageAssistantImages: (request: {
     providerId: string;

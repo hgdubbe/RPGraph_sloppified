@@ -1,3 +1,4 @@
+import { isTextGenerationConnection } from '../llm/textProvider';
 import { usePanelNavigationOverlay } from '../navigation/usePanelNavigation';
 import { CharacterAgencyField } from './CharacterAgencyField';
 import { CharacterRelationships } from './CharacterRelationships';
@@ -6,7 +7,7 @@ import { characterReferenceCandidates, relationshipReferenceContext, validateRel
 import { HiddenAgencyField } from './HiddenAgencyField';
 import { useEffect, useRef, useState } from 'react';
 import type { NodeLlmApi } from '../llm/NodeLlmApi';
-import type { ConnectionPreset, SavedFileSummary } from '../types';
+import type { ConnectionPreset, ProviderConnectionHealth, SavedFileSummary } from '../types';
 import { validateCharacterContainer, type Character } from '../characters/character';
 import type { NpcLibrarySnapshot, NpcLibraryEntry } from '../characters/npcLibrary';
 import { assignCharacterImage, characterAssistantProjection, characterAssistantPrompt,
@@ -32,6 +33,7 @@ type Props = {
   rpBusy?: boolean;
   nodeLlm: NodeLlmApi;
   connections: ConnectionPreset[];
+  providerHealthById: Record<string, ProviderConnectionHealth>;
   defaultConnectionId: string;
   snapshot: NpcLibrarySnapshot | null;
   onSaved: () => Promise<unknown>;
@@ -40,7 +42,7 @@ type Props = {
 type Source = { destination: CharacterDestination; fileName: string; bundled?: boolean };
 type LoadChoice = { key: string; label: string; source: Source; character?: Character; file?: SavedFileSummary };
 
-export function CharacterAssistantDialog({ requiredPassword = '', referenceCharacters = [], initialEntry, onApplyToRp, rpBusy = false, nodeLlm, connections, defaultConnectionId, snapshot, onSaved, onClose }: Props) {
+export function CharacterAssistantDialog({ requiredPassword = '', referenceCharacters = [], initialEntry, onApplyToRp, rpBusy = false, nodeLlm, connections, providerHealthById, defaultConnectionId, snapshot, onSaved, onClose }: Props) {
   const [editingRp, setEditingRp] = useState(!!onApplyToRp);
   const [character, setCharacter] = useState<Character>(() => initialEntry ? { ...structuredClone(initialEntry.character), playable: false } : newAssistantCharacter());
   const current = useRef(character);
@@ -76,7 +78,7 @@ export function CharacterAssistantDialog({ requiredPassword = '', referenceChara
   const chatEnd = useRef<HTMLDivElement>(null);
   const dialogRef = useRef<HTMLElement>(null);
   const dirty = character !== savedCharacter;
-  const llmConnections = connections.filter((entry) => entry.kind !== 'comfyui');
+  const llmConnections = connections.filter((entry) => isTextGenerationConnection(entry, providerHealthById[entry.id]));
   const selectedConnection = llmConnections.find((entry) => entry.id === connectionId);
   const errorText = (error: unknown) => error instanceof Error ? error.message : String(error);
 

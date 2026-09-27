@@ -1,3 +1,4 @@
+import { isTextGenerationConnection } from '../llm/textProvider';
 import { isImageGenerationConnection } from '../images/providers';
 import { reasoningActivation } from '../../shared/reasoning.cjs';
 import { useMemo, useState } from 'react';
@@ -179,10 +180,12 @@ export function useWorkflowCapabilities({
 
     const connectionIsOnline = (connectionId: string) =>
       providerHealthById[connectionId]?.status === 'online';
-    // Plain OpenAI-compatible providers may not report capabilities. Only an
-    // explicit text:false value disqualifies one as a text provider.
-    const connectionTextCapable = (connectionId: string) =>
-      providerHealthById[connectionId]?.capabilities?.text !== false;
+    // Unknown API capabilities remain eligible; image output takes priority
+    // over text, and audio-only models belong to voice generation.
+    const connectionTextCapable = (connectionId: string) => {
+      const connection = connections.find((entry) => entry.id === connectionId);
+      return !!connection && isTextGenerationConnection(connection, providerHealthById[connectionId]);
+    };
     const everyConnectionReady = (
       connectionIds: Set<string>,
       predicate: (connection: ConnectionPreset, id: string) => boolean,

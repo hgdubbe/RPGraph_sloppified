@@ -1,3 +1,4 @@
+import { isComfyImageConnection } from '../comfy/connectionRole';
 import type { ConnectionPreset } from '../types';
 import { comfyCharacterLoraName, defaultComfyLoraSlots, validComfyLoraSlots } from '../settings';
 
@@ -21,8 +22,18 @@ export function characterLoraStatus(connection: ConnectionPreset | undefined, na
   return { active: !!name && hasSlot && (matches || override), hasSlot, matches, reason: reasons.join(' ') };
 }
 
-export function imageModelContext(connection?: ConnectionPreset) {
+export function imageModelContext(connection?: ConnectionPreset, selectedLora = '', override = false) {
+  if (!connection) return 'Image provider: (none)';
+  if (!isComfyImageConnection(connection)) {
+    return `Image provider: ${connection.providerKind || connection.kind}\nImage model: ${connection.model || '(none)'}`;
+  }
+  const status = characterLoraStatus(connection, selectedLora, override);
   return [
+    'Image provider: ComfyUI',
+    `Current selected Character LoRA: ${selectedLora || '(none)'}`,
+    `Current selected Character LoRA active: ${status.active ? 'yes' : 'no'}`,
+    ...(selectedLora && !status.active ? [`Inactive reason: ${status.reason}`] : []),
+    'This activation status applies only to the current selection. Reassess compatibility when choosing a different filename.',
     `Image workflow: ${connection?.comfyWorkflowPath || '(none)'}`,
     `Diffusion model: ${connection?.comfyDiffusionModelName || '(none)'}`,
     `Checkpoint: ${connection?.comfyCheckpointName || '(none)'}`,

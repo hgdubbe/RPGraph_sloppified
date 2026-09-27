@@ -2,7 +2,7 @@ import { expect, it } from 'vitest';
 import { characterLoraStatus, imageModelContext } from './loraCompatibility';
 import { characterComfyLoraSlots, defaultConnection, comfyCharacterLoraName } from '../settings';
 
-const connection = { ...defaultConnection, comfyDiffusionModelName: 'qwen_image_2.1_bf16.safetensors', comfyWorkflowPath: '/work/Qwen-Image-2.1+Edit.json', comfyLoraSlots: [{ name: comfyCharacterLoraName, strength: 1 }] };
+const connection = { ...defaultConnection, kind: 'comfyui' as const, comfyRole: 'image' as const, comfyDiffusionModelName: 'qwen_image_2.1_bf16.safetensors', comfyWorkflowPath: '/work/Qwen-Image-2.1+Edit.json', comfyLoraSlots: [{ name: comfyCharacterLoraName, strength: 1 }] };
 it('activates matching names and requires an override for mismatches or unknown names', () => {
   expect(characterLoraStatus(connection, 'Alice_Qwen-Image.safetensors').active).toBe(true);
   expect(characterLoraStatus(connection, 'Alice_Krea-2.safetensors').active).toBe(false);
@@ -25,4 +25,17 @@ it('fills only assigned character slots and keeps other LoRAs intact', () => {
   ]);
   expect(imageModelContext(connection)).toContain(connection.comfyDiffusionModelName);
   expect(imageModelContext(connection)).toContain(connection.comfyWorkflowPath);
+});
+
+it('exposes the API model without stale local workflow or LoRA metadata', () => {
+  const context = imageModelContext({ ...connection, kind: 'llm', providerKind: 'openrouter', model: 'test/image-model' });
+  expect(context).toContain('openrouter');
+  expect(context).toContain('test/image-model');
+  expect(context).not.toMatch(/LoRA|Checkpoint|Diffusion|Qwen-Image/);
+});
+it('reports current activation rather than relying on stale chat notices', () => {
+  expect(imageModelContext(connection, 'Alice.safetensors')).toContain('Character LoRA active: no');
+  expect(imageModelContext(connection, 'Alice.safetensors', true)).toContain('Character LoRA active: yes');
+  expect(imageModelContext({ ...connection, comfyLoraSlots: [{ name: 'None', strength: 1 }] }, 'Alice.safetensors', true))
+    .toContain('Character LoRA active: no');
 });
