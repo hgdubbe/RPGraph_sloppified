@@ -1221,6 +1221,9 @@ function App() {
     phoneThreadRef,
     scrollPhoneThreadToBottom,
     scrollChatThreadToBottomIfFollowing,
+    chatAutoFollowEngaged,
+    chatUnreadMessageCount,
+    engageChatAutoFollowAndScrollToBottom,
     selectPhoneReplyFromComposer,
     selectPhoneGalleryImageFromComposer,
     selectPhoneEmoji,
@@ -6607,6 +6610,9 @@ function App() {
               {...runProgress(isRunning ? nodes : [])}
               messageStream={messageStream}
               onStreamContentChange={scrollChatThreadToBottomIfFollowing}
+              chatAutoFollowEngaged={chatAutoFollowEngaged}
+              chatUnreadMessageCount={chatUnreadMessageCount}
+              onEngageChatAutoFollow={engageChatAutoFollowAndScrollToBottom}
               storyCharacters={storyCharacters}
               characterColors={characterColors}
               selectedCharacter={selectedCharacter}

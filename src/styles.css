@@ -6692,6 +6692,14 @@ input[type="number"]::-webkit-outer-spin-button {
   cursor: default;
 }
 
+.messages-viewport {
+  position: relative;
+  display: flex;
+  flex: 1;
+  min-height: 0;
+  flex-direction: column;
+}
+
 .messages {
   --chat-card-gap: 24px;
   flex: 1;
@@ -6701,6 +6709,60 @@ input[type="number"]::-webkit-outer-spin-button {
   display: flex;
   flex-direction: column;
   gap: var(--chat-card-gap);
+}
+
+.chat-jump-to-bottom {
+  position: absolute;
+  /* Anchored to .composer-float's own top edge (its nearest positioned
+     ancestor) rather than a fixed offset, so it tracks the composer's
+     actual height instead of assuming one. */
+  bottom: 100%;
+  margin-bottom: 8px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 16px;
+  border: 1px solid var(--theme-border);
+  border-radius: 999px;
+  color: var(--theme-foreground);
+  background: color-mix(in srgb, var(--theme-panel, #101421) 55%, transparent);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.35);
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1;
+  transition: all 0.18s ease;
+  z-index: 6;
+}
+
+.chat-jump-to-bottom:hover {
+  border-color: var(--theme-primary);
+  background: var(--theme-primary);
+  color: var(--theme-primary-foreground, var(--theme-foreground));
+  box-shadow: 0 4px 18px rgba(0, 0, 0, 0.45);
+}
+
+.chat-jump-to-bottom-icon {
+  font-size: 14px;
+  font-weight: 800;
+}
+
+.chat-jump-to-bottom-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 5px;
+  border-radius: 999px;
+  background: var(--theme-app-danger, var(--theme-primary));
+  color: var(--theme-primary-foreground, var(--theme-foreground));
+  font-size: 10px;
+  font-weight: 800;
 }
 
 .phone-desktop {

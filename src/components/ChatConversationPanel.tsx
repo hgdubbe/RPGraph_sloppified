@@ -1541,6 +1541,9 @@ type ChatConversationPanelProps = RunProgress & {
   chatMessageAvatarsEnabled?: boolean;
   messageStream: MessageStream;
   onStreamContentChange: () => void;
+  chatAutoFollowEngaged: boolean;
+  chatUnreadMessageCount: number;
+  onEngageChatAutoFollow: () => void;
   storyCharacters: StorybookCharacter[];
   appCharacters?: StorybookCharacter[];
   /** Show app profile names in chat cards; reserved for a future display setting. */
@@ -1647,6 +1650,7 @@ type ChatConversationPanelProps = RunProgress & {
 export function ChatConversationPanel(props: ChatConversationPanelProps) {
   const handlers = useStableEventHandlers({
     onStreamContentChange: props.onStreamContentChange,
+    onEngageChatAutoFollow: props.onEngageChatAutoFollow,
     onCancelRun: props.onCancelRun,
     onSpeakDialogue: props.onSpeakDialogue,
     onGenerateVoiceMessageClip: props.onGenerateVoiceMessageClip,
@@ -1694,6 +1698,9 @@ const MemoizedChatConversationPanel = memo(function ChatConversationPanelContent
   reasoningTokens,
   messageStream,
   onStreamContentChange,
+  chatAutoFollowEngaged,
+  chatUnreadMessageCount,
+  onEngageChatAutoFollow,
   storyCharacters,
   appCharacters = storyCharacters,
   showProfileNames = false,
@@ -2163,6 +2170,7 @@ const MemoizedChatConversationPanel = memo(function ChatConversationPanelContent
 
   return (
     <>
+      <div className="messages-viewport">
       <div
         className="messages"
         ref={chatThreadRef}
@@ -2234,7 +2242,24 @@ const MemoizedChatConversationPanel = memo(function ChatConversationPanelContent
           />
         ))}
       </div>
+      </div>
       <div className="composer-float">
+        {!chatAutoFollowEngaged && (
+          <button
+            type="button"
+            className="chat-jump-to-bottom"
+            onClick={onEngageChatAutoFollow}
+            aria-label="Jump to latest messages"
+          >
+            <span className="chat-jump-to-bottom-icon" aria-hidden="true">↓</span>
+            <span>Jump to latest</span>
+            {chatUnreadMessageCount > 0 && (
+              <span className="chat-jump-to-bottom-badge">
+                {chatUnreadMessageCount > 99 ? '99+' : chatUnreadMessageCount}
+              </span>
+            )}
+          </button>
+        )}
         <div className="composer-pills-row">
           {characterPicker}
           {switchPill}

@@ -117,7 +117,6 @@ export type RoleplayActivityShortcut = {
 const phoneAuthorBadgesStorageKey = 'rpgraph-phone-author-badges-enabled';
 const chatReadsPhoneAppsStorageKey = 'rpgraph-chat-reads-phone-apps-enabled';
 const contextDrawerWidthStorageKey = 'rpgraph-context-drawer-width';
-const chatAutoFollowBottomMargin = 48;
 
 // Mirrors the dual-pane drawer's own 900px container-query breakpoint
 // (src/styles/roleplay-dual-pane.css) so layout-dependent JS (inert/aria-hidden,
@@ -308,7 +307,14 @@ export function useRoleplayPanelRuntime({
   }, [turns]);
 
   const chatThreadRef = useRef<HTMLDivElement | null>(null);
-  const chatAutoFollowBottomRef = useRef(true);
+  // Explicit engaged/disengaged flag: never inferred from scroll position.
+  // The ref is the source of truth read by imperative scroll code (rAF loops,
+  // event listeners); the state mirror exists purely so the "jump to bottom"
+  // button can react to changes.
+  const chatAutoFollowEngagedRef = useRef(true);
+  const [chatAutoFollowEngaged, setChatAutoFollowEngagedState] = useState(true);
+  const [chatUnreadMessageCount, setChatUnreadMessageCount] = useState(0);
+  const chatPreviousMessageCountRef = useRef(0);
   const chatAutoFollowAnimationFrameRef = useRef(0);
   const chatScrollRequestFrameRef = useRef(0);
   const chatScrollRequestBehaviorRef = useRef<ScrollBehavior | null>(null);
@@ -316,7 +322,14 @@ export function useRoleplayPanelRuntime({
   const chatAutoFollowAnimatingRef = useRef(false);
   const chatAutoFollowProgrammaticScrollRef = useRef(false);
   const chatAutoFollowProgrammaticClearFrameRef = useRef(0);
-  const chatWheelFollowCheckFrameRef = useRef(0);
+
+  const setChatAutoFollowEngaged = useCallback((engaged: boolean) => {
+    chatAutoFollowEngagedRef.current = engaged;
+    setChatAutoFollowEngagedState(engaged);
+    if (engaged) {
+      setChatUnreadMessageCount(0);
+    }
+  }, []);
   const phoneImageInputRef = useRef<HTMLInputElement | null>(null);
   const phoneEmojiPickerRef = useRef<HTMLDivElement | null>(null);
   const phoneThreadRef = useRef<HTMLDivElement | null>(null);
@@ -1443,7 +1456,7 @@ export function useRoleplayPanelRuntime({
 
   const animateChatThreadToBottom = useCallback(() => {
     const thread = chatThreadRef.current;
-    if (!thread || !chatAutoFollowBottomRef.current) {
+    if (!thread || !chatAutoFollowEngagedRef.current) {
       cancelChatAutoFollowAnimation();
       return;
     }
@@ -1454,7 +1467,7 @@ export function useRoleplayPanelRuntime({
     let pixelsPerSecond = baseSpeed;
     const step = (timestamp: number) => {
       const currentThread = chatThreadRef.current;
-      if (!currentThread || !chatAutoFollowBottomRef.current) {
+      if (!currentThread || !chatAutoFollowEngagedRef.current) {
         cancelChatAutoFollowAnimation();
         return;
       }
@@ -1505,7 +1518,7 @@ export function useRoleplayPanelRuntime({
       const requestedBehavior = chatScrollRequestBehaviorRef.current;
       chatScrollRequestBehaviorRef.current = null;
       const thread = chatThreadRef.current;
-      if (!thread || (onlyIfFollowing && !chatAutoFollowBottomRef.current)) {
+      if (!thread || (onlyIfFollowing && !chatAutoFollowEngagedRef.current)) {
         return;
       }
       if (requestedBehavior === 'smooth') {
@@ -1529,24 +1542,28 @@ export function useRoleplayPanelRuntime({
     smoothChatAutoScrollEnabled,
   ]);
 
-  function chatThreadIsNearBottom(thread: HTMLDivElement, strict = false) {
-    // Re-engage auto-follow anywhere in the lower stretch of the viewport, not
-    // only within a few pixels of the bottom, so "almost at the bottom"
-    // counts. A wheel-driven check asks for the strict, fixed margin instead
-    // -- see the wheel handler below for why.
-    const followMargin = strict
-      ? chatAutoFollowBottomMargin
-      : Math.max(chatAutoFollowBottomMargin, thread.clientHeight * 0.1);
-    return (
-      thread.scrollHeight - thread.scrollTop - thread.clientHeight <= followMargin
-    );
-  }
-
   const scrollChatThreadToBottomIfFollowing = useCallback((behavior: ScrollBehavior = 'smooth') => {
-    if (chatAutoFollowBottomRef.current) {
+    if (chatAutoFollowEngagedRef.current) {
       scrollChatThreadToBottom(behavior, true);
     }
   }, [scrollChatThreadToBottom]);
+
+  // Explicit user action re-engages auto-follow and jumps to the bottom. Used
+  // by the "jump to bottom" button; reuses the same smooth/instant machinery
+  // as every other auto-follow scroll.
+  const engageChatAutoFollowAndScrollToBottom = useCallback((behavior: ScrollBehavior = 'smooth') => {
+    setChatAutoFollowEngaged(true);
+    scrollChatThreadToBottom(behavior);
+  }, [scrollChatThreadToBottom, setChatAutoFollowEngaged]);
+
+  // Keys that drive scrolling at all, split into the "toward the top" subset
+  // that counts as a disengage signal (below) vs. the "toward the bottom"
+  // subset that does not (ArrowDown/PageDown/End/plain Space keep following).
+  const chatScrollUpKeys = useMemo(() => new Set(['ArrowUp', 'PageUp', 'Home']), []);
+  const chatScrollKeys = useMemo(
+    () => new Set([...chatScrollUpKeys, 'ArrowDown', 'PageDown', 'End', ' ']),
+    [chatScrollUpKeys],
+  );
 
   useEffect(() => {
     if (!chatVisible) {
@@ -1556,83 +1573,187 @@ export function useRoleplayPanelRuntime({
     if (!thread) {
       return undefined;
     }
-    // Pause the follow animation while the user interacts (wheel, touch,
-    // scrollbar drag, keys) so it never fights their input.
-    //
-    // Wheel input gets its own, stronger path instead of relying on the
-    // native 'scroll' event: that event is dispatched asynchronously, with
-    // no guaranteed ordering against a streamed message update (which is
-    // driven by network/timer callbacks, not by the scroll/rAF pipeline).
-    // Every previous fix here tried to win that race by shrinking or
-    // bypassing it and kept losing, because the race itself was the wrong
-    // thing to fight. Instead: cancel any in-flight animation synchronously
-    // (so it can't keep writing scrollTop this frame), then, once the
-    // browser has actually applied the wheel's scroll (one rAF later --
-    // this is deterministic, unlike waiting on 'scroll'), read the thread's
-    // real position with the strict/fixed margin and write the follow ref
-    // directly. Only the most recent wheel tick's check is kept, so a fast
-    // scroll gesture doesn't pile up stale reads against a moving target.
-    const markUserScrollIntent = (event: Event) => {
+    // Any user-initiated scroll interaction disengages auto-follow. This is
+    // driven entirely by the interaction event itself (its target, its
+    // direction) — never by where the thread's scrollTop ends up, and never
+    // by waiting on the native 'scroll' event to confirm anything.
+    const disengage = () => {
       cancelChatAutoFollowAnimation();
-      if (event?.type !== 'wheel') {
+      setChatAutoFollowEngaged(false);
+    };
+    // A nested scrollable (e.g. a wide code block or an embedded gallery)
+    // between the event target and the thread can absorb the interaction
+    // itself, in which case it isn't aimed at the chat thread at all.
+    // Duck-typed element checks (rather than `instanceof HTMLElement`/`Node`)
+    // so this keeps working under any host that exposes DOM-shaped nodes.
+    const asElement = (node: unknown): HTMLElement | null =>
+      node != null && typeof (node as HTMLElement).nodeType === 'number'
+          && (node as HTMLElement).nodeType === 1
+        ? (node as HTMLElement)
+        : null;
+    const isInsideNestedScrollable = (target: EventTarget | null, axis: 'x' | 'y') => {
+      let node = asElement(target);
+      while (node && (node as unknown) !== thread) {
+        if (typeof window !== 'undefined' && typeof window.getComputedStyle === 'function') {
+          const style = window.getComputedStyle(node);
+          const overflow = axis === 'x' ? style.overflowX : style.overflowY;
+          const scrollable = overflow === 'auto' || overflow === 'scroll';
+          const canScroll = axis === 'x'
+            ? node.scrollWidth > node.clientWidth
+            : node.scrollHeight > node.clientHeight;
+          if (scrollable && canScroll) {
+            return true;
+          }
+        }
+        node = asElement(node.parentNode);
+      }
+      return false;
+    };
+    const isScrollbarPointerEvent = (event: PointerEvent) => {
+      if (event.target !== thread || typeof thread.getBoundingClientRect !== 'function') {
+        return false;
+      }
+      const rect = thread.getBoundingClientRect();
+      return event.clientX >= rect.left + thread.clientWidth
+        || event.clientY >= rect.top + thread.clientHeight;
+    };
+    const handleWheel = (event: WheelEvent) => {
+      if (event.deltaY === 0) {
+        // Pure horizontal wheel can't move the (vertically scrolling) thread.
         return;
       }
-      if (chatWheelFollowCheckFrameRef.current) {
-        cancelAnimationFrame(chatWheelFollowCheckFrameRef.current);
+      if (isInsideNestedScrollable(event.target, 'y')) {
+        return;
       }
-      chatWheelFollowCheckFrameRef.current = requestAnimationFrame(() => {
-        chatWheelFollowCheckFrameRef.current = 0;
-        const currentThread = chatThreadRef.current;
-        if (!currentThread) {
+      if (event.deltaY < 0) {
+        disengage();
+      }
+      // Scrolling down (deltaY > 0) never re-engages by itself; only the
+      // button, sending a message, or starting a new turn does that.
+    };
+    let lastTouchY: number | null = null;
+    const handleTouchStart = (event: TouchEvent) => {
+      lastTouchY = event.touches[0]?.clientY ?? null;
+    };
+    const handleTouchMove = (event: TouchEvent) => {
+      if (isInsideNestedScrollable(event.target, 'y') || isInsideNestedScrollable(event.target, 'x')) {
+        return;
+      }
+      const previousY = lastTouchY;
+      const currentY = event.touches[0]?.clientY;
+      lastTouchY = currentY ?? null;
+      // Finger moving down the screen pans content up, away from the bottom;
+      // an unreadable/unknown direction disengages too (the gesture wins).
+      if (currentY === undefined || previousY === null || currentY > previousY) {
+        disengage();
+      }
+    };
+    // A pointerdown by itself is not a scroll (it may just be a tap on an
+    // in-page button or expandable block) — it only aborts any in-flight
+    // follow animation so it never fights the tap. Pressing down on the
+    // native scrollbar gutter specifically, though, is a scroll gesture.
+    const handlePointerDown = (event: PointerEvent) => {
+      cancelChatAutoFollowAnimation();
+      if (isScrollbarPointerEvent(event)) {
+        setChatAutoFollowEngaged(false);
+      }
+    };
+    const isEditableTarget = (target: EventTarget | null) => {
+      const element = asElement(target);
+      if (!element) {
+        return false;
+      }
+      const tag = element.tagName.toLowerCase();
+      return tag === 'input' || tag === 'textarea' || tag === 'select' || element.isContentEditable;
+    };
+    const isActivatableTarget = (target: EventTarget | null) => {
+      const element = asElement(target);
+      if (!element) {
+        return false;
+      }
+      const tag = element.tagName.toLowerCase();
+      return tag === 'button' || tag === 'summary'
+        || (tag === 'a' && element.hasAttribute('href')) || element.getAttribute('role') === 'button';
+    };
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (!chatScrollKeys.has(event.key) || isEditableTarget(event.target)) {
+        return;
+      }
+      if (isInsideNestedScrollable(event.target, 'y')) {
+        return;
+      }
+      if (event.key === ' ') {
+        // Space activates a focused button/link rather than scrolling.
+        if (isActivatableTarget(event.target)) {
           return;
         }
-        chatAutoFollowBottomRef.current = chatThreadIsNearBottom(currentThread, true);
-      });
-    };
-    // Non-wheel interactions (touch, scrollbar drag, keyboard) still decide
-    // follow purely from where the native 'scroll' event lands: a click or
-    // key press that scrolls nothing leaves auto-follow untouched.
-    const updateAutoFollow = () => {
-      if (
-        chatAutoFollowProgrammaticScrollRef.current ||
-        chatAutoFollowAnimatingRef.current
-      ) {
-        chatAutoFollowBottomRef.current = true;
+        if (event.shiftKey) {
+          disengage();
+        }
         return;
       }
-      chatAutoFollowBottomRef.current = chatThreadIsNearBottom(thread);
+      if (chatScrollUpKeys.has(event.key)) {
+        disengage();
+      }
     };
-    thread.addEventListener('wheel', markUserScrollIntent, { passive: true });
-    thread.addEventListener('touchstart', markUserScrollIntent, { passive: true });
-    thread.addEventListener('pointerdown', markUserScrollIntent, { passive: true });
-    thread.addEventListener('keydown', markUserScrollIntent);
-    thread.addEventListener('scroll', updateAutoFollow, { passive: true });
+    thread.addEventListener('wheel', handleWheel, { passive: true });
+    thread.addEventListener('touchstart', handleTouchStart, { passive: true });
+    thread.addEventListener('touchmove', handleTouchMove, { passive: true });
+    thread.addEventListener('pointerdown', handlePointerDown, { passive: true });
+    thread.addEventListener('keydown', handleKeyDown);
     return () => {
       cancelChatAutoFollowAnimation();
-      if (chatWheelFollowCheckFrameRef.current) {
-        cancelAnimationFrame(chatWheelFollowCheckFrameRef.current);
-        chatWheelFollowCheckFrameRef.current = 0;
-      }
-      thread.removeEventListener('wheel', markUserScrollIntent);
-      thread.removeEventListener('touchstart', markUserScrollIntent);
-      thread.removeEventListener('pointerdown', markUserScrollIntent);
-      thread.removeEventListener('keydown', markUserScrollIntent);
-      thread.removeEventListener('scroll', updateAutoFollow);
+      thread.removeEventListener('wheel', handleWheel);
+      thread.removeEventListener('touchstart', handleTouchStart);
+      thread.removeEventListener('touchmove', handleTouchMove);
+      thread.removeEventListener('pointerdown', handlePointerDown);
+      thread.removeEventListener('keydown', handleKeyDown);
     };
-  }, [cancelChatAutoFollowAnimation, chatVisible, chatPanelView, panelSessionRevision]);
+  }, [cancelChatAutoFollowAnimation, chatPanelView, chatScrollKeys, chatScrollUpKeys, panelSessionRevision, setChatAutoFollowEngaged]);
 
   useEffect(() => {
-    if (chatVisible) {
-      chatAutoFollowBottomRef.current = true;
+    if (chatPanelView === 'chat') {
+      // Synchronizing with the view/session change, not deriving render state.
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setChatAutoFollowEngaged(true);
       scrollChatThreadToBottom();
     }
-  }, [chatPanelView, panelSessionRevision, scrollChatThreadToBottom]);
+  }, [chatPanelView, panelSessionRevision, scrollChatThreadToBottom, setChatAutoFollowEngaged]);
+
+  // Starting a new turn (the player sent a message, or generation begins) is
+  // an explicit continue-the-conversation action distinct from mere content
+  // growth mid-stream: it re-engages immediately, even if the user had
+  // scrolled away to read history.
+  const chatWasRunningRef = useRef(isRunning);
+  useEffect(() => {
+    const wasRunning = chatWasRunningRef.current;
+    chatWasRunningRef.current = isRunning;
+    if (chatPanelView === 'chat' && isRunning && !wasRunning) {
+      setChatAutoFollowEngaged(true);
+      scrollChatThreadToBottom();
+    }
+  }, [chatPanelView, isRunning, scrollChatThreadToBottom, setChatAutoFollowEngaged]);
 
   useEffect(() => {
-    if (chatVisible) {
-      scrollChatThreadToBottomIfFollowing();
+    const previousMessageCount = chatPreviousMessageCountRef.current;
+    chatPreviousMessageCountRef.current = messages.length;
+    if (chatPanelView !== 'chat') {
+      return;
     }
-  }, [chatVisible, messages, scrollChatThreadToBottomIfFollowing]);
+    const newMessageCount = messages.length - previousMessageCount;
+    if (newMessageCount <= 0) {
+      return;
+    }
+    // New content while engaged keeps following, exactly as before. New
+    // content while disengaged (the user deliberately scrolled away) must not
+    // force a resume or a scroll: surface it as an unread count on the "jump
+    // to bottom" button instead.
+    if (chatAutoFollowEngagedRef.current) {
+      scrollChatThreadToBottomIfFollowing();
+    } else {
+      setChatUnreadMessageCount((count) => count + newMessageCount);
+    }
+  }, [chatPanelView, messages, scrollChatThreadToBottomIfFollowing]);
 
   const roleplayShortcuts = useMemo<RoleplayActivityShortcut[]>(() => {
     let latestChatMessage: MessageRecord | undefined;
@@ -1904,6 +2025,9 @@ export function useRoleplayPanelRuntime({
     phoneThreadRef,
     scrollPhoneThreadToBottom,
     scrollChatThreadToBottomIfFollowing,
+    chatAutoFollowEngaged,
+    chatUnreadMessageCount,
+    engageChatAutoFollowAndScrollToBottom,
     selectPhoneReplyFromComposer,
     selectPhoneGalleryImageFromComposer,
     selectPhoneEmoji,
