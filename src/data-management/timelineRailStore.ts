@@ -17,12 +17,12 @@ import { socialAppNames } from '../chat/socialMedia';
  * There is no "system/tool-agent" marker: `TurnRecordMode` only has
  * 'user' | 'auto-turn' | 'narrator', so that case is intentionally absent,
  * not defaulted away. */
-export type RailTurnMarkerShape = 'circle' | 'group' | 'triangle' | 'hollow';
+type RailTurnMarkerShape = 'circle' | 'group' | 'triangle' | 'hollow';
 
 /** In-fiction app identity for the medium marker, reusing the same app
  * roster/icons as `PhoneAppSwitcherStrip` (WhatsUp/Fotogram/OnlyFriends/
  * MatchMe/Banking) instead of generic category icons. */
-export type RailMediumKind = 'in-person' | 'narration' | 'whatsup' | 'fotogram' | 'onlyfriends' | 'matchme' | 'banking';
+export type RailMediumKind = 'in-person' | 'narration' | 'whatsup' | 'fotogram' | 'onlyfriends' | 'matchme' | 'banking' | 'notes';
 
 type RailMedium = {
   kind: RailMediumKind;
@@ -48,6 +48,8 @@ export type TimelineRailTurnNode = {
   sequenceLabel: string;
   markerShape: RailTurnMarkerShape;
   speakerLabel: string;
+  speakerNames: string[];
+  notes: { title: string; action: 'Created' | 'Updated' | 'Deleted' }[];
   medium?: RailMedium;
   /** Diegetic time-of-day if tracked, else a non-blank fallback -- never empty. */
   rpTimestamp: string;
@@ -94,6 +96,9 @@ function turnMessages(turn: TurnRecord): MessageRecord[] {
 }
 
 function messageMedium(message: MessageRecord): RailMedium | undefined {
+  if (message.createdPhoneNote || message.deletedPhoneNote) {
+    return { kind: 'notes', label: 'Notes' };
+  }
   if (message.socialPost) {
     const app = message.socialPost.app;
     return { kind: app, label: socialAppNames[app] };
@@ -113,17 +118,21 @@ function messageMedium(message: MessageRecord): RailMedium | undefined {
 
 /** App-aware medium detection, reusing the same in-fiction app roster as the
  * phone's own app switcher (WhatsUp/Fotogram/OnlyFriends/MatchMe/Banking)
- * rather than generic category icons. Narrator turns are always tagged
- * "Narration" regardless of message content. First non-default medium found
+ * rather than generic category icons. Note activity takes precedence so
+ * generated notes remain visible even in narrator turns. Otherwise narrator
+ * turns are tagged "Narration". First non-default medium found
  * across the turn's messages wins; falls back to the plain in-person speech
  * bubble when the turn has messages but none carry a more specific medium.
  * Omits the slot entirely (returns undefined) only when the turn has no
  * messages at all to read a medium from. */
 function turnMedium(turn: TurnRecord): RailMedium | undefined {
+  const messages = turnMessages(turn);
+  if (messages.some((message) => message.createdPhoneNote || message.deletedPhoneNote)) {
+    return { kind: 'notes', label: 'Notes' };
+  }
   if (turn.mode === 'narrator') {
     return { kind: 'narration', label: 'Narration' };
   }
-  const messages = turnMessages(turn);
   if (messages.length === 0) {
     return undefined;
   }
@@ -143,6 +152,8 @@ function turnSpeakerNames(turn: TurnRecord): string[] {
   for (const message of ordered) {
     const messageNames = message.speakerNames ?? (message.speakerName ? [message.speakerName] : []);
     messageNames.forEach((name) => names.add(name));
+    const noteOwner = message.createdPhoneNote?.characterName ?? message.deletedPhoneNote?.characterName;
+    if (noteOwner) names.add(noteOwner);
   }
   return [...names];
 }
@@ -274,6 +285,19 @@ function deriveTimelineRailTurnNode(
     sequenceLabel: `#${turn.number}`,
     markerShape: turnMarkerShape(turn),
     speakerLabel: turnSpeakerLabel(turn),
+    speakerNames: turn.mode === 'narrator' ? [] : turnSpeakerNames(turn),
+    notes: turnMessages(turn).flatMap<TimelineRailTurnNode['notes'][number]>((message) => {
+      if (message.createdPhoneNote) {
+        return [{
+          title: message.createdPhoneNote.note.title || 'Untitled Note',
+          action: message.createdPhoneNote.operation === 'update' ? 'Updated' : 'Created',
+        }];
+      }
+      if (message.deletedPhoneNote) {
+        return [{ title: message.deletedPhoneNote.note.title || 'Untitled Note', action: 'Deleted' }];
+      }
+      return [];
+    }),
     medium: turnMedium(turn),
     rpTimestamp: timestamp.text,
     hasRpDateTime: timestamp.tracked,

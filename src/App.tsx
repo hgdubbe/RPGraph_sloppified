@@ -7059,6 +7059,7 @@ function App() {
             timelineContent={
               <TimelinePanel
                 key={panelSessionRevision}
+                characterColors={characterColors}
                 upcomingEvents={upcomingEvents}
                 highlightedEventIds={highlightedEventIds}
                 eventManagerAvailable={eventManagerAvailable}

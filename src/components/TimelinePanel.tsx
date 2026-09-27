@@ -1,15 +1,16 @@
 import { useState, type ReactNode } from 'react';
 import type { RpAppointment, RpDateTimeFormat, RpWeekdayLanguage, TurnRecord } from '../types';
+import { CharacterName } from './CharacterName';
 import {
   buildTimelineRail,
   type RailMediumKind,
-  type RailTurnMarkerShape,
   type TimelineRailEventNode,
   type TimelineRailNode,
   type TimelineRailTurnNode,
 } from '../data-management/timelineRailStore';
 
 type TimelinePanelProps = {
+  characterColors: Map<string, string>;
   // Event Manager: kept fully functional in this panel (see architect notes)
   // -- each event's rail entry gets inline run/cancel buttons instead of the
   // old separate selected-event detail pane.
@@ -30,46 +31,17 @@ type TimelinePanelProps = {
   turnControlsHeader: ReactNode;
 };
 
-// -- Shape-only icon vocabulary -----------------------------------------
-// No color-coding anywhere in this panel: every state is conveyed by shape,
-// weight, outline style, or icon, never hue. Icons use currentColor only.
-
-function TurnMarkerIcon({ shape }: { shape: RailTurnMarkerShape }) {
-  switch (shape) {
-    case 'circle':
-      return (
-        <svg className="rail-marker-icon" width="14" height="14" viewBox="0 0 14 14" aria-hidden="true">
-          <circle cx="7" cy="7" r="5" fill="currentColor" />
-        </svg>
-      );
-    case 'group':
-      return (
-        <svg className="rail-marker-icon" width="16" height="14" viewBox="0 0 16 14" aria-hidden="true">
-          <circle cx="6" cy="7" r="5" fill="currentColor" opacity="0.55" />
-          <circle cx="10" cy="7" r="5" fill="currentColor" />
-        </svg>
-      );
-    case 'triangle':
-      return (
-        <svg className="rail-marker-icon" width="14" height="14" viewBox="0 0 14 14" aria-hidden="true">
-          <path d="M7 2 L12.5 12 L1.5 12 Z" fill="currentColor" />
-        </svg>
-      );
-    case 'hollow':
-    default:
-      return (
-        <svg className="rail-marker-icon" width="14" height="14" viewBox="0 0 14 14" aria-hidden="true">
-          <circle cx="7" cy="7" r="5" fill="none" stroke="currentColor" strokeWidth="1.4" strokeDasharray="2.5 2" />
-        </svg>
-      );
-  }
-}
-
 // Reuses the exact glyphs from PhoneAppSwitcherStrip's in-fiction app roster
 // (WhatsUp/Fotogram/OnlyFriends/MatchMe/Banking) so the timeline's medium
 // marker reads as "which app" rather than a generic message-type icon.
 function mediumIconPath(kind: RailMediumKind) {
   switch (kind) {
+    case 'notes':
+      return (
+        <svg className="rail-medium-icon" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+          <path d="M5 3h14v13l-5 5H5zM14 21v-5h5M8 8h8M8 12h6" />
+        </svg>
+      );
     case 'whatsup':
       return (
         <svg className="rail-medium-icon" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
@@ -127,22 +99,22 @@ function AttachmentIcons({ images, voiceClips }: { images: number; voiceClips: n
   return (
     <span className="rail-attachments" aria-label="Attachments">
       {images > 0 && (
-        <span className="rail-attachment-chip">
-          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+        <span className="rail-attachment-chip" aria-label={`${images} image${images === 1 ? '' : 's'}`}>
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
             <rect x="3" y="4" width="18" height="16" rx="2" />
             <circle cx="9" cy="10" r="1.6" fill="currentColor" stroke="none" />
             <path d="M21 16l-5.5-5.5L9 17" />
           </svg>
-          <span>{images}</span>
+          <span>{images} <small>{images === 1 ? 'image' : 'images'}</small></span>
         </span>
       )}
       {voiceClips > 0 && (
-        <span className="rail-attachment-chip">
-          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+        <span className="rail-attachment-chip" aria-label={`${voiceClips} voice clip${voiceClips === 1 ? '' : 's'}`}>
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
             <rect x="9" y="2.5" width="6" height="11" rx="3" />
             <path d="M5.5 11a6.5 6.5 0 0 0 13 0M12 17.5v3.5" />
           </svg>
-          <span>{voiceClips}</span>
+          <span>{voiceClips} <small>{voiceClips === 1 ? 'voice clip' : 'voice clips'}</small></span>
         </span>
       )}
     </span>
@@ -194,14 +166,15 @@ function HistoryBadges({ reroll, rephrase, onClick }: { reroll: number; rephrase
   );
 }
 
-function TurnRailNode({ node, onJumpToTurn }: { node: TimelineRailTurnNode; onJumpToTurn: (turnId: string) => void }) {
+function TurnRailNode({ node, onJumpToTurn, characterColors }: { node: TimelineRailTurnNode; onJumpToTurn: (turnId: string) => void; characterColors: Map<string, string> }) {
   return (
     <div
-      className={`rail-node rail-turn-node${node.isCurrent ? ' is-current' : ''}`}
+      className={`rail-node rail-turn-node${node.isCurrent ? ' is-current' : ''}${node.attachments.images > 0 ? ' has-images' : ''}`}
       role="button"
       tabIndex={0}
       onClick={() => onJumpToTurn(node.id)}
       onKeyDown={(event) => {
+        if (event.target !== event.currentTarget) return;
         if (event.key === 'Enter' || event.key === ' ') {
           event.preventDefault();
           onJumpToTurn(node.id);
@@ -209,13 +182,20 @@ function TurnRailNode({ node, onJumpToTurn }: { node: TimelineRailTurnNode; onJu
       }}
       aria-label={`Jump to turn ${node.turnNumber}, ${node.speakerLabel}`}
     >
-      <span className="rail-node-marker" aria-hidden="true">
-        <TurnMarkerIcon shape={node.markerShape} />
+      <span className="rail-node-marker" aria-hidden="true" title={node.medium?.label ?? 'In-person'}>
+        {mediumIconPath(node.medium?.kind ?? 'in-person')}
       </span>
       <div className="rail-node-body">
         <div className="rail-node-row rail-node-row-primary">
-          <span className="rail-speaker-label">{node.speakerLabel}</span>
-          <span className="rail-sequence">{node.sequenceLabel}</span>
+          <span className="rail-speaker-label">
+            {node.speakerNames.length > 0 ? node.speakerNames.map((name, index) => (
+              <span key={name}>{index > 0 && ', '}<CharacterName color={characterColors.get(name)}>{name}</CharacterName></span>
+            )) : node.speakerLabel}
+          </span>
+          <span className="rail-turn-meta">
+            {node.isCurrent && <span className="rail-current-label">Latest</span>}
+            <span className="rail-sequence">{node.sequenceLabel}</span>
+          </span>
         </div>
         <div className="rail-node-row rail-node-row-secondary">
           <span className="rail-node-time">
@@ -224,19 +204,29 @@ function TurnRailNode({ node, onJumpToTurn }: { node: TimelineRailTurnNode; onJu
           </span>
           {node.medium && (
             <span className="rail-medium" title={node.medium.label}>
-              {mediumIconPath(node.medium.kind)}
               <span className="rail-medium-label">{node.medium.label}</span>
             </span>
           )}
         </div>
-        <div className="rail-node-row rail-node-row-footer">
-          <AttachmentIcons images={node.attachments.images} voiceClips={node.attachments.voiceClips} />
+        {node.attachments.images > 0 && (
+          <span className="rail-image-summary">
+            <AttachmentIcons images={node.attachments.images} voiceClips={0} />
+          </span>
+        )}
+        <AttachmentIcons images={0} voiceClips={node.attachments.voiceClips} />
+        {node.notes.map((note, index) => (
+          <div className="rail-note-summary" key={index}>
+            <small>{note.action} note</small>
+            <span>{note.title}</span>
+          </div>
+        ))}
+        {(node.badges.reroll > 0 || node.badges.rephrase > 0) && <div className="rail-node-row rail-node-row-footer">
           <HistoryBadges
             reroll={node.badges.reroll}
             rephrase={node.badges.rephrase}
             onClick={() => onJumpToTurn(node.id)}
           />
-        </div>
+        </div>}
       </div>
     </div>
   );
@@ -313,7 +303,7 @@ function EventRailNode({
             title="Cancel event"
             onClick={() => onCancelEvent(node.id)}
           >
-            <span aria-hidden="true">X</span>
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" aria-hidden="true"><path d="m6 6 12 12M18 6 6 18" /></svg>
           </button>
         </div>
       )}
@@ -323,6 +313,7 @@ function EventRailNode({
 
 function RailNodeRenderer({
   node,
+  characterColors,
   eventManagerAvailable,
   runDisabled,
   isRunning,
@@ -332,6 +323,7 @@ function RailNodeRenderer({
   onCancelEvent,
 }: {
   node: TimelineRailNode;
+  characterColors: Map<string, string>;
   eventManagerAvailable: boolean;
   runDisabled: boolean;
   isRunning: boolean;
@@ -341,7 +333,7 @@ function RailNodeRenderer({
   onCancelEvent: (eventId: string) => void;
 }) {
   if (node.kind === 'turn') {
-    return <TurnRailNode node={node} onJumpToTurn={onJumpToTurn} />;
+    return <TurnRailNode node={node} onJumpToTurn={onJumpToTurn} characterColors={characterColors} />;
   }
   return (
     <EventRailNode
@@ -376,6 +368,7 @@ function CollapseChevron({ collapsed }: { collapsed: boolean }) {
 }
 
 export function TimelinePanel({
+  characterColors,
   upcomingEvents,
   highlightedEventIds,
   eventManagerAvailable,
@@ -430,14 +423,13 @@ export function TimelinePanel({
           }}
         >
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-            <rect x="4" y="4" width="16" height="16" rx="2.5" />
-            <path d="M8 12h8" />
+            <path d={collapsedSections.size > 0 ? 'm8 8 4 4 4-4M8 13l4 4 4-4' : 'm8 11 4-4 4 4M8 16l4-4 4 4'} />
           </svg>
         </button>
       </div>
       {!eventManagerAvailable && (
-        <div className="events-disabled-overlay">
-          <div className="events-disabled-message">
+        <div className="rail-connection-notice" role="status">
+          <div className="rail-connection-message">
             <span className="events-disabled-icon" aria-hidden="true">
               <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
                 <path d="M9 7V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v3" />
@@ -445,7 +437,7 @@ export function TimelinePanel({
               </svg>
             </span>
             <strong>Event Manager not connected</strong>
-            <small>Events won't appear on the timeline until it's connected to the workflow.</small>
+            <small>Connect it to include events in your timeline.</small>
           </div>
         </div>
       )}
@@ -457,7 +449,7 @@ export function TimelinePanel({
             const key = sectionKey(section, index);
             const collapsed = collapsedSections.has(key);
             return (
-              <section className="rail-section" key={key} aria-label={section.label}>
+              <section className={`rail-section${section.isPlanned ? ' is-planned' : ''}`} key={key} aria-label={section.label}>
                 {section.label && (
                   <button
                     type="button"
@@ -477,6 +469,7 @@ export function TimelinePanel({
                     {section.nodes.map((node) => (
                       <RailNodeRenderer
                         key={`${node.kind}-${node.id}`}
+                        characterColors={characterColors}
                         node={node}
                         eventManagerAvailable={eventManagerAvailable}
                         runDisabled={runDisabled}

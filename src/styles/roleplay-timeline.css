@@ -2,13 +2,12 @@
   display: flex;
   flex-direction: column;
   height: 100%;
+  min-width: 0;
   overflow: hidden;
 }
 
 .timeline-recent-turns-header {
-  position: sticky;
-  top: 0;
-  z-index: 1;
+  flex: none;
   padding: 8px 10px;
   background: var(--theme-card-strong);
   border-bottom: 1px solid var(--theme-border-soft);
@@ -22,41 +21,41 @@
   min-width: 0;
 }
 
-/* -- Structural timeline rail -------------------------------------------
-   Read-only navigation: shape/icon/text only, no color-coding. Every state
-   (current turn, unread event, tracked vs fallback timestamp) is conveyed by
-   weight, outline style, or an icon/glyph change -- never by hue. */
-
+/* Open structural index, adapted from the vertical-rail concept.
+   Every surface, text color and corner shape follows the studio theme. */
 .timeline-rail-panel {
   position: relative;
+  color: var(--theme-app-text);
+  background: var(--theme-app-surface);
+  container-type: inline-size;
 }
 
 .rail-panel-header {
   display: flex;
+  flex: none;
   align-items: center;
   justify-content: space-between;
-  gap: 8px;
-  padding: 10px 10px 8px;
+  gap: 16px;
+  padding: 18px;
   border-bottom: 1px solid var(--theme-border-soft);
 }
 
 .rail-panel-heading {
   display: flex;
   flex-direction: column;
-  gap: 1px;
+  gap: 3px;
   min-width: 0;
 }
 
 .rail-panel-heading strong {
-  font-size: 14px;
-  font-weight: 800;
-  color: var(--theme-app-text, #edf1ff);
+  font-size: 0.9375rem;
+  font-weight: var(--theme-font-weight-heading, 500);
 }
 
 .rail-panel-heading small {
-  font-size: 10.5px;
-  font-weight: 600;
-  color: var(--theme-muted-foreground, #9fb0df);
+  font-size: 0.75rem;
+  font-weight: var(--theme-font-weight, 400);
+  color: var(--theme-muted-foreground);
 }
 
 .rail-panel-collapse-all {
@@ -64,17 +63,19 @@
   flex: none;
   align-items: center;
   justify-content: center;
-  width: 26px;
-  height: 26px;
+  width: 36px;
+  height: 36px;
+  padding: 0;
   border: 1px solid var(--theme-border-soft);
-  border-radius: 6px;
-  color: var(--theme-app-text, #edf1ff);
+  border-radius: var(--theme-radius-button, var(--theme-radius));
+  color: var(--theme-app-text);
   background: transparent;
   cursor: pointer;
 }
 
 .rail-panel-collapse-all:hover {
-  border-width: 2px;
+  background: var(--theme-card);
+  border-color: var(--theme-border);
 }
 
 .timeline-rail-scroll {
@@ -83,13 +84,13 @@
   overflow-y: auto;
   display: flex;
   flex-direction: column;
-  gap: 4px;
-  padding: 10px;
+  gap: 8px;
+  padding: 10px 14px 18px;
+  scrollbar-width: thin;
+  scrollbar-color: var(--theme-border) transparent;
 }
 
-.rail-section + .rail-section {
-  margin-top: 10px;
-}
+.rail-section { margin-top: 4px; }
 
 .rail-section-header {
   position: sticky;
@@ -97,291 +98,316 @@
   z-index: 2;
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 7px;
   width: 100%;
-  padding: 4px 6px;
-  margin-bottom: 4px;
-  border: none;
-  border-bottom: 1px solid var(--theme-border-soft);
+  min-height: 40px;
+  padding: 10px 4px;
+  border: 0;
+  border-radius: var(--theme-radius-button, var(--theme-radius));
   background: var(--theme-app-surface);
-  color: inherit;
+  color: var(--theme-app-text);
   cursor: pointer;
   text-align: left;
 }
 
-.rail-section-chevron {
-  flex: none;
-  transition: transform 0.15s ease;
-}
-
-.rail-section-chevron.is-collapsed {
-  transform: rotate(-90deg);
-}
+.rail-section-header:hover { background: var(--theme-card); }
+.rail-section-chevron { flex: none; transition: transform 150ms ease; }
+.rail-section-chevron.is-collapsed { transform: rotate(-90deg); }
 
 .rail-section-header strong {
   flex: 1 1 auto;
   min-width: 0;
-  font-size: 11px;
-  font-weight: 800;
-  letter-spacing: 0.05em;
-  text-transform: uppercase;
-  color: var(--theme-muted-foreground, #9fb0df);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  font-size: 0.8125rem;
+  font-weight: var(--theme-font-weight-heading, 500);
+  overflow-wrap: anywhere;
 }
 
 .rail-section-count {
   flex: none;
-  font-size: 10px;
-  font-weight: 700;
-  color: var(--theme-muted-foreground, #9fb0df);
+  font-size: 0.75rem;
+  font-weight: var(--theme-font-weight, 400);
+  color: var(--theme-muted-foreground);
 }
 
 .rail-section-nodes {
   position: relative;
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 8px;
+  padding: 2px 0 6px 41px;
 }
 
-/* Connecting spine: a single line running behind the markers; each node's
-   opaque background cuts it into segments between markers, same idea as a
-   plain timeline rail, without hand-computing per-gap line pieces. */
+/* Keep the spine visible in a separate gutter between unboxed entries. */
 .rail-section-nodes::before {
   content: "";
   position: absolute;
   top: 0;
   bottom: 0;
-  left: 19px;
+  left: 17px;
   width: 1px;
-  background: var(--theme-border-soft);
-  z-index: 0;
+  background: var(--theme-border);
+}
+
+.rail-section.is-planned .rail-section-nodes::before {
+  background: repeating-linear-gradient(to bottom, var(--theme-border) 0 5px, transparent 5px 10px);
 }
 
 .rail-node {
   position: relative;
+  min-width: 0;
+  padding: 12px 8px 14px 4px;
+  border: 0;
+  border-radius: var(--theme-radius-card, var(--theme-radius));
+  background: transparent;
+  text-align: left;
+}
+
+.rail-node + .rail-node::before {
+  content: "";
+  position: absolute;
+  inset: -4px 8px auto 4px;
+  height: 1px;
+  background: var(--theme-border-soft);
+}
+
+.rail-turn-node { cursor: pointer; }
+.rail-turn-node:hover,
+.rail-turn-node:focus-visible,
+.rail-event-node:hover { background: var(--theme-card); }
+
+.rail-turn-node:focus-visible {
+  outline: 2px solid var(--theme-primary);
+  outline-offset: 2px;
+}
+
+.rail-turn-node.is-current { border-width: 0; }
+.rail-turn-node.is-current .rail-speaker-label { font-weight: var(--theme-font-weight-heading, 600); }
+
+.rail-node-marker {
+  position: absolute;
+  left: -38px;
+  top: 10px;
   z-index: 1;
   display: flex;
-  align-items: flex-start;
-  gap: 8px;
-  padding: 7px 9px;
-  border: 1px solid var(--theme-border-soft);
-  border-radius: 8px;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  color: var(--theme-app-text);
   background: var(--theme-app-surface);
 }
 
-.rail-turn-node {
-  cursor: pointer;
-}
-
-.rail-turn-node:hover {
-  border-style: solid;
-  border-width: 1px;
-  box-shadow: inset 0 0 0 1px var(--theme-border, rgba(77, 96, 138, 0.72));
-}
-
-.rail-turn-node:focus-visible {
-  outline: 2px solid var(--theme-foreground, #eaf7ff);
-  outline-offset: 1px;
-}
-
-/* Current/latest turn: heavier border weight, not a color fill. */
-.rail-turn-node.is-current {
-  border-width: 2px;
-  padding: 6px 8px;
-  font-weight: 600;
-}
-
-.rail-node-marker {
-  display: flex;
-  flex: none;
-  align-items: center;
-  justify-content: center;
-  width: 20px;
-  height: 20px;
-  margin-top: 1px;
-  color: var(--theme-app-text, #edf1ff);
-}
-
-.rail-marker-icon,
-.rail-flag-icon {
-  overflow: visible;
-}
+.rail-flag-icon { overflow: visible; }
+.rail-node-marker .rail-medium-icon,
+.rail-flag-icon { width: 22px; height: 22px; }
 
 .rail-node-body {
-  flex: 1 1 auto;
   min-width: 0;
   display: flex;
   flex-direction: column;
-  gap: 3px;
+  gap: 4px;
 }
 
 .rail-node-row {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 8px;
+  gap: 10px;
   min-width: 0;
 }
 
 .rail-speaker-label,
 .rail-event-title {
-  font-size: 12.5px;
-  font-weight: 700;
-  color: var(--theme-app-text, #edf1ff);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  min-width: 0;
+  font-size: 0.8125rem;
+  line-height: var(--theme-line-height, 1.45);
+  font-weight: var(--theme-font-weight-heading, 500);
+  color: var(--theme-app-text);
+  overflow-wrap: anywhere;
 }
+
+.rail-turn-meta {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  gap: 6px;
+}
+
+.rail-current-label { font-size: 0.625rem; color: var(--theme-muted-foreground); }
+
+.rail-sequence,
+.rail-timestamp,
+.rail-relative {
+  font-size: 0.75rem;
+  font-weight: var(--theme-font-weight, 400);
+  font-variant-numeric: tabular-nums;
+  color: var(--theme-muted-foreground);
+}
+
+.rail-sequence { flex: none; }
+.rail-node-time { min-width: 0; line-height: 1.5; overflow-wrap: anywhere; }
+.rail-timestamp.is-fallback { font-style: italic; }
 
 .rail-medium {
   display: inline-flex;
   flex: none;
   align-items: center;
-  gap: 4px;
-  color: var(--theme-muted-foreground, #9fb0df);
+  gap: 5px;
+  color: var(--theme-app-text);
 }
 
-.rail-medium-icon {
-  flex: none;
-}
-
+.rail-medium-icon { flex: none; }
 .rail-medium-monogram {
   display: inline-flex;
   flex: none;
   align-items: center;
   justify-content: center;
-  width: 13px;
-  height: 13px;
-  font-size: 8px;
-  font-weight: 800;
-  letter-spacing: -0.02em;
+  width: 22px;
+  height: 22px;
+  font-size: 11px;
+  font-weight: 600;
   border: 1px solid currentColor;
   border-radius: 3px;
 }
 
 .rail-medium-label {
-  font-size: 10px;
-  font-weight: 700;
+  font-size: 0.6875rem;
+  font-weight: var(--theme-font-weight-heading, 500);
   white-space: nowrap;
 }
 
-.rail-node-time {
-  display: inline-flex;
-  align-items: baseline;
-  gap: 0;
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.rail-relative {
-  font-size: 10.5px;
-  font-weight: 600;
-  color: var(--theme-muted-foreground, #9fb0df);
-}
-
-.rail-timestamp {
-  font-size: 10.5px;
-  font-weight: 700;
-  color: var(--theme-app-text, #edf1ff);
-}
-
-/* Fallback (untracked) timestamp reads as a lighter-weight placeholder,
-   distinguished by weight/style rather than color. */
-.rail-timestamp.is-fallback {
-  font-weight: 500;
-  font-style: italic;
-  color: var(--theme-muted-foreground, #9fb0df);
-}
-
-.rail-sequence {
-  flex: none;
-  font-size: 10px;
-  font-weight: 600;
-  color: var(--theme-muted-foreground, #9fb0df);
-  border: 1px solid var(--theme-border-soft);
-  border-radius: 999px;
-  padding: 0 6px;
-}
-
-.rail-node-row-footer {
-  gap: 8px;
-  flex-wrap: wrap;
-}
-
-.rail-attachments {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-}
-
-.rail-attachment-chip {
-  display: inline-flex;
-  align-items: center;
-  gap: 3px;
-  font-size: 10px;
-  font-weight: 700;
-  color: var(--theme-muted-foreground, #9fb0df);
-}
-
-.rail-history-badges {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-}
+.rail-node-row-footer { min-height: 22px; margin-top: 3px; flex-wrap: wrap; }
+.rail-history-badges { display: inline-flex; align-items: center; gap: 6px; }
+.rail-history-badges { margin-inline-start: auto; }
 
 .rail-history-badge {
   display: inline-flex;
   align-items: center;
   gap: 3px;
-  height: 18px;
-  padding: 0 6px;
-  border: 1px solid var(--theme-border-soft);
-  border-radius: 999px;
-  color: var(--theme-app-text, #edf1ff);
+  font-size: 0.6875rem;
+  font-weight: var(--theme-font-weight, 400);
+  color: var(--theme-muted-foreground);
+}
+
+.rail-attachments {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 10px 16px;
+  padding: 14px 4px;
+  color: var(--theme-app-text);
+}
+
+.rail-attachment-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 1rem;
+  font-weight: var(--theme-font-weight-heading, 600);
+  font-variant-numeric: tabular-nums;
+}
+
+.rail-attachment-chip svg { flex: none; }
+.rail-turn-node .rail-node-row-primary .rail-speaker-label { flex: 1; }
+
+/* Image activity occupies the center of the two-line entry, without
+   creating a third row or covering long character names. */
+.rail-turn-node.has-images .rail-node-body {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+  column-gap: 10px;
+  row-gap: 4px;
+}
+
+.rail-turn-node.has-images .rail-node-row-primary,
+.rail-turn-node.has-images .rail-node-row-secondary {
+  display: contents;
+}
+
+.rail-turn-node.has-images .rail-speaker-label { grid-area: 1 / 1; }
+.rail-turn-node.has-images .rail-turn-meta { grid-area: 1 / 3; justify-self: end; }
+.rail-turn-node.has-images .rail-node-time { grid-area: 2 / 1; }
+.rail-turn-node.has-images .rail-medium { grid-area: 2 / 3; justify-self: end; }
+
+.rail-image-summary {
+  grid-column: 2;
+  grid-row: 1 / span 2;
+  align-self: center;
+  justify-self: center;
+}
+
+.rail-image-summary .rail-attachments {
+  padding: 0;
+  flex-wrap: nowrap;
+}
+
+.rail-turn-node.has-images .rail-node-body > .rail-attachments,
+.rail-turn-node.has-images .rail-note-summary,
+.rail-turn-node.has-images .rail-node-row-footer {
+  grid-column: 1 / -1;
+}
+
+.rail-attachment-chip small {
+  font-size: 0.75rem;
+  font-weight: var(--theme-font-weight, 400);
+  color: var(--theme-muted-foreground);
+}
+
+.rail-note-summary {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-block: 8px 4px;
+  padding: 10px;
+  border-radius: var(--theme-radius-card, var(--theme-radius));
+  background: var(--theme-card);
+  font-size: 0.8125rem;
+  overflow-wrap: anywhere;
+}
+
+.rail-note-summary small {
+  font-size: 0.6875rem;
+  color: var(--theme-muted-foreground);
+}
+
+.rail-history-badge {
+  min-height: 28px;
+  padding: 2px 4px;
+  border: 0;
+  border-radius: var(--theme-radius-button, var(--theme-radius));
   background: transparent;
   cursor: pointer;
-  font-size: 10px;
-  font-weight: 700;
 }
 
 .rail-history-badge:hover {
-  border-color: var(--theme-border, rgba(77, 96, 138, 0.72));
+  color: var(--theme-app-text);
+  background: var(--theme-card-strong);
 }
 
-/* -- Event nodes ---------------------------------------------------------
-   Occurred vs planned is the filled-vs-hollow flag glyph rendered in
-   EventRailNode, not a color difference. Unread is a bold border + a
-   text "New" marker, not a hue. */
-
-.rail-event-node {
-  align-items: center;
-}
-
-.rail-event-node.is-unread {
-  border-width: 2px;
-}
+/* Event flags share the same rail; pending events retain their actions. */
+.rail-event-node { padding-block: 7px; }
+.rail-event-node .rail-node-marker { top: 7px; }
+.rail-event-node .rail-event-title,
+.rail-event-node .rail-timestamp { font-size: 0.75rem; }
+.rail-event-node.is-unread { border-width: 0; }
 
 .rail-event-node.is-unread .rail-event-title::after {
   content: "New";
-  margin-left: 6px;
-  padding: 1px 5px;
+  display: inline-block;
+  margin-inline-start: 6px;
+  padding: 1px 4px;
   border: 1px solid var(--theme-border-soft);
-  border-radius: 4px;
-  font-size: 8.5px;
-  font-weight: 800;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
+  border-radius: var(--theme-radius-button, var(--theme-radius));
+  font-size: 0.625rem;
   vertical-align: middle;
 }
 
 .rail-event-actions {
-  display: inline-flex;
-  flex: none;
+  display: flex;
+  justify-content: flex-end;
   gap: 4px;
+  margin-top: 4px;
 }
 
 .rail-event-run-button,
@@ -389,56 +415,78 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 24px;
-  height: 24px;
+  width: 28px;
+  height: 28px;
   padding: 0;
   border: 1px solid var(--theme-border-soft);
-  border-radius: 6px;
-  color: var(--theme-app-text, #edf1ff);
+  border-radius: var(--theme-radius-button, var(--theme-radius));
+  color: var(--theme-muted-foreground);
   background: transparent;
   cursor: pointer;
-  font-size: 11px;
-  font-weight: 800;
 }
 
-.rail-event-run-button:disabled {
-  opacity: 0.4;
-  cursor: default;
-}
-
+.rail-event-run-button:disabled { opacity: 0.4; cursor: default; }
 .rail-event-run-button:hover:not(:disabled),
 .rail-event-cancel-button:hover {
-  border-width: 2px;
+  color: var(--theme-app-text);
+  border-color: var(--theme-border);
+  background: var(--theme-card-strong);
 }
 
-/* Wraps custom card components (bank transfer / social post) that can't
-   take a data-turn-id attribute directly, so the jump-to-turn scroll target
-   and outline-pulse highlight below have somewhere to land. */
-.timeline-jump-wrapper {
-  display: block;
+.rail-panel-collapse-all:focus-visible,
+.rail-section-header:focus-visible,
+.rail-history-badge:focus-visible,
+.rail-event-actions button:focus-visible {
+  outline: 2px solid var(--theme-primary);
+  outline-offset: 2px;
 }
 
-/* Outline-pulse highlight for jump-to-turn navigation -- shape/outline only,
-   never a color fill, per the "no color-coding" rule. */
+.rail-connection-notice {
+  flex: none;
+  margin: 12px 14px 0;
+  padding: 10px;
+  border: 1px solid var(--theme-border-soft);
+  border-radius: var(--theme-radius-card, var(--theme-radius));
+  background: var(--theme-card);
+  color: var(--theme-muted-foreground);
+}
+
+.rail-connection-message {
+  display: grid;
+  grid-template-columns: 22px minmax(0, 1fr);
+  column-gap: 10px;
+  row-gap: 4px;
+  font-size: 0.75rem;
+  line-height: var(--theme-line-height, 1.45);
+}
+
+.rail-connection-message .events-disabled-icon { grid-row: span 2; }
+.rail-connection-message strong { font-weight: var(--theme-font-weight-heading, 500); color: var(--theme-app-text); }
+.rail-connection-message small { grid-column: 2; font-size: inherit; }
+
+@container (max-width: 300px) {
+  .rail-image-summary .rail-attachment-chip small { display: none; }
+  .rail-node-row-secondary { flex-wrap: wrap; row-gap: 3px; }
+  .rail-medium { margin-inline-start: auto; }
+  .rail-current-label { display: none; }
+  .rail-panel-header { padding-inline: 14px; }
+}
+
+/* Corresponding message highlight after jump-to-turn navigation. */
+.timeline-jump-wrapper { display: block; }
+
 @keyframes timeline-jump-pulse {
-  0% {
-    outline: 3px solid var(--theme-app-text, #edf1ff);
-    outline-offset: 4px;
-  }
-  100% {
-    outline: 3px solid transparent;
-    outline-offset: 10px;
-  }
+  0% { outline: 3px solid var(--theme-app-text); outline-offset: 4px; }
+  100% { outline: 3px solid transparent; outline-offset: 10px; }
 }
 
-.timeline-jump-highlight {
-  animation: timeline-jump-pulse 1.1s ease-out;
-}
+.timeline-jump-highlight { animation: timeline-jump-pulse 1.1s ease-out; }
 
 @media (prefers-reduced-motion: reduce) {
+  .rail-section-chevron { transition: none; }
   .timeline-jump-highlight {
     animation: none;
-    outline: 3px solid var(--theme-app-text, #edf1ff);
+    outline: 3px solid var(--theme-app-text);
     outline-offset: 4px;
   }
 }
