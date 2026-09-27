@@ -1,0 +1,10 @@
+{
+  "name": "@rpgraph/temp-rimraf",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Node.js filesystem adapter for temp's legacy rimraf calls",
+  "main": "index.cjs",
+  "engines": {
+    "node": ">=24"
+  }
+}
