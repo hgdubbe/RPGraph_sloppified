@@ -1,9 +1,11 @@
+import type { UserQuestion } from '../app/userQuestion';
 import { measureUiWork, countChatRowRender } from '../diagnostics/uiPerformance';
 import { createRowTimelineSelector } from '../chat/rowTimeline';
 import { gradientPhaseStyle } from '../chat/gradientPhase';
 import { isNpcCharacterColor } from '../chat/characterColors';
 import { ChatBubbleText } from './ChatBubbleText';
 import { CharacterName } from './CharacterName';
+import { EmojiText } from './EmojiText';
 import { accountHandleMatches } from '../characters/character';
 import { datingAccountMatches } from '../chat/datingAccounts';
 import { CharacterAvatar } from './CharacterAvatar';
@@ -1530,6 +1532,7 @@ type ChatConversationPanelProps = RunProgress & {
   editingDraft: string;
   editableUserMessageId?: number;
   isRunning: boolean;
+  isPaused?: boolean;
   runStartTimeMs: number | null;
   onCancelRun: () => void;
   englishProcessingEnabled: boolean;
@@ -1578,11 +1581,7 @@ type ChatConversationPanelProps = RunProgress & {
   selectedReferenceImageIds: ReadonlySet<string>;
   canRunChat: boolean;
   runChatDisabledReason?: string;
-  autoplayEnabled: boolean;
-  autoplayMode: AutoplayMode;
   autoplayReplayDisabled: boolean;
-  onAutoplayEnabledChange: (enabled: boolean) => void;
-  onAutoplayModeChange: (mode: AutoplayMode) => void;
   onAutoplayRunModeNow: (mode: AutoplayMode) => void;
   imageUploadEnabled?: boolean;
   imageUploadDisabledReason?: string;
@@ -1604,6 +1603,10 @@ type ChatConversationPanelProps = RunProgress & {
   socialImageById: (imageId: string, ownerId?: string) => ChatImageAttachment | undefined;
   socialLikesByAccount: Record<string, string[]>;
   onOutputActionChoice: (selection: InputActionSelection) => void;
+  pendingQuestion?: UserQuestion | null;
+  onAnswerUserQuestion?: (id: number, answer: string) => boolean;
+  aiInitiativeUsed?: boolean;
+  onStartInitiativeTurn?: () => void;
   onSubmitMessage: (event: FormEvent<HTMLFormElement>) => void;
   onDraftChange: (value: string) => void;
   onDraftCommandsChange: (commands: CommandInputCommand[]) => void;
@@ -1628,8 +1631,6 @@ export function ChatConversationPanel(props: ChatConversationPanelProps) {
     onChatTextSizeChange: props.onChatTextSizeChange,
     onPhoneAuthorBadgesEnabledChange: props.onPhoneAuthorBadgesEnabledChange,
     onChatReadsPhoneAppsEnabledChange: props.onChatReadsPhoneAppsEnabledChange,
-    onAutoplayEnabledChange: props.onAutoplayEnabledChange,
-    onAutoplayModeChange: props.onAutoplayModeChange,
     onAutoplayRunModeNow: props.onAutoplayRunModeNow,
     onBeginEditMessage: props.onBeginEditMessage,
     onCancelEditMessage: props.onCancelEditMessage,
@@ -1643,6 +1644,8 @@ export function ChatConversationPanel(props: ChatConversationPanelProps) {
     onOpenEmbeddedSocialMessage: props.onOpenEmbeddedSocialMessage,
     onOpenSocialPost: props.onOpenSocialPost,
     onOutputActionChoice: props.onOutputActionChoice,
+    onAnswerUserQuestion: (id: number, answer: string) => props.onAnswerUserQuestion?.(id, answer) ?? false,
+    onStartInitiativeTurn: () => props.onStartInitiativeTurn?.(),
     onSubmitMessage: props.onSubmitMessage,
     onDraftChange: props.onDraftChange,
     onDraftCommandsChange: props.onDraftCommandsChange,
@@ -1673,6 +1676,7 @@ const MemoizedChatConversationPanel = memo(function ChatConversationPanelContent
   editingDraft,
   editableUserMessageId,
   isRunning,
+  isPaused = false,
   runStartTimeMs,
   onCancelRun,
   englishProcessingEnabled,
@@ -1713,11 +1717,7 @@ const MemoizedChatConversationPanel = memo(function ChatConversationPanelContent
   selectedReferenceImageIds,
   canRunChat,
   runChatDisabledReason,
-  autoplayEnabled,
-  autoplayMode,
   autoplayReplayDisabled,
-  onAutoplayEnabledChange,
-  onAutoplayModeChange,
   onAutoplayRunModeNow,
   imageUploadEnabled = true,
   imageUploadDisabledReason,
@@ -1739,6 +1739,10 @@ const MemoizedChatConversationPanel = memo(function ChatConversationPanelContent
   socialImageById,
   socialLikesByAccount,
   onOutputActionChoice,
+  pendingQuestion,
+  onAnswerUserQuestion,
+  aiInitiativeUsed = false,
+  onStartInitiativeTurn,
   onSubmitMessage,
   onDraftChange,
   onDraftCommandsChange,
@@ -1751,6 +1755,11 @@ const MemoizedChatConversationPanel = memo(function ChatConversationPanelContent
     onStreamContentChange();
   }, [messages, onStreamContentChange]);
   const commandComposerRef = useRef<CommandPillComposerHandle | null>(null);
+  const [questionAnswer, setQuestionAnswer] = useState({ id: 0, text: '' });
+  const answerText = pendingQuestion?.id === questionAnswer.id ? questionAnswer.text : '';
+  useEffect(() => {
+    if (pendingQuestion) commandComposerRef.current?.focusMessage();
+  }, [pendingQuestion]);
   const [selectRowTimelines] = useState(() => createRowTimelineSelector<PhoneTimelineGroup>());
   const [selectTimeline] = useState(() => createStableDerivedValueSelector<Pick<MessageRowProps,
     'phoneMessagesById' | 'socialMessagesById' | 'socialMessageRpDateTimeById' |
@@ -1883,6 +1892,7 @@ const MemoizedChatConversationPanel = memo(function ChatConversationPanelContent
   }, [chatThreadRef, editingMessageId, focusComposerInput]);
 
   const isExpanded =
+    !!pendingQuestion ||
     !composerAutoCollapseEnabled ||
     isComposerFocused ||
     (!scrollCollapsed && draftImages.length > 0);
@@ -1893,6 +1903,12 @@ const MemoizedChatConversationPanel = memo(function ChatConversationPanelContent
       : 'collapsed';
 
   const submitMessage = (event: FormEvent<HTMLFormElement>) => {
+    if (pendingQuestion) {
+      event.preventDefault();
+      if (!answerText.trim()) return;
+      onAnswerUserQuestion?.(pendingQuestion.id, answerText);
+      return;
+    }
     setIsComposerFocused(false);
     setIsComposerHovered(false);
     setScrollCollapsed(true);
@@ -2184,7 +2200,7 @@ const MemoizedChatConversationPanel = memo(function ChatConversationPanelContent
           />
         ))}
       </div>
-      {isRunning ? (
+      {isRunning && !isPaused && !pendingQuestion ? (
         <RunProgressCard
           isRunning
           activity={activity}
@@ -2195,7 +2211,10 @@ const MemoizedChatConversationPanel = memo(function ChatConversationPanelContent
       ) : (
       <form
         ref={composerRef}
-        className={`composer ${composerModeClass}`}
+        className={`composer ${composerModeClass}${pendingQuestion ? ' awaiting-answer' : ''}`}
+        style={{
+          '--chat-input-font-size': `${chatTextSize || defaultChatTextSize}px`,
+        } as CSSProperties}
         onSubmit={submitMessage}
         onPointerDownCapture={(event) => {
           if (isTextEntryTarget(event.target)) {
@@ -2232,20 +2251,52 @@ const MemoizedChatConversationPanel = memo(function ChatConversationPanelContent
             <CharacterName color={!isNarratorSelected && selectedCharacter ? characterColors.get(selectedCharacter.name) : undefined}>{(isNarratorSelected ? 'Narrator' : selectedCharacter?.name ?? 'CHARACTER').toUpperCase()}</CharacterName> INPUT
           </label>
         </div>
+        {pendingQuestion && (
+          <div className="composer-user-question" role="status" aria-live="polite">
+            <div className="composer-user-question-header">
+              <span className="composer-user-question-badge">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                  <circle cx="12" cy="12" r="10" />
+                  <path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3" />
+                  <line x1="12" y1="17" x2="12.01" y2="17" />
+                </svg>
+                <strong>Your input is needed</strong>
+              </span>
+            </div>
+            <div
+              id="user-question-text"
+              style={gradientPhaseStyle(pendingQuestion.question)}
+              className="composer-user-question-text dialogue-text-gradient narration-text-gradient"
+            >
+              <EmojiText text={pendingQuestion.question} />
+            </div>
+          </div>
+        )}
         <CommandPillComposer
           ref={commandComposerRef}
           id="chat-prompt"
-          value={draft}
-          commands={draftCommands}
-          commandsEnabled={rpTimeTrackingEnabled}
+          describedBy={pendingQuestion ? 'user-question-text' : undefined}
+          value={pendingQuestion ? answerText : draft}
+          commands={pendingQuestion ? [] : draftCommands}
+          commandsEnabled={!pendingQuestion && rpTimeTrackingEnabled}
           disabled={false}
-          onValueChange={onDraftChange}
+          onValueChange={pendingQuestion
+            ? (text) => setQuestionAnswer({ id: pendingQuestion.id, text })
+            : onDraftChange}
+          onEmptyDoubleEnter={!pendingQuestion && !isRunning && !isNarratorSelected && selectedCharacter && !draftImages.length && !draftCommands.length
+            ? onStartInitiativeTurn : undefined}
           onCommandsChange={onDraftCommandsChange}
           onSubmit={submitMessage}
-          placeholder="Click here or press Enter to write. Type /cmd for commands"
-          rows={3}
+          initiativeGuidance={!pendingQuestion}
+          guidanceCollapsed={!isExpanded}
+          showInitiativeHint={!isNarratorSelected}
+          highlightInitiative={!aiInitiativeUsed && !isRunning && !isNarratorSelected && !!selectedCharacter && !draftImages.length && !draftCommands.length}
+          placeholder={pendingQuestion ? 'Write your answer and press Enter' : isNarratorSelected
+            ? 'Write a message and press Enter\nType /cmd for commands'
+            : 'Write a message and press Enter\nPress Enter twice while empty for AI Initiative\nType /cmd for commands'}
+          rows={pendingQuestion ? 5 : 3}
         />
-        {!!draftImages.length && (
+        {!pendingQuestion && !!draftImages.length && (
           <div className="composer-images">
             {draftImages.map((image) => (
               <div className="composer-image" key={image.id}>
@@ -2289,7 +2340,15 @@ const MemoizedChatConversationPanel = memo(function ChatConversationPanelContent
               onClick={onSelectDraftImages}
               title={!imageUploadEnabled ? imageUploadDisabledReason ?? 'Image upload requires a vision-capable provider.' : undefined}
             >
-              Attach Image
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                <rect x="3" y="3" width="18" height="18" rx="2" ry="2" />
+                <circle cx="8.5" cy="8.5" r="1.5" />
+                <polyline points="21 15 16 10 5 21" />
+              </svg>
+              <span>Attach Image</span>
+              {draftImages.length > 0 && (
+                <span className="composer-attach-count">{draftImages.length}</span>
+              )}
             </button>
             <div className="phone-display-menu" ref={outsidePhoneMenuRef}>
               <button
@@ -2419,11 +2478,14 @@ const MemoizedChatConversationPanel = memo(function ChatConversationPanelContent
                 onClick={onStopVoiceReadAloud}
                 title="Stop the automatic voice read-aloud"
               >
-                Stop Voices
+                <svg width="11" height="11" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+                  <rect x="4" y="4" width="16" height="16" rx="2" />
+                </svg>
+                <span>Stop Voices</span>
               </button>
             )}
           </div>
-          {draftCommands.length > 0 && (
+          {!pendingQuestion && draftCommands.length > 0 && (
             <CommandPillList
               className="chat-command-pill-list"
               commands={draftCommands}
@@ -2432,17 +2494,27 @@ const MemoizedChatConversationPanel = memo(function ChatConversationPanelContent
             />
           )}
           <div className="composer-run-actions">
-            <AutoplayControl
-              enabled={autoplayEnabled}
-              mode={autoplayMode}
-              replayDisabled={autoplayReplayDisabled}
-              onEnabledChange={onAutoplayEnabledChange}
-              onModeChange={onAutoplayModeChange}
-              onRunModeNow={onAutoplayRunModeNow}
-            />
+            {pendingQuestion ? (
+              <button
+                type="button"
+                className="composer-cancel-btn"
+                onClick={onCancelRun}
+              >
+                <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" aria-hidden="true">
+                  <path d="M18 6L6 18M6 6l12 12" />
+                </svg>
+                <span>Cancel</span>
+              </button>
+            ) : (
+              <AutoplayControl
+                replayDisabled={autoplayReplayDisabled}
+                onRunModeNow={onAutoplayRunModeNow}
+              />
+            )}
             <button
               type="submit"
-              disabled={!canRunChat}
+              className={`composer-submit-btn${isRunning && !pendingQuestion ? ' is-running' : ''}`}
+              disabled={pendingQuestion ? !answerText.trim() : !canRunChat}
               title={
                 canRunChat || isRunning
                   ? undefined
@@ -2450,7 +2522,17 @@ const MemoizedChatConversationPanel = memo(function ChatConversationPanelContent
                     'Add a Storybook with one player and at least one actor to run the chat.'
               }
             >
-              {isRunning ? 'Cancel' : 'Run Chat'}
+              <span>{pendingQuestion ? 'Send Answer' : isRunning ? 'Cancel' : 'Run Chat'}</span>
+              {isRunning && !pendingQuestion ? (
+                <svg width="11" height="11" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+                  <rect x="4" y="4" width="16" height="16" rx="2" />
+                </svg>
+              ) : (
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                  <line x1="22" y1="2" x2="11" y2="13" />
+                  <polygon points="22 2 15 22 11 13 2 9 22 2" />
+                </svg>
+              )}
             </button>
           </div>
         </div>

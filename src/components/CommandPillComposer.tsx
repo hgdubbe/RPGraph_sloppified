@@ -24,11 +24,17 @@ type CommandPillComposerProps = {
   commandsEnabled: boolean;
   disabled?: boolean;
   placeholder: string;
+  initiativeGuidance?: boolean;
+  guidanceCollapsed?: boolean;
+  showInitiativeHint?: boolean;
+  highlightInitiative?: boolean;
   rows: number;
   className?: string;
   disabledReason?: string;
+  describedBy?: string;
   onValueChange: (value: string) => void;
   onCommandsChange: (commands: CommandInputCommand[]) => void;
+  onEmptyDoubleEnter?: () => void;
   onSubmit: (event: FormEvent<HTMLFormElement>) => void;
 };
 
@@ -195,11 +201,17 @@ export const CommandPillComposer = forwardRef<CommandPillComposerHandle, Command
   commandsEnabled,
   disabled = false,
   placeholder,
+  initiativeGuidance = false,
+  guidanceCollapsed = false,
+  showInitiativeHint = true,
+  highlightInitiative = false,
   rows,
   className,
   disabledReason = 'Enable RP Time Tracking in Chat History to use commands.',
   onValueChange,
   onCommandsChange,
+  onEmptyDoubleEnter,
+  describedBy,
   onSubmit,
 }, ref) {
   const [menuOpen, setMenuOpen] = useState(false);
@@ -329,9 +341,14 @@ export const CommandPillComposer = forwardRef<CommandPillComposerHandle, Command
     onValueChange(nextValue);
   };
 
+  const lastEmptyEnter = useRef<number | null>(null);
   const textareaKeyDown = (event: KeyboardEvent<HTMLTextAreaElement>) => {
     if (event.nativeEvent.isComposing) return;
+    if (event.key !== 'Enter' || event.shiftKey || event.ctrlKey || event.altKey || event.metaKey) {
+      lastEmptyEnter.current = null;
+    }
     if (menuOpen) {
+      lastEmptyEnter.current = null;
       if (event.key === 'ArrowDown') {
         event.preventDefault();
         moveMenuSelection(1);
@@ -355,6 +372,17 @@ export const CommandPillComposer = forwardRef<CommandPillComposerHandle, Command
       if (event.key === 'Tab') {
         setMenuOpen(false);
       }
+    }
+    if (onEmptyDoubleEnter && !value.trim() && !commands.length && event.key === 'Enter'
+      && !event.shiftKey && !event.ctrlKey && !event.altKey && !event.metaKey) {
+      event.preventDefault();
+      if (event.repeat) return;
+      const now = performance.now();
+      if (lastEmptyEnter.current !== null && now - lastEmptyEnter.current <= 400) {
+        lastEmptyEnter.current = null;
+        onEmptyDoubleEnter();
+      } else lastEmptyEnter.current = now;
+      return;
     }
     if (event.key === 'Backspace' && !value && commands.length > 0) {
       event.preventDefault();
@@ -403,13 +431,33 @@ export const CommandPillComposer = forwardRef<CommandPillComposerHandle, Command
           <textarea
             ref={textareaRef}
             id={id}
+            aria-describedby={describedBy}
+            onBlur={() => { lastEmptyEnter.current = null; }}
             value={value}
             disabled={disabled}
             onChange={(event) => changeValue(event.target.value, event.target.selectionStart)}
             onKeyDown={textareaKeyDown}
-            placeholder={placeholder}
+            aria-label={initiativeGuidance ? (guidanceCollapsed ? 'Click or press Enter to write text' : placeholder) : undefined}
+            placeholder={initiativeGuidance ? '' : placeholder}
             rows={rows}
           />
+          {initiativeGuidance && !value && (
+            <div className="composer-guidance" aria-hidden="true">
+              {guidanceCollapsed ? (
+                <span>Click or press Enter to write text</span>
+              ) : (
+                <>
+                  <span>Write a message and press Enter</span>
+                  {showInitiativeHint && (
+                    <span className={highlightInitiative ? 'composer-initiative-highlight' : undefined}>
+                      Press Enter twice while empty for AI Initiative
+                    </span>
+                  )}
+                  <span>Type /cmd for commands</span>
+                </>
+              )}
+            </div>
+          )}
         </AccountLinkInput>
       </div>
     </div>
