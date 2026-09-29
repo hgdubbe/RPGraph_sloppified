@@ -849,6 +849,8 @@ function isAppSettings(value: unknown): value is AppSettings {
       typeof settings.options.dialogueCloneVoiceProviderId === 'string') &&
     (settings.options.edgeCharacterPickerHintSeen === undefined ||
       typeof settings.options.edgeCharacterPickerHintSeen === 'boolean') &&
+    (settings.options.aiInitiativeUsed === undefined ||
+      typeof settings.options.aiInitiativeUsed === 'boolean') &&
     (settings.options.phoneNotificationSwitchHintSeen === undefined ||
       typeof settings.options.phoneNotificationSwitchHintSeen === 'boolean') &&
     (!settings.layout || validChatPanelWidth(settings.layout.chatPanelWidth) !== undefined)
@@ -946,6 +948,8 @@ type AppSettingsState = {
   setDialogueCloneVoiceProviderId: Dispatch<SetStateAction<string>>;
   edgeCharacterPickerHintSeen: boolean;
   setEdgeCharacterPickerHintSeen: Dispatch<SetStateAction<boolean>>;
+  aiInitiativeUsed: boolean;
+  setAiInitiativeUsed: Dispatch<SetStateAction<boolean>>;
   phoneNotificationSwitchHintSeen: boolean;
   setPhoneNotificationSwitchHintSeen: Dispatch<SetStateAction<boolean>>;
 };
@@ -1021,6 +1025,7 @@ export function useAppSettings(): AppSettingsState {
   const [dialogueNarratorProviderId, setDialogueNarratorProviderId] = useState('');
   const [dialogueCloneVoiceProviderId, setDialogueCloneVoiceProviderId] = useState('');
   const [edgeCharacterPickerHintSeen, setEdgeCharacterPickerHintSeen] = useState(false);
+  const [aiInitiativeUsed, setAiInitiativeUsed] = useState(false);
   const [phoneNotificationSwitchHintSeen, setPhoneNotificationSwitchHintSeen] = useState(false);
   const [settingsLoadComplete, setSettingsLoadComplete] = useState(false);
   const [settingsLoaded, setSettingsLoaded] = useState(false);
@@ -1125,6 +1130,7 @@ export function useAppSettings(): AppSettingsState {
         setDialogueNarratorProviderId(result.settings.options.dialogueNarratorProviderId ?? '');
         setDialogueCloneVoiceProviderId(result.settings.options.dialogueCloneVoiceProviderId ?? '');
         setEdgeCharacterPickerHintSeen(result.settings.options.edgeCharacterPickerHintSeen ?? false);
+        setAiInitiativeUsed(result.settings.options.aiInitiativeUsed ?? false);
         setPhoneNotificationSwitchHintSeen(
           result.settings.options.phoneNotificationSwitchHintSeen ?? false,
         );
@@ -1204,6 +1210,7 @@ export function useAppSettings(): AppSettingsState {
         dialogueNarratorProviderId,
         dialogueCloneVoiceProviderId,
         edgeCharacterPickerHintSeen,
+        aiInitiativeUsed,
         phoneNotificationSwitchHintSeen,
       },
       layout: {
@@ -1270,6 +1277,7 @@ export function useAppSettings(): AppSettingsState {
     dialogueNarratorProviderId,
     dialogueCloneVoiceProviderId,
     edgeCharacterPickerHintSeen,
+    aiInitiativeUsed,
     phoneNotificationSwitchHintSeen,
     settingsLoaded,
     settingsRecoveryNotice,
@@ -1366,8 +1374,10 @@ export function useAppSettings(): AppSettingsState {
     dialogueCloneVoiceProviderId,
     setDialogueCloneVoiceProviderId,
     edgeCharacterPickerHintSeen,
+    aiInitiativeUsed,
     phoneNotificationSwitchHintSeen,
     setEdgeCharacterPickerHintSeen,
+    setAiInitiativeUsed,
     setPhoneNotificationSwitchHintSeen,
   };
 }

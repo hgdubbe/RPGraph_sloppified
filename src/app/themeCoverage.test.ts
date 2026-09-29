@@ -5,11 +5,9 @@ const styles = readFileSync('src/styles.css', 'utf8');
 const graphStyles = readFileSync('src/styles/graph-workbench.css', 'utf8');
 const topbarStyles = readFileSync('src/styles/topbar-menu.css', 'utf8');
 const studioShellStyles = readFileSync('src/styles/studio-shell.css', 'utf8');
-const studioThemeStyles = readFileSync('src/styles/studio-theme.css', 'utf8');
 const roleplayDualPaneStyles = readFileSync('src/styles/roleplay-dual-pane.css', 'utf8');
 const conversationPanel = readFileSync('src/components/ChatConversationPanel.tsx', 'utf8');
 const roleplayShell = readFileSync('src/components/RoleplayStudioShell.tsx', 'utf8');
-const autoplayControl = readFileSync('src/chat/AutoplayControl.tsx', 'utf8');
 const appSource = readFileSync('src/App.tsx', 'utf8');
 const roleplayTimelineStyles = readFileSync('src/styles/roleplay-timeline.css', 'utf8');
 const timelinePanel = readFileSync('src/components/TimelinePanel.tsx', 'utf8');
@@ -306,10 +304,14 @@ describe('theme coverage for audited Studio surfaces', () => {
     }
   });
 
+  // Autoplay is now a stateless, explicitly-triggered action (upstream's
+  // "run modes directly from the menu" simplification) -- there's no more
+  // persisted enabled/paused toggle state or .autoplay-split-button.enabled
+  // themed variant to assert on.
   it('themes autoplay chrome and uses a real image icon for attachments', () => {
-    const autoplay = cssRule(styles, '.autoplay-split-button');
-    const autoplayButtons = cssRule(styles, '.composer .autoplay-menu-trigger,\n.composer .autoplay-state-toggle');
-    const autoplayHover = cssRule(styles, '.composer .autoplay-menu-trigger:hover,\n.composer .autoplay-menu-trigger[aria-expanded="true"],\n.composer .autoplay-state-toggle:hover');
+    const autoplay = cssRule(styles, '.autoplay-pill');
+    const autoplayButtons = cssRule(styles, '.composer .autoplay-menu-trigger');
+    const autoplayHover = cssRule(styles, '.composer .autoplay-menu-trigger:hover,\n.composer .autoplay-menu-trigger[aria-expanded="true"]');
 
     for (const rule of [autoplay, autoplayButtons, autoplayHover]) {
       expect(rule).toMatch(/var\(--theme-(?:shell|primary|border)/);
@@ -318,18 +320,6 @@ describe('theme coverage for audited Studio surfaces', () => {
 
     expect(studioShellStyles).not.toContain('.attach-image-button:not(.voice-stop-button)::before');
     expect(conversationPanel).toContain('className="attach-image-icon"');
-
-    const themedAutoplay = cssRule(
-      studioThemeStyles,
-      '.studio[data-studio-theme] .studio-shell-play .composer .autoplay-split-button',
-    );
-    const themedAutoplayEnabled = cssRule(
-      studioThemeStyles,
-      '.studio[data-studio-theme] .studio-shell-play .composer .autoplay-split-button.enabled .autoplay-menu-trigger,\n.studio[data-studio-theme] .studio-shell-play .composer .autoplay-split-button.enabled .autoplay-state-toggle',
-    );
-    expect(themedAutoplay).toMatch(/var\(--theme-(?:card|border)/);
-    expect(themedAutoplayEnabled).toContain('var(--theme-primary)');
-    expect(`${themedAutoplay}\n${themedAutoplayEnabled}`).not.toMatch(/#[0-9a-f]{3,8}\b|rgba?\(/i);
   });
 
   it('uses a compact modern composer toolbar instead of stretched action bars', () => {
@@ -355,7 +345,6 @@ describe('theme coverage for audited Studio surfaces', () => {
     expect(studioShellStyles).not.toContain('display: contents');
     expect(studioShellStyles).not.toContain('button[type="submit"]::after');
     expect(conversationPanel).toContain('className="composer-submit-icon"');
-    expect(autoplayControl).toContain('{enabled ? pauseIcon : playIcon}');
   });
 
   it('themes the shared assistant-window shells and primary content surfaces', () => {
