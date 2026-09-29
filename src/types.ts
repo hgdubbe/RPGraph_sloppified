@@ -710,7 +710,7 @@ export type MatchMeMatch = {
 };
 
 /** Unread incoming DM count and tip sum per lowercased partner handle. */
-export type SocialDmUnreadByHandle = Record<string, { count: number; tipTotal: number }>;
+export type SocialDmUnreadByHandle = Record<string, { count: number; tipTotal: number; newMatchId?: number }>;
 
 /** A direct message sent inside one social app; persisted on the timeline message. */
 export type SocialDirectMessageRecord = {
@@ -808,6 +808,8 @@ export type SocialReactionsRecord = {
   append?: boolean;
 };
 
+export type MatchMeAction = { from: string; to: string; decision: 'like' | 'superlike' };
+
 export type MessageRecord = {
   accountLinks?: import('./chat/accountLinks').AccountLink[];
   id: number;
@@ -866,6 +868,7 @@ export type MessageRecord = {
   socialReactions?: SocialReactionsRecord;
   socialDirectMessage?: SocialDirectMessageRecord;
   matchMeMatch?: MatchMeMatch;
+  matchMeAction?: MatchMeAction;
   createdPhoneNote?: CreatedPhoneNoteCommit;
   deletedPhoneNote?: DeletedPhoneNoteCommit;
   simulatedAiChat?: SimulatedAiChatCommit;

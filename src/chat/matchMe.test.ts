@@ -1,5 +1,9 @@
+import { visibleMessageRecords } from '../data-management/selectors';
+import { directAppActionJson } from './directAppActions';
+import { parseOutputActions } from './outputActions';
+import { defaultPromptCommandInstructionTemplate, promptCommandHintText, knownPromptCommandId } from '../nodes/shared/promptCommands';
 import { buildHistoryOutputs } from '../data-management/historyStore';
-import { socialAccountPresentation, socialCharacterForPost, socialDirectMessageDisplayText, socialDirectMessageHistoryText } from './socialMedia';
+import { socialMessageHiddenFromChat, socialAccountPresentation, socialCharacterForPost, socialDirectMessageDisplayText, socialDirectMessageHistoryText } from './socialMedia';
 import { describe, expect, it } from 'vitest';
 import { defaultRpStorybookCharacterBanking } from '../nodes/rp-storybook/model';
 import type { StorybookCharacter } from '../storybook/runtime';
@@ -9,7 +13,7 @@ import { sessionV2FromCurrentState, appStateFromSessionV2 } from '../data-manage
 import { isRpgraphSessionV2 } from '../data-management/validation';
 import { normalizeDatingProfile, resetDatingPasses } from './datingProfile';
 import { datingAccountId, datingAccounts, datingNpcProfiles, resolveDatingAccount } from './datingAccounts';
-import { canSendMatchMeMessage, incomingMatchMeMessage, isMatchMeMatch, matchMeContext, matchMeLikePolicy, matchMeMessageAllowed, matchMePairId, matchMeState, migrateDatingHistory } from './matchMe';
+import { applyMatchMeAction, groupMatchMeHistory, unreadMatchMeMatches, canSendMatchMeMessage, incomingMatchMeMessage, isMatchMeMatch, matchMeContext, matchMeLikePolicy, matchMeMessageAllowed, matchMePairId, matchMeState, migrateDatingHistory } from './matchMe';
 import { parseSocialDirectMessageOutput, socialPostInputText, socialDirectMessageActor, socialDirectMessageInputText } from './socialMedia';
 import { parseMessengerAppMessagesObject, parseEmbeddedPhoneMessagesFromRpOutput, embeddedPhoneMessagesLivePreview } from './phoneMessages';
 import { validateSocialMessengerAccounts } from './socialMessageValidation';
@@ -38,6 +42,31 @@ function fixture(partner = 'demo-alex') {
 const replyJson = (from = 'demo-alex', to = datingAccountId('mia')) => JSON.stringify({ matchMeApp: [{ from, to, message: 'Hi!' }] });
 
 describe('MatchMe permissions and identity', () => {
+  it.each(['Chloe Lane', 'chloe_lane', 'chloe.lane', 'chloelane', 'chloe-lane', 'CHLOE._ LANE']
+    .flatMap((name) => [name, `@${name}`]))('delivers matched messages using name variant %s', (from) => {
+    const characters = [character('chloe', 'Chloe Lane'), character('ryan', 'Ryan Parker')];
+    const accountIds: [string, string] = characters.map(datingAccountId) as [string, string];
+    const messages: MessageRecord[] = [{ id: 1, role: 'user', originalText: '', matchMeMatch: {
+      id: matchMePairId(...accountIds), accountIds, matchedAt: now, status: 'active',
+    } }];
+    const text = JSON.stringify({ matchMeApp: [{ from, to: '@ryan_parker', message: '@whatsup:Chloe Lane' }] });
+    expect(validateSocialMessengerAccounts({ text, characters, messages }).issues).toEqual([]);
+    expect(incomingMatchMeMessage(from, '@ryan_parker', 'Hello', matchMeState(characters, messages), 'test', now))
+      .toMatchObject({ fromAccountId: accountIds[0], toAccountId: accountIds[1] });
+    expect(validateSocialMessengerAccounts({ text, characters, messages: [] }).issues.length).toBeGreaterThan(0);
+  });
+
+  it('preserves exact nicknames and IDs while rejecting ambiguous or invented variants', () => {
+    const accounts = datingAccounts([character('chloe', 'Chloe Lane'), character('other', 'chloe.lane')]);
+    expect(resolveDatingAccount('@chloe.lane', accounts)?.characterId).toBe('other');
+    expect(resolveDatingAccount('@Chloe Lane', accounts)?.characterId).toBe('chloe');
+    expect(resolveDatingAccount('@storybook:chloe', accounts)?.characterId).toBe('chloe');
+    for (const identity of ['chloe_lane', 'chloelane', '@._-', 'Chloe', 'chloe_lanee', 'storybook:ch_loe']) {
+      expect(resolveDatingAccount(identity, accounts)).toBeUndefined();
+    }
+    expect(resolveDatingAccount('storybook:chloe', [...accounts, accounts[0]])).toBeUndefined();
+  });
+
   it.each(['matchMeApp', 'matchmeApp'])('streams %s bubbles before JSON completion and keeps conversation identity', (key) => {
     const { state, messages } = fixture();
     const before = 'She checks her phone.\n';
@@ -200,6 +229,7 @@ describe('MatchMe migration and persistence', () => {
   });
   it('round-trips structured match state, translated messages and read positions through RP saves', () => {
     const { messages, outgoing, characters } = fixture();
+    messages[0].matchMeAction = { from: datingAccountId('mia'), to: 'demo-alex', decision: 'superlike' };
     const turns: TurnRecord[] = [{ id: 'turn-1', number: 1, mode: 'user', createdAt: now,
       input: { graphText: '', messages }, output: { graphText: '', messages: [{ id: 2, role: 'output', originalText: 'DM', includeInHistory: true,
         socialDirectMessage: { ...outgoing, displayText: 'Displayed variant', internalText: 'Internal variant' } }] } }];
@@ -211,6 +241,7 @@ describe('MatchMe migration and persistence', () => {
     const restored = appStateFromSessionV2(imported);
     const history = restored.turns.flatMap((turn) => [...turn.input.messages, ...turn.output.messages]);
     expect(canSendMatchMeMessage(datingAccountId('mia'), 'demo-alex', matchMeState(characters, history))).toBe(true);
+    expect(history[0].matchMeAction).toEqual(messages[0].matchMeAction);
     expect(history[1].socialDirectMessage).toEqual({ ...outgoing, displayText: 'Displayed variant', internalText: 'Internal variant' });
     expect(restored.phoneAppSeenByCharacter['mia:matchme:dm:demo-alex']).toBe(2);
     const broken = structuredClone(imported);
@@ -564,4 +595,134 @@ describe('Reciprocal likes and superlikes', () => {
     expect(decisions.b).toBe('pass');
     expect(resetDatingPasses(resetDatingPasses(decisions))).toEqual({ a: 'like', c: 'superlike' });
   });
+});
+
+
+describe('MatchMe match notifications', () => {
+  it('notifies both phones and acknowledges each owner independently', () => {
+    const characters = [character('mia', 'Mia'), character('alex', 'Alex')];
+    const ownerId = datingAccountId(characters[0]);
+    const partnerId = datingAccountId(characters[1]);
+    const match = matchMeLikePolicy(ownerId, partnerId, matchMeState(characters, []), now, 'superlike')!;
+    const messages: MessageRecord[] = [{ id: 12, role: 'user', originalText: '', matchMeMatch: match }];
+    const state = matchMeState(characters, messages);
+    expect(unreadMatchMeMatches(ownerId, state, messages, () => 0)).toEqual({ [partnerId]: 12 });
+    expect(unreadMatchMeMatches(ownerId, state, messages, () => 12)).toEqual({});
+    expect(unreadMatchMeMatches(partnerId, state, messages, () => 0)).toEqual({ [ownerId]: 12 });
+    expect(unreadMatchMeMatches('unrelated', state, messages, () => 0)).toEqual({});
+  });
+
+  it('ignores inactive and opening matches and notifies again for a rematch', () => {
+    const { characters, messages, match, owner } = fixture();
+    const pending = (history: MessageRecord[], seen = 0) => unreadMatchMeMatches(
+      datingAccountId(owner), matchMeState(characters, history), history, () => seen);
+    expect(pending([{ ...messages[0], isOpening: true }])).toEqual({});
+    const inactive: MessageRecord = { ...messages[0], id: 2, matchMeMatch: { ...match, status: 'inactive' } };
+    expect(pending([...messages, inactive])).toEqual({});
+    expect(pending([...messages, inactive, { ...messages[0], id: 3 }], 1)).toEqual({ 'demo-alex': 3 });
+  });
+
+  it('resolves historical account IDs to the current phone identity', () => {
+    const { characters, messages, owner } = fixture();
+    owner.apps = { matchme: { accountId: 'current-mia', enabled: true, bio: '' } };
+    expect(unreadMatchMeMatches('current-mia', matchMeState(characters, messages), messages, () => 0))
+      .toEqual({ 'demo-alex': 1 });
+  });
+});
+
+
+it('suppresses new matches on both phones once either participant sends a message', () => {
+  const { characters, messages, outgoing, owner } = fixture();
+  const history: MessageRecord[] = [...messages, { id: 2, role: 'user', originalText: '', socialDirectMessage: outgoing }];
+  const state = matchMeState(characters, history);
+  expect(unreadMatchMeMatches(datingAccountId(owner), state, history, () => 0)).toEqual({});
+  expect(unreadMatchMeMatches('demo-alex', state, history, () => 0)).toEqual({});
+  const rematch = [...history, { ...messages[0], id: 3 }];
+  expect(unreadMatchMeMatches(datingAccountId(owner), matchMeState(characters, rematch), rematch, () => 0))
+    .toEqual({ 'demo-alex': 3 });
+});
+
+
+describe('Workflow MatchMe actions', () => {
+  it('uses the same validated JSON for direct actions and narrator commands', () => {
+    const action = { from: 'storybook:a', to: 'storybook:b', decision: 'like' as const };
+    const json = directAppActionJson({ kind: 'matchMeAction', action });
+    expect(parseOutputActions(json).matchMeActions).toEqual([action]);
+    expect(parseOutputActions(json, { phoneAppCommits: true }).matchMeActions).toEqual([action]);
+    const embedded = parseEmbeddedPhoneMessagesFromRpOutput(`Before.\n${json}\nAfter.`);
+    expect(embedded.matchMeActions).toEqual([action]);
+    expect(embedded.text).toBe('Before.\n\nAfter.');
+    expect(knownPromptCommandId('MatchMe_action')).toBe('matchme_action');
+    expect(promptCommandHintText('matchme_action')).toContain('who likes whom');
+    expect(defaultPromptCommandInstructionTemplate('matchme_action')).toContain('matchMeActions');
+    for (const invalid of [{ ...action, decision: 'match' }, { ...action, to: action.from }, { from: 'a' }]) {
+      const parsed = parseOutputActions(JSON.stringify({ matchMeActions: [invalid] }));
+      expect(parsed.matchMeActions).toEqual([]);
+      expect(parsed.warnings).toHaveLength(1);
+    }
+  });
+
+  it('rebuilds decisions and reciprocal matches from turns without changing profiles', () => {
+    const characters = [character('a', 'A'), character('b', 'B')];
+    const original = structuredClone(characters);
+    const history: MessageRecord[] = [];
+    const act = (from: string, to: string, decision: 'like' | 'superlike') => {
+      const result = applyMatchMeAction({ from, to, decision }, matchMeState(characters, history), now)!;
+      history.push({ id: history.length + 1, role: 'output', originalText: result.text,
+        matchMeAction: result.action, matchMeMatch: result.match });
+      return result;
+    };
+    expect(act('storybook:a', 'storybook:b', 'like').match).toBeUndefined();
+    expect(applyMatchMeAction(history[0].matchMeAction!, matchMeState(characters, history), now)).toBeUndefined();
+    expect(act('storybook:b', 'storybook:a', 'like').match).toBeDefined();
+    history.pop();
+    let state = matchMeState(characters, history);
+    expect(state.matches).toEqual([]);
+    expect(state.accounts.find((a) => a.id === 'storybook:a')?.decisions?.['storybook:b']).toBe('like');
+    expect(act('storybook:a', 'storybook:b', 'superlike').match).toBeDefined();
+    history.splice(0);
+    state = matchMeState(characters, history);
+    expect(state.accounts.every((a) => !Object.keys(a.decisions ?? {}).length)).toBe(true);
+    expect(characters).toEqual(original);
+    expect(applyMatchMeAction({ from: 'missing', to: 'storybook:b', decision: 'superlike' }, state, now)).toBeUndefined();
+  });
+
+  it('groups adjacent actions for display without merging turns or crossing other history', () => {
+    const action = { from: 'a', to: 'b', decision: 'like' as const };
+    const row = (id: number): MessageRecord => ({ id, role: 'output', originalText: `[MatchMe] A liked B${id}.`,
+      turnId: `turn-${id}`, matchMeAction: action });
+    const messages = [row(1), row(2), { id: 3, role: 'user' as const, originalText: 'Something else.' }, row(4), row(5)];
+    const grouped = groupMatchMeHistory(messages);
+    expect(grouped.map((m) => m.originalText)).toEqual([
+      '[MatchMe] A liked B1. + A liked B2.', 'Something else.', '[MatchMe] A liked B4. + A liked B5.',
+    ]);
+    expect(groupMatchMeHistory([row(1), { ...row(2), matchMeAction: { ...action, from: 'other' } }, row(3)])).toHaveLength(3);
+    expect(grouped[0].matchMeActivities).toEqual(messages.slice(0, 2));
+    expect(grouped[2].matchMeActivities).toEqual(messages.slice(3));
+    expect(groupMatchMeHistory([
+      { ...row(1), rpDateTime: '2026-09-29T23:59:00' },
+      { ...row(2), rpDateTime: '2026-09-30T00:01:00' },
+    ])).toHaveLength(2);
+    expect(messages).toHaveLength(5);
+    expect(messages[0].originalText).toBe('[MatchMe] A liked B1.');
+  });
+});
+
+
+it('keeps superlikes and reciprocal matches visible before grouping activity cards', () => {
+  const { match } = fixture();
+  const action = { from: match.accountIds[0], to: match.accountIds[1], decision: 'like' as const };
+  const messages: MessageRecord[] = [
+    { id: 1, role: 'output', originalText: 'Like', matchMeAction: action },
+    { id: 2, role: 'output', originalText: 'Superlike', matchMeAction: { ...action, decision: 'superlike' }, matchMeMatch: match },
+    { id: 3, role: 'output', originalText: 'Matched', matchMeAction: action, matchMeMatch: match },
+    { id: 4, role: 'user', originalText: 'Legacy match', matchMeMatch: match },
+  ];
+  const visible = visibleMessageRecords(messages, { hideMessage: socialMessageHiddenFromChat });
+  expect(visible.map((message) => message.id)).toEqual([1, 2, 3]);
+  const grouped = groupMatchMeHistory(visible);
+  expect(grouped).toHaveLength(1);
+  expect(grouped[0].matchMeActivities?.map((message) => message.matchMeAction?.decision))
+    .toEqual(['like', 'superlike', 'like']);
+  expect(grouped[0].matchMeActivities?.filter((message) => message.matchMeMatch)).toHaveLength(2);
 });

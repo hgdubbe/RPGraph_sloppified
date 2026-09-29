@@ -58,12 +58,15 @@ it('stops following at the bottom during generation and resumes when content gro
   runtime.scrollChatThreadToBottomIfFollowing();
   tick(0); tick(16); tick(32);
   expect(frames.size).toBe(0);
+  expect(render().smoothChatAutoScrollActive).toBe(false);
   thread.scrollHeight = 510;
   runtime.scrollChatThreadToBottomIfFollowing();
   tick(48); tick(64); tick(80);
   expect(thread.scrollTop).toBeGreaterThan(200);
+  expect(render().smoothChatAutoScrollActive).toBe(true);
   for (let time = 96; time <= 1000 && frames.size; time += 16) tick(time);
   expect(thread.scrollTop).toBe(210);
+  expect(render().smoothChatAutoScrollActive).toBe(false);
   expect(frames.size).toBe(0);
 });
 
@@ -169,6 +172,10 @@ it('positions restored history immediately before smoothly following later media
   expect(thread.scrollTop).toBeGreaterThan(4700);
   expect(thread.scrollTop).toBeLessThan(4900);
   expect(thread.scrollTo).toHaveBeenCalledTimes(1);
+  expect(render().smoothChatAutoScrollActive).toBe(true);
+  const wheelHandler = thread.addEventListener.mock.calls.find(([type]) => type === 'wheel')?.[1] as (event: { deltaY: number }) => void;
+  wheelHandler({ deltaY: -40 });
+  expect(render().smoothChatAutoScrollActive).toBe(false);
   cleanups.forEach((cleanup) => cleanup?.());
   expect(frames.size).toBe(0);
 });
@@ -484,12 +491,19 @@ it('invalidates panel state and clears drafts when the same cast starts another 
   expect(render().panelSessionRevision).toBe(after.panelSessionRevision + 1);
 });
 
-it('colors loaded and newly contacted NPCs using the same activity as the library', () => {
+it('colors NPCs only after reciprocal messages and shares that classification with the library', () => {
   const { render, options, npc, player } = harness();
   expect(render().characterColors.has(npc.name)).toBe(false);
-  options.messages = [{ id: 1, role: 'user', channel: 'phone', originalText: 'Hello',
+  for (const character of [npc, player]) character.apps = { ...character.apps,
+    whatsup: { accountId: `${character.sourceId}:whatsup`, enabled: true, bio: '' } };
+  options.messages = [{ id: 1, role: 'user', channel: 'phone', phoneMessage: true, originalText: 'Hello',
     phoneFrom: player.name, phoneTo: npc.name }];
+  expect(render().interactedCharacterIds).toEqual([]);
+  expect(render().characterColors.has(npc.name)).toBe(false);
+  options.messages = [...options.messages, { id: 2, role: 'output', channel: 'phone', phoneMessage: true,
+    originalText: 'Hi', phoneFrom: npc.name, phoneTo: player.name }];
   const contacted = render();
+  expect(contacted.interactedCharacterIds).toEqual([npc.sourceId]);
   expect(contacted.characterColors.get(npc.name)).toMatch(/^var\(--rp-npc-/);
   expect(contacted.characterColorSlots[npc.sourceId]).toBe(1);
   const slots = contacted.characterColorSlots;
@@ -499,4 +513,7 @@ it('colors loaded and newly contacted NPCs using the same activity as the librar
   // Modern saves preserve the assigned family.
   render().setCharacterColorSlots(slots);
   expect(render().characterColorSlots[npc.sourceId]).toBe(1);
+  options.messages = options.messages.slice(0, 1);
+  expect(render().interactedCharacterIds).toEqual([]);
+  expect(render().characterColors.has(npc.name)).toBe(false);
 });

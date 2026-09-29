@@ -1,9 +1,10 @@
-import { accountHandle, accountHandleMatches } from './character';
+import { matchingMessageAliases } from './messageAliases';
+import { accountHandle } from './character';
 import { normalizeCharacterApps } from './character';
 import type { Character, CharacterAppAccount, CharacterApps } from './character';
 
 export type CharacterApp = keyof CharacterApps;
-type CharacterRegistryTier = 'bundled' | 'user' | 'snapshot' | 'storybook';
+type CharacterRegistryTier = 'bundled' | 'saved-storybook' | 'user' | 'snapshot' | 'storybook';
 
 export type CharacterRegistryAliases = {
   /** Previously issued stable or node-scoped runtime character IDs. */
@@ -66,6 +67,7 @@ export type EffectiveCharacterAccount = {
 
 const tierRank: Record<CharacterRegistryTier, number> = {
   bundled: 0,
+  'saved-storybook': 0.5,
   user: 1,
   snapshot: 2,
   storybook: 3,
@@ -263,9 +265,10 @@ export function resolveRegistryAccount(
   if (byStableId.length) return availableResolution(byStableId);
   const byLegacyId = accounts.filter((entry) => entry.character.aliases.accountIds?.[app]?.includes(identity));
   if (byLegacyId.length) return availableResolution(byLegacyId);
-  const key = normalizedAlias(identity);
-  return availableResolution(accounts.filter((entry) => accountHandleMatches(entry.account, identity) ||
-    normalizedAlias(entry.character.character.name) === key));
+  return availableResolution(matchingMessageAliases(accounts, identity, (entry) => [
+    entry.character.character.name, entry.account.profileName ?? '', entry.account.displayName ?? '',
+    entry.account.username ?? '', ...(entry.account.legacyHandles ?? []),
+  ]));
 }
 
 /** Image IDs are intentionally scoped to their stable character owner. */

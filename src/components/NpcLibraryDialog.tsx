@@ -1,12 +1,11 @@
 import { usePanelNavigationOverlay } from '../navigation/usePanelNavigation';
 import { CharacterName } from './CharacterName';
 import { migratedProfileName } from '../characters/character';
-import { characterUsageReasons } from '../characters/lifecycle';
 import type { NpcParticipantSnapshots } from '../characters/npcParticipants';
 import { Fragment, useEffect, useMemo, useRef, useState } from 'react';
 import type { EffectiveCharacterRegistry } from '../characters/registry';
 import type { NpcLibraryEntry, NpcLibrarySnapshot } from '../characters/npcLibrary';
-import { characterLibrarySummary, characterMatchesLibrarySearch, characterProvenanceStages, effectiveLibraryEntry, visibleLibraryEntries, libraryActivityPosts, libraryCharacterWithPosts, libraryCharacterContentEqual } from '../characters/librarySummary';
+import { characterLibrarySummary, characterMatchesLibrarySearch, characterProvenanceStages, characterStorageBadge, effectiveLibraryEntry, visibleLibraryEntries, libraryActivityPosts, libraryCharacterWithPosts, libraryCharacterContentEqual } from '../characters/librarySummary';
 import { appAvatarDataUrl } from '../characters/portrait';
 import type { Character } from '../characters/character';
 import { characterContentEqual } from '../characters/contentComparison';
@@ -15,7 +14,9 @@ type NpcLibraryDialogProps = {
   characterColors?: ReadonlyMap<string, string>;
   snapshot: NpcLibrarySnapshot | null;
   participants?: NpcParticipantSnapshots;
+  openingParticipants?: NpcParticipantSnapshots;
   activity?: unknown;
+  interactedCharacterIds: readonly string[];
   busy?: boolean;
   dismissOnEscape?: boolean;
   onRemove?: (characterId: string, nodeId: string) => void;
@@ -78,6 +79,7 @@ type DisplayEntry = {
   retained: boolean;
   hasActivity: boolean;
   snapshotEdited: boolean;
+  storageBadge?: ReturnType<typeof characterStorageBadge>;
   diagnosticOnly?: boolean;
   unlocked?: boolean;
 };
@@ -114,6 +116,10 @@ function CharacterRow({ color, display, issues, canImport, onImport, onEdit, onR
               </span>
             </span>)}
           </span>
+          {display.storageBadge && <span className="npc-library-storage-badge" title={display.storageBadge.title}
+            aria-label={`${display.storageBadge.label === 'SB' ? 'Storybook' : 'RP save'} storage: ${display.storageBadge.title}`}>
+            <span aria-hidden="true">💾</span> {display.storageBadge.label}
+          </span>}
         </div>
       </div>
       <div className="npc-library-accounts">
@@ -169,8 +175,9 @@ function CharacterRow({ color, display, issues, canImport, onImport, onEdit, onR
   );
 }
 
-export function NpcLibraryDialog({ characterColors, snapshot, participants = {}, activity, busy = false, dismissOnEscape = true, onRemove, activeRegistry, loading, status, storybookNodeId, onAddToStorybook, onReload, onOpenFolder, onClose, onCreateCharacter, onEditCharacter, onOpenStorybook }: NpcLibraryDialogProps) {
+export function NpcLibraryDialog({ characterColors, snapshot, participants = {}, openingParticipants = {}, activity, interactedCharacterIds, busy = false, dismissOnEscape = true, onRemove, activeRegistry, loading, status, storybookNodeId, onAddToStorybook, onReload, onOpenFolder, onClose, onCreateCharacter, onEditCharacter, onOpenStorybook }: NpcLibraryDialogProps) {
   usePanelNavigationOverlay(onClose);
+  const interactedIds = useMemo(() => new Set(interactedCharacterIds), [interactedCharacterIds]);
   const [importStatus, setImportStatus] = useState('');
   const [showUnlock, setShowUnlock] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
@@ -189,9 +196,11 @@ export function NpcLibraryDialog({ characterColors, snapshot, participants = {},
       const inStorybook = effective.provenance.tier === 'storybook';
       const source = libraryEntry?.character;
       return { character, libraryEntry, inStorybook,
+        storageBadge: characterStorageBadge({ inStorybook, retained: effective.provenance.tier === 'snapshot',
+          character: effective.character, openingCharacter: openingParticipants[character.id]?.character }),
         playable: effective.playerSelectable, nodeId: inStorybook ? effective.provenance.source : undefined,
         retained: !!saved || effective.provenance.tier === 'snapshot',
-        hasActivity: characterUsageReasons(character, effective.aliases, activity).length > 0,
+        hasActivity: interactedIds.has(character.id),
         snapshotEdited: !!saved && !!libraryEntry && !libraryCharacterContentEqual(character, libraryEntry.character),
         storybookEdited: inStorybook && !!source && !libraryCharacterContentEqual(character, source),
         localEdited: !!libraryEntry?.editedBuiltIn && !!bundled && !characterContentEqual(libraryEntry.character, bundled),
@@ -209,7 +218,7 @@ export function NpcLibraryDialog({ characterColors, snapshot, participants = {},
       const rightGroup = right.playable ? 0 : right.hasActivity ? 1 : 2;
       return leftGroup - rightGroup || left.character.name.localeCompare(right.character.name);
     });
-  }, [activeRegistry, libraryEntries, snapshot, participants, activity, posts]);
+  }, [activeRegistry, libraryEntries, snapshot, participants, openingParticipants, activity, posts, interactedIds]);
 
   const filteredEntries = useMemo(
     () => entries.filter((entry) => characterMatchesLibrarySearch(entry.character, searchQuery)),
@@ -344,7 +353,8 @@ export function NpcLibraryDialog({ characterColors, snapshot, participants = {},
               ['Interacted', entries.filter((entry) => !entry.playable && entry.hasActivity).length],
               ['RP copies', entries.filter((entry) => entry.retained && !entry.inStorybook).length],
               ['Built-in', libraryEntries.filter((entry) => entry.tier === 'bundled' || entry.editedBuiltIn).length],
-              ['Library files', libraryEntries.filter((entry) => entry.tier === 'user').length],
+              ['From Storybook', libraryEntries.filter((entry) => entry.tier === 'saved-storybook').length],
+              ['Local NPCs', libraryEntries.filter((entry) => entry.tier === 'user').length],
               ['Ignored files', snapshot?.skipped ?? 0],
             ].map(([label, count]) => <div key={label}><dt>{label}</dt><dd>{count}</dd></div>)}</dl>
             <span className={diagnosticCount ? 'npc-library-warning' : 'npc-library-muted'}>{diagnosticCount} diagnostic{diagnosticCount === 1 ? '' : 's'}{diagnosticCount > 0 ? ' · Check the info icons' : ''}</span>

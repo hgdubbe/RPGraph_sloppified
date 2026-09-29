@@ -6799,6 +6799,64 @@ input[type="number"]::-webkit-outer-spin-button {
   background: #050505 center / cover no-repeat;
 }
 
+.phone-initiative-hint {
+  position: absolute;
+  z-index: 2;
+  left: 14px;
+  right: 66px;
+  bottom: 14px;
+  padding: 6px 10px;
+  border-radius: 8px;
+  background: rgba(0, 0, 0, 0.55);
+  color: #f8fafc;
+  font-size: 12px;
+  width: fit-content;
+  pointer-events: none;
+}
+
+.phone-initiative-info {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  margin-left: 6px;
+  padding: 0;
+  border: 1px solid currentColor;
+  border-radius: 50%;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  font-weight: 600;
+  cursor: help;
+  pointer-events: auto;
+  vertical-align: middle;
+}
+
+.phone-initiative-tooltip {
+  display: none;
+  position: absolute;
+  bottom: calc(100% + 8px);
+  left: 0;
+  width: 320px;
+  max-width: 100%;
+  box-sizing: border-box;
+  padding: 10px 12px;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 8px;
+  background: #151a24;
+  color: #f8fafc;
+  line-height: 1.5;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3);
+  pointer-events: auto;
+}
+
+.phone-initiative-hint:has(.phone-initiative-info:hover) .phone-initiative-tooltip,
+.phone-initiative-hint:focus-within .phone-initiative-tooltip,
+.phone-initiative-tooltip:hover {
+  display: block;
+}
+
 .phone-desktop-scrim {
   position: absolute;
   z-index: -1;
@@ -10464,6 +10522,19 @@ input[type="number"]::-webkit-outer-spin-button {
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
     background-position: var(--character-gradient-position, 32%) 50%;
+    animation: character-name-wave 3s linear infinite;
+    animation-play-state: var(--character-name-animation-state, running);
+  }
+}
+
+@keyframes character-name-wave {
+  0% { background-position: 100% 50%; }
+  100% { background-position: -100% 50%; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .player-name-gradient {
+    animation: none;
   }
 }
 
@@ -26195,3 +26266,5 @@ button.message-timeline-row.phone:focus-visible {
     background-position: 50% 0;
   }
 }
+
+.npc-library-storage-badge { display: inline-flex; align-items: center; gap: 4px; padding: 3px 6px; border: 1px solid #365e54; border-radius: 5px; color: #9cd9c4; background: #203b34; font-size: 10px; font-weight: 600; white-space: nowrap; }

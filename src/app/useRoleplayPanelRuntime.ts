@@ -1,6 +1,6 @@
 import { measureUiWork, markUiEvent } from '../diagnostics/uiPerformance';
 import { usePanelNavigationState, usePanelNavigationReset } from '../navigation/usePanelNavigation';
-import { createCharacterUsageSelector } from '../characters/lifecycle';
+import { interactedNpcIds } from '../characters/messageExchanges';
 import { useStorybookContentNodes } from '../storybook/useStorybookContentNodes';
 import { nextAutoScrollSpeed } from '../chat/autoScrollSpeed';
 import { bankingRecipientByName } from '../chat/bankingRecipients';
@@ -9,7 +9,8 @@ import { automaticAccountLinkGrants, resolveAccountLink, type AccountLinkTarget 
 import type { AccountLinkOpenRequest } from '../chat/accountLinkContext';
 import { appCharacterImage } from '../characters/appRuntime';
 import type { NpcParticipantReference } from '../characters/npcParticipants';
-import { datingAccountMatches } from '../chat/datingAccounts';
+import { matchMeState, unreadMatchMeMatches } from '../chat/matchMe';
+import { datingAccountId, datingAccountMatches } from '../chat/datingAccounts';
 import {
   useCallback,
   useEffect,
@@ -159,6 +160,7 @@ export function useRoleplayPanelRuntime({
   notifySystem,
 }: UseRoleplayPanelRuntimeOptions) {
   const [panelSessionRevision, setPanelSessionRevision] = useState(0);
+  const [smoothChatAutoScrollActive, setSmoothChatAutoScrollActive] = useState(false);
   const resetPanelNavigation = usePanelNavigationReset(panelSessionRevision);
   const [selectedCharacterId, setSelectedCharacterId] = usePanelNavigationState('panel.selectedCharacterId', '');
   const [viewedPhoneCharacterId, setViewedPhoneCharacterId] = usePanelNavigationState('panel.viewedPhoneCharacterId', '');
@@ -405,14 +407,8 @@ export function useRoleplayPanelRuntime({
     phoneNotesByCharacter, chatGpdChatsByCharacter,
   ], [storybooksByNodeId, turns, messages, socialLikesByAccount, persistedSocialConnectionsByCharacter,
     phoneNotesByCharacter, chatGpdChatsByCharacter]);
-  // A new RP releases all cached identities and text from the previous session.
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  const selectCharacterUsage = useMemo(() => createCharacterUsageSelector(), [panelSessionRevision]);
-  const interactedCharacterIds = useMemo(() => measureUiWork('characters.interactedIds', () => appCharacters.filter((character) =>
-    character.playerSelectable === false && selectCharacterUsage({
-      id: character.sourceId, name: character.name, apps: character.apps, images: character.images ?? [],
-    }, character.identityAliases ?? {}, characterActivity),
-  ).map((character) => character.sourceId)), [appCharacters, characterActivity, selectCharacterUsage]);
+  const interactedCharacterIds = useMemo(() => measureUiWork('characters.interactedIds', () =>
+    interactedNpcIds(messages, appCharacters)), [appCharacters, messages]);
   const { characterColors, characterColorSlots, setCharacterColorSlots, characterColorStyle } =
     useCharacterColors(appCharacters, playerCharacters, interactedCharacterIds);
   const fotogramContactsByCharacter = useMemo(
@@ -438,11 +434,6 @@ export function useRoleplayPanelRuntime({
     [storyCharacters, storybooksByNodeId],
   );
   function addSocialConnection(characterId: string, app: SocialAppKind, socialUserId: string) {
-    const user = socialDirectory.users.find((entry) => entry.id === socialUserId);
-    if (user) captureNpcParticipants([
-      { kind: 'character', id: user.characterId ?? user.id },
-      ...(user.handles[app] ? [{ kind: 'account' as const, app, id: user.handles[app]! }] : []),
-    ]);
     setSocialConnectionsByCharacter((current) =>
       withSocialDirectoryConnectionAdded(
         current,
@@ -493,6 +484,7 @@ export function useRoleplayPanelRuntime({
             message.embeddedSocialMessages?.map((link) => link.socialMessageId) ?? [])
         : [],
     );
+    const datingState = matchMeState(storyCharacters, messages);
     storyCharacters.forEach((character) => {
       const seen = (app: string) => phoneAppSeenByCharacter[`${character.id}:${app}`] ?? 0;
       const count = (app: string, matches: (message: MessageRecord) => boolean) =>
@@ -543,6 +535,12 @@ export function useRoleplayPanelRuntime({
       const fotogram = socialApp('fotogram');
       const onlyfriends = socialApp('onlyfriends');
       const matchme = socialApp('matchme');
+      const newMatches = unreadMatchMeMatches(datingAccountId(character), datingState, messages,
+        (partnerId) => phoneAppSeenByCharacter[`${character.id}:matchme:dm:${partnerId}`] ?? 0);
+      for (const [partnerId, newMatchId] of Object.entries(newMatches)) {
+        if (!matchme.unreadDms[partnerId]) matchme.count += 1;
+        matchme.unreadDms[partnerId] = { ...(matchme.unreadDms[partnerId] ?? { count: 0, tipTotal: 0 }), newMatchId };
+      }
       byCharacter.set(character.id, {
         counts: {
           notes: count('notes', (message) => message.createdPhoneNote?.characterId === character.id),
@@ -1004,7 +1002,6 @@ export function useRoleplayPanelRuntime({
     if (target.app === 'banking') {
       addBankingContact(owner.id, target.name);
     } else {
-      captureNpcParticipants([{ kind: 'account', app: target.app, id: target.accountId, canonical: true }]);
       if (target.app === 'whatsup') {
         setSocialConnectionsByCharacter((current) => withSocialConnectionAdded(current, owner.sourceId, 'whatsup', target.accountId));
         openPhoneConversation(phoneConversationKey(owner.name, target.character.name), 0,
@@ -1078,7 +1075,6 @@ export function useRoleplayPanelRuntime({
   );
 
   function toggleSocialLike(characterId: string, app: SocialAppKind, postId: string) {
-    captureNpcParticipants([{ kind: 'post', app, id: postId }]);
     const accountKey = socialLikeAccountKey(characterId, app);
     setSocialLikesByAccount((current) => {
       const liked = current[accountKey] ?? [];
@@ -1092,7 +1088,6 @@ export function useRoleplayPanelRuntime({
   }
 
   function unlockOnlyFriendsPost(characterId: string, postId: string, price: number) {
-    captureNpcParticipants([{ kind: 'post', app: 'onlyfriends', id: postId }]);
     setOnlyFriendsPurchasesByCharacter((current) => {
       const purchases = current[characterId] ?? {};
       if (purchases[postId] !== undefined) {
@@ -1440,6 +1435,7 @@ export function useRoleplayPanelRuntime({
     }
     chatAutoFollowProgrammaticScrollRef.current = false;
     chatAutoFollowAnimatingRef.current = false;
+    setSmoothChatAutoScrollActive(false);
     chatAutoFollowAnimationTimeRef.current = null;
   }, []);
 
@@ -1500,6 +1496,7 @@ export function useRoleplayPanelRuntime({
     if (!chatAutoFollowAnimationFrameRef.current) {
       markUiEvent('scroll.animationStarted');
       chatAutoFollowAnimatingRef.current = true;
+      setSmoothChatAutoScrollActive(true);
       chatAutoFollowAnimationFrameRef.current = requestAnimationFrame(step);
     }
   }, [cancelChatAutoFollowAnimation, markChatProgrammaticScroll, smoothChatAutoScrollMinSpeed]);
@@ -2028,6 +2025,7 @@ export function useRoleplayPanelRuntime({
     chatAutoFollowEngaged,
     chatUnreadMessageCount,
     engageChatAutoFollowAndScrollToBottom,
+    smoothChatAutoScrollActive,
     selectPhoneReplyFromComposer,
     selectPhoneGalleryImageFromComposer,
     selectPhoneEmoji,

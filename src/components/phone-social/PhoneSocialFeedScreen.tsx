@@ -1,5 +1,5 @@
 import type { ImageGenerationReference } from '../../images/references';
-import { usePanelNavigationState, usePanelNavigationBack } from '../../navigation/usePanelNavigation';
+import { usePanelNavigationState } from '../../navigation/usePanelNavigation';
 import { CharacterName } from '../CharacterName';
 import { accountHandle } from '../../characters/character';
 import { isAccountPrivacyMode, socialAccountPresentation } from '../../chat/socialMedia';
@@ -273,7 +273,6 @@ export function PhoneSocialFeedScreen({
   rpDateTimeFormat,
   rpWeekdayLanguage,
 }: PhoneSocialFeedScreenProps) {
-  const navigateBack = usePanelNavigationBack();
   const [editingProfile, setEditingProfile] = usePanelNavigationState(`${app.id}.${owner?.id}.editingProfile`, false);
   // A username stored in the Storybook means the character already has an
   // account in this app; the onboarding step is skipped then.
@@ -422,17 +421,17 @@ export function PhoneSocialFeedScreen({
 
   // Close the post source menu when clicking anywhere outside it.
   useEffect(() => {
-    if (postStage !== 'menu') {
+    if (postStage !== 'menu' || galleryOpen || cameraOpen) {
       return;
     }
     const closeMenu = (event: PointerEvent) => {
-      if (event.target instanceof Node && !postMenuRef.current?.contains(event.target)) {
+      if (postMenuRef.current && event.target instanceof Node && !postMenuRef.current.contains(event.target)) {
         setPostStage(undefined);
       }
     };
     document.addEventListener('pointerdown', closeMenu);
     return () => document.removeEventListener('pointerdown', closeMenu);
-  }, [postStage, setPostStage]);
+  }, [cameraOpen, galleryOpen, postStage, setPostStage]);
 
   // Each app uses its own directed authored and acquired follows. Real DM
   // partners surface separately without granting access to another app.
@@ -1232,7 +1231,7 @@ export function PhoneSocialFeedScreen({
         title={`${ownerFirstName ?? 'Phone'}'s Gallery`}
         images={phoneGalleryImages}
         action="select"
-        onBack={() => navigateBack(() => setGalleryOpen(false))}
+        onBack={() => setGalleryOpen(false)}
         onSelectImage={(image) => {
           setPostDraftImage(image);
           setGalleryOpen(false);
@@ -1672,11 +1671,11 @@ export function PhoneSocialFeedScreen({
             highlightedMessagePulseKey={openDirectMessageRequest?.requestId ?? 0}
             disabled={isRunning}
             onSelectParticipant={setDirectMessageParticipant}
-            onCloseConversation={() => navigateBack(() => setDirectMessageParticipant(undefined))}
-            onBack={() => navigateBack(() => {
+            onCloseConversation={() => setDirectMessageParticipant(undefined)}
+            onBack={() => {
               setDirectMessageParticipant(undefined);
               setDirectMessagesOpen(false);
-            })}
+            }}
             walletBalance={walletBalance}
             onSend={(message) => onSendDirectMessage(message, owner.id)}
           />

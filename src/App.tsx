@@ -1,3 +1,4 @@
+import { openingHistoryNpcParticipantsFromNodes } from './characters/npcParticipantRuntime';
 import { useUserQuestion } from './app/useUserQuestion';
 import { imageModelContext } from './images/loraCompatibility';
 import { supportsImageGenerationReferences } from './images/providers';
@@ -24,8 +25,7 @@ import { phoneImageSource } from './characters/appRuntime';
 import { removeEdgesConnectedToIncompatibleNodes } from './workflow/persistence';
 import { edgesAfterNodeUpgrade } from './nodes/nodeUpgrade';
 import { useMatchMeMigration } from './chat/useMatchMeMigration';
-import { datingAccountId } from './chat/datingAccounts';
-import { matchMeState, matchMeMessageAllowed, migrateDatingHistory, matchMeLikePolicy, matchMeMatchHistoryText } from './chat/matchMe';
+import { matchMeState, matchMeMessageAllowed, migrateDatingHistory } from './chat/matchMe';
 import { prepareMatchMePromptSlots } from './chat/matchMePrompt';
 import type { DatingProfile } from './chat/datingProfile';
 import {
@@ -1230,6 +1230,7 @@ function App() {
     chatAutoFollowEngaged,
     chatUnreadMessageCount,
     engageChatAutoFollowAndScrollToBottom,
+    smoothChatAutoScrollActive,
     selectPhoneReplyFromComposer,
     selectPhoneGalleryImageFromComposer,
     selectPhoneEmoji,
@@ -4333,7 +4334,7 @@ function App() {
       );
       return;
     }
-    if (turn.messageFormat === socialMediaMessageFormat) {
+    if (turn.messageFormat === socialMediaMessageFormat && turn.promptSlot !== 7) {
       const turnMessages = [...turn.input.messages, ...turn.output.messages];
       const socialPost = turnMessages.find((message) => message.socialPost)?.socialPost;
       const socialThreadAction = turnMessages.find(
@@ -4442,7 +4443,8 @@ function App() {
       );
       return;
     }
-    if (turn.messageFormat === 0 && turn.promptSlot === 6) {
+    if ((turn.messageFormat === 0 && turn.promptSlot === 6) ||
+      (turn.messageFormat === socialMediaMessageFormat && turn.promptSlot === 7)) {
       const player = phoneCharacters.find((character) => character.id === turn.playerCharacterId);
       if (!player) {
         notifySystem('warning', 'The original player character is no longer available for this initiative turn.');
@@ -4451,7 +4453,7 @@ function App() {
       void runGraph('', [], undefined,
         messagesRef.current.filter((message) => !allTurnMessageIds.has(message.id)),
         replacedMessageIds, player, false, undefined, { turn, replaceInput: true },
-        'user', undefined, undefined, undefined, false, 0, 6);
+        'user', undefined, undefined, undefined, false, turn.messageFormat, turn.promptSlot);
       return;
     }
     if (turn.messageFormat === autoplayMessageFormat) {
@@ -4719,6 +4721,18 @@ function App() {
     );
   }
 
+  function startPhoneInitiativeTurn() {
+    if (isRunning || narratorSelected || !selectedCharacter) return;
+    const switches = nodesRef.current.filter((node) => node.data.nodeType === 'llm-prompt-switch');
+    if (!switches.some((node) => node.data.llmPromptSwitchPromptAftersByOutput?.[socialMediaMessageFormat]?.[7]?.trim())) {
+      notifySystem('warning', 'This workflow needs Social Media slot 7 (Phone Initiative). Load an updated default workflow or add the prompt slot.');
+      return;
+    }
+    rememberChatCharacter(selectedCharacter.id);
+    void runGraph('', [], undefined, messagesRef.current, undefined, selectedCharacter,
+      false, undefined, undefined, 'user', undefined, undefined, undefined, false, socialMediaMessageFormat, 7);
+  }
+
   function startInitiativeTurn() {
     if (isRunning || narratorSelected || !selectedCharacter || draft.trim() || draftImages.length || draftCommands.length) return;
     const switches = nodesRef.current.filter((node) => node.data.nodeType === 'llm-prompt-switch');
@@ -4845,6 +4859,7 @@ function App() {
 
   const {
     submitBankTransfer,
+    submitMatchMeAction,
     submitOnlyFriendsWalletTransfer,
     commitCreatedPhoneNote,
     updatePhoneNoteColor,
@@ -4977,15 +4992,6 @@ function App() {
     if (!currentOwner) return false;
     const state = matchMeState(characters, messagesRef.current);
     const entries = migrateDatingHistory(currentOwner, state, messagesRef.current, new Date().toISOString());
-    state.matches.push(...entries.flatMap((entry) => entry.matchMeMatch ? [entry.matchMeMatch] : []));
-    for (const [id, decision] of Object.entries(profile.decisions)) {
-      if ((decision !== 'like' && decision !== 'superlike') || currentOwner.social.plotTwist?.decisions[id] === decision) continue;
-      const match = matchMeLikePolicy(datingAccountId(owner), id, state, new Date().toISOString(), decision);
-      if (!match) continue;
-      state.matches.push(match);
-      entries.push({ role: 'user', includeInHistory: true, matchMeMatch: match,
-        originalText: matchMeMatchHistoryText(match, state.accounts) });
-    }
     return commitLocalAppTurn(entries, () => saveDatingProfile(currentOwner, { ...profile, messages: undefined, historyVersion: 1 }));
   }
 
@@ -6267,6 +6273,7 @@ function App() {
       style={{
         ...textEffectsStyle(textEffects),
         ...characterColorStyle,
+        '--character-name-animation-state': smoothChatAutoScrollActive ? 'paused' : 'running',
         '--glass-opacity': glassDesignOpacity,
         '--glass-blur': glassDesignEnabled ? '1px' : '0px',
       } as React.CSSProperties}
@@ -6808,6 +6815,7 @@ function App() {
           }}>
             <AppMessageAvatars enabled={appMessageAvatarsEnabled} size={chatMessageAvatarSize} colors={characterColors}>
             <PhonePanel
+              onStartInitiativeTurn={startPhoneInitiativeTurn}
               key={panelSessionRevision}
               appCharacters={npcParticipants.characters()}
               phoneContacts={phoneContacts}
@@ -6947,12 +6955,13 @@ function App() {
                   !!message.socialPost ||
                   !!message.socialThreadAction ||
                   !!message.socialReactions ||
-                  !!message.socialDirectMessage || !!message.matchMeMatch,
+                  !!message.socialDirectMessage || !!message.matchMeMatch || !!message.matchMeAction,
               )}
               onSubmitSocialPost={submitSocialPost}
               onSubmitSocialThreadAction={submitSocialThreadAction}
               onSubmitSocialDirectMessage={submitSocialDirectMessage}
               onSaveDatingProfile={saveMatchMeProfile}
+              onMatchMeAction={submitMatchMeAction}
               onCreateSocialAccount={saveStorybookSocialUsername}
               onImportSocialPostImage={importSocialPostImage}
               socialImageById={socialImageById}
@@ -7668,7 +7677,9 @@ function App() {
           snapshot={npcLibrary.snapshot}
           activeRegistry={npcParticipants.registry()}
           participants={npcParticipants.current()}
+          openingParticipants={openingHistoryNpcParticipantsFromNodes(nodes)}
           activity={characterActivity}
+          interactedCharacterIds={interactedCharacterIds}
           onRemove={(characterId, nodeId) => setCharacterRemoval({ nodeId, characterId })}
           busy={isRunning}
           dismissOnEscape={!characterRemoval}
