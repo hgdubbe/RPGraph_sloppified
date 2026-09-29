@@ -6,12 +6,6 @@ type AutoplayControlProps = {
   onRunModeNow: (mode: AutoplayMode) => void;
 };
 
-const playIcon = (
-  <svg aria-hidden="true" viewBox="0 0 24 24">
-    <path d="M8 5v14l11-7L8 5Z" />
-  </svg>
-);
-
 export function AutoplayControl({
   replayDisabled,
   onRunModeNow,
@@ -59,7 +53,6 @@ export function AutoplayControl({
           }}
         >
           <span>{label}</span>
-          {playIcon}
         </button>
       </div>
     );
@@ -67,18 +60,20 @@ export function AutoplayControl({
 
   return (
     <div className="autoplay-control" ref={controlRef}>
-      <div className="autoplay-pill">
-        <button
-          className="autoplay-menu-trigger"
-          type="button"
-          aria-haspopup="menu"
-          aria-expanded={menuOpen}
-          title="Run an Autoplay mode"
-          onClick={() => setMenuOpen((current) => !current)}
-        >
-          <span className="autoplay-label">Autoplay</span>
-        </button>
-      </div>
+      <button
+        className="composer-autoturn-button"
+        type="button"
+        aria-haspopup="menu"
+        aria-expanded={menuOpen}
+        title="Choose an Autoplay mode"
+        aria-label="Autoplay"
+        onClick={() => setMenuOpen((current) => !current)}
+      >
+        <svg className="composer-autoturn-icon" aria-hidden="true" viewBox="0 0 24 24">
+          <path d="M4 5v14l10-7z" />
+          <path d="M13 5v14l10-7z" />
+        </svg>
+      </button>
       {menuOpen && (
         <div className="autoplay-menu" role="menu" aria-label="Autoplay modes">
           <span className="autoplay-menu-heading">

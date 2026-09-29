@@ -228,65 +228,16 @@
   border-radius: 999px;
 }
 
-.studio-shell-play .composer-autoplay-pill .autoplay-control {
-  flex: none;
-  width: max-content;
-}
-
-/* Same pill treatment the split-button already had in composer-run-actions
-   before Autoplay moved above the composer -- reused, not reinvented. Its
-   own border/background/shadow are reset here too, so the glass pill above
-   (composer-pills-row) is the only visible surface instead of a second,
-   opaque, differently-colored box nested inside it. */
-.studio-shell-play .composer-autoplay-pill .autoplay-split-button {
-  width: max-content;
-  height: 36px;
-  border: 0;
-  border-radius: 999px;
-  background: transparent;
-  box-shadow: none;
-}
-
-/* Mirrors (.composer .autoplay-menu-trigger / .autoplay-state-toggle) in
-   styles.css -- those are scoped to a `.composer` ancestor, which no longer
-   wraps Autoplay now that it floats in its own pill above the composer
-   instead of inside it. Duplicated rather than broadening that shared
-   selector, per this file's own pattern of layering Play-only chrome on
-   top of styles.css instead of editing its rules in place. */
-.studio-shell-play .composer-autoplay-pill .autoplay-menu-trigger,
-.studio-shell-play .composer-autoplay-pill .autoplay-state-toggle {
-  position: relative;
-  display: grid;
-  height: 100%;
-  place-items: center;
-  padding: 0;
-  border: 0;
-  border-radius: 0;
-  color: var(--theme-shell-icon-color, currentColor);
-  background: transparent;
-  cursor: pointer;
-}
-
-.studio-shell-play .composer-autoplay-pill .autoplay-menu-trigger {
-  min-width: 70px;
-  padding: 0 10px;
-  font-size: 11px;
-  font-weight: 800;
-}
-
-.studio-shell-play .composer-autoplay-pill .autoplay-state-toggle {
-  width: 32px;
-  border-left: 1px solid var(--theme-border-soft, rgba(77, 96, 138, 0.36));
-}
-
-.studio-shell-play .composer-autoplay-pill .autoplay-menu-trigger:hover,
-.studio-shell-play .composer-autoplay-pill .autoplay-menu-trigger[aria-expanded="true"],
-.studio-shell-play .composer-autoplay-pill .autoplay-state-toggle:hover {
-  color: var(--theme-foreground, currentColor);
-  background: var(--theme-shell-topbar-hover-bg, rgba(255, 255, 255, 0.06));
-}
-
-.studio-shell-play .composer-autoplay-pill .autoplay-menu-help {
+/* Autoplay's trigger is just the composer-autoturn-button, same small
+   circular button as AutoTurn (only the fast-forward icon and the menu it
+   opens differ) -- no bespoke pill/trigger styling needed here anymore.
+   The dropdown menu it opens still needs its own Play-scoped chrome, though:
+   `.composer .autoplay-menu-help` / `.autoplay-menu-option` in styles.css
+   are scoped to a `.composer` ancestor, and while `.autoplay-control` does
+   sit inside the composer form, these mirrors keep Play mode's own menu
+   theming (this file's pattern of layering Play-only chrome on top of
+   styles.css instead of editing its rules in place). */
+.studio-shell-play .autoplay-control .autoplay-menu-help {
   position: relative;
   display: grid;
   width: 17px;
@@ -308,14 +259,14 @@
    are scoped to a `.composer` ancestor that no longer wraps Autoplay now
    that it floats in its own pill, so without these mirrors the whole
    dropdown rendered unstyled (default button chrome, no theme colors). */
-.studio-shell-play .composer-autoplay-pill .autoplay-menu-help:hover,
-.studio-shell-play .composer-autoplay-pill .autoplay-menu-help:focus-visible {
+.studio-shell-play .autoplay-control .autoplay-menu-help:hover,
+.studio-shell-play .autoplay-control .autoplay-menu-help:focus-visible {
   outline: none;
   border-color: var(--theme-complete, #4ade80);
   color: var(--theme-complete, #4ade80);
 }
 
-.studio-shell-play .composer-autoplay-pill .autoplay-menu-help::after {
+.studio-shell-play .autoplay-control .autoplay-menu-help::after {
   position: absolute;
   z-index: 2;
   top: -8px;
@@ -340,17 +291,15 @@
   transition: opacity 0.15s, transform 0.15s;
 }
 
-.studio-shell-play .composer-autoplay-pill .autoplay-menu-help:hover::after,
-.studio-shell-play .composer-autoplay-pill .autoplay-menu-help:focus-visible::after {
+.studio-shell-play .autoplay-control .autoplay-menu-help:hover::after,
+.studio-shell-play .autoplay-control .autoplay-menu-help:focus-visible::after {
   opacity: 1;
   transform: translateX(0);
 }
 
-.studio-shell-play .composer-autoplay-pill .autoplay-menu-option {
-  display: grid;
-  grid-template-columns: 15px 1fr;
+.studio-shell-play .autoplay-control .autoplay-menu-option {
+  display: flex;
   align-items: center;
-  gap: 8px;
   width: 100%;
   padding: 8px 9px;
   border: 0;
@@ -363,37 +312,12 @@
   cursor: pointer;
 }
 
-.studio-shell-play .composer-autoplay-pill .autoplay-menu-option:hover,
-.studio-shell-play .composer-autoplay-pill .autoplay-menu-option:focus-visible,
-.studio-shell-play .composer-autoplay-pill .autoplay-menu-option.active {
+.studio-shell-play .autoplay-control .autoplay-menu-option:hover,
+.studio-shell-play .autoplay-control .autoplay-menu-option:focus-visible,
+.studio-shell-play .autoplay-control .autoplay-menu-option.active {
   outline: none;
   color: var(--theme-foreground, #f6f8ff);
   background: color-mix(in srgb, var(--theme-primary, #79d8ef) 14%, transparent);
-}
-
-.studio-shell-play .composer-autoplay-pill .autoplay-menu-play {
-  display: grid;
-  width: 30px;
-  min-height: 34px;
-  place-items: center;
-  padding: 0;
-  border: 0;
-  border-radius: 6px;
-  color: var(--theme-muted-foreground, #9fb0df);
-  background: transparent;
-  cursor: pointer;
-}
-
-.studio-shell-play .composer-autoplay-pill .autoplay-menu-play:hover:not(:disabled),
-.studio-shell-play .composer-autoplay-pill .autoplay-menu-play:focus-visible {
-  outline: none;
-  color: var(--theme-complete, #4ade80);
-  background: color-mix(in srgb, var(--theme-complete, #4ade80) 16%, transparent);
-}
-
-.studio-shell-play .composer-autoplay-pill .autoplay-menu-play:disabled {
-  opacity: 0.35;
-  cursor: default;
 }
 
 .studio-shell-play .composer-heading {

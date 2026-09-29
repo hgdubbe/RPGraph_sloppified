@@ -2278,15 +2278,13 @@ const MemoizedChatConversationPanel = memo(function ChatConversationPanelContent
         )}
         <div className="composer-pills-row">
           {characterPicker}
-          {switchPill}
-          <div className="composer-glass-pill composer-autoplay-pill">
-            <AutoplayControl
-              replayDisabled={autoplayReplayDisabled}
-              onRunModeNow={onAutoplayRunModeNow}
-            />
-          </div>
-          <div className="composer-pills-row-spacer" />
-          {historyActionsPill}
+          {!isRunning && (
+            <>
+              {switchPill}
+              <div className="composer-pills-row-spacer" />
+              {historyActionsPill}
+            </>
+          )}
         </div>
       {isRunning && !isPaused && !pendingQuestion ? (
         <RunProgressCard
@@ -2608,6 +2606,10 @@ const MemoizedChatConversationPanel = memo(function ChatConversationPanelContent
               <path d="M13 5v14l10-7z" />
             </svg>
           </button>
+          <AutoplayControl
+            replayDisabled={autoplayReplayDisabled}
+            onRunModeNow={onAutoplayRunModeNow}
+          />
           {pendingQuestion && (
             <button
               type="button"

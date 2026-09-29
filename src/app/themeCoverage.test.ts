@@ -7,6 +7,7 @@ const topbarStyles = readFileSync('src/styles/topbar-menu.css', 'utf8');
 const studioShellStyles = readFileSync('src/styles/studio-shell.css', 'utf8');
 const roleplayDualPaneStyles = readFileSync('src/styles/roleplay-dual-pane.css', 'utf8');
 const conversationPanel = readFileSync('src/components/ChatConversationPanel.tsx', 'utf8');
+const autoplayControl = readFileSync('src/chat/AutoplayControl.tsx', 'utf8');
 const roleplayShell = readFileSync('src/components/RoleplayStudioShell.tsx', 'utf8');
 const appSource = readFileSync('src/App.tsx', 'utf8');
 const roleplayTimelineStyles = readFileSync('src/styles/roleplay-timeline.css', 'utf8');
@@ -306,18 +307,17 @@ describe('theme coverage for audited Studio surfaces', () => {
 
   // Autoplay is now a stateless, explicitly-triggered action (upstream's
   // "run modes directly from the menu" simplification) -- there's no more
-  // persisted enabled/paused toggle state or .autoplay-split-button.enabled
-  // themed variant to assert on.
+  // persisted enabled/paused toggle state to theme. Its trigger is just the
+  // shared composer-autoturn-button (same small circular button as AutoTurn,
+  // only the icon/menu differ), not a bespoke pill, so nothing autoplay-
+  // specific needs asserting there; the dropdown menu it opens still gets
+  // its own Play-scoped theming, asserted here.
   it('themes autoplay chrome and uses a real image icon for attachments', () => {
-    const autoplay = cssRule(styles, '.autoplay-pill');
-    const autoplayButtons = cssRule(styles, '.composer .autoplay-menu-trigger');
-    const autoplayHover = cssRule(styles, '.composer .autoplay-menu-trigger:hover,\n.composer .autoplay-menu-trigger[aria-expanded="true"]');
+    const autoplayMenuOption = cssRule(studioShellStyles, '.studio-shell-play .autoplay-control .autoplay-menu-option');
+    expect(autoplayMenuOption).toMatch(/var\(--theme-/);
 
-    for (const rule of [autoplay, autoplayButtons, autoplayHover]) {
-      expect(rule).toMatch(/var\(--theme-(?:shell|primary|border)/);
-      expect(rule).not.toMatch(/--theme-raw-|#[0-9a-f]{3,8}\b|rgba?\(/i);
-    }
-
+    expect(autoplayControl).toContain('className="composer-autoturn-button"');
+    expect(conversationPanel).toContain('<AutoplayControl');
     expect(studioShellStyles).not.toContain('.attach-image-button:not(.voice-stop-button)::before');
     expect(conversationPanel).toContain('className="attach-image-icon"');
   });

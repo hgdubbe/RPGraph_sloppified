@@ -13360,52 +13360,6 @@ button.message-timeline-row.phone:focus-visible {
   position: relative;
 }
 
-.autoplay-pill {
-  display: flex;
-  height: 30px;
-  overflow: hidden;
-  border: 1px solid var(--theme-border);
-  border-radius: 8px;
-  background: var(--theme-shell-segmented-bg);
-  box-shadow: var(--theme-button-shadow, none);
-}
-
-.autoplay-pill:hover {
-  border-color: var(--theme-primary);
-  background: color-mix(in srgb, var(--theme-primary) 12%, var(--theme-shell-segmented-bg));
-}
-
-.composer .autoplay-menu-trigger {
-  position: relative;
-  display: grid;
-  height: 100%;
-  place-items: center;
-  padding: 0;
-  border: 0;
-  border-radius: 0;
-  color: var(--theme-shell-icon-color);
-  background: transparent;
-  cursor: pointer;
-  transition: all 0.15s ease;
-}
-
-.composer .autoplay-menu-trigger {
-  min-width: 60px;
-  padding: 0 10px;
-  font-size: 11px;
-  font-weight: 800;
-}
-
-.composer .autoplay-menu-trigger:hover,
-.composer .autoplay-menu-trigger[aria-expanded="true"] {
-  color: var(--theme-foreground);
-  background: var(--theme-shell-topbar-hover-bg);
-}
-
-.autoplay-label {
-  line-height: 1;
-}
-
 .autoplay-menu {
   position: absolute;
   z-index: 24;
@@ -13490,10 +13444,8 @@ button.message-timeline-row.phone:focus-visible {
 }
 
 .composer .autoplay-menu-option {
-  display: grid;
-  grid-template-columns: max-content 14px;
+  display: flex;
   align-items: center;
-  gap: 8px;
   width: 100%;
   padding: 8px 9px;
   border: 0;
@@ -13523,12 +13475,6 @@ button.message-timeline-row.phone:focus-visible {
 .composer .autoplay-menu-option:disabled {
   opacity: 0.35;
   cursor: default;
-}
-
-.autoplay-menu-option svg {
-  width: 14px;
-  height: 14px;
-  fill: currentColor;
 }
 
 .composer button[type="submit"] {
