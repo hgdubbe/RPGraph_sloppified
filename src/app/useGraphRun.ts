@@ -4,7 +4,7 @@ import { resolveSocialPostCommand, resolveSocialPostReference, type SocialPostCo
 import { socialReactionAccountContext } from '../characters/socialReactionAccounts';
 import { postsWithInitialContent } from '../characters/publications';
 import { resolveWhatsUpMessageParticipants } from '../characters/messageIdentity';
-import { matchMeState, matchMeMessageAllowed, incomingMatchMeMessage } from '../chat/matchMe';
+import { applyMatchMeAction, matchMeState, matchMeMessageAllowed, incomingMatchMeMessage } from '../chat/matchMe';
 import { socialMessagePreviewLinks } from '../chat/socialMessagePreview';
 // runGraph orchestration hook, extracted verbatim from App.tsx (Etappe 2, APP_ZERLEGUNG.md).
 // Pure move: all component-scope dependencies arrive via the options object; the run
@@ -76,6 +76,7 @@ import {
   type WorkflowVariableSetCommand,
 } from '../workflow';
 import { formatPhoneInput, formatPhoneReplyQuote, whatsUpMessageInputText } from '../chat/phoneReplies';
+import { phoneInitiativeCharacterContext } from '../chat/phoneInitiativeInput';
 import { nextRpPictureName, rpPicturePhoneAttachment } from '../chat/rpPictures';
 import { nodesPreparedAfterOutput } from '../graph/edges';
 import {
@@ -175,6 +176,7 @@ function mergeOutputActions(
   return {
     phoneMessages: [...primary.phoneMessages, ...direct.phoneMessages],
     bankTransfers: [...primary.bankTransfers, ...direct.bankTransfers],
+    matchMeActions: [...primary.matchMeActions, ...direct.matchMeActions],
     chatMessages: [...primary.chatMessages, ...direct.chatMessages],
     choiceGroups: [...primary.choiceGroups, ...direct.choiceGroups],
     infoBoxes: [...primary.infoBoxes, ...direct.infoBoxes],
@@ -308,7 +310,7 @@ type UseGraphRunOptions = Pick<
   resolveOutputActionContextCapacityBars: (
     requests: OutputActionContextCapacityRequest[],
   ) => OutputActionContextCapacityBar[];
-  pruneStorybookExternalImagesForMessages: () => void;
+  pruneStorybookExternalImagesForMessages: () => (() => void) | void;
   selectChatPanelView: (view: 'chat' | 'phone' | 'events') => void;
   selectChatCharacter: (characterId: string) => void;
   setSelectedCharacterId: (characterId: string) => void;
@@ -496,7 +498,8 @@ export function useGraphRun(options: UseGraphRunOptions) {
       notifySystem('warning', 'MatchMe message blocked: the accounts need an active match.');
       return false;
     }
-    const isInitiativeRun = messageFormatOverride === 0 && turnModeOverride === 6;
+    const isPhoneInitiativeRun = messageFormatOverride === socialMediaMessageFormat && turnModeOverride === 7;
+    const isInitiativeRun = (messageFormatOverride === 0 && turnModeOverride === 6) || isPhoneInitiativeRun;
     const isAutoTurn = turnMode === 'auto-turn';
     const isNarratorTurn = turnMode === 'narrator';
     const shouldRestoreCancelledInput =
@@ -808,6 +811,7 @@ export function useGraphRun(options: UseGraphRunOptions) {
     nodesRef.current = resetRunNodes;
     setNodes(resetRunNodes);
     removeReplacedMessages();
+    const restorePrunedNpcImages = replacement ? pruneStorybookExternalImagesForMessages() : undefined;
     runtimeNodes
       .filter((node) =>
         node.data.kind === undefined &&
@@ -1026,6 +1030,7 @@ export function useGraphRun(options: UseGraphRunOptions) {
         restoreReplacedMessages();
         if (replacement) {
           applyTurnRuntime(runtimeBeforeReplacement);
+          restorePrunedNpcImages?.();
         } else {
           applyTurnRuntime(runtimeBeforeAttempt);
         }
@@ -1112,6 +1117,7 @@ export function useGraphRun(options: UseGraphRunOptions) {
         restoreReplacedMessages();
         if (replacement) {
           applyTurnRuntime(runtimeBeforeReplacement);
+          restorePrunedNpcImages?.();
         } else {
           applyTurnRuntime(runtimeBeforeAttempt);
         }
@@ -1291,7 +1297,11 @@ export function useGraphRun(options: UseGraphRunOptions) {
       directActionOnly,
       isAutoTurn,
     );
-    if (isInitiativeRun) {
+    if (isPhoneInitiativeRun) {
+      inputText = `AI phone initiative. The user is currently playing ${inputCharacterName}. ${runEnglishProcessing || translateInputOnly ? 'Processing language: English. ' : ''}Continue the established situation through phone apps and leave the player response to the user in those apps.`;
+      const characterContext = phoneInitiativeCharacterContext(inputCharacter, appCharacters(), historyMessages);
+      if (characterContext) inputText += `\n\n${characterContext}`;
+    } else if (isInitiativeRun) {
       inputText = `AI initiative roleplay. The user is currently playing ${inputCharacterName}. ${runEnglishProcessing || translateInputOnly ? 'Processing language: English. ' : ''}Present this character with a situation that invites their reaction. Ask the user how they respond before completing the scene. Do not decide their reaction for them.`;
     }
     const originalInput = socialDirectMessage?.app === 'matchme' ? inputText : replacementInputText ??
@@ -1691,9 +1701,11 @@ export function useGraphRun(options: UseGraphRunOptions) {
       });
       const graphOutput = directActionOnly
         ? ''
-        : isAutoplayRun
-          ? stripPlanBlocks(autoplayOutputText)
-          : executedOutput;
+        : isPhoneInitiativeRun
+          ? (socialMediaOutputText.trim() === '{}' ? '' : socialMediaOutputText)
+          : isAutoplayRun
+            ? stripPlanBlocks(autoplayOutputText)
+            : executedOutput;
       if (socialDirectMessage && !socialDirectMessageOutputPromise && socialMediaOutputText) {
         socialDirectMessageOutputPromise = processSocialDirectMessageOutput(socialMediaOutputText);
       }
@@ -1743,6 +1755,7 @@ export function useGraphRun(options: UseGraphRunOptions) {
               phoneMessages: [],
               phoneImageActions: [],
               bankTransfers: [],
+              matchMeActions: [],
               socialPosts: [],
               invalidSocialPostCount: 0,
               socialPostComments: [],
@@ -2217,6 +2230,7 @@ export function useGraphRun(options: UseGraphRunOptions) {
         if (!isPhoneMessage) {
           flushLiveOutput();
           const earlyOutput = {
+            outputActionsHidden: (directActionOnly && !rpOutput.trim()) || undefined,
             originalText: rpOutput,
             imageAttachments: rpDisplayImageAttachment ? [rpDisplayImageAttachment] : undefined,
             includeInHistory: !!rpOutput.trim() || !!rpDisplayImageAttachment,
@@ -2371,6 +2385,7 @@ export function useGraphRun(options: UseGraphRunOptions) {
         : undefined;
       flushLiveOutput();
       const completedOutput: Partial<MessageRecord> = {
+        outputActionsHidden: (directActionOnly && !rpOutput.trim()) || undefined,
         originalText: rpOutput,
         translatedText: translatedOutput,
         imageAttachments: rpDisplayImageAttachment ? [rpDisplayImageAttachment] : undefined,
@@ -2391,6 +2406,7 @@ export function useGraphRun(options: UseGraphRunOptions) {
       if (!isPhoneMessage && liveOutputMessageId === undefined) {
         liveOutputMessageId = appendMessage({
           role: 'output',
+          outputActionsHidden: (directActionOnly && !rpOutput.trim()) || undefined,
           originalText: rpOutput,
           translatedText: translatedOutput,
           imageAttachments: rpDisplayImageAttachment ? [rpDisplayImageAttachment] : undefined,
@@ -2579,6 +2595,17 @@ export function useGraphRun(options: UseGraphRunOptions) {
             index === 0 ? 'received' : undefined,
             'output',
           );
+        }
+
+        for (const action of [...appliedActions.matchMeActions, ...embeddedPhoneResult.matchMeActions,
+          ...(phoneOutputBankResult?.matchMeActions ?? [])]) {
+          const result = applyMatchMeAction(action, matchMeState(appCharacters(), messagesRef.current), new Date().toISOString());
+          if (!result) {
+            reportRunWarning('MatchMe action ignored: unknown accounts, an existing match, or a duplicate decision.', outputNodeTraceInfo);
+            continue;
+          }
+          appendMessage({ role: 'output', originalText: result.text, includeInHistory: true,
+            matchMeAction: result.action, matchMeMatch: result.match });
         }
 
         for (const bankTransfer of [
@@ -3191,6 +3218,8 @@ export function useGraphRun(options: UseGraphRunOptions) {
       setMessages(messagesRef.current);
       if (replacement) {
         applyTurnRuntime(runtimeBeforeReplacement);
+        restorePrunedNpcImages?.();
+        pruneStorybookExternalImagesForMessages();
       } else {
         applyTurnRuntime(runtimeBeforeAttempt);
         pruneStorybookExternalImagesForMessages();

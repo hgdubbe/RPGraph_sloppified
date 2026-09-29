@@ -1,4 +1,6 @@
+import { matchingMessageAliases } from '../characters/messageAliases';
 import type {
+  MatchMeAction,
   BankTransferRecord,
   ChatImageAttachment,
   ImageCaptionChange,
@@ -7,6 +9,7 @@ import type {
   SocialMessengerAppKind,
   TurnContext,
 } from '../types';
+import { isMatchMeAction } from './matchMeActions';
 import { isRecord } from '../utils/records';
 import {
   parseCreatedPhoneNote,
@@ -105,6 +108,7 @@ export type EmbeddedPhoneMessagesResult = {
   phoneMessages: ParsedPhoneMessage[];
   phoneImageActions: ParsedPhoneImageAction[];
   bankTransfers: BankTransferRecord[];
+  matchMeActions: MatchMeAction[];
   socialPosts: ParsedSocialPost[];
   invalidSocialPostCount: number;
   socialPostComments: ParsedSocialPostComment[];
@@ -210,6 +214,8 @@ export function canonicalPhoneName<T extends { name: string }>(
   characters: T[],
   name: string,
 ) {
+  const aliases = matchingMessageAliases(characters, name, (character) => [character.name]);
+  if (aliases.length) return aliases.length === 1 ? aliases[0].name : name;
   const scoredMatches = characters
     .map((character) => ({
       character,
@@ -674,6 +680,7 @@ export function parseEmbeddedPhoneMessagesFromRpOutput(value: string): EmbeddedP
     phoneMessages: ParsedPhoneMessage[];
     phoneImageActions: ParsedPhoneImageAction[];
     bankTransfers: BankTransferRecord[];
+    matchMeActions: MatchMeAction[];
     socialPosts: ParsedSocialPost[];
     invalidSocialPostCount: number;
     socialPostComments: ParsedSocialPostComment[];
@@ -699,6 +706,7 @@ export function parseEmbeddedPhoneMessagesFromRpOutput(value: string): EmbeddedP
         : undefined;
       const phoneImageActions = phoneImageAction ? [phoneImageAction] : [];
       const bankTransfers = parseEmbeddedBankTransfersObject(parsed);
+      const matchMeActions = isRecord(parsed) && Array.isArray(parsed.matchMeActions) ? parsed.matchMeActions.filter(isMatchMeAction) : [];
       const socialPostsResult = parseEmbeddedSocialPostsObject(parsed);
       const socialPostComments = parseEmbeddedSocialPostCommentsObject(parsed);
       const socialDirectMessages = messengerMessages.socialDirectMessages;
@@ -716,6 +724,7 @@ export function parseEmbeddedPhoneMessagesFromRpOutput(value: string): EmbeddedP
         phoneMessages.length > 0 ||
         phoneImageActions.length > 0 ||
         bankTransfers.length > 0 ||
+        (isRecord(parsed) && parsed.matchMeActions !== undefined) ||
         socialPostsResult.posts.length > 0 ||
         socialPostsResult.invalidCount > 0 ||
         socialPostComments.length > 0 ||
@@ -728,6 +737,7 @@ export function parseEmbeddedPhoneMessagesFromRpOutput(value: string): EmbeddedP
           phoneMessages,
           phoneImageActions,
           bankTransfers,
+          matchMeActions,
           socialPosts: socialPostsResult.posts,
           invalidSocialPostCount: socialPostsResult.invalidCount,
           socialPostComments,
@@ -779,6 +789,7 @@ export function parseEmbeddedPhoneMessagesFromRpOutput(value: string): EmbeddedP
       phoneMessages,
       phoneImageActions,
       bankTransfers,
+      matchMeActions: parsedRanges.flatMap((range) => range.matchMeActions),
       socialPosts: parsedRanges.flatMap((range) => range.socialPosts),
       invalidSocialPostCount: parsedRanges.reduce((count, range) => count + range.invalidSocialPostCount, 0),
       socialPostComments,
@@ -802,6 +813,7 @@ export function parseEmbeddedPhoneMessagesFromRpOutput(value: string): EmbeddedP
     phoneMessages: [],
     phoneImageActions: [],
     bankTransfers: [],
+    matchMeActions: [],
     socialPosts: [],
     invalidSocialPostCount: 0,
     socialPostComments: [],

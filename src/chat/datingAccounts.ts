@@ -1,4 +1,4 @@
-import { characterMessageAliases, messageAliasKey } from '../characters/messageAliases';
+import { characterMessageAliases, matchingMessageAliases } from '../characters/messageAliases';
 import { appAvatarDataUrl } from '../characters/portrait';
 import { recipientCharacterContext } from '../characters/appRuntime';
 import type { ChatImageAttachment, MessageRecord } from '../types';
@@ -46,6 +46,9 @@ function referencedLegacyDatingIds(characters: StorybookCharacter[], messages: M
     profile?.messages?.forEach((message) => { if (knownIds.has(message.matchId)) referenced.add(message.matchId); });
   });
   messages.forEach((message) => {
+    if (message.matchMeAction) {
+      [message.matchMeAction.from, message.matchMeAction.to].forEach((id) => { if (knownIds.has(id)) referenced.add(id); });
+    }
     message.matchMeMatch?.accountIds.forEach((id) => { if (knownIds.has(id)) referenced.add(id); });
     const direct = message.socialDirectMessage;
     if (direct?.app === 'matchme') {
@@ -78,10 +81,10 @@ export function datingAccounts(characters: StorybookCharacter[], messages: Messa
 }
 
 export function resolveDatingAccount(identity: string, accounts: DatingAccount[]) {
-  const key = messageAliasKey(identity);
   const byId = accounts.filter((account) => account.id === identity.trim().replace(/^@/, ''));
-  if (byId.length === 1) return byId[0];
-  const matches = accounts.filter((account) => messageAliasKey(account.name) === key || account.aliases?.some((alias) => !!alias && messageAliasKey(alias) === key));
+  if (byId.length) return byId.length === 1 ? byId[0] : undefined;
+  const matches = matchingMessageAliases(accounts, identity,
+    (account) => [account.name, ...(account.aliases ?? []).filter((alias) => alias !== account.id)]);
   return matches.length === 1 ? matches[0] : undefined;
 }
 

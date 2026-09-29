@@ -1,5 +1,5 @@
 import type { ImageGenerationReference } from '../images/references';
-import { usePanelNavigationState, usePanelNavigationBack } from '../navigation/usePanelNavigation';
+import { usePanelNavigationState } from '../navigation/usePanelNavigation';
 import { ChatBubbleText } from './ChatBubbleText';
 import { CharacterName } from './CharacterName';
 import { AppMessageAvatar } from './AppMessageAvatars';
@@ -17,6 +17,7 @@ import {
   type RefObject,
   useContext,
   useEffect,
+  useId,
   useMemo,
   useRef,
   useState,
@@ -136,6 +137,21 @@ const phoneDesktopIconSizePx: Record<PhoneDesktopIconSize, number> = {
 };
 const phoneDesktopIconLabelHeight = 18;
 
+function PhoneInitiativeHint({ isRunning }: { isRunning: boolean }) {
+  const tooltipId = useId();
+  return (
+    <span className="phone-initiative-hint">
+      {isRunning ? 'Phone activity in progress…' : 'Press Enter twice for Phone Initiative'}
+      <button type="button" className="phone-initiative-info" aria-label="About Phone Initiative" aria-describedby={tooltipId}>
+        <span aria-hidden="true">i</span>
+      </button>
+      <span id={tooltipId} className="phone-initiative-tooltip" role="tooltip">
+        Let the AI take the next step in your phone apps. Select your character, click an empty area of the Phone desktop, and press Enter twice quickly. The AI introduces an incoming message or app activity based on your character and their connections, giving you something to respond to. You decide how your character reacts.
+      </span>
+    </span>
+  );
+}
+
 function phoneReplySizeClass(text: string) {
   if (text.length > 120) {
     return ' long';
@@ -148,6 +164,7 @@ function desktopBadgeLabel(count: number) {
 }
 
 type PhonePanelProps = {
+  onStartInitiativeTurn?: () => void;
   phoneContacts: PhoneContact[];
   appCharacters: StorybookCharacter[];
   storyCharacters: StorybookCharacter[];
@@ -280,6 +297,7 @@ type PhonePanelProps = {
     likeCount: number;
   }) => Promise<boolean>;
   onSubmitSocialDirectMessage: (message: SocialDirectMessageRecord, characterId: string) => Promise<boolean>;
+  onMatchMeAction: (owner: StorybookCharacter, to: string, decision: 'like' | 'superlike') => boolean;
   onSaveDatingProfile: (owner: StorybookCharacter, profile: DatingProfile) => boolean;
   onCreateSocialAccount: (
     character: StorybookCharacter,
@@ -331,6 +349,7 @@ type PhonePanelProps = {
 };
 
 export function PhonePanel({
+  onStartInitiativeTurn,
   phoneContacts,
   appCharacters,
   storyCharacters,
@@ -419,6 +438,7 @@ export function PhonePanel({
   onSubmitSocialDirectMessage,
   onCreateSocialAccount,
   onSaveDatingProfile,
+  onMatchMeAction,
   onImportSocialPostImage,
   socialImageById,
   socialLikesByAccount,
@@ -451,7 +471,6 @@ export function PhonePanel({
   onRefreshImageAssistantModelState,
 }: PhonePanelProps) {
   const { request: accountLinkRequest } = useContext(AccountLinkContext);
-  const navigateBack = usePanelNavigationBack();
   const accountLinkScreen = accountLinkRequest?.app === 'matchme' ? 'plottwist' : accountLinkRequest?.app;
   const linkedSocialRequest = accountLinkRequest && accountLinkRequest.app !== 'whatsup' && accountLinkRequest.app !== 'banking' ? {
     requestId: accountLinkRequest.requestId, app: accountLinkRequest.app, messageId: '',
@@ -548,6 +567,11 @@ export function PhonePanel({
   const desktopLayout = desktopLayoutOverride ?? phoneDesktopLayout;
   const desktopLayoutRef = useRef(phoneDesktopLayout);
   const desktopRef = useRef<HTMLDivElement | null>(null);
+  const lastInitiativeEnter = useRef<number | null>(null);
+  useEffect(() => {
+    lastInitiativeEnter.current = null;
+    if (screen === 'desktop') desktopRef.current?.focus();
+  }, [screen, selectedCharacter?.id, isRunning]);
   const desktopInteractionRef = useRef<{
     kind: 'clock' | 'app' | 'resize';
     appId?: PhoneDesktopAppId;
@@ -773,7 +797,7 @@ export function PhonePanel({
         images={phoneGalleryImages}
         action={wallpaperMode ? 'wallpaper' : 'select'}
         selectedWallpaperId={wallpaperMode ? wallpaperImageId : undefined}
-        onBack={() => navigateBack(() => setScreen(wallpaperMode ? 'desktop' : 'whatsup'))}
+        onBack={() => setScreen(wallpaperMode ? 'desktop' : 'whatsup')}
         onSelectImage={(image) => {
           if (wallpaperMode) {
             selectWallpaper(image);
@@ -795,8 +819,8 @@ export function PhonePanel({
       openRequest={directMessageRequest?.app === 'matchme' ? directMessageRequest : undefined}
       emojiOptions={phoneEmojiOptions} recentlyUsedEmojis={recentlyUsedEmojis}
       rpTimeTrackingEnabled={rpTimeTrackingEnabled} rpDateTimeFormat={rpDateTimeFormat} rpWeekdayLanguage={rpWeekdayLanguage}
-      images={phoneGalleryImages} onImportImage={onImportSocialPostImage} onSave={onSaveDatingProfile}
-      onBack={() => navigateBack(() => setScreen('desktop'))} />;
+      images={phoneGalleryImages} onImportImage={onImportSocialPostImage} onSave={onSaveDatingProfile} onDecision={onMatchMeAction}
+      onBack={() => setScreen('desktop')} />;
   }
 
   if (screen === 'banking') {
@@ -821,10 +845,10 @@ export function PhonePanel({
         isRunning={isRunning}
         initialRecipientName={bankingRecipientRequest}
         recipientRequestId={bankingRecipientRequest ? accountLinkRequest?.requestId : undefined}
-        onBack={() => navigateBack(() => {
+        onBack={() => {
           setDismissedBankingRequestId(accountLinkRequest?.requestId);
           setScreen('desktop');
-        })}
+        }}
         onAddBankingContact={onAddBankingContact}
         onSendBankTransfer={onSendBankTransfer}
       />
@@ -844,7 +868,7 @@ export function PhonePanel({
         rpDateTimeFormat={rpDateTimeFormat}
         rpWeekdayLanguage={rpWeekdayLanguage}
         onCommitNote={onPhoneNoteCommit}
-        onBack={() => navigateBack(() => setScreen('desktop'))}
+        onBack={() => setScreen('desktop')}
       />
     );
   }
@@ -860,7 +884,7 @@ export function PhonePanel({
         onSidebarWidthChange={onChatGpdSidebarWidthChange}
         archivedChatIds={archivedChatGpdChatIds}
         onCommitChat={onChatGpdChatCommit}
-        onBack={() => navigateBack(() => setScreen('desktop'))}
+        onBack={() => setScreen('desktop')}
       />
     );
   }
@@ -918,11 +942,11 @@ export function PhonePanel({
             onToggleSocialLike(selectedCharacter.id, socialScreen, postId);
           }
         }}
-        onBack={() => navigateBack(() => {
+        onBack={() => {
           setDismissedSocialPostOpenRequestId(socialPostOpenRequest?.requestId);
           setDismissedSocialDirectMessageOpenRequestId(directMessageRequest?.requestId);
           setScreen('desktop');
-        })}
+        }}
         connections={connections}
         providerHealthById={providerHealthById}
         estimatedTokenBytesPerToken={estimatedTokenBytesPerToken}
@@ -944,6 +968,9 @@ export function PhonePanel({
     return (
       <div className="phone-desktop" style={desktopStyle} aria-label="Phone desktop">
         <div className="phone-desktop-scrim" />
+        {selectedCharacter && selectedCharacterPlayable && !inputLocked && onStartInitiativeTurn && (
+          <PhoneInitiativeHint isRunning={isRunning} />
+        )}
         <PhoneImagePicker
           hideLauncher
           openCameraOnMount
@@ -980,11 +1007,34 @@ export function PhonePanel({
         ref={desktopRef}
         style={{ ...desktopStyle, '--phone-icon': `${desktopIconPx}px` } as CSSProperties}
         aria-label="Phone desktop"
+        tabIndex={0}
+        title="Press Enter twice for Phone Initiative"
+        onPointerDown={(event) => {
+          if (!(event.target as HTMLElement).closest('button, input, textarea, select')) event.currentTarget.focus();
+        }}
+        onBlur={() => { lastInitiativeEnter.current = null; }}
+        onKeyDown={(event) => {
+          if (event.target !== event.currentTarget || event.key !== 'Enter' || event.repeat || event.nativeEvent.isComposing ||
+            event.shiftKey || event.ctrlKey || event.altKey || event.metaKey || isRunning || inputLocked ||
+            !selectedCharacter || !selectedCharacterPlayable || !onStartInitiativeTurn) {
+            lastInitiativeEnter.current = null;
+            return;
+          }
+          event.preventDefault();
+          const now = performance.now();
+          if (lastInitiativeEnter.current !== null && now - lastInitiativeEnter.current <= 400) {
+            lastInitiativeEnter.current = null;
+            onStartInitiativeTurn();
+          } else lastInitiativeEnter.current = now;
+        }}
         onPointerMove={moveDesktopInteraction}
         onPointerUp={endDesktopInteraction}
         onPointerCancel={endDesktopInteraction}
       >
         <div className="phone-desktop-scrim" />
+        {selectedCharacter && selectedCharacterPlayable && !inputLocked && onStartInitiativeTurn && (
+          <PhoneInitiativeHint isRunning={isRunning} />
+        )}
         <div
           className="phone-clock-widget"
           style={{
@@ -1014,7 +1064,7 @@ export function PhonePanel({
             onClick={() => {
               if (suppressAppClickRef.current) { suppressAppClickRef.current = false; return; }
               setScreen('plottwist');
-            }} aria-label="Open MatchMe">
+            }} aria-label={phoneAppNotificationCounts.matchme > 0 ? `Open MatchMe, ${phoneAppNotificationCounts.matchme} unread` : 'Open MatchMe'}>
             <span className="phone-matchme-icon" aria-hidden="true">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
                 <path d="M19 13.5c1.2-1.3 1.8-2.7 1.8-3.9A4.1 4.1 0 0 0 12 6.9a4.1 4.1 0 0 0-8.8 2.7c0 1.2.6 2.6 1.8 3.9l7 6.8Z" />
@@ -1330,7 +1380,7 @@ export function PhonePanel({
           <button
             className="phone-home-button"
             type="button"
-            onClick={() => navigateBack(() => setScreen('desktop'))}
+            onClick={() => setScreen('desktop')}
             aria-label="Back to phone desktop"
             title="Phone desktop"
           >

@@ -1,11 +1,43 @@
+import { isMatchMeAction } from './matchMeActions';
 import { hasAuthoredConnection, relationshipTarget } from '../characters/relationships';
-import type { MatchMeMatch, MessageRecord, SocialDirectMessageRecord } from '../types';
+import type { MatchMeAction, MatchMeMatch, MessageRecord, SocialDirectMessageRecord } from '../types';
 import type { StorybookCharacter } from '../storybook/runtime';
 import { datingAccountId, datingAccounts, resolveDatingAccount, type DatingAccount } from './datingAccounts';
 
 type RuntimeMatch = MatchMeMatch & { authored?: boolean };
 export type MatchMeState = { accounts: DatingAccount[]; matches: RuntimeMatch[] };
 export const matchMePairId = (a: string, b: string) => `matchme:${JSON.stringify([a, b].sort())}`;
+
+/** Resolve and validate both UI and command actions against the same current state. */
+export function applyMatchMeAction(action: MatchMeAction, state: MatchMeState, now: string) {
+  const from = resolveDatingAccount(action.from, state.accounts);
+  const to = resolveDatingAccount(action.to, state.accounts);
+  if (!isMatchMeAction(action) || !from || !to || from.id === to.id || canSendMatchMeMessage(from.id, to.id, state)) return;
+  const previous = matchMeDecision(from.decisions, to.id, state);
+  if (previous === action.decision || previous === 'superlike') return;
+  const match = matchMeLikePolicy(from.id, to.id, state, now, action.decision);
+  return { action: { ...action, from: from.id, to: to.id }, match,
+    text: `[MatchMe] ${from.name} ${action.decision === 'superlike' ? 'superliked' : 'liked'} ${to.name}${match ? ' (matched)' : ''}.` };
+}
+
+/** Combine only adjacent action rows; canonical messages and turns stay separate. */
+export type MatchMeHistoryRow = MessageRecord & { matchMeActivities?: MessageRecord[] };
+
+export function groupMatchMeHistory(messages: MessageRecord[]): MatchMeHistoryRow[] {
+  const grouped: MatchMeHistoryRow[] = [];
+  for (const message of messages) {
+    const previous = grouped[grouped.length - 1];
+    if (message.matchMeAction && previous?.matchMeAction &&
+      message.matchMeAction.from === previous.matchMeAction.from &&
+      message.rpDateTime?.slice(0, 10) === previous.rpDateTime?.slice(0, 10)) {
+      grouped[grouped.length - 1] = { ...previous,
+        originalText: `${previous.originalText} + ${message.originalText.replace(/^\[MatchMe\] /, '')}`,
+        translatedText: undefined,
+        matchMeActivities: [...(previous.matchMeActivities ?? [previous]), message] };
+    } else grouped.push(message.matchMeAction ? { ...message, matchMeActivities: [message] } : message);
+  }
+  return grouped;
+}
 
 export function isMatchMeMatch(value: unknown): value is MatchMeMatch {
   if (!value || typeof value !== 'object') return false;
@@ -18,7 +50,14 @@ export function isMatchMeMatch(value: unknown): value is MatchMeMatch {
 
 /** Authored starting matches are overlaid by the structured timeline, including inactive matches. */
 export function matchMeState(characters: StorybookCharacter[], messages: MessageRecord[]): MatchMeState {
-  const accounts = datingAccounts(characters, messages);
+  const accounts = datingAccounts(characters, messages).map((account) => ({ ...account }));
+  for (const message of messages) {
+    if (!isMatchMeAction(message.matchMeAction)) continue;
+    const action = message.matchMeAction;
+    const from = resolveDatingAccount(action.from, accounts);
+    const to = resolveDatingAccount(action.to, accounts);
+    if (from && to && from.id !== to.id) from.decisions = { ...from.decisions, [to.id]: action.decision };
+  }
   const matches = new Map<string, RuntimeMatch>();
   for (const owner of characters) {
     for (const relation of owner.relationships ?? []) {
@@ -39,6 +78,31 @@ export function matchMeState(characters: StorybookCharacter[], messages: Message
   }
   return { accounts, matches: [...matches.values()] };
 
+}
+
+/** Latest active match events, independently acknowledged by each phone owner. */
+export function unreadMatchMeMatches(ownerId: string, state: MatchMeState, messages: MessageRecord[], seen: (partnerId: string) => number): Record<string, number> {
+  const latest = new Map<string, MessageRecord>();
+  for (const message of messages) {
+    if (!isMatchMeMatch(message.matchMeMatch)) continue;
+    const ids = message.matchMeMatch.accountIds.map((id) => resolveDatingAccount(id, state.accounts)?.id ?? id);
+    if (!ids.includes(ownerId)) continue;
+    const partnerId = ids.find((id) => id !== ownerId);
+    if (partnerId) latest.set(partnerId, message);
+  }
+  const latestConversation = new Map<string, number>();
+  for (const message of messages) {
+    const dm = message.socialDirectMessage;
+    if (dm?.app !== 'matchme') continue;
+    const from = resolveDatingAccount(dm.fromAccountId ?? '', state.accounts)?.id;
+    const to = resolveDatingAccount(dm.toAccountId ?? '', state.accounts)?.id;
+    const partnerId = from === ownerId ? to : to === ownerId ? from : undefined;
+    if (partnerId) latestConversation.set(partnerId, Math.max(latestConversation.get(partnerId) ?? 0, message.id));
+  }
+  return Object.fromEntries([...latest].flatMap(([partnerId, message]) =>
+    !message.isOpening && message.matchMeMatch?.status === 'active' && message.id > seen(partnerId) &&
+    (latestConversation.get(partnerId) ?? 0) < message.id &&
+    canSendMatchMeMessage(ownerId, partnerId, state) ? [[partnerId, message.id]] : []));
 }
 
 export function canSendMatchMeMessage(senderId: string, recipientId: string, state: MatchMeState) {
@@ -68,7 +132,7 @@ export function matchMeLikePolicy(senderId: string, recipientId: string, state: 
   return { id, accountIds: [senderId, recipientId].sort() as [string, string], matchedAt: now, status: 'active' };
 }
 
-export function matchMeMatchHistoryText(match: MatchMeMatch, accounts: DatingAccount[]) {
+function matchMeMatchHistoryText(match: MatchMeMatch, accounts: DatingAccount[]) {
   return `[MatchMe Match] ${match.accountIds.map((id) => accounts.find((a) => a.id === id)?.name ?? id).join(' and ')} matched.`;
 }
 

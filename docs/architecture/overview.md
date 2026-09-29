@@ -65,9 +65,9 @@ The central workflow router is usually the `LLM Prompt Switch`. Chat buttons and
 `runGraph` derives two key numbers for each turn:
 
 - **Message Format**: `0` = Normal RP, `1` = Messenger Apps, `2` = Social Media, `3` = Autoplay.
-- **Turn Mode / Prompt Slot**: `0` = with image, `1` = no image, `2` = AutoTurn, `3` = event, `4` = narrator, `5` = narrator AutoTurn.
+- **Turn Mode / Prompt Slot**: `0` = with image, `1` = no image, `2` = AutoTurn, `3` = event, `4` = narrator, `5` = narrator AutoTurn, `6` = AI Action / User Reaction (Normal RP).
 
-Social Media reuses the prompt-slot number for app-specific actions: `0` = Fotogram post, `1` = OnlyFriends post, `2` = Fotogram comment thread, `3` = OnlyFriends comment thread, `4` = Fotogram DM, and `5` = OnlyFriends DM. Autoplay uses slot `0` for Local Activity and slot `1` for Remote Activity.
+Social Media reuses the prompt-slot number for app-specific actions: `0` = Fotogram post, `1` = OnlyFriends post, `2` = Fotogram comment thread, `3` = OnlyFriends comment thread, `4` = Fotogram DM, `5` = OnlyFriends DM, `6` = MatchMe DM, and `7` = Phone Initiative. Autoplay uses slot `0` for Local Activity and slot `1` for Remote Activity.
 
 The bundled Autoplay prompts create exactly one optional background beat after a completed non-Autoplay run: Local Activity keeps the beat in or immediately around the player's current scene, Remote Activity sets it entirely elsewhere. The chat UI selects exactly one mode for automatic runs, and each mode can also be triggered manually. Its private English control input identifies the player-controlled character, bypasses input translation, and is not appended to visible chat history. The dedicated RP Output Autoplay input uses the same plain RP and embedded phone/app parsers as Normal RP without sharing its graph port. Autoplay turns never schedule another Autoplay turn.
 
@@ -80,6 +80,8 @@ A prompt slot can additionally be split into a chain of freely named steps with 
 That means UI actions such as normal chat send, phone send, AutoTurn, narrator mode, event run, social post, comment, DM, or output-action button all enter the graph with explicit routing values and can land on different prompt variants and output ports.
 
 Direct app actions bypass prompt routing. The `User Input` node exposes a `Direct Actions` output, and `RP Output` has a matching input. A direct-only run starts at that RP Output input, so Text, Image, Message Format, Turn Mode, translation, and the LLM Prompt Switch are not evaluated. Direct Actions accepts the same JSON commands as Output Actions plus the manual phone-app commit payloads, and it is exclusive to direct-only runs: normal, phone, social, autoplay, and auto-turn runs never evaluate the Direct Actions path, even when the typed chat text is valid action JSON.
+
+Social Media slot `7`, `Phone Initiative`, starts with two Enter presses within 400 ms on the focused Phone desktop. It requires a selected playable character and no active run; app controls retain their own keyboard handling. Both bundled workflows plan one incoming app beat and execute it in a separate main step, without Ask User or a player response. User Input carries a private control request and the normal history context. `phoneInitiativeCharacterContext` adds the selected character description, resolved contacts and relationship descriptions with connected app profile names, outgoing MatchMe likes, and active matches from the current timeline. The context is compact plain text with one line per contact, no technical IDs or JSON, and no empty sections. Unavailable relationship targets are omitted. WhatsUp uses the contact name; social apps include their profile names. Likes include match status, and other active matches appear separately to avoid duplication. This author context does not grant reciprocal contact access or character knowledge. The Social Media output is processed through the existing embedded phone/app parser so messages, posts, comments, MatchMe likes and other supported actions use the ordinary validation and timeline commits. No synthetic user message is appended. The turn stores its original player, format and slot for regeneration; the user responds through the apps.
 
 ## Interactive user questions
 
@@ -156,7 +158,7 @@ The right-side chat drawer has three user-facing modes:
 - **Phone**: a character-owned phone desktop with WhatsUp, Gallery, Camera, Banking, Fotogram, OnlyFriends, and Notes apps.
 - **Events**: a view for upcoming scheduled roleplay events. Events can be selected, cancelled, or run through the workflow.
 
-Panel navigation uses an in-memory, session-local history in `src/navigation`. Mouse Back/Forward, native Electron browser commands, and Alt+Left/Right traverse tab, app, conversation, and social/dating view changes. App back buttons use the same history, with their original parent destination as a fallback. Related state changes are grouped into one visit; navigating after going back discards the forward branch. Only navigation state is restored, never messages, transactions, or other content. Missing keys in older visits do not overwrite mounted app state; explicitly stored empty selections still restore normally. Visible overlays take priority: Back closes the topmost registered dialog or gallery detail, and Forward leaves the underlying panel unchanged while it is open. The shared backdrop hook registers only mounted dialogs; other dialog owners register their existing close/cancel handlers explicitly. Registration order remains stable across rerenders, preserving nested dialogs and unsaved-change confirmations. Loading a new session clears the history.
+Panel navigation uses an in-memory, session-local history in `src/navigation`. Mouse Back/Forward, native Electron browser commands, and Alt+Left/Right traverse tab, app, conversation, and social/dating view changes. Phone app exit buttons always open the current character’s Phone desktop, regardless of the entry route. Internal gallery and social messaging back buttons open their explicit parent view. These buttons record ordinary navigation changes; mouse Back/Forward and keyboard history navigation retain their existing behavior. Related state changes are grouped into one visit; navigating after going back discards the forward branch. Only navigation state is restored, never messages, transactions, or other content. Missing keys in older visits do not overwrite mounted app state; explicitly stored empty selections still restore normally. Visible overlays take priority: Back closes the topmost registered dialog or gallery detail, and Forward leaves the underlying panel unchanged while it is open. The shared backdrop hook registers only mounted dialogs; other dialog owners register their existing close/cancel handlers explicitly. Registration order remains stable across rerenders, preserving nested dialogs and unsaved-change confirmations. Loading a new session clears the history.
 
 These UI panels are backed by chat parsing, phone message parsing, timeline selectors, event entities, and session runtime state.
 
@@ -290,3 +292,36 @@ The runtime:
 - [`src/comfy`](../../src/comfy): ComfyUI API and workflow compatibility helpers.
 - [`src/llm`](../../src/llm): LLM API wrapper and token metrics.
 - [`electron`](../../electron): desktop main process, preload bridge, file formats, encryption, and OS/provider integrations.
+
+
+## MatchMe Workflow Actions
+
+MatchMe likes and superlikes use `matchMeActions` JSON with `from`, `to`, and
+`decision` (`like` or `superlike`). The phone UI sends one action per turn through
+User Input **Direct Actions** to RP Output **Direct Actions**, using the same
+execution path as Banking. The `@command: MatchMe_action` prompt token exposes a
+planning hint and an instruction-follower JSON template. Authored prompts can
+opt into it; the runtime does not inject narrator instructions or account lists.
+Generated actions are accepted through Output Actions or embedded command JSON.
+
+Both routes validate existing accounts and apply the same reciprocal-like and
+immediate-superlike policy. Timeline messages store the directed decision and,
+when established, the match. Decisions are overlaid on legacy profile decisions
+when reading the timeline, so removing a turn removes its like and match without
+writing those decisions into Storybook profiles. RP saves preserve both fields.
+Adjacent action messages appear in a compact, wrapping MatchMe activity card in
+the Chat panel, with canonical character colors for both sender and recipients:
+playable characters use animated colors, interacted NPCs use flat muted colors,
+and unassigned accounts use the static rose MatchMe accent. Hearts mark likes, stars mark superlikes,
+and a double-heart match label. Plus signs separate recipients; consecutive
+actions by the same sender share the sender label. A different sender starts a
+separate card. Likes, superlikes and matches store lightweight timeline records;
+none alone mark an NPC as Interacted or automatically capture its full container.
+Automatic message-driven capture waits for a private conversation in both
+directions with a playable character in the same app. Comments and one-way DMs
+remain visible without promoting their authors. The Library, colors and known
+speaker selection share that classification. Existing archived containers and
+explicit editing/promotion snapshots remain retained independently of status. An intervening history
+message or a new RP day starts a new group. Text previews retain individual
+canonical history records. Each underlying turn remains
+independently undoable. Profile editing and passes retain their existing behavior.
