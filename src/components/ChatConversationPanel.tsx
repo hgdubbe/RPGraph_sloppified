@@ -2602,24 +2602,26 @@ const MemoizedChatConversationPanel = memo(function ChatConversationPanelContent
                 <span>Stop Voices</span>
               </button>
             )}
-          <button
-            className="composer-autoturn-button"
-            type="button"
-            onClick={onTriggerAutoTurn}
-            disabled={autoTurnDisabled}
-            data-disabled-look={autoTurnDisabled ? 'true' : undefined}
-            title={autoTurnTitle}
-            aria-label="AutoTurn"
-          >
-            <svg className="composer-autoturn-icon" aria-hidden="true" viewBox="0 0 24 24">
-              <path d="M4 5v14l10-7z" />
-              <path d="M13 5v14l10-7z" />
-            </svg>
-          </button>
-          <AutoplayControl
-            replayDisabled={autoplayReplayDisabled}
-            onRunModeNow={onAutoplayRunModeNow}
-          />
+          <div className="composer-turn-pill">
+            <button
+              className="composer-autoturn-button"
+              type="button"
+              onClick={onTriggerAutoTurn}
+              disabled={autoTurnDisabled}
+              data-disabled-look={autoTurnDisabled ? 'true' : undefined}
+              title={autoTurnTitle}
+              aria-label="AutoTurn"
+            >
+              <svg className="composer-autoturn-icon" aria-hidden="true" viewBox="0 0 24 24">
+                <path d="M6 5v14l9-7z" />
+                <rect x="16" y="5" width="2.5" height="14" />
+              </svg>
+            </button>
+            <AutoplayControl
+              replayDisabled={autoplayReplayDisabled}
+              onRunModeNow={onAutoplayRunModeNow}
+            />
+          </div>
           {pendingQuestion && (
             <button
               type="button"

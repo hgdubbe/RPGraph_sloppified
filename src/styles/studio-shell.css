@@ -228,10 +228,9 @@
   border-radius: 999px;
 }
 
-/* Autoplay's trigger is just the composer-autoturn-button, same small
-   circular button as AutoTurn (only the fast-forward icon and the menu it
-   opens differ) -- no bespoke pill/trigger styling needed here anymore.
-   The dropdown menu it opens still needs its own Play-scoped chrome, though:
+/* Autoplay's trigger shares the composer-turn-pill with AutoTurn (see below)
+   -- no bespoke pill/trigger styling needed here anymore. The dropdown menu
+   it opens still needs its own Play-scoped chrome, though:
    `.composer .autoplay-menu-help` / `.autoplay-menu-option` in styles.css
    are scoped to a `.composer` ancestor, and while `.autoplay-control` does
    sit inside the composer form, these mirrors keep Play mode's own menu
@@ -405,30 +404,58 @@
   stroke-width: 2;
 }
 
-/* Same circular treatment as the send button, just smaller -- AutoTurn moved
-   here from its own header button (see TurnControlsHeader.tsx) to sit right
-   next to the action it's a shortcut for. */
-.studio-shell-play .composer-autoturn-button {
+/* AutoTurn and Autoplay share one pill (like Switch/history do) instead of
+   sitting as two separate circles -- same rounded shell as the other
+   composer pills, with the two actions as flat halves split by a divider. */
+.studio-shell-play .composer-turn-pill {
+  display: flex;
+  flex: none;
+  align-items: stretch;
+  height: 30px;
+  border: 1px solid color-mix(in srgb, var(--theme-primary, #79d8ef) 68%, transparent);
+  border-radius: 999px;
+  background: var(--theme-primary, #79d8ef);
+  box-shadow: var(--theme-button-shadow, none);
+  /* No overflow:hidden -- it would also clip the Autoplay dropdown menu,
+     which is positioned absolutely relative to .autoplay-control inside
+     this pill. Each end button gets the pill's own corner radius directly
+     below instead, so AutoTurn's disabled-look background (an opaque
+     square-cornered fill, unlike the otherwise-transparent buttons) can't
+     poke out past the pill's rounded left edge. */
+}
+
+.studio-shell-play .composer-turn-pill .composer-autoturn-button,
+.studio-shell-play .composer-turn-pill .autoplay-control > button {
   display: grid;
   flex: none;
   width: 30px;
-  min-width: 30px;
-  height: 30px;
+  height: 100%;
   padding: 0;
   place-items: center;
-  border: 1px solid color-mix(in srgb, var(--theme-primary, #79d8ef) 68%, transparent);
-  border-radius: 50%;
+  border: 0;
   color: var(--theme-primary-foreground, #051018);
-  background: var(--theme-primary, #79d8ef);
-  box-shadow: var(--theme-button-shadow, none);
+  background: transparent;
+  box-shadow: none;
 }
 
-.studio-shell-play .composer-autoturn-button:hover:not(:disabled) {
-  box-shadow: var(--theme-button-shadow-hover, var(--theme-button-shadow, none));
-  transform: translateY(-1px);
+.studio-shell-play .composer-turn-pill .composer-autoturn-button {
+  border-radius: 999px 0 0 999px;
 }
 
-.studio-shell-play .composer-autoturn-button:disabled {
+.studio-shell-play .composer-turn-pill .autoplay-control > button {
+  border-radius: 0 999px 999px 0;
+}
+
+.studio-shell-play .composer-turn-pill .autoplay-control > button {
+  border-left: 1px solid color-mix(in srgb, var(--theme-primary-foreground, #051018) 22%, transparent);
+}
+
+.studio-shell-play .composer-turn-pill .composer-autoturn-button:hover:not(:disabled),
+.studio-shell-play .composer-turn-pill .autoplay-control > button:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--theme-primary-foreground, #051018) 12%, transparent);
+}
+
+.studio-shell-play .composer-turn-pill .composer-autoturn-button:disabled {
   opacity: 0.5;
   cursor: default;
 }

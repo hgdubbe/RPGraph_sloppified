@@ -6799,6 +6799,20 @@ input[type="number"]::-webkit-outer-spin-button {
   background: #050505 center / cover no-repeat;
 }
 
+/* The desktop is focusable (tabIndex=0) so double-Enter can trigger Phone
+   Initiative; without this the browser's unthemed default focus ring (a
+   stark yellow/gold outline on most platforms) shows through on click.
+   Negative offset keeps the ring inside the clipped, overflow:hidden desktop
+   instead of being cut off. */
+.phone-desktop:focus {
+  outline: none;
+}
+
+.phone-desktop:focus-visible {
+  outline: 2px solid var(--phone-ui-accent, var(--accent));
+  outline-offset: -2px;
+}
+
 .phone-initiative-hint {
   position: absolute;
   z-index: 2;
