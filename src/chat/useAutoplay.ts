@@ -1,3 +1,4 @@
+import { accountPreferences } from '../accounts/accountPreferences';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   autoplayMessageFormat,
@@ -37,7 +38,7 @@ const runnableModeSlots: Record<AutoplayMode, number> = {
 
 function storedBoolean(key: string, fallback: boolean) {
   try {
-    const stored = window.localStorage.getItem(key);
+    const stored = accountPreferences.getItem(key);
     return stored === null ? fallback : stored === 'true';
   } catch {
     return fallback;
@@ -46,7 +47,7 @@ function storedBoolean(key: string, fallback: boolean) {
 
 function storeBoolean(key: string, value: boolean) {
   try {
-    window.localStorage.setItem(key, String(value));
+    accountPreferences.setItem(key, String(value));
   } catch {
     // Non-critical UI preference.
   }
@@ -54,7 +55,7 @@ function storeBoolean(key: string, value: boolean) {
 
 function storedMode(fallback: AutoplayMode): AutoplayMode {
   try {
-    const stored = window.localStorage.getItem(autoplayModeStorageKey);
+    const stored = accountPreferences.getItem(autoplayModeStorageKey);
     return stored && stored in runnableModeSlots ? (stored as AutoplayMode) : fallback;
   } catch {
     return fallback;
@@ -131,7 +132,7 @@ export function useAutoplay({ isRunning, runAutoplay, cancelAutoplayRun }: UseAu
     modeRef.current = value;
     setModeState(value);
     try {
-      window.localStorage.setItem(autoplayModeStorageKey, value);
+      accountPreferences.setItem(autoplayModeStorageKey, value);
     } catch {
       // Non-critical UI preference.
     }

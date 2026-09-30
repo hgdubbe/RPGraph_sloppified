@@ -1,3 +1,4 @@
+import { getActiveAccount } from '../accounts/accountPreferences';
 import { UiPerformanceDiagnostics } from '../components/UiPerformanceDiagnostics';
 import { ProviderBaseUrlInput } from '../components/ProviderBaseUrlInput';
 import { ProviderModelSwitchIndicator } from '../components/ProviderModelSwitchIndicator';
@@ -187,6 +188,10 @@ type StudioDialogsProps = {
   maxUiScale: number;
   retryFormatErrorsEnabled: boolean;
   turnAutosaveEnabled: boolean;
+  turnAutosaveEncryptionEnabled: boolean;
+  onTurnAutosaveEncryptionEnabledChange: (enabled: boolean) => void;
+  turnAutosavePassword: string;
+  onTurnAutosavePasswordChange: (password: string) => void;
   onCloseOptions: () => void;
   onEnglishProcessingChange: (enabled: boolean) => void;
   onInputTranslationOnlyChange: (enabled: boolean) => void;
@@ -438,6 +443,7 @@ function RetryIcon() {
 
 const OPTIONS_TABS = [
   { id: 'chat', label: 'Chat & UI', desc: 'Avatars, scrolling, UI scale and date/time' },
+  { id: 'autosave', label: 'Autosave & Recovery', desc: 'Automatic backups, encryption and restore' },
   { id: 'text', label: 'Text', desc: 'Sizes, colors, brightness and wave effects' },
   { id: 'translation', label: 'Translation', desc: 'English processing and display language' },
   { id: 'nodes', label: 'Node Design', desc: 'Canvas node transparency and appearance' },
@@ -925,6 +931,10 @@ export function StudioDialogs({
   maxUiScale,
   retryFormatErrorsEnabled,
   turnAutosaveEnabled,
+  turnAutosaveEncryptionEnabled,
+  onTurnAutosaveEncryptionEnabledChange,
+  turnAutosavePassword,
+  onTurnAutosavePasswordChange,
   onCloseOptions,
   onEnglishProcessingChange,
   onInputTranslationOnlyChange,
@@ -1058,6 +1068,16 @@ export function StudioDialogs({
   onApplyConnectionToAllNodes,
   onSetNarratorOnlyProvider,
 }: StudioDialogsProps) {
+  const accountManaged = !!window.rpgraph.accounts;
+  const activeAccount = getActiveAccount();
+  const storedFileLabel = accountManaged
+    ? activeAccount?.protected ? 'Account encrypted' : 'Account storage'
+    : 'Plain JSON';
+  const accountProtectionLabel = activeAccount?.shared
+    ? 'This shared default account uses the public default password. Create a personal password-protected account for private content.'
+    : activeAccount?.protected
+      ? 'All account saves and autosaves are encrypted with your account password. No additional password is needed.'
+      : 'This account has no password. Its saves and autosaves are not encrypted. Add a password in Account settings to protect them.';
   const sessionPasswordInputRef = useRef<HTMLInputElement>(null);
   const saveFileNameInputRef = useRef<HTMLInputElement>(null);
   const activeDialogRef = useRef<HTMLElement>(null);
@@ -2022,7 +2042,7 @@ export function StudioDialogs({
                   if (tab.id === 'variables') Icon = VariablesIcon;
                   if (tab.id === 'images') Icon = ImagesIcon;
                   if (tab.id === 'tokens') Icon = TokenIcon;
-                  if (tab.id === 'reliability') Icon = RetryIcon;
+                  if (tab.id === 'reliability' || tab.id === 'autosave') Icon = RetryIcon;
 
                   return (
                     <button
@@ -2599,19 +2619,18 @@ export function StudioDialogs({
                   </div>
                 )}
 
-                {developerOptionsVisible && activeOptionsTab === 'reliability' && (
+                {activeOptionsTab === 'autosave' && (
                   <div className="options-tab-content">
                     <div className="options-tab-header">
-                      <h3>Run Reliability</h3>
-                      <p>Automatic retry when an LLM response has an invalid format</p>
+                      <h3>Autosave & Recovery</h3>
+                      <p>Automatic backups, encryption and restore</p>
                     </div>
                     <div className="options-tab-body">
-                      <UiPerformanceDiagnostics />
                       <div className="option-info">
                         <strong>Turn autosave</strong>
                         <p>
-                          Save a plain recovery RP file after each completed turn, including the current workflow
-                          and embedded Storybook data. When enabled, RPGraph loads the newest turn autosave on startup.
+                          Save a recovery RP file after each completed turn, including the current workflow
+                          and embedded Storybook data. Startup restoration always requires your approval.
                         </p>
                       </div>
                       <label className="option-toggle">
@@ -2622,6 +2641,34 @@ export function StudioDialogs({
                         />
                         <span>Autosave RP, workflow, and Storybook after each turn</span>
                       </label>
+                      {accountManaged ? <p className="option-info">{accountProtectionLabel}</p> : <>
+                      <label className="option-toggle">
+                        <input type="checkbox" checked={turnAutosaveEncryptionEnabled}
+                          onChange={(event) => onTurnAutosaveEncryptionEnabledChange(event.target.checked)} />
+                        <span>Encrypt rotating autosaves</span>
+                      </label>
+                      {turnAutosaveEncryptionEnabled && (
+                        <label className="field">
+                          <span>Autosave password</span>
+                          <input type="password" autoComplete="new-password" value={turnAutosavePassword}
+                            onChange={(event) => onTurnAutosavePasswordChange(event.target.value)} />
+                          <small>Uses the unlocked workspace password when available; otherwise enter a password here each launch. It is kept only in memory. Without a password, encrypted autosaving stops. Existing backups remain unchanged until each slot is overwritten.</small>
+                        </label>
+                      )}
+                      <p className="option-info">Protected workspaces always produce encrypted autosaves using their workspace password.</p>
+                      </>}
+                    </div>
+                  </div>
+                )}
+
+                {developerOptionsVisible && activeOptionsTab === 'reliability' && (
+                  <div className="options-tab-content">
+                    <div className="options-tab-header">
+                      <h3>Run Reliability</h3>
+                      <p>Automatic retry when an LLM response has an invalid format</p>
+                    </div>
+                    <div className="options-tab-body">
+                      <UiPerformanceDiagnostics />
                       <div className="option-info">
                         <strong>Why retry format errors?</strong>
                         <p>
@@ -2718,7 +2765,7 @@ export function StudioDialogs({
                               <small>
                                 {choice.fileName} · {file.updatedAt ? `Modified ${formatFileDate(file.updatedAt)}` : 'Modified date unavailable'} ·{' '}
                                 Container v{file.formatVersion ?? 'Unknown'} ·{' '}
-                                {file.protection === 'encrypted' ? 'Encrypted' : 'Plain JSON'}
+                                {file.protection === 'encrypted' ? 'Legacy encrypted file' : storedFileLabel}
                                 {'unlocked' in file && file.unlocked ? ' · Unlocked for this session' : ''}
                                 {file.protection === 'encrypted' && ` · Envelope v${file.envelopeFormatVersion ?? 'Unknown'}`}
                               </small>
@@ -2830,7 +2877,7 @@ export function StudioDialogs({
                           )}
                         </strong>
                         <small>
-                          {formatFileDate(file.updatedAt)} · v{file.formatVersion} · {file.protection === 'encrypted' ? 'Encrypted' : 'Plain JSON'}
+                          {formatFileDate(file.updatedAt)} · v{file.formatVersion} · {file.protection === 'encrypted' ? 'Legacy encrypted file' : storedFileLabel}
                         </small>
                       </span>
                     </button>
@@ -3096,7 +3143,7 @@ export function StudioDialogs({
                               </svg>
                             )}
                             <span>·</span>
-                            <span>{file.protection === 'encrypted' ? 'Encrypted' : 'Plain JSON'}</span>
+                            <span>{file.protection === 'encrypted' ? 'Legacy encrypted file' : storedFileLabel}</span>
                             {file.type === 'session' && (
                               <>
                                 <span>·</span>
@@ -3224,7 +3271,7 @@ export function StudioDialogs({
                 <h2>{isSavingWorkflow ? 'Save Workflow' : isSavingStorybook ? 'Save Storybook' : isSavingCharacter ? 'Export Character' : isSavingSession ? 'Save RP' : 'Unlock File'}</h2>
                 <p>
                   {isSavingFile
-                    ? 'Choose how the complete file should be stored'
+                    ? accountManaged ? 'Save to the current account' : 'Choose how the complete file should be stored'
                     : 'Enter the password or PIN used when this file was saved'}
                 </p>
               </div>
@@ -3235,7 +3282,7 @@ export function StudioDialogs({
             <div className="chat-password-form">
               {isSavingFile && (
                 <>
-                  <div className="chat-security-info">
+                  {!accountManaged && <div className="chat-security-info">
                     <strong>Whole-file protection</strong>
                     <p>
                       Plain JSON is readable and easy to share. Password encrypted protects the
@@ -3247,7 +3294,7 @@ export function StudioDialogs({
                             ? 'Character Card contents, including images, voice sample, and app setup'
                           : 'RP save, including its workflow, Storybook data, chat history, and runtime state'}.
                     </p>
-                  </div>
+                  </div>}
                   <label className="chat-file-field" htmlFor="save-file-name">
                     {savingKindLabel.toUpperCase()} NAME
                     <input
@@ -3268,7 +3315,7 @@ export function StudioDialogs({
                       placeholder={isSavingWorkflow ? 'workflow' : isSavingStorybook ? 'storybook' : isSavingCharacter ? 'Character name' : 'My roleplay'}
                     />
                   </label>
-                  <div className="file-protection-options" role="radiogroup" aria-label="File protection">
+                  {accountManaged ? <p className="chat-security-info">{accountProtectionLabel} Use Account → Export account for a portable backup.</p> : <div className="file-protection-options" role="radiogroup" aria-label="File protection">
                     <label>
                       <input
                         type="radio"
@@ -3289,7 +3336,7 @@ export function StudioDialogs({
                       />
                       <span><strong>Password encrypted</strong><small>Protect the complete file</small></span>
                     </label>
-                  </div>
+                  </div>}
                   {isSavingWorkflow && (
                     <div className="file-protection-options" role="radiogroup" aria-label="Workflow contents">
                       <label>
@@ -3318,7 +3365,7 @@ export function StudioDialogs({
                       destinations={[
                         { value: 'npc-characters', label: 'NPC Library Folder' },
                         { value: 'characters', label: 'Characters Folder' },
-                        { value: 'choose', label: 'Choose Save Location…' },
+                        ...(!accountManaged ? [{ value: 'choose' as const, label: 'Choose Save Location…' }] : []),
                       ]} />
                   )}
                 </>
@@ -3333,8 +3380,8 @@ export function StudioDialogs({
                   </p>
                 </div>
               )}
-              {isSavingFile && encryptionRequired && <p className="chat-security-info">Encryption is required. The existing game password is used automatically.</p>}
-              {(!isSavingFile || (fileProtection === 'encrypted' && !encryptionRequired)) && (
+              {isSavingFile && !accountManaged && encryptionRequired && <p className="chat-security-info">Encryption is required. The existing game password is used automatically.</p>}
+              {(!isSavingFile || (!accountManaged && fileProtection === 'encrypted' && !encryptionRequired)) && (
                 <label className="chat-file-field" htmlFor="chat-password">
                   PASSWORD OR PIN
                   <input
@@ -3358,7 +3405,7 @@ export function StudioDialogs({
               {fileStorageStatus && <p className="chat-storage-status">{fileStorageStatus}</p>}
             </div>
             <div className="dialog-actions">
-              {isSavingFile && !isSavingCharacter && (
+              {isSavingFile && !isSavingCharacter && !accountManaged && (
                 <label className="dialog-action-checkbox">
                   <input
                     type="checkbox"
@@ -3401,7 +3448,7 @@ export function StudioDialogs({
         >
           <section
             ref={activeDialog === 'connections' ? activeDialogRef : undefined}
-            className="connection-dialog"
+            className="connection-dialog options-dialog provider-settings-dialog"
             role="dialog"
             aria-modal={activeDialog === 'connections'}
             aria-hidden={activeDialog !== 'connections'}
@@ -3417,15 +3464,15 @@ export function StudioDialogs({
                 Close
               </button>
             </div>
-            <div className="connection-dialog-grid">
-              <div className="connection-dialog-left">
-                <div className="preset-tabs">
+            <div className="options-layout">
+                <aside className="options-sidebar provider-settings-sidebar" aria-label="Saved providers">
                   {connections.map((connection) => {
                     const active = !connectionDraftPending && editingConnection.id === connection.id;
                     const label = active ? editingConnection.label : connection.label;
                     return (
                       <button
-                        className={active ? 'active' : ''}
+                        className={`options-tab-btn${active ? ' active' : ''}`}
+                        aria-current={active ? 'page' : undefined}
                         key={connection.id}
                         type="button"
                         onClick={() => {
@@ -3433,28 +3480,31 @@ export function StudioDialogs({
                           onSelectConnection(active ? editingConnection : connection);
                         }}
                       >
-                        <span className="provider-tab-label">{label}</span>
-                        <span className={providerHealthClass(providerHealthById[connection.id])}>
-                          {providerHealthLabel(providerHealthById[connection.id])}
+                        <NodesIcon />
+                        <span className="options-tab-btn-text"><span className="options-tab-btn-label provider-tab-label">{label}</span><span className="options-tab-btn-desc">{connection.kind === 'comfyui' ? 'ComfyUI · Images & voice' : connection.providerKind ?? 'Language model'}</span>
+                          <span className={providerHealthClass(providerHealthById[connection.id])}>{providerHealthLabel(providerHealthById[connection.id])}</span>
                         </span>
                       </button>
                     );
                   })}
                   {connectionDraftPending ? (
-                    <button type="button" className="new-preset active" disabled>
+                    <button type="button" className="options-tab-btn active" disabled>
                       <span className="provider-tab-label">New provider ...</span>
                     </button>
                   ) : (
-                    <button type="button" className="new-preset" onClick={onNewConnection}>
+                    <button type="button" className="options-tab-btn provider-new-preset" onClick={onNewConnection}>
                       + New
                     </button>
                   )}
-                </div>
+                </aside>
+              <div className="options-panel"><div className="options-tab-content">
+                <div className="options-tab-header"><h3>{connectionDraftPending ? 'New provider' : editingConnection.label || 'Provider settings'}</h3><p>Connection, model and generation settings</p></div>
+              <div className="connection-dialog-left">
                 {connectionDraftPending ? (
                 <div className="connection-draft-placeholder">
                   <strong>Pick a provider type</strong>
                   <span>
-                    Choose a type from the list on the right. It creates the new preset with the
+                    Choose a type from the list below. It creates the new preset with the
                     matching Base URL and defaults — everything can be adjusted afterwards.
                   </span>
                 </div>
@@ -4427,7 +4477,7 @@ export function StudioDialogs({
                 </>
                 )}
               </div>
-              <div className="connection-dialog-right">
+              <div className="connection-dialog-right provider-type-section">
                 <span className="presets-sidebar-title">
                   {connectionDraftPending ? 'CHOOSE A PROVIDER TYPE' : 'PROVIDER TYPES'}
                 </span>
@@ -4468,6 +4518,7 @@ export function StudioDialogs({
                   })}
                 </div>
               </div>
+              </div></div>
             </div>
           </section>
         </div>

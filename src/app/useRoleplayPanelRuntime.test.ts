@@ -245,11 +245,8 @@ it.each([false, true])('a small wheel-up scroll during an active wheel gesture d
   cleanups.forEach((cleanup) => cleanup?.());
 });
 
-it('a wheel tick that does not actually move the thread does not strand auto-follow disengaged', () => {
-  // Regression test: forcing chatAutoFollowBottomRef false directly off the
-  // wheel event's deltaY meant a single trackpad-momentum tick at the scroll
-  // limit -- one that never produces a 'scroll' event because nothing moved
-  // -- permanently killed auto-follow after only a partial scroll.
+it('a downward wheel tick at the bottom keeps auto-follow engaged', () => {
+  // Downward input at the limit produces no native scroll event.
   const frames = new Map<number, FrameRequestCallback>();
   let nextFrame = 0;
   vi.stubGlobal('requestAnimationFrame', (callback: FrameRequestCallback) => {
@@ -267,7 +264,7 @@ it('a wheel tick that does not actually move the thread does not strand auto-fol
   };
   runtime.chatThreadRef.current = thread as unknown as HTMLDivElement;
   const cleanups = hooks.effects.map((effect) => effect());
-  listeners.get('wheel')!({ type: 'wheel', deltaY: -0.4 } as unknown as Event);
+  listeners.get('wheel')!({ type: 'wheel', deltaY: 0.4 } as unknown as Event);
   // No 'scroll' event follows: the thread was already at its limit.
   runtime.scrollChatThreadToBottomIfFollowing();
   const pending = [...frames.values()];
@@ -322,6 +319,104 @@ it.each([false, true])('a streamed update landing before the wheel-driven scroll
   expect(thread.scrollTop).toBe(1140);
   // The wheel's real 'scroll' event finally arrives after the fact.
   listeners.get('scroll')!();
+  expect(frames.size).toBe(0);
+  cleanups.forEach((cleanup) => cleanup?.());
+});
+
+it.each([false, true])('manual scrolling owns the position until returning to the bottom (smooth=%s)', (smooth) => {
+  const frames = new Map<number, FrameRequestCallback>();
+  let nextFrame = 0;
+  vi.stubGlobal('requestAnimationFrame', (callback: FrameRequestCallback) => {
+    frames.set(++nextFrame, callback);
+    return nextFrame;
+  });
+  vi.stubGlobal('cancelAnimationFrame', (id: number) => frames.delete(id));
+  const tick = (time: number) => {
+    for (const [id, callback] of [...frames]) {
+      if (!frames.delete(id)) continue;
+      callback(time);
+    }
+  };
+  const { render, options } = harness();
+  options.smoothChatAutoScrollEnabled = smooth;
+  const runtime = render();
+  const listeners = new Map<string, (event?: Event) => void>();
+  const thread = {
+    scrollHeight: 2000, clientHeight: 800, scrollTop: 1200,
+    scrollTo: vi.fn(({ top }: ScrollToOptions) => { thread.scrollTop = Math.min(top!, 1200); }),
+    addEventListener: (type: string, callback: (event?: Event) => void) => listeners.set(type, callback),
+    removeEventListener: (type: string) => listeners.delete(type),
+  };
+  runtime.chatThreadRef.current = thread as unknown as HTMLDivElement;
+  const cleanups = hooks.effects.map((effect) => effect());
+  tick(0); tick(16);
+  thread.scrollTo.mockClear();
+  listeners.get('wheel')!({ type: 'wheel', deltaY: -4 } as unknown as Event);
+  // Streaming and even a frame can precede the browser applying wheel input.
+  runtime.scrollChatThreadToBottomIfFollowing();
+  tick(32);
+  expect(thread.scrollTo).not.toHaveBeenCalled();
+  thread.scrollTop = 1196;
+  listeners.get('scroll')!();
+  for (let time = 48; time <= 160; time += 16) {
+    runtime.scrollChatThreadToBottomIfFollowing();
+    tick(time);
+    listeners.get('scroll')!();
+  }
+  expect(thread.scrollTop).toBe(1196);
+  expect(thread.scrollTo).not.toHaveBeenCalled();
+  // Scrolling down within the old near-bottom margin must not snap either.
+  listeners.get('wheel')!({ type: 'wheel', deltaY: 2 } as unknown as Event);
+  thread.scrollTop = 1198;
+  listeners.get('scroll')!();
+  runtime.scrollChatThreadToBottomIfFollowing();
+  tick(176); tick(192);
+  expect(thread.scrollTop).toBe(1198);
+  thread.scrollTop = 1200;
+  listeners.get('scroll')!();
+  thread.scrollHeight += 100;
+  runtime.scrollChatThreadToBottomIfFollowing();
+  expect(frames.size).toBeGreaterThan(0);
+  cleanups.forEach((cleanup) => cleanup?.());
+});
+
+it.each(['wheel', 'touchstart', 'pointerdown', 'keydown'])('interrupts an active animation on %s input', (type) => {
+  const frames = new Map<number, FrameRequestCallback>();
+  let nextFrame = 0;
+  vi.stubGlobal('requestAnimationFrame', (callback: FrameRequestCallback) => {
+    frames.set(++nextFrame, callback);
+    return nextFrame;
+  });
+  vi.stubGlobal('cancelAnimationFrame', (id: number) => frames.delete(id));
+  const tick = (time: number) => {
+    for (const [id, callback] of [...frames]) {
+      if (frames.delete(id)) callback(time);
+    }
+  };
+  const { render, options } = harness();
+  options.smoothChatAutoScrollEnabled = true;
+  const runtime = render();
+  const listeners = new Map<string, (event?: Event) => void>();
+  const thread = {
+    scrollHeight: 2000, clientHeight: 800, scrollTop: 1200,
+    scrollTo: vi.fn(),
+    addEventListener: (event: string, callback: (event?: Event) => void) => listeners.set(event, callback),
+    removeEventListener: (event: string) => listeners.delete(event),
+  };
+  runtime.chatThreadRef.current = thread as unknown as HTMLDivElement;
+  const cleanups = hooks.effects.map((effect) => effect());
+  tick(0); tick(16);
+  thread.scrollHeight += 100;
+  runtime.scrollChatThreadToBottomIfFollowing();
+  tick(32); tick(48); tick(64);
+  expect(thread.scrollTop).toBeGreaterThan(1200);
+  listeners.get(type)!({ type, deltaY: -4, key: 'ArrowUp' } as unknown as Event);
+  thread.scrollTop = 1196;
+  // Include a delayed programmatic scroll event after cancellation.
+  listeners.get('scroll')!();
+  runtime.scrollChatThreadToBottomIfFollowing();
+  tick(80); tick(96);
+  expect(thread.scrollTop).toBe(1196);
   expect(frames.size).toBe(0);
   cleanups.forEach((cleanup) => cleanup?.());
 });

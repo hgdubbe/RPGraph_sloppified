@@ -24,10 +24,10 @@ function isValidManifest(value) {
     typeof value.id === 'string' && typeof value.label === 'string';
 }
 
-async function scanPhoneHomeThemeDirectory(root, tier) {
+async function scanPhoneHomeThemeDirectory(root, tier, directoryFs = fs) {
   let directoryEntries;
   try {
-    directoryEntries = await fs.readdir(root, { withFileTypes: true });
+    directoryEntries = await directoryFs.readdir(root, { withFileTypes: true });
   } catch (error) {
     if (error?.code === 'ENOENT') return { manifests: [], diagnostics: [] };
     return {
@@ -46,7 +46,7 @@ async function scanPhoneHomeThemeDirectory(root, tier) {
     const fileName = path.join(dir.name, 'phone-theme.json');
     let contents;
     try {
-      contents = await fs.readFile(path.join(root, dir.name, 'phone-theme.json'), 'utf8');
+      contents = await directoryFs.readFile(path.join(root, dir.name, 'phone-theme.json'), 'utf8');
     } catch (error) {
       diagnostics.push(diagnostic(tier, fileName, 'directory-error',
         `Unable to read phone-theme.json: ${error instanceof Error ? error.message : String(error)}`));
@@ -72,9 +72,9 @@ async function scanPhoneHomeThemeDirectory(root, tier) {
 
 /** Scans both tiers and merges by id, user-authored themes overriding a
  * bundled theme of the same id. */
-async function scanPhoneHomeThemeLibrary(roots) {
+async function scanPhoneHomeThemeLibrary(roots, userFs = fs) {
   const bundled = await scanPhoneHomeThemeDirectory(roots.bundled, 'bundled');
-  const user = await scanPhoneHomeThemeDirectory(roots.user, 'user');
+  const user = await scanPhoneHomeThemeDirectory(roots.user, 'user', userFs);
   const byId = new Map();
   for (const manifest of [...bundled.manifests, ...user.manifests]) byId.set(manifest.id, manifest);
   return {
@@ -85,7 +85,7 @@ async function scanPhoneHomeThemeLibrary(roots) {
 }
 
 /** Mirrors `createThemeLibraryService` exactly. */
-function createPhoneHomeThemeLibraryService({ roots, openPath, onChanged = () => {} }) {
+function createPhoneHomeThemeLibraryService({ roots, openPath, userFs = fs, onChanged = () => {} }) {
   let cached = { roots, manifests: [], diagnostics: [] };
   let queue = Promise.resolve();
   function enqueue(action) {
@@ -97,16 +97,16 @@ function createPhoneHomeThemeLibraryService({ roots, openPath, onChanged = () =>
     current: () => cached,
     reload: () => enqueue(async () => {
       try {
-        await fs.mkdir(roots.user, { recursive: true });
+        await userFs.mkdir(roots.user, { recursive: true });
       } catch {
         // The scan below returns a directory diagnostic without blocking startup.
       }
-      cached = await scanPhoneHomeThemeLibrary(roots);
+      cached = await scanPhoneHomeThemeLibrary(roots, userFs);
       onChanged(cached);
       return cached;
     }),
     openUserDirectory: async () => {
-      await fs.mkdir(roots.user, { recursive: true });
+      await userFs.mkdir(roots.user, { recursive: true });
       const error = await openPath(roots.user);
       if (error) throw new Error(`Unable to open the phone-themes directory: ${error}`);
       return { path: roots.user };

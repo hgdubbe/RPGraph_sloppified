@@ -1,6 +1,14 @@
 const { contextBridge, ipcRenderer, webFrame } = require('electron');
 
 let nextStreamRequestId = 1;
+const pendingPreferenceSaves = new Set();
+
+function saveAccountPreferences(values) {
+  const save = ipcRenderer.invoke('account:preferences-save', values);
+  pendingPreferenceSaves.add(save);
+  void save.then(() => pendingPreferenceSaves.delete(save), () => pendingPreferenceSaves.delete(save));
+  return save;
+}
 
 function nextLlmRequestId() {
   const requestId = nextStreamRequestId;
@@ -57,6 +65,22 @@ function abortableLlmInvoke(channel, request, onAbort) {
 }
 
 contextBridge.exposeInMainWorld('rpgraph', {
+  accounts: {
+    list: () => ipcRenderer.invoke('account:list'),
+    status: () => ipcRenderer.invoke('account:status'),
+    create: (options) => ipcRenderer.invoke('account:create', options),
+    migrate: (options) => ipcRenderer.invoke('account:create', { ...options, source: 'legacy' }),
+    unlock: (options) => ipcRenderer.invoke('account:unlock', options),
+    import: (options) => ipcRenderer.invoke('account:import', options),
+    lock: () => ipcRenderer.invoke('account:lock'),
+    export: () => ipcRenderer.invoke('account:export'),
+    rename: (options) => ipcRenderer.invoke('account:rename', options),
+    changeProtection: (options) => ipcRenderer.invoke('account:change-protection', options),
+    remove: (options) => ipcRenderer.invoke('account:remove', options),
+    recover: (options) => ipcRenderer.invoke('account:recover', options),
+    loadPreferences: () => ipcRenderer.invoke('account:preferences-load'),
+    savePreferences: saveAccountPreferences,
+  },
   onPanelNavigate: (callback) => {
     const listener = (_event, direction) => {
       if (direction === -1 || direction === 1) callback(direction);
@@ -242,7 +266,7 @@ contextBridge.exposeInMainWorld('rpgraph', {
   getResourceStats: () => ipcRenderer.invoke('system:resource-stats'),
   saveSession: (name, session, protection, password, overwrite = false) =>
     ipcRenderer.invoke('session:save', { name, session, protection, password, overwrite }),
-  saveTurnAutosave: (session) => ipcRenderer.invoke('autosave:save-turn', session),
+  saveTurnAutosave: (session, protection, password) => ipcRenderer.invoke('autosave:save-turn', session, protection, password),
   loadTurnAutosave: () => ipcRenderer.invoke('autosave:load-turn'),
   listTurnAutosaves: () => ipcRenderer.invoke('autosave:list-turns'),
   saveStorybook: (name, storybook, protection, password, overwrite = false) =>
@@ -263,7 +287,10 @@ contextBridge.exposeInMainWorld('rpgraph', {
     ipcRenderer.on('window:cleanup-before-close', listener);
     return () => ipcRenderer.removeListener('window:cleanup-before-close', listener);
   },
-  finishWindowCloseCleanup: () => ipcRenderer.invoke('window:cleanup-complete-close'),
+  finishWindowCloseCleanup: async () => {
+    await Promise.all([...pendingPreferenceSaves]);
+    return ipcRenderer.invoke('window:cleanup-complete-close');
+  },
   setZoomFactor: (zoomFactor) => {
     const safeZoomFactor = Number.isFinite(zoomFactor)
       ? Math.min(2, Math.max(0.5, zoomFactor))

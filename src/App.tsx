@@ -1,3 +1,4 @@
+import { accountPreferences, flushAccountPreferences } from './accounts/accountPreferences';
 import { needsOpeningMessageSync } from './chat/openingMessage';
 import { markUiEvent, measureUiWork, profileUiRender, setUiPerformanceContext } from './diagnostics/uiPerformance';
 import { highlightingSpeakerReferences, type HighlightingSpeakerContext } from './nodes/output/speakerSelection';
@@ -504,7 +505,7 @@ const assistantConnectionStorageKey = 'rpgraph.assistantConnectionId';
 
 function loadAssistantConnectionId() {
   try {
-    return window.localStorage.getItem(assistantConnectionStorageKey) || undefined;
+    return accountPreferences.getItem(assistantConnectionStorageKey) || undefined;
   } catch {
     return undefined;
   }
@@ -635,7 +636,7 @@ type PreviewImageState = {
   image: ChatImageAttachment;
 };
 
-function App() {
+function App({ onOpenAccountManagement }: { onOpenAccountManagement?: () => void } = {}) {
   const npcLibrary = useNpcLibrary();
   const [characterRemoval, setCharacterRemoval] = useState<{ nodeId: string; characterId: string } | null>(null);
   const editedNpcSnapshotRef = useRef<import('./characters/npcParticipants').NpcParticipantSnapshots[string] | undefined>(undefined);
@@ -650,15 +651,15 @@ function App() {
     if (typeof window === 'undefined') {
       return 'play';
     }
-    const storedMode = window.localStorage.getItem(studioModeStorageKey);
+    const storedMode = accountPreferences.getItem(studioModeStorageKey);
     return isStudioMode(storedMode) ? storedMode : 'play';
   });
   const setStudioMode = useCallback((mode: StudioMode) => {
     setStudioModeState(mode);
     try {
-      window.localStorage.setItem(studioModeStorageKey, mode);
+      accountPreferences.setItem(studioModeStorageKey, mode);
     } catch {
-      // localStorage can be unavailable in hardened environments; the UI still works for this session.
+      // Keep the current session usable if saving the preference fails.
     }
   }, []);
   const [studioTheme, setStudioThemeState] = useState<string>(() => {
@@ -668,16 +669,16 @@ function App() {
     // Optimistic: the theme registry loads asynchronously, so this can't be
     // validated synchronously against the known id set. `effectiveThemeId`
     // below snaps back to the default once the registry has loaded, if this
-    // turns out to be unknown (e.g. a stale localStorage value from a theme
+    // turns out to be unknown (e.g. a saved preference from a theme
     // that no longer exists).
-    return window.localStorage.getItem(studioThemeStorageKey) || defaultThemeId;
+    return accountPreferences.getItem(studioThemeStorageKey) || defaultThemeId;
   });
   const setStudioTheme = useCallback((theme: string) => {
     setStudioThemeState(theme);
     try {
-      window.localStorage.setItem(studioThemeStorageKey, theme);
+      accountPreferences.setItem(studioThemeStorageKey, theme);
     } catch {
-      // localStorage can be unavailable in hardened environments; the UI still works for this session.
+      // Keep the current session usable if saving the preference fails.
     }
   }, []);
   const studioRootRef = useRef<HTMLDivElement>(null);
@@ -698,14 +699,14 @@ function App() {
     // Optimistic, same reasoning as `studioTheme` above: validated
     // synchronously against `phoneHomeThemeRegistry.isKnownThemeId` once the
     // registry has loaded (see `effectivePhoneHomeThemeId`).
-    return window.localStorage.getItem(phoneHomeThemeStorageKey) || defaultPhoneHomeThemeId;
+    return accountPreferences.getItem(phoneHomeThemeStorageKey) || defaultPhoneHomeThemeId;
   });
   const setPhoneHomeTheme = useCallback((theme: string) => {
     setPhoneHomeThemeState(theme);
     try {
-      window.localStorage.setItem(phoneHomeThemeStorageKey, theme);
+      accountPreferences.setItem(phoneHomeThemeStorageKey, theme);
     } catch {
-      // localStorage can be unavailable in hardened environments; the UI still works for this session.
+      // Keep the current session usable if saving the preference fails.
     }
   }, []);
   const phoneHomeThemeRegistry = usePhoneHomeThemeRegistry();
@@ -725,7 +726,7 @@ function App() {
   const [selectNodeViewSnapshot] = useState(createNodeViewSnapshot);
   const nodeViewNodes = selectNodeViewSnapshot(nodes);
   const [showWelcome, setShowWelcome] = useState(() => {
-    return window.localStorage.getItem('rpgraph.welcomeSeen') !== 'true';
+    return accountPreferences.getItem('rpgraph.welcomeSeen') !== 'true';
   });
   const {
     connections,
@@ -808,6 +809,8 @@ function App() {
     setRetryFormatErrorsEnabled,
     turnAutosaveEnabled,
     setTurnAutosaveEnabled,
+    turnAutosaveEncryptionEnabled,
+    setTurnAutosaveEncryptionEnabled,
     dialogueVoiceMode,
     setDialogueVoiceMode,
     dialogueNarratorProviderId,
@@ -980,6 +983,7 @@ function App() {
   useEffect(() => { lifecycleRunningRef.current = isRunning; }, [isRunning]);
   const imageInputRef = useRef<HTMLInputElement | null>(null);
   const lastTurnAutosaveIdRef = useRef<string | null>(null);
+  const [turnAutosavePassword, setTurnAutosavePassword] = useState('');
   const phoneDrawerRef = useRef<HTMLDivElement | null>(null);
   const setPhoneDrawerRef = useCallback((element: HTMLDivElement | null) => {
     phoneDrawerRef.current = element;
@@ -1482,6 +1486,7 @@ function App() {
       try {
         await unloadAllProviderModelsForClose();
       } finally {
+        await flushAccountPreferences();
         await window.rpgraph.finishWindowCloseCleanup();
       }
     });
@@ -1516,6 +1521,8 @@ function App() {
   ]);
   const {
     turnAutosaveChoices,
+    startupRestorePending,
+    confirmStartupRestore,
     chooseTurnAutosave,
     declineTurnAutosaveChoices,
     showFiles,
@@ -1900,9 +1907,9 @@ function App() {
 
   useEffect(() => {
     if (assistantConnectionId) {
-      window.localStorage.setItem(assistantConnectionStorageKey, assistantConnectionId);
+      accountPreferences.setItem(assistantConnectionStorageKey, assistantConnectionId);
     } else {
-      window.localStorage.removeItem(assistantConnectionStorageKey);
+      accountPreferences.removeItem(assistantConnectionStorageKey);
     }
   }, [assistantConnectionId]);
 
@@ -2546,8 +2553,7 @@ function App() {
       return;
     }
     void loadStartupWorkflow({ preferTurnAutosave: turnAutosaveEnabled });
-    // The last local workflow (or, when turn autosave is enabled, the newest turn
-    // autosave) is loaded once settings are ready at app startup.
+    // Offer restoration once settings are ready; saved content requires consent.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [settingsLoadComplete]);
 
@@ -2594,7 +2600,15 @@ function App() {
     const retryDelayMs = 400;
     const runAutosaveAttempt = (attempt: number) => {
       void currentSession(name)
-        .then((session) => window.rpgraph.saveTurnAutosave(session))
+        .then((session) => {
+          const accountManaged = !!window.rpgraph.accounts;
+          const password = accountManaged ? '' : workspacePasswordRef.current || turnAutosavePassword;
+          const protection = accountManaged ? 'plain' : turnAutosaveEncryptionEnabled || workspacePasswordRef.current ? 'encrypted' : 'plain';
+          if (protection === 'encrypted' && !password) {
+            throw new Error('Enter an autosave password in Settings or unlock your protected workspace. No plaintext autosave was written.');
+          }
+          return window.rpgraph.saveTurnAutosave(session, protection, password);
+        })
         .then((result) => {
           setFileStorageStatus(`Autosaved RP recovery: ${result.fileName}`);
         })
@@ -2604,6 +2618,7 @@ function App() {
             setTimeout(() => runAutosaveAttempt(attempt + 1), retryDelayMs);
             return;
           }
+          if (lastTurnAutosaveIdRef.current === latestTurn.id) lastTurnAutosaveIdRef.current = null;
           setFileStorageStatus(`Autosave failed: ${detail}`);
           notifySystem('warning', `Autosave failed: ${detail}`);
         });
@@ -2616,6 +2631,8 @@ function App() {
     setFileStorageStatus,
     turns,
     turnAutosaveEnabled,
+    turnAutosaveEncryptionEnabled,
+    turnAutosavePassword,
     notifySystem,
     isRunning,
   ]);
@@ -5893,7 +5910,9 @@ function App() {
               <button type="button" onClick={() => setShowRunLlmReport(true)} disabled={!runLlmReport}>
                 Run Report
               </button>
-              <button type="button" onClick={() => void exportSelectedGraphNodeJson()}>
+              <button type="button" disabled={!!window.rpgraph.accounts}
+                title={window.rpgraph.accounts ? 'Use Account → Export account to back up account content.' : undefined}
+                onClick={() => void exportSelectedGraphNodeJson()}>
                 Export JSON
               </button>
               <button type="button" onClick={() => void importGraphNodeJson()}>
@@ -6386,6 +6405,18 @@ function App() {
                 >
                   NPC Library
                 </button>
+                {onOpenAccountManagement && (
+                  <button
+                    type="button"
+                    role="menuitem"
+                    onClick={() => {
+                      setTopbarMenuOpen(false);
+                      onOpenAccountManagement();
+                    }}
+                  >
+                    Account
+                  </button>
+                )}
               </div>
             )}
           </div>
@@ -7301,6 +7332,10 @@ function App() {
         nodeTextSize={nodeTextSize}
         retryFormatErrorsEnabled={retryFormatErrorsEnabled}
         turnAutosaveEnabled={turnAutosaveEnabled}
+        turnAutosaveEncryptionEnabled={turnAutosaveEncryptionEnabled}
+        onTurnAutosaveEncryptionEnabledChange={setTurnAutosaveEncryptionEnabled}
+        turnAutosavePassword={turnAutosavePassword}
+        onTurnAutosavePasswordChange={setTurnAutosavePassword}
         uiScale={appliedUiScale}
         minUiScale={minimumAllowedUiScale}
         maxUiScale={allowedUiScale}
@@ -7577,11 +7612,13 @@ function App() {
         onApplyConnectionToAllNodes={applyConnectionToAllNodes}
         onSetNarratorOnlyProvider={setDialogueNarratorProviderId}
       />
-      {turnAutosaveChoices.length > 0 && (
+      {(startupRestorePending || turnAutosaveChoices.length > 0) && (
         <TurnAutosaveChoiceDialog
+          startupRestorePending={startupRestorePending}
+          onConfirmStartupRestore={() => void confirmStartupRestore()}
           choices={turnAutosaveChoices}
           latestSessionTurnNumber={latestSessionTurnNumber}
-          onChoose={(choice) => void chooseTurnAutosave(choice)}
+          onChoose={chooseTurnAutosave}
           onDecline={() => void declineTurnAutosaveChoices()}
         />
       )}
@@ -7673,7 +7710,7 @@ function App() {
       {showWelcome && (
         <WelcomeDialog
           onClose={() => {
-            window.localStorage.setItem('rpgraph.welcomeSeen', 'true');
+            accountPreferences.setItem('rpgraph.welcomeSeen', 'true');
             setShowWelcome(false);
           }}
         />

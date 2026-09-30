@@ -19,10 +19,10 @@ function isValidManifest(value) {
     typeof value.id === 'string' && typeof value.label === 'string';
 }
 
-async function scanThemeDirectory(root, tier) {
+async function scanThemeDirectory(root, tier, directoryFs = fs) {
   let directoryEntries;
   try {
-    directoryEntries = await fs.readdir(root, { withFileTypes: true });
+    directoryEntries = await directoryFs.readdir(root, { withFileTypes: true });
   } catch (error) {
     if (error?.code === 'ENOENT') return { manifests: [], diagnostics: [] };
     return {
@@ -41,7 +41,7 @@ async function scanThemeDirectory(root, tier) {
     const fileName = path.join(dir.name, 'theme.json');
     let contents;
     try {
-      contents = await fs.readFile(path.join(root, dir.name, 'theme.json'), 'utf8');
+      contents = await directoryFs.readFile(path.join(root, dir.name, 'theme.json'), 'utf8');
     } catch (error) {
       diagnostics.push(diagnostic(tier, fileName, 'directory-error',
         `Unable to read theme.json: ${error instanceof Error ? error.message : String(error)}`));
@@ -68,9 +68,9 @@ async function scanThemeDirectory(root, tier) {
 /** Scans both tiers and merges by id, user-authored themes overriding a
  * bundled theme of the same id (so a user can safely fork/tweak a preset
  * without editing the installed app). */
-async function scanThemeLibrary(roots) {
+async function scanThemeLibrary(roots, userFs = fs) {
   const bundled = await scanThemeDirectory(roots.bundled, 'bundled');
-  const user = await scanThemeDirectory(roots.user, 'user');
+  const user = await scanThemeDirectory(roots.user, 'user', userFs);
   const byId = new Map();
   for (const manifest of [...bundled.manifests, ...user.manifests]) byId.set(manifest.id, manifest);
   return {
@@ -83,7 +83,7 @@ async function scanThemeLibrary(roots) {
 /** Mirrors `createNpcLibraryService` in `npcLibrary.cjs`: cached snapshot,
  * serialized reloads, and an "open the user folder" affordance so users can
  * find where to drop a hand-authored `theme.json`. */
-function createThemeLibraryService({ roots, openPath, onChanged = () => {} }) {
+function createThemeLibraryService({ roots, openPath, userFs = fs, onChanged = () => {} }) {
   let cached = { roots, manifests: [], diagnostics: [] };
   let queue = Promise.resolve();
   function enqueue(action) {
@@ -95,16 +95,16 @@ function createThemeLibraryService({ roots, openPath, onChanged = () => {} }) {
     current: () => cached,
     reload: () => enqueue(async () => {
       try {
-        await fs.mkdir(roots.user, { recursive: true });
+        await userFs.mkdir(roots.user, { recursive: true });
       } catch {
         // The scan below returns a directory diagnostic without blocking startup.
       }
-      cached = await scanThemeLibrary(roots);
+      cached = await scanThemeLibrary(roots, userFs);
       onChanged(cached);
       return cached;
     }),
     openUserDirectory: async () => {
-      await fs.mkdir(roots.user, { recursive: true });
+      await userFs.mkdir(roots.user, { recursive: true });
       const error = await openPath(roots.user);
       if (error) throw new Error(`Unable to open the themes directory: ${error}`);
       return { path: roots.user };

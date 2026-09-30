@@ -2,6 +2,7 @@ import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import type { SetStateAction } from 'react';
 import { useRpgraphFiles } from './useRpgraphFiles';
 import { emptyRpStorybook } from '../nodes/rp-storybook/model';
+import { currentSessionFormatVersion, currentSessionWorkflowFormatVersion } from '../session/version';
 
 const hooks = vi.hoisted(() => ({ slots: [] as unknown[], index: 0 }));
 vi.mock('react', async (original) => ({
@@ -27,8 +28,11 @@ function harness() {
   const bridge = {
     saveSession: vi.fn(async () => result), saveStorybook: vi.fn(async () => result),
     saveCurrentSession: vi.fn(async () => result),
+    saveCurrentWorkflow: vi.fn(async () => result),
     saveRpgraphFileToPath: vi.fn(async () => ({ ...result, canceled: false })),
     listFiles: vi.fn(async () => []),
+    listTurnAutosaves: vi.fn<() => Promise<import('./useRpgraphFiles').LoadedRpgraphFile[]>>(async () => []),
+    loadStartupWorkflow: vi.fn(async () => ({ ...result, protection: 'plain', workflow: { nodes: [], edges: [] } })),
     loadFilePath: vi.fn(async () => ({ ...result, type: 'storybook', protection: 'encrypted', value: emptyRpStorybook })),
   };
   vi.stubGlobal('window', { rpgraph: bridge });
@@ -39,6 +43,7 @@ function harness() {
     updateRuntimeNode: vi.fn(), notifySystem: vi.fn(), errorMessage: String,
     setActiveStorybookProtection: vi.fn(), setActiveWorkflowProtection: vi.fn(),
     applyStorybookToNode: vi.fn(() => true), onWorkspacePasswordChange: vi.fn(async () => {}),
+    applyLoadedWorkflow: vi.fn(), applyLoadedRpgraphFile: vi.fn(), clearWorkspaceForLockedStartup: vi.fn(),
   } as unknown as Parameters<typeof useRpgraphFiles>[0];
   function render() {
     hooks.index = 0;
@@ -47,6 +52,127 @@ function harness() {
   }
   return { render, bridge, options };
 }
+
+it('saves imported protected content inside the account without another password or external destination', async () => {
+  const { render, bridge } = harness();
+  Object.assign(bridge, { accounts: {} });
+  render().setWorkspacePassword('legacy-import-password');
+  render().requestSaveSession();
+  render().setFileProtection('encrypted');
+  render().setChooseSaveLocation(true);
+  await render().saveSession();
+  expect(bridge.saveRpgraphFileToPath).not.toHaveBeenCalled();
+  expect(bridge.saveSession).toHaveBeenCalledWith('Game', {}, 'plain', '', false);
+  expect(render().encryptionRequired).toBe(false);
+});
+
+it.each(['/imports/game.json', 'C:\\imports\\game.json'])('opens account Save As instead of overwriting external %s', async (filePath) => {
+  const { render, bridge } = harness();
+  Object.assign(bridge, { accounts: {} });
+  render().activeSessionPathRef.current = filePath;
+  render().setActiveSessionFileName('game.json');
+  await render().saveCurrentSession();
+  expect(bridge.saveCurrentSession).not.toHaveBeenCalled();
+  expect(render().sessionPasswordAction).toBe('save-session');
+  render().activateWorkflowPath(filePath, 'game.json');
+  await render().saveCurrentWorkflow();
+  expect(bridge.saveCurrentWorkflow).not.toHaveBeenCalled();
+  expect(render().sessionPasswordAction).toBe('save-workflow');
+});
+
+it('keeps account-owned quick saves without forwarding legacy encryption passwords', async () => {
+  const { render, bridge } = harness();
+  Object.assign(bridge, { accounts: {} });
+  const filePath = 'C:\\profile\\account-workspaces\\account-id\\files\\game.json';
+  render().activeSessionPathRef.current = filePath;
+  render().setActiveSessionFileName('game.json');
+  render().setWorkspacePassword('legacy-password');
+  await render().saveCurrentSession();
+  expect(bridge.saveCurrentSession).toHaveBeenCalledWith(filePath, {}, 'plain', '');
+});
+
+it.each([false, true])('requires startup consent before reading saved content (autosaves=%s)', async (preferTurnAutosave) => {
+  const { render, bridge, options } = harness();
+  await render().loadStartupWorkflow({ preferTurnAutosave });
+  expect(render().startupRestorePending).toBe(true);
+  expect(bridge.listTurnAutosaves).not.toHaveBeenCalled();
+  expect(bridge.loadStartupWorkflow).not.toHaveBeenCalled();
+  expect(options.applyLoadedWorkflow).not.toHaveBeenCalled();
+  render().declineTurnAutosaveChoices();
+  await render().confirmStartupRestore();
+  expect(render().startupRestorePending).toBe(false);
+  expect(bridge.loadStartupWorkflow).not.toHaveBeenCalled();
+  await render().loadStartupWorkflow({ preferTurnAutosave });
+  await render().confirmStartupRestore();
+  expect(bridge.loadStartupWorkflow).toHaveBeenCalledTimes(1);
+  expect(options.applyLoadedWorkflow).toHaveBeenCalledTimes(1);
+});
+
+it.each([1, 2])('requires selection for %s autosaves and never loads a workflow on decline', async (count) => {
+  const { render, bridge, options } = harness();
+  const session = {
+    format: 'rpgraph-session', formatVersion: currentSessionFormatVersion,
+    name: 'Test', savedAt: '2026-01-01',
+    metadata: { settings: { englishProcessingEnabled: false, displayLanguage: 'en' } },
+    workflow: { format: 'rpgraph-workflow', formatVersion: currentSessionWorkflowFormatVersion, graph: { nodes: [], edges: [] } },
+    timeline: [], entities: { images: {}, events: {}, memory: {} },
+    runtime: { current: { workflowVariables: {}, nodes: {} }, undo: [] },
+    ui: { phoneSeenByConversation: {}, bankingSeenByCharacter: {}, bankingContactsByCharacter: {},
+      socialLikesByAccount: {}, dynamicSocialUsers: {}, socialConnectionsByCharacter: {},
+      onlyFriendsPurchasesByCharacter: {}, phoneDividerAfterByConversation: {} },
+  };
+  const choices = Array.from({ length: count }, (_, index) => ({
+    fileName: `autosave-${index}.json`, name: 'Test', filePath: '/test',
+    type: 'session' as const, protection: 'plain' as const, value: session,
+  }));
+  bridge.listTurnAutosaves.mockResolvedValue(choices);
+  await render().loadStartupWorkflow({ preferTurnAutosave: true });
+  await render().confirmStartupRestore();
+  expect(render().turnAutosaveChoices).toHaveLength(count);
+  expect(options.applyLoadedRpgraphFile).not.toHaveBeenCalled();
+  render().declineTurnAutosaveChoices();
+  expect(bridge.loadStartupWorkflow).not.toHaveBeenCalled();
+  expect(options.applyLoadedWorkflow).not.toHaveBeenCalled();
+  await render().loadStartupWorkflow({ preferTurnAutosave: true });
+  await render().confirmStartupRestore();
+  await render().chooseTurnAutosave(choices[0]);
+  expect(options.applyLoadedRpgraphFile).toHaveBeenCalledWith(choices[0], '');
+});
+
+it('lists encrypted autosaves without opening them and retains choices after a wrong password', async () => {
+  const { render, bridge, options } = harness();
+  const choice = { fileName: 'autosave.json', filePath: '/files/autosave.json', name: 'Turn Autosave',
+    type: 'session' as const, protection: 'encrypted' as const, value: null };
+  bridge.listTurnAutosaves.mockResolvedValue([choice]);
+  await render().loadStartupWorkflow({ preferTurnAutosave: true });
+  await render().confirmStartupRestore();
+  expect(render().turnAutosaveChoices).toEqual([choice]);
+  expect(bridge.loadFilePath).not.toHaveBeenCalled();
+  bridge.loadFilePath.mockRejectedValueOnce(new Error('Wrong password'));
+  await expect(render().chooseTurnAutosave(choice, 'wrong')).rejects.toThrow('Wrong password');
+  expect(options.applyLoadedRpgraphFile).not.toHaveBeenCalled();
+  expect(render().turnAutosaveChoices).toEqual([choice]);
+  await render().chooseTurnAutosave(choice, 'secret');
+  expect(bridge.loadFilePath).toHaveBeenLastCalledWith(choice.filePath, 'secret');
+  expect(options.applyLoadedRpgraphFile).toHaveBeenCalledWith(expect.anything(), 'secret');
+  expect(render().turnAutosaveChoices).toEqual([]);
+});
+
+it('asks for a protected workspace password only after startup consent', async () => {
+  const { render, bridge, options } = harness();
+  bridge.loadStartupWorkflow.mockResolvedValue(Object.assign({
+    fileName: 'locked.json', name: 'Locked', filePath: '/files/locked.json',
+    protection: 'encrypted', workflow: { nodes: [], edges: [] },
+  }, { requiresPassword: true }));
+  await render().loadStartupWorkflow();
+  expect(render().sessionPasswordAction).toBeNull();
+  expect(bridge.loadStartupWorkflow).not.toHaveBeenCalled();
+  await render().confirmStartupRestore();
+  expect(render().sessionPasswordAction).toBe('load');
+  expect(options.applyLoadedWorkflow).not.toHaveBeenCalled();
+  await render().confirmStartupRestore();
+  expect(bridge.loadStartupWorkflow).toHaveBeenCalledTimes(1);
+});
 
 it.each([false, true])('inherits an encrypted Storybook password for RP saves (chosen path: %s)', async (choosePath) => {
   const { render, bridge } = harness();

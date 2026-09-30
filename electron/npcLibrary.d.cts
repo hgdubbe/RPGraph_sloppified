@@ -42,9 +42,23 @@ export function npcLibraryRoots(options: {
   projectRootPath: string;
   userDataPath: string;
 }): NpcLibraryRoots;
-export function scanNpcLibrary(roots: NpcLibraryRoots): Promise<NpcLibrarySnapshot>;
+export type NpcLibraryFileSystem = {
+  readdir(directory: string, options: { withFileTypes: true }): Promise<Array<{
+    name: string;
+    isFile(): boolean;
+  }>>;
+  readFile(file: string, encoding: 'utf8'): Promise<string>;
+  stat(file: string): Promise<{ mtime: Date }>;
+  mkdir(directory: string, options: { recursive: true }): Promise<unknown>;
+};
+export function scanNpcLibrary(
+  roots: NpcLibraryRoots,
+  unlock?: (envelope: unknown) => Promise<NpcLibrarySnapshot['entries'][number]['character'] | undefined>,
+  userFs?: NpcLibraryFileSystem,
+): Promise<NpcLibrarySnapshot>;
 export function createNpcLibraryService(options: {
   roots: NpcLibraryRoots;
+  userFs?: NpcLibraryFileSystem;
   openPath: (directory: string) => Promise<string>;
   decryptCharacter?: (envelope: unknown, password: string) => Promise<unknown>;
   onChanged?: (snapshot: NpcLibrarySnapshot) => void;

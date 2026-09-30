@@ -25,11 +25,11 @@ function diagnostic(tier, fileName, code, message) {
   return { tier, fileName, code, message };
 }
 
-async function scanNpcDirectory(directory, tier, unlock) {
+async function scanNpcDirectory(directory, tier, unlock, directoryFs = fs) {
   const { currentCharacterContainerVersion, validateCharacterContainer } = await loadCharacterContainerModule();
   let directoryEntries;
   try {
-    directoryEntries = await fs.readdir(directory, { withFileTypes: true });
+    directoryEntries = await directoryFs.readdir(directory, { withFileTypes: true });
   } catch (error) {
     if (error?.code === 'ENOENT') return { entries: [], files: [], diagnostics: [], skipped: 0 };
     return { entries: [], files: [], diagnostics: [diagnostic(tier, '', 'directory-error',
@@ -49,8 +49,8 @@ async function scanNpcDirectory(directory, tier, unlock) {
     try {
       const filePath = path.join(directory, file.name);
       [value, stats] = await Promise.all([
-        fs.readFile(filePath, 'utf8').then(JSON.parse),
-        fs.stat(filePath),
+        directoryFs.readFile(filePath, 'utf8').then(JSON.parse),
+        directoryFs.stat(filePath),
       ]);
     } catch (error) {
       diagnostics.push(diagnostic(tier, file.name, 'invalid-json',
@@ -99,10 +99,10 @@ async function scanNpcDirectory(directory, tier, unlock) {
   return { entries, files, diagnostics, skipped };
 }
 
-async function scanNpcLibrary(roots, unlock) {
+async function scanNpcLibrary(roots, unlock, userFs = fs) {
   // Serialize decryptions across both tiers, including identical encrypted copies.
   const bundled = await scanNpcDirectory(roots.bundled, 'bundled', unlock);
-  const user = await scanNpcDirectory(roots.user, 'user', unlock);
+  const user = await scanNpcDirectory(roots.user, 'user', unlock, userFs);
   return {
     roots,
     entries: [...bundled.entries, ...user.entries],
@@ -112,7 +112,7 @@ async function scanNpcLibrary(roots, unlock) {
   };
 }
 
-function createNpcLibraryService({ roots, openPath, decryptCharacter, onChanged = () => {} }) {
+function createNpcLibraryService({ roots, openPath, decryptCharacter, userFs = fs, onChanged = () => {} }) {
   let cached = { roots, entries: [], files: [], diagnostics: [], skipped: 0 };
   let queue = Promise.resolve();
   // Application-session memory only. Never serialize passwords or attempt records.
@@ -154,7 +154,7 @@ function createNpcLibraryService({ roots, openPath, decryptCharacter, onChanged 
           gamePassword = password;
           if (password) passwords.add(password);
         }
-        cached = await scanNpcLibrary(roots, unlock);
+        cached = await scanNpcLibrary(roots, unlock, userFs);
         onChanged(cached);
         return cached;
       });
@@ -162,17 +162,17 @@ function createNpcLibraryService({ roots, openPath, decryptCharacter, onChanged 
     reload: () => {
       return enqueue(async () => {
         try {
-          await fs.mkdir(roots.user, { recursive: true });
+          await userFs.mkdir(roots.user, { recursive: true });
         } catch {
           // The scan below returns a directory diagnostic without blocking startup.
         }
-        cached = await scanNpcLibrary(roots, unlock);
+        cached = await scanNpcLibrary(roots, unlock, userFs);
         onChanged(cached);
         return cached;
       });
     },
     openUserDirectory: async () => {
-      await fs.mkdir(roots.user, { recursive: true });
+      await userFs.mkdir(roots.user, { recursive: true });
       const error = await openPath(roots.user);
       if (error) throw new Error(`Unable to open the NPC directory: ${error}`);
       return { path: roots.user };

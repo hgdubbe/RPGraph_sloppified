@@ -2,15 +2,23 @@ const { compatibleModel, compatibleReasoningOptions, mergeCompatibleNativeModels
 const { normalizeReasoningCapabilities, normalizeReasoningEffort, normalizeLmStudioReasoning, normalizeOllamaReasoning, ollamaReasoningOptions } = require('../shared/reasoning.cjs');
 const { safeWorkflowBaseName, safeStorybookBaseName, safeCharacterCardBaseName } = require('./fileNames.cjs');
 const { bundledJsonFilesByFormat } = require('./bundledJsonFiles.cjs');
-const { app, BrowserWindow, Menu, dialog, ipcMain, safeStorage, shell } = require('electron');
+const { app, BrowserWindow, Menu, dialog, ipcMain: nativeIpcMain, safeStorage, powerMonitor, session, shell } = require('electron');
 const crypto = require('node:crypto');
 const { execFile } = require('node:child_process');
-const fs = require('node:fs/promises');
+const nativeFs = require('node:fs/promises');
 const fsSync = require('node:fs');
 const http = require('node:http');
 const https = require('node:https');
 const os = require('node:os');
 const path = require('node:path');
+const { fileURLToPath } = require('node:url');
+const { createAccountManager } = require('./accounts/accountManager.cjs');
+const { createAccountIPC, currentStorage } = require('./accounts/accountIPC.cjs');
+const { createAccountRuntime } = require('./accounts/accountRuntime.cjs');
+const { recoverAccountStoreLocks } = require('./accounts/accountRecovery.cjs');
+const { readLegacyAccountFiles, legacyDataAvailable } = require('./accounts/accountMigration.cjs');
+const { createLegacyCleanupPlan, offerLegacyCleanup } = require('./accounts/accountLegacyCleanup.cjs');
+const { validateAccountRelativePath } = require('./accounts/accountFiles.cjs');
 const { createUnslothApi } = require('./unslothApi.cjs');
 const { createTextStreamBatch } = require('./streamBatch.cjs');
 const { currentScryptParameters } = require('./encryptionFormat.cjs');
@@ -78,7 +86,31 @@ const { reasoningTextFromChatMessage } = require('./reasoningStream.cjs');
 const { createNpcLibraryService, npcLibraryRoots } = require('./npcLibrary.cjs');
 const { createThemeLibraryService, themeLibraryRoots } = require('./themeLibrary.cjs');
 const { createPhoneHomeThemeLibraryService, phoneHomeThemeLibraryRoots } = require('./phoneHomeThemeLibrary.cjs');
-const workspaceProtection = require('./workspaceProtection.cjs').createWorkspaceProtection();
+// Account protection is main-owned; legacy per-file passwords are import-only.
+const workspaceProtection = { require() { currentStorage().assertCurrent(); }, activate() {} };
+let accountManager;
+let activeAccountView;
+let changingAccountWindow = false;
+const rendererAuthority = new WeakMap();
+app.setName('RPgraph Studio');
+const runtime = createAccountRuntime({ userDataPath: app.getPath('userData'), nativeFs });
+const fs = runtime.fs;
+function validAccountSender(event) {
+  if (!rendererAuthority.has(event.sender) || event.sender.isDestroyed() ||
+      event.senderFrame !== event.sender.mainFrame || !isAllowedNavigationUrl(event.senderFrame.url)) return false;
+  return rendererAuthority.get(event.sender) === (activeAccountView?.signal ?? null);
+}
+const ipcMain = createAccountIPC({
+  ipcMain: nativeIpcMain,
+  manager: { captureStorage: () => accountManager.captureStorage() },
+  validateSender: validAccountSender,
+  publicChannels: ['account:list', 'account:status', 'account:create', 'account:unlock', 'account:import', 'account:recover',
+    'window:minimize', 'window:toggle-maximize', 'window:toggle-full-screen', 'window:close', 'window:cleanup-complete-close'],
+});
+function sendAccountEvent(event, ...args) {
+  currentStorage().assertCurrent();
+  if (validAccountSender(event)) event.sender.send(...args);
+}
 
 const developmentUrl = 'http://localhost:5173';
 const projectRootPath = path.join(__dirname, '..');
@@ -126,9 +158,9 @@ const sessionCipherAad = Buffer.from('rpgraph-encrypted-session:v2.1');
 const workflowCipherAad = Buffer.from('rpgraph-encrypted-workflow:v2');
 const storybookCipherAad = Buffer.from('rpgraph-encrypted-storybook:v1');
 const characterCardCipherAad = Buffer.from('rpgraph-encrypted-character:v1');
-const approvedWorkflowPaths = new Set();
-const approvedFilePaths = new Set();
-const approvedComfyWorkflowPaths = new Set(
+const approvedWorkflowPaths = accountPathApprovals('workflows');
+const approvedFilePaths = accountPathApprovals('files');
+const approvedComfyWorkflowPaths = accountPathApprovals('comfy',
   bundledComfyWorkflows.map((workflow) => path.resolve(projectRootPath, workflow.apiWorkflowPath)),
 );
 
@@ -174,8 +206,7 @@ function bundledDefaultWorkflowPath() {
   const paths = bundledDefaultWorkflowPaths();
   return paths[paths.length - 1];
 }
-const activeLlmRequests = new Map();
-const pendingCancelledLlmRequests = new Set();
+const activeLlmRequests = new Set();
 const fileBaseNameControlCharacters = `${String.fromCharCode(0)}-${String.fromCharCode(31)}`;
 const invalidFileBaseNameCharacters = new RegExp(`[<>:"/\\\\|?*${fileBaseNameControlCharacters}]`, 'g');
 let settingsWriteQueue = Promise.resolve();
@@ -224,53 +255,65 @@ if (process.platform === 'win32') {
   app.setDesktopName('rpgraph-studio.desktop');
 }
 
-const npcLibraryService = createNpcLibraryService({
-  roots: npcLibraryRoots({
-    isPackaged: app.isPackaged,
-    resourcesPath: process.resourcesPath,
-    projectRootPath,
-    userDataPath: app.getPath('userData'),
-  }),
-  openPath: (directory) => shell.openPath(directory),
-  decryptCharacter: (envelope, password) => decryptCharacterCard(envelope, password),
-  onChanged: () => {
-    for (const window of BrowserWindow.getAllWindows()) {
-      if (!window.isDestroyed()) window.webContents.send('npc-library:changed');
-    }
-  },
-});
+function accountLibrary(name) {
+  return new Proxy({}, { get: (_target, method) => (...args) => runtime.services()[name][method](...args) });
+}
+function accountCache(name) {
+  return new Proxy({}, { get: (_target, method) => (...args) => {
+    const caches = runtime.services().caches;
+    caches[name] ??= new Map();
+    return caches[name][method](...args);
+  } });
+}
+function accountPathApprovals(name, defaults = []) {
+  return new Proxy({}, { get: (_target, method) => (...args) => {
+    currentStorage().assertCurrent();
+    const approvals = runtime.services().approvals;
+    approvals[name] ??= new Set(defaults);
+    return approvals[name][method](...args);
+  } });
+}
+const npcLibraryService = accountLibrary('npc');
+const themeLibraryService = accountLibrary('theme');
+const phoneHomeThemeLibraryService = accountLibrary('phoneTheme');
 
-const themeLibraryService = createThemeLibraryService({
-  roots: themeLibraryRoots({
-    isPackaged: app.isPackaged,
-    resourcesPath: process.resourcesPath,
-    projectRootPath,
-    userDataPath: app.getPath('userData'),
-  }),
-  openPath: (directory) => shell.openPath(directory),
-  onChanged: () => {
-    for (const window of BrowserWindow.getAllWindows()) {
-      if (!window.isDestroyed()) window.webContents.send('theme-library:changed');
+async function createAccountLibraries({ root, files, view }) {
+  let importReviewPending = false;
+  const reviewPath = path.join(root, 'account-import-review.json');
+  try {
+    const review = JSON.parse(await files.readFile(reviewPath, 'utf8'));
+    if (review.pending === true) {
+      let providers = [];
+      try { providers = JSON.parse(await files.readFile(path.join(root, 'settings.json'), 'utf8')).connections ?? []; }
+      catch { /* Missing/malformed settings provide no provider preview. */ }
+      const result = await dialog.showMessageBox({ title: 'Review imported settings', type: 'question',
+        message: 'Enable the imported provider configuration?',
+        detail: `These settings may contact external services and load local models. Only enable providers you recognize.\n\n${providers.slice(0, 20).map((provider) => String(provider.baseUrl || provider.label || '').slice(0, 160)).join('\n')}\n\nOffline defaults preserve your imported configuration for review on your next login.`,
+        buttons: ['Use offline defaults', 'Enable imported providers'], defaultId: 0, cancelId: 0 });
+      view.assertCurrent();
+      if (result.response === 1) await files.unlink(reviewPath);
+      else importReviewPending = true;
     }
-  },
-});
-let themeLibraryReadyPromise = themeLibraryService.reload();
-
-const phoneHomeThemeLibraryService = createPhoneHomeThemeLibraryService({
-  roots: phoneHomeThemeLibraryRoots({
-    isPackaged: app.isPackaged,
-    resourcesPath: process.resourcesPath,
-    projectRootPath,
-    userDataPath: app.getPath('userData'),
-  }),
-  openPath: (directory) => shell.openPath(directory),
-  onChanged: () => {
+  } catch (error) { if (error.code !== 'ENOENT') throw error; }
+  const roots = { isPackaged: app.isPackaged, resourcesPath: process.resourcesPath, projectRootPath, userDataPath: root };
+  const openPath = async () => { throw new Error('Account libraries are stored in the account. Use Import or Export Account to transfer them.'); };
+  const changed = (channel) => () => {
+    view.assertCurrent();
     for (const window of BrowserWindow.getAllWindows()) {
-      if (!window.isDestroyed()) window.webContents.send('phone-home-theme-library:changed');
+      if (!window.isDestroyed() && rendererAuthority.get(window.webContents) === view.signal) window.webContents.send(channel);
     }
-  },
-});
-let phoneHomeThemeLibraryReadyPromise = phoneHomeThemeLibraryService.reload();
+  };
+  const services = {
+    npc: createNpcLibraryService({ roots: npcLibraryRoots(roots), userFs: files, openPath,
+      decryptCharacter: (envelope, password) => decryptCharacterCard(envelope, password), onChanged: changed('npc-library:changed') }),
+    theme: createThemeLibraryService({ roots: themeLibraryRoots(roots), userFs: files, openPath, onChanged: changed('theme-library:changed') }),
+    phoneTheme: createPhoneHomeThemeLibraryService({ roots: phoneHomeThemeLibraryRoots(roots), userFs: files, openPath, onChanged: changed('phone-home-theme-library:changed') }),
+    pendingComfyFreeBaseUrl: '', pendingComfyFreeLoaded: false, caches: {}, approvals: {},
+    requests: new Map(), pendingCancels: new Set(), importReviewPending,
+  };
+  await Promise.all([services.npc.reload(), services.theme.reload(), services.phoneTheme.reload()]);
+  return services;
+}
 
 function normalizedWorkflowPath(filePath) {
   if (
@@ -325,24 +368,11 @@ function validateFilePath(filePath) {
 }
 
 function settingsFilePath() {
-  return path.join(app.getPath('userData'), 'settings.json');
+  return path.join(runtime.root(), runtime.services().importReviewPending ? 'offline-settings.json' : 'settings.json');
 }
 
 function apiKeyEncryptionAvailable() {
   return Boolean(safeStorage?.isEncryptionAvailable?.());
-}
-
-function encryptedApiKeyPayload(apiKey) {
-  if (!apiKey) {
-    return undefined;
-  }
-  if (!apiKeyEncryptionAvailable()) {
-    return undefined;
-  }
-  return {
-    format: 'electron-safe-storage',
-    value: safeStorage.encryptString(apiKey).toString('base64'),
-  };
 }
 
 function decryptedApiKeyPayload(payload) {
@@ -368,25 +398,8 @@ function settingsHasEncryptedApiKeys(settings) {
 }
 
 function settingsForDisk(settings) {
-  const encryptedSettings = structuredClone(settings);
-  if (!Array.isArray(encryptedSettings.connections)) {
-    return encryptedSettings;
-  }
-  encryptedSettings.apiKeyStorage = apiKeyEncryptionAvailable() ? 'encrypted' : 'plain';
-  encryptedSettings.connections = encryptedSettings.connections.map((connection) => {
-    const nextConnection = { ...connection };
-    const encryptedApiKey = encryptedApiKeyPayload(nextConnection.apiKey);
-    if (encryptedApiKey) {
-      nextConnection.apiKeyEncrypted = encryptedApiKey;
-      nextConnection.apiKey = '';
-    } else if (nextConnection.apiKey) {
-      delete nextConnection.apiKeyEncrypted;
-    } else if (!nextConnection.apiKeyEncrypted) {
-      delete nextConnection.apiKeyEncrypted;
-    }
-    return nextConnection;
-  });
-  return encryptedSettings;
+  // Credentials travel inside the account encryption, including portable exports.
+  return settingsFromDisk(structuredClone(settings));
 }
 
 function settingsFromDisk(settings) {
@@ -422,19 +435,19 @@ function windowStateFilePath() {
 }
 
 function imageDialogStateFilePath() {
-  return path.join(app.getPath('userData'), 'image-dialog-state.json');
+  return path.join(runtime.root(), 'image-dialog-state.json');
 }
 
 function workflowStateFilePath() {
-  return path.join(app.getPath('userData'), 'workflow-state.json');
+  return path.join(runtime.root(), 'workflow-state.json');
 }
 
 function filesDirectory() {
-  return path.join(app.getPath('userData'), 'files');
+  return path.join(runtime.root(), 'files');
 }
 
 function charactersDirectory() {
-  return path.join(app.getPath('userData'), 'characters');
+  return path.join(runtime.root(), 'characters');
 }
 
 function storedFileDirectory(storage) {
@@ -643,6 +656,7 @@ async function assertOverwriteType(filePath, expectedType) {
 }
 
 async function writeTextFileAtomically(filePath, contents) {
+  if (runtime.isVirtual(filePath)) return fs.writeFile(filePath, contents, 'utf8');
   const temporaryPath = `${filePath}.${process.pid}.${crypto.randomUUID()}.tmp`;
   try {
     await fs.writeFile(temporaryPath, contents, { encoding: 'utf8', flag: 'wx' });
@@ -660,15 +674,21 @@ async function writeTextFileAtomically(filePath, contents) {
 }
 
 async function writeNewTextFileAtomically(filePath, contents) {
+  if (runtime.isVirtual(filePath)) return fs.writeFile(filePath, contents, { encoding: 'utf8', flag: 'wx' });
   // Detect name conflicts up front; the temp-file rename in
   // writeTextFileAtomically would silently overwrite an existing file. The
   // check-then-write race is acceptable for this single-user desktop app.
-  if (fsSync.existsSync(filePath)) {
+  if (await fileExists(filePath)) {
     const error = new Error(`File already exists: ${filePath}`);
     error.code = 'EEXIST';
     throw error;
   }
   await writeTextFileAtomically(filePath, contents);
+}
+
+async function fileExists(filePath) {
+  try { await fs.stat(filePath); return true; }
+  catch (error) { if (error.code === 'ENOENT') return false; throw error; }
 }
 
 async function loadWorkflowState() {
@@ -760,7 +780,7 @@ async function ensureDefaultWorkflowFile(
   const baseName = bundledFileName.replace(/\.json$/i, '');
   let fileName = `${baseName}${jsonFileExtension}`;
   let filePath = path.join(directory, fileName);
-  for (let index = 2; fsSync.existsSync(filePath); index += 1) {
+  for (let index = 2; await fileExists(filePath); index += 1) {
     const metadata = await readStoredFileMetadata(filePath);
     if (metadata.type === 'workflow' && metadata.protection === 'plain' && metadata.compatible) {
       if (overwriteExisting) {
@@ -822,7 +842,7 @@ async function seedBundledSampleSessions() {
   for (const bundledPath of bundledSampleSessionPaths()) {
     const fileName = path.basename(bundledPath).replace(/^sample\.default_/i, '');
     const filePath = path.join(directory, fileName);
-    if (fsSync.existsSync(filePath)) {
+    if (await fileExists(filePath)) {
       continue;
     }
     const contents = await fs.readFile(bundledPath, 'utf8');
@@ -840,7 +860,7 @@ async function ensureDefaultStorybookFile(bundledPath) {
   const baseName = bundledFileName.replace(/\.json$/i, '');
   let fileName = `${baseName}${jsonFileExtension}`;
   let filePath = path.join(directory, fileName);
-  for (let index = 2; fsSync.existsSync(filePath); index += 1) {
+  for (let index = 2; await fileExists(filePath); index += 1) {
     const metadata = await readStoredFileMetadata(filePath);
     if (metadata.type === 'storybook' && metadata.protection === 'plain' && metadata.compatible) {
       const state = await loadWorkflowState();
@@ -925,10 +945,12 @@ function turnAutosaveFilePath(fileName) {
 
 async function readTurnAutosaveFile(fileName) {
   const filePath = approveFilePath(turnAutosaveFilePath(fileName));
-  const { metadata, value } = await readRpgraphFile(filePath, '');
-  if (metadata.type !== 'session' || metadata.protection !== 'plain') {
-    throw new Error('The turn autosave is not a plain RP save.');
+  const stored = JSON.parse(await fs.readFile(filePath, 'utf8'));
+  const metadata = storedFileMetadata(stored);
+  if (metadata.type !== 'session' || !metadata.compatible) {
+    throw new Error('The turn autosave is not a compatible RP save.');
   }
+  const value = metadata.protection === 'encrypted' ? null : stored;
   const stats = await fs.stat(filePath);
   return {
     fileName: path.basename(filePath),
@@ -1947,13 +1969,10 @@ function runNvidiaSmiMemoryQuery() {
 }
 
 function isAllowedNavigationUrl(url) {
-  if (process.argv.includes('--dev')) {
-    return url.startsWith(developmentUrl);
-  }
   try {
     const parsed = new URL(url);
-    return parsed.protocol === 'file:' &&
-      path.normalize(parsed.pathname).startsWith(path.normalize(path.join(__dirname, '../dist')));
+    if (process.argv.includes('--dev')) return parsed.origin === developmentUrl && ['/', '/index.html'].includes(parsed.pathname);
+    return parsed.protocol === 'file:' && path.resolve(fileURLToPath(parsed)) === path.resolve(__dirname, '../dist/index.html');
   } catch {
     return false;
   }
@@ -2227,6 +2246,8 @@ function llmRequestId(request) {
 }
 
 function createLlmAbortController(request) {
+  const accountSignal = currentStorage().signal;
+  const { requests, pendingCancels } = runtime.services();
   const requestId = llmRequestId(request);
   const controller = new AbortController();
   const cancelHandlers = new Set();
@@ -2251,18 +2272,21 @@ function createLlmAbortController(request) {
     },
     dispose: () => {
       clearTimeout(timeout);
+      accountSignal.removeEventListener('abort', sessionAbort);
       cancelHandlers.clear();
-      if (requestId !== undefined) {
-        activeLlmRequests.delete(requestId);
-        pendingCancelledLlmRequests.delete(requestId);
+      activeLlmRequests.delete(handle);
+      if (requestId !== undefined && requests.get(requestId) === handle) {
+        requests.delete(requestId);
+        pendingCancels.delete(requestId);
       }
     },
   };
-  if (requestId !== undefined) {
-    activeLlmRequests.set(requestId, handle);
-  }
+  const sessionAbort = () => handle.abort('account-lock');
+  accountSignal.addEventListener('abort', sessionAbort, { once: true });
+  activeLlmRequests.add(handle);
+  if (requestId !== undefined) requests.set(requestId, handle);
   timeout = setTimeout(() => handle.abort('timeout'), 15 * 60 * 1000);
-  if (requestId !== undefined && pendingCancelledLlmRequests.has(requestId)) {
+  if (requestId !== undefined && pendingCancels.has(requestId)) {
     queueMicrotask(() => handle.abort('cancelled'));
   }
   return handle;
@@ -2485,7 +2509,7 @@ function isLmStudioProviderConnection(connection) {
   return connection?.providerKind === 'lm-studio';
 }
 
-const lmStudioReasoningProfileCache = new Map();
+const lmStudioReasoningProfileCache = accountCache('lmStudioReasoning');
 const lmStudioReasoningProfileCacheMs = 60_000;
 
 async function lmStudioReasoningProfile(connection, abort) {
@@ -2709,6 +2733,10 @@ function normalizedComfyWorkflowPath(filePath) {
   ) {
     throw new Error('Invalid ComfyUI workflow file path.');
   }
+  if (filePath.startsWith('rpgraph-account:/')) {
+    const relative = validateAccountRelativePath(filePath.slice('rpgraph-account:/'.length));
+    return path.join(runtime.root(), ...relative.split('/'));
+  }
   const resolved = path.isAbsolute(filePath)
     ? path.resolve(filePath)
     : path.resolve(path.join(__dirname, '..', filePath));
@@ -2726,6 +2754,7 @@ function validateComfyWorkflowPath(filePath) {
   const bundledDirectory = path.resolve(path.join(__dirname, '../comfy-workflows'));
   if (
     !approvedComfyWorkflowPaths.has(resolved) &&
+    !runtime.files().contains(resolved) &&
     !resolved.startsWith(`${bundledDirectory}${path.sep}`)
   ) {
     throw new Error('ComfyUI workflow path was not selected through the application.');
@@ -3238,34 +3267,35 @@ async function requestComfyJson(baseUrl, route, init, abort) {
 // VRAM, plus a short settle delay so the memory is actually released before
 // the local LLM starts loading. The pending state is persisted because
 // ComfyUI keeps the model loaded across RPGraph restarts.
-let pendingComfyFreeBaseUrl = '';
-let pendingComfyFreeLoaded = false;
 const comfyFreeSettleMs = 1500;
 
 function comfyModelStatePath() {
-  return path.join(app.getPath('userData'), 'comfy-model-state.json');
+  return path.join(runtime.root(), runtime.services().importReviewPending ? 'offline-comfy-model-state.json' : 'comfy-model-state.json');
 }
 
 async function pendingComfyFree() {
-  if (!pendingComfyFreeLoaded) {
-    pendingComfyFreeLoaded = true;
+  const state = runtime.services();
+  if (state.importReviewPending) return '';
+  if (!state.pendingComfyFreeLoaded) {
+    state.pendingComfyFreeLoaded = true;
     try {
       const parsed = JSON.parse(await fs.readFile(comfyModelStatePath(), 'utf8'));
-      if (!pendingComfyFreeBaseUrl && typeof parsed?.pendingFreeBaseUrl === 'string') {
-        pendingComfyFreeBaseUrl = parsed.pendingFreeBaseUrl;
+      if (!state.pendingComfyFreeBaseUrl && typeof parsed?.pendingFreeBaseUrl === 'string') {
+        state.pendingComfyFreeBaseUrl = parsed.pendingFreeBaseUrl;
       }
     } catch {
       // First run or unreadable state file; nothing pending.
     }
   }
-  return pendingComfyFreeBaseUrl;
+  return state.pendingComfyFreeBaseUrl;
 }
 
 function setPendingComfyFree(baseUrl) {
-  pendingComfyFreeBaseUrl = typeof baseUrl === 'string' ? baseUrl : '';
-  pendingComfyFreeLoaded = true;
+  const state = runtime.services();
+  state.pendingComfyFreeBaseUrl = typeof baseUrl === 'string' ? baseUrl : '';
+  state.pendingComfyFreeLoaded = true;
   void fs
-    .writeFile(comfyModelStatePath(), JSON.stringify({ pendingFreeBaseUrl: pendingComfyFreeBaseUrl }))
+    .writeFile(comfyModelStatePath(), JSON.stringify({ pendingFreeBaseUrl: state.pendingComfyFreeBaseUrl }))
     .catch(() => {});
 }
 
@@ -3933,7 +3963,7 @@ ipcMain.handle('llamacpp:unload-models', async (_event, request) => {
   }
 });
 
-const openRouterReasoningByEndpoint = new Map();
+const openRouterReasoningByEndpoint = accountCache('openRouterReasoning');
 
 ipcMain.handle('openrouter:list-models', async (_event, request) => {
   const connection = request?.connection ?? request;
@@ -4104,7 +4134,7 @@ ipcMain.handle('openrouter:generate-speech', async (event, request) => {
       for await (const bytes of limitedResponseChunks(response.body)) {
         chunks.push(bytes);
         if (!event.sender.isDestroyed()) {
-          event.sender.send(
+          sendAccountEvent(event,
             `openrouter:speech-chunk:${request.requestId}`,
             bytes.toString('base64'),
           );
@@ -4188,7 +4218,7 @@ ipcMain.handle('gemini:generate-speech', async (event, request) => {
         const bytes = Buffer.from(base64, 'base64');
         pcmChunks.push(bytes);
         if (stream && !event.sender.isDestroyed()) {
-          event.sender.send(`gemini:speech-chunk:${request.requestId}`, base64);
+          sendAccountEvent(event, `gemini:speech-chunk:${request.requestId}`, base64);
         }
       }
     };
@@ -4381,7 +4411,7 @@ ipcMain.handle('gemini:list-models', async (_event, request) => {
 // Keep the per-model capability cache even though model checks are on-demand:
 // one Ollama model-list request can still issue one /api/show request per
 // installed model.
-const ollamaCapabilitiesByModelDigest = new Map();
+const ollamaCapabilitiesByModelDigest = accountCache('ollamaCapabilities');
 
 ipcMain.handle('ollama:list-models', async (_event, request) => {
   const connection = request?.connection ?? request;
@@ -4716,7 +4746,7 @@ ipcMain.handle('llm:chat-completion-stream', async (event, request) => {
   const reasoningChannel = `llm:chat-stream-reasoning:${request.requestId}`;
   const textBatch = createTextStreamBatch((text) => {
     if (!abort.signal.aborted && !event.sender.isDestroyed()) {
-      event.sender.send(`llm:chat-stream-chunk:${request.requestId}`, text);
+      sendAccountEvent(event, `llm:chat-stream-chunk:${request.requestId}`, text);
     }
   });
   let liveReasoningTokens = 0;
@@ -4728,7 +4758,7 @@ ipcMain.handle('llm:chat-completion-stream', async (event, request) => {
     if (now - lastReasoningSendMs < 100) return;
     lastReasoningSendMs = now;
     sentReasoningTokens = liveReasoningTokens;
-    event.sender.send(reasoningChannel, liveReasoningTokens);
+    sendAccountEvent(event, reasoningChannel, liveReasoningTokens);
   };
   const sendFinalReasoningTokens = (usage) => {
     const finalTokens = usageReasoningTokens(usage);
@@ -4737,7 +4767,7 @@ ipcMain.handle('llm:chat-completion-stream', async (event, request) => {
     }
     if (liveReasoningTokens !== sentReasoningTokens) {
       sentReasoningTokens = liveReasoningTokens;
-      event.sender.send(reasoningChannel, liveReasoningTokens);
+      sendAccountEvent(event, reasoningChannel, liveReasoningTokens);
     }
   };
   try {
@@ -4883,7 +4913,7 @@ ipcMain.handle('llm:chat-completion-stream', async (event, request) => {
           (!content ? textFromChatChoice(choice) : '');
         if (deltaText) {
           content += deltaText;
-          event.sender.send(`llm:chat-stream-chunk:${request.requestId}`, deltaText);
+          sendAccountEvent(event, `llm:chat-stream-chunk:${request.requestId}`, deltaText);
         }
         if (typeof choice?.finish_reason === 'string') {
           finishReason = choice.finish_reason;
@@ -4955,7 +4985,7 @@ ipcMain.handle('llm:chat-completion-stream', async (event, request) => {
         const deltaText = veniceResponseText({ choices: [choice] });
         if (deltaText) {
           content += deltaText;
-          event.sender.send(`llm:chat-stream-chunk:${request.requestId}`, deltaText);
+          sendAccountEvent(event, `llm:chat-stream-chunk:${request.requestId}`, deltaText);
         }
         if (typeof choice?.finish_reason === 'string') {
           finishReason = choice.finish_reason;
@@ -5090,13 +5120,14 @@ ipcMain.handle('llm:chat-completion-stream', async (event, request) => {
 });
 
 ipcMain.handle('llm:cancel-request', (_event, requestId) => {
-  const handle = activeLlmRequests.get(requestId);
+  const { requests, pendingCancels } = runtime.services();
+  const handle = requests.get(requestId);
   if (handle) {
     handle.abort('cancelled');
-    activeLlmRequests.delete(requestId);
+    requests.delete(requestId);
   }
   if (!handle && typeof requestId === 'number' && Number.isFinite(requestId)) {
-    pendingCancelledLlmRequests.add(requestId);
+    pendingCancels.add(requestId);
   }
   return { cancelled: !!handle };
 });
@@ -5187,15 +5218,18 @@ ipcMain.handle('comfy:repair-workflow', async (_event, request) => {
 ipcMain.handle('comfy:apply-workflow-repair', async (_event, request) => {
   try {
     const role = comfyWorkflowRole(request?.role);
-    const filePath = validateComfyWorkflowPath(request?.workflowPath || defaultComfyWorkflowPathForRole(role));
+    const sourcePath = validateComfyWorkflowPath(request?.workflowPath || defaultComfyWorkflowPathForRole(role));
+    const relative = `comfy-workflows/${path.basename(sourcePath)}`;
+    const filePath = path.join(runtime.root(), ...relative.split('/'));
     const workflow = extractJsonObjectFromText(request?.workflowJson);
     const inspection = assertComfyWorkflowCompatible(workflow, filePath, role);
     const workflowJson = `${JSON.stringify(workflow, null, 2)}\n`;
+    await fs.mkdir(path.dirname(filePath), { recursive: true });
     await fs.writeFile(filePath, workflowJson, 'utf8');
     return {
       ok: true,
       inspection,
-      workflowPath: filePath,
+      workflowPath: `rpgraph-account:/${relative}`,
       fileName: path.basename(filePath),
     };
   } catch (error) {
@@ -5406,7 +5440,8 @@ ipcMain.handle('file:list', async () => {
   return files.sort((left, right) => right.updatedAt.localeCompare(left.updatedAt));
 });
 
-ipcMain.on('character:confirm-v3-migration', (event, summary) => {
+nativeIpcMain.on('character:confirm-v3-migration', (event, summary) => {
+  if (!activeAccountView || !validAccountSender(event)) { event.returnValue = false; return; }
   event.returnValue = dialog.showMessageBoxSync({
     type: 'question', title: 'Update Storybook / Character Container',
     message: 'Upgrade Character Containers and Storybooks?',
@@ -5433,25 +5468,21 @@ ipcMain.handle('workspace:protection', async (_event, password) => {
 ipcMain.handle('npc-library:open-folder', async () => npcLibraryService.openUserDirectory());
 
 ipcMain.handle('theme-library:get', async () => {
-  await themeLibraryReadyPromise;
   return themeLibraryService.current();
 });
 
 ipcMain.handle('theme-library:reload', async () => {
-  themeLibraryReadyPromise = themeLibraryService.reload();
-  return themeLibraryReadyPromise;
+  return themeLibraryService.reload();
 });
 
 ipcMain.handle('theme-library:open-folder', async () => themeLibraryService.openUserDirectory());
 
 ipcMain.handle('phone-home-theme-library:get', async () => {
-  await phoneHomeThemeLibraryReadyPromise;
   return phoneHomeThemeLibraryService.current();
 });
 
 ipcMain.handle('phone-home-theme-library:reload', async () => {
-  phoneHomeThemeLibraryReadyPromise = phoneHomeThemeLibraryService.reload();
-  return phoneHomeThemeLibraryReadyPromise;
+  return phoneHomeThemeLibraryService.reload();
 });
 
 ipcMain.handle('phone-home-theme-library:open-folder', async () => phoneHomeThemeLibraryService.openUserDirectory());
@@ -5531,7 +5562,7 @@ ipcMain.handle('character:detect-face', async (_event, image) => {
   const { pathToFileURL } = require('node:url');
   const directory = app.isPackaged ? path.join(process.resourcesPath, 'character-face-tools') : path.join(projectRootPath, 'scripts');
   const { detectFaces } = await import(pathToFileURL(path.join(directory, 'character-faces.mjs')).href);
-  const [result] = await detectFaces([{ id: image.id, dataUrl: image.dataUrl }], { cacheDirectory: path.join(app.getPath('userData'), 'face-detection-cache') });
+  const [result] = await detectFaces([{ id: image.id, dataUrl: image.dataUrl }], { cacheDirectory: path.join(os.tmpdir(), 'rpgraph-face-model-cache') });
   if (!result || !Number.isInteger(result.faces)) throw new Error('Face detection returned an invalid result.');
   return { faces: result.faces, crop: result.crop };
 });
@@ -5830,7 +5861,7 @@ ipcMain.handle('settings:load', async () => {
     return {
       filePath,
       settings: settingsFromDisk(settings),
-      apiKeyEncryptionAvailable: apiKeyEncryptionAvailable(),
+      apiKeyEncryptionAvailable: currentStorage().account.protected,
       apiKeyDecryptionUnavailable: settingsHasEncryptedApiKeys(settings) && !apiKeyEncryptionAvailable(),
     };
   } catch (error) {
@@ -5838,7 +5869,7 @@ ipcMain.handle('settings:load', async () => {
       return {
         filePath,
         settings: null,
-        apiKeyEncryptionAvailable: apiKeyEncryptionAvailable(),
+        apiKeyEncryptionAvailable: currentStorage().account.protected,
         apiKeyDecryptionUnavailable: false,
       };
     }
@@ -5855,7 +5886,7 @@ ipcMain.handle('settings:save', async (_event, settings) => {
   await settingsWriteQueue;
   return {
     filePath,
-    apiKeyEncryptionAvailable: apiKeyEncryptionAvailable(),
+    apiKeyEncryptionAvailable: currentStorage().account.protected,
   };
 });
 
@@ -5891,7 +5922,8 @@ ipcMain.handle('session:save', async (_event, request) => {
   return { fileName, name: baseName, filePath };
 });
 
-ipcMain.handle('autosave:save-turn', async (_event, session) => {
+ipcMain.handle('autosave:save-turn', async (_event, session, protection = 'plain', password = '') => {
+  workspaceProtection.require({ protection, password });
   if (
     !session ||
     session.format !== 'rpgraph-session' ||
@@ -5901,9 +5933,11 @@ ipcMain.handle('autosave:save-turn', async (_event, session) => {
   ) {
     throw new Error(`Only RPGraph RP Save Format v${currentSessionFormatVersion} can be autosaved.`);
   }
+  if (!['plain', 'encrypted'].includes(protection)) throw new Error('Invalid autosave protection.');
+  const stored = protection === 'encrypted' ? await encryptSession(session, password) : session;
   const filePath = await nextTurnAutosaveFilePath();
   await fs.mkdir(path.dirname(filePath), { recursive: true });
-  await writeTextFileAtomically(filePath, `${JSON.stringify(session, null, 2)}\n`);
+  await writeTextFileAtomically(filePath, `${JSON.stringify(stored, null, 2)}\n`);
   approveFilePath(filePath);
   return {
     fileName: path.basename(filePath),
@@ -6195,6 +6229,151 @@ ipcMain.handle('window:cleanup-complete-close', (event) => {
   window.close();
 });
 
+ipcMain.handle('account:list', () => accountManager.listAccounts());
+ipcMain.handle('account:status', async () => ({ account: activeAccountView?.account ?? null, legacyAvailable: await legacyDataAvailable({ root: app.getPath('userData') }) }));
+ipcMain.handle('account:create', async (event, request) => {
+  if (request?.source !== 'legacy') return accountManager.create({ alias: request?.alias, password: request?.password });
+  if (accountManager.state !== 'locked') throw new Error('Lock your account before migration.');
+  const owner = BrowserWindow.fromWebContents(event.sender);
+  const consent = await dialog.showMessageBox({ title: 'Import existing local data?', type: 'question',
+    message: 'Copy existing RPGraph data into a new account?',
+    detail: 'This reads your previous settings, libraries, workflows, storybooks, roleplay saves and browser preferences. Originals retain their previous protection. After a successful import, you can review and explicitly choose whether to delete unprotected originals. Opening a prior workspace still requires your choice after login.',
+    buttons: ['Cancel', 'Import existing data'], defaultId: 0, cancelId: 0 });
+  if (consent.response !== 1) return null;
+  const reader = new BrowserWindow({ show: false, webPreferences: { session: session.defaultSession, contextIsolation: true, nodeIntegration: false, sandbox: true } });
+  let preferences;
+  try {
+    await reader.loadFile(path.join(__dirname, '../dist/index.html'));
+    preferences = await reader.webContents.executeJavaScript('Object.fromEntries(Array.from({length: localStorage.length}, (_, i) => { const key = localStorage.key(i); return [key, localStorage.getItem(key)]; }))');
+  } finally { reader.destroy(); }
+  const cleanup = createLegacyCleanupPlan({ root: app.getPath('userData') });
+  const entries = readLegacyAccountFiles({ root: app.getPath('userData'), preferences, onSourceFile: cleanup.record,
+    transformSettings: (settings) => {
+      if (settingsHasEncryptedApiKeys(settings) && !apiKeyEncryptionAvailable()) throw new Error('Legacy credentials cannot be decrypted on this system.');
+      return settingsFromDisk(settings);
+    } });
+  const account = await accountManager.importFiles({ alias: request?.alias, password: request?.password, entries, requireReview: true });
+  const assertCanDelete = () => {
+    if (!owner || owner.isDestroyed() || event.sender.isDestroyed() || accountManager.state !== 'locked' || activeAccountView || changingAccountWindow) throw new Error('Migration cleanup is no longer authorized.');
+  };
+  try {
+    await offerLegacyCleanup({ plan: cleanup, account, preferenceKeys: Object.keys(preferences), assertCanDelete,
+      showMessageBox: (options) => { assertCanDelete(); return dialog.showMessageBox(owner, options); },
+      deletePreferences: async () => {
+        assertCanDelete();
+        const cleaner = new BrowserWindow({ show: false, webPreferences: { session: session.defaultSession, contextIsolation: true, nodeIntegration: false, sandbox: true } });
+        try {
+          await cleaner.loadFile(path.join(__dirname, '../dist/index.html'));
+          assertCanDelete();
+          // JSON-encoded data only: no preference key/value is interpreted as code.
+          // Preserve entries written or changed after the imported snapshot.
+          const result = await cleaner.webContents.executeJavaScript(`(() => { let deleted = 0; let skipped = 0; for (const [key, value] of ${JSON.stringify(Object.entries(preferences))}) { if (localStorage.getItem(key) === value) { localStorage.removeItem(key); deleted++; } else { skipped++; } } return { deleted, skipped }; })()`);
+          session.defaultSession.flushStorageData();
+          return result;
+        } finally { cleaner.destroy(); }
+      },
+      openFolder: async (folder) => { const error = await shell.openPath(folder); if (error) throw new Error('Could not open original folder.'); },
+    });
+  } catch {
+    // Cleanup failure must not turn a successfully published import into a
+    // reported import failure or roll back the user's only remaining copy.
+    if (owner && !owner.isDestroyed()) await dialog.showMessageBox(owner, { type: 'warning', title: 'Account imported',
+      message: 'The account was imported, but original-data cleanup may be incomplete.',
+      detail: 'Your imported account remains available. Check the original application data folder and other locations for remaining copies before relying on account protection.',
+      buttons: ['OK'] });
+  }
+  return account;
+});
+ipcMain.handle('account:recover', (_event, request) => accountManager.recoverProtectionChange(request?.id, request?.password));
+ipcMain.handle('account:unlock', async (event, request) => {
+  if (changingAccountWindow) throw new Error('Account transition is already in progress.');
+  changingAccountWindow = true;
+  const previous = BrowserWindow.fromWebContents(event.sender);
+  try {
+    const account = await accountManager.unlock(request?.id, request?.password);
+    activeAccountView = await accountManager.captureStorage();
+    await runtime.activate(activeAccountView, createAccountLibraries);
+    await createWindow();
+    previous?.destroy();
+    return account;
+  } catch (error) {
+    await accountManager.lock();
+    runtime.forget(activeAccountView);
+    activeAccountView = undefined;
+    throw error;
+  } finally { changingAccountWindow = false; }
+});
+ipcMain.handle('account:import', async (_event, request) => {
+  const result = await dialog.showOpenDialog({ title: 'Import Account', properties: ['openFile'], filters: [{ name: 'RPGraph account', extensions: ['zip'] }] });
+  if (result.canceled || !result.filePaths[0]) return null;
+  return accountManager.importAccount({ source: result.filePaths[0], alias: request?.alias,
+    protection: request?.protection, password: request?.password, archivePassword: request?.archivePassword, requireReview: true });
+});
+ipcMain.handle('account:export', async () => {
+  const view = currentStorage();
+  const result = await dialog.showSaveDialog({ title: 'Export Account', defaultPath: 'rpgraph-account.zip', filters: [{ name: 'RPGraph account', extensions: ['zip'] }] });
+  view.assertCurrent();
+  if (result.canceled || !result.filePath) return false;
+  await accountManager.exportAccount(result.filePath);
+  return true;
+});
+ipcMain.handle('account:preferences-load', async () => {
+  try { return JSON.parse(await fs.readFile(accountPreferencesFilePath(), 'utf8')); }
+  catch (error) { if (error.code === 'ENOENT') return {}; throw error; }
+});
+ipcMain.handle('account:preferences-save', async (_event, preferences) => {
+  if (!preferences || typeof preferences !== 'object' || Array.isArray(preferences) ||
+      Object.entries(preferences).some(([key, value]) => key.length > 256 || typeof value !== 'string')) throw new Error('Invalid account preferences.');
+  const contents = JSON.stringify(preferences);
+  if (Buffer.byteLength(contents) > 1024 * 1024) throw new Error('Account preferences are too large.');
+  await fs.writeFile(accountPreferencesFilePath(), contents, 'utf8');
+});
+function accountPreferencesFilePath() {
+  return path.join(runtime.root(), runtime.services().importReviewPending ? 'offline-browser-preferences.json' : 'browser-preferences.json');
+}
+
+async function closeAccount(action = async () => undefined) {
+  if (changingAccountWindow) throw new Error('Account transition is already in progress.');
+  changingAccountWindow = true;
+  const previousWindows = BrowserWindow.getAllWindows();
+  const previousView = activeAccountView;
+  previousWindows.forEach((window) => window.hide());
+  try {
+    abortActiveLlmRequests('account-lock');
+    try { await accountManager.lock(); } finally {
+      activeAccountView = undefined;
+      runtime.forget(previousView);
+    }
+    return await action();
+  } finally {
+    try { await createWindow(); } finally {
+      previousWindows.forEach((window) => { if (!window.isDestroyed()) window.destroy(); });
+      changingAccountWindow = false;
+    }
+  }
+}
+ipcMain.handleSessionControl('account:lock', () => closeAccount());
+ipcMain.handleSessionControl('account:rename', (_event, request) => {
+  const id = currentStorage().account.id;
+  if (request?.id !== id) throw new Error('Account does not match the current session.');
+  return closeAccount(() => accountManager.rename(id, request?.alias, request?.password));
+});
+ipcMain.handleSessionControl('account:change-protection', (_event, request) => {
+  const id = currentStorage().account.id;
+  if (request?.id !== id) throw new Error('Account does not match the current session.');
+  return closeAccount(() => accountManager.changeProtection(id, { currentPassword: request?.currentPassword, newPassword: request?.newPassword }));
+});
+ipcMain.handleSessionControl('account:remove', async (_event, request) => {
+  const view = currentStorage();
+  if (request?.id !== view.account.id) throw new Error('Account does not match the current session.');
+  const confirmation = await dialog.showMessageBox({ type: 'warning', title: 'Delete account?',
+    message: 'Delete this account and its local data?', detail: 'This cannot be undone. Exported backups and external copies will remain.',
+    buttons: ['Cancel', 'Delete account'], defaultId: 0, cancelId: 0 });
+  view.assertCurrent();
+  if (confirmation.response !== 1) return;
+  return closeAccount(() => accountManager.remove(view.account.id, request?.password));
+});
+
 async function createWindow() {
   Menu.setApplicationMenu(null);
   const windowState = await loadWindowState();
@@ -6208,11 +6387,13 @@ async function createWindow() {
     icon: appIconPath,
     backgroundColor: '#090d14',
     webPreferences: {
+      partition: `rpgraph-${crypto.randomUUID()}`,
       contextIsolation: true,
       nodeIntegration: false,
       preload: path.join(__dirname, 'preload.cjs'),
     },
   });
+  rendererAuthority.set(window.webContents, activeAccountView?.signal ?? null);
 
   window.on('app-command', (event, command) => {
     if (command !== 'browser-backward' && command !== 'browser-forward') return;
@@ -6220,7 +6401,21 @@ async function createWindow() {
     window.webContents.send('panel:navigate', command === 'browser-backward' ? -1 : 1);
   });
 
-  window.webContents.setWindowOpenHandler(roleplayWindowOpenHandlerResponse);
+  window.webContents.setWindowOpenHandler((details) => {
+    const response = roleplayWindowOpenHandlerResponse(details);
+    if (response.action !== 'allow') return response;
+    return { ...response, overrideBrowserWindowOptions: {
+      ...response.overrideBrowserWindowOptions,
+      webPreferences: { ...response.overrideBrowserWindowOptions.webPreferences, session: window.webContents.session, sandbox: true },
+    } };
+  });
+  window.webContents.on('did-create-window', (child) => {
+    const authority = rendererAuthority.get(window.webContents);
+    if (!authority || authority !== activeAccountView?.signal) { child.destroy(); return; }
+    rendererAuthority.set(child.webContents, authority);
+    child.webContents.setWindowOpenHandler(() => ({ action: 'deny' }));
+    child.webContents.on('will-navigate', (event) => event.preventDefault());
+  });
   window.webContents.on('will-navigate', (event, url) => {
     if (!isAllowedNavigationUrl(url)) {
       event.preventDefault();
@@ -6235,6 +6430,7 @@ async function createWindow() {
   window.webContents.session.setPermissionRequestHandler((_webContents, _permission, callback) => {
     callback(false);
   });
+  window.webContents.session.on('will-download', (event) => event.preventDefault());
 
   for (const eventName of [
     'move',
@@ -6248,6 +6444,7 @@ async function createWindow() {
   }
   window.on('close', (event) => {
     saveWindowState(window);
+    if (!activeAccountView) return;
     if (windowCloseCleanupCompleted.has(window) || window.webContents.isDestroyed()) {
       abortActiveLlmRequests('window-close');
       return;
@@ -6276,28 +6473,71 @@ async function createWindow() {
     }
     window.show();
   });
+  const windowAccountView = activeAccountView;
+  window.on('closed', () => {
+    if (!windowAccountView || changingAccountWindow || activeAccountView !== windowAccountView) return;
+    changingAccountWindow = true;
+    activeAccountView = undefined;
+    abortActiveLlmRequests('workspace-window-closed');
+    for (const remaining of BrowserWindow.getAllWindows()) {
+      if (rendererAuthority.get(remaining.webContents) === windowAccountView.signal) remaining.destroy();
+    }
+    runtime.forget(windowAccountView);
+    void accountManager.lock().catch(() => {}).finally(() => {
+      changingAccountWindow = false;
+      if (process.platform !== 'darwin') app.quit();
+    });
+  });
 
   if (process.argv.includes('--dev')) {
-    window.loadURL(developmentUrl);
-    return;
+    await window.loadURL(developmentUrl);
+    return window;
   }
 
-  window.loadFile(path.join(__dirname, '../dist/index.html'));
+  await window.loadFile(path.join(__dirname, '../dist/index.html'));
+  return window;
 }
 
+const ownsAppInstance = app.requestSingleInstanceLock();
+if (!ownsAppInstance) app.quit();
+app.on('second-instance', () => { const window = BrowserWindow.getAllWindows()[0]; window?.show(); window?.focus(); });
 app.whenReady().then(async () => {
-  await npcLibraryService.reload();
+  if (!ownsAppInstance) return;
+  await nativeFs.mkdir(app.getPath('userData'), { recursive: true });
+  await recoverAccountStoreLocks(path.join(app.getPath('userData'), 'accounts'), { exclusiveHost: ownsAppInstance });
+  accountManager = await createAccountManager({ root: path.join(app.getPath('userData'), 'accounts') });
   await createWindow();
+  for (const event of ['lock-screen', 'suspend']) powerMonitor.on(event, () => {
+    if (activeAccountView && !changingAccountWindow) void closeAccount().catch(() => app.quit());
+  });
 
   app.on('activate', () => {
-    if (BrowserWindow.getAllWindows().length === 0) {
+    if (!changingAccountWindow && BrowserWindow.getAllWindows().length === 0) {
       void createWindow();
     }
   });
 });
 
 app.on('window-all-closed', () => {
-  if (process.platform !== 'darwin') {
-    app.quit();
+  if (changingAccountWindow) return;
+  if (process.platform !== 'darwin') app.quit();
+  else if (activeAccountView) {
+    const view = activeAccountView;
+    activeAccountView = undefined;
+    abortActiveLlmRequests('last-window-closed');
+    void accountManager.lock().finally(() => runtime.forget(view));
   }
+});
+let accountShutdownComplete = false;
+let accountShutdownStarted = false;
+app.on('before-quit', (event) => {
+  if (!accountManager || accountShutdownComplete) return;
+  event.preventDefault();
+  if (accountShutdownStarted) return;
+  accountShutdownStarted = true;
+  abortActiveLlmRequests('application-quit');
+  void accountManager.dispose().catch(() => {}).finally(() => {
+    accountShutdownComplete = true;
+    app.quit();
+  });
 });

@@ -1,3 +1,4 @@
+import { accountPreferences } from '../accounts/accountPreferences';
 import { measureUiWork, markUiEvent } from '../diagnostics/uiPerformance';
 import { usePanelNavigationState, usePanelNavigationReset } from '../navigation/usePanelNavigation';
 import { createCharacterUsageSelector } from '../characters/lifecycle';
@@ -117,7 +118,6 @@ export type RoleplayActivityShortcut = {
 const phoneAuthorBadgesStorageKey = 'rpgraph-phone-author-badges-enabled';
 const chatReadsPhoneAppsStorageKey = 'rpgraph-chat-reads-phone-apps-enabled';
 const contextDrawerWidthStorageKey = 'rpgraph-context-drawer-width';
-const chatAutoFollowBottomMargin = 48;
 
 // Mirrors the dual-pane drawer's own 900px container-query breakpoint
 // (src/styles/roleplay-dual-pane.css) so layout-dependent JS (inert/aria-hidden,
@@ -218,14 +218,14 @@ export function useRoleplayPanelRuntime({
   const [openedPhoneConversationKey, setOpenedPhoneConversationKey] = usePanelNavigationState('panel.openedPhoneConversationKey', '');
   const [phoneAuthorBadgesEnabled, setPhoneAuthorBadgesEnabled] = useState(() => {
     try {
-      return window.localStorage.getItem(phoneAuthorBadgesStorageKey) === 'true';
+      return accountPreferences.getItem(phoneAuthorBadgesStorageKey) === 'true';
     } catch {
       return false;
     }
   });
   const [chatReadsPhoneAppsEnabled, setChatReadsPhoneAppsEnabled] = useState(() => {
     try {
-      return window.localStorage.getItem(chatReadsPhoneAppsStorageKey) !== 'false';
+      return accountPreferences.getItem(chatReadsPhoneAppsStorageKey) !== 'false';
     } catch {
       return true;
     }
@@ -281,7 +281,7 @@ export function useRoleplayPanelRuntime({
   }, [playContentElement]);
   const [contextDrawerWidth, setContextDrawerWidthState] = useState<number | undefined>(() => {
     try {
-      const stored = Number(window.localStorage.getItem(contextDrawerWidthStorageKey));
+      const stored = Number(accountPreferences.getItem(contextDrawerWidthStorageKey));
       return Number.isFinite(stored) && stored > 0 ? stored : undefined;
     } catch {
       return undefined;
@@ -291,9 +291,9 @@ export function useRoleplayPanelRuntime({
     setContextDrawerWidthState(width);
     try {
       if (width) {
-        window.localStorage.setItem(contextDrawerWidthStorageKey, String(width));
+        accountPreferences.setItem(contextDrawerWidthStorageKey, String(width));
       } else {
-        window.localStorage.removeItem(contextDrawerWidthStorageKey);
+        accountPreferences.removeItem(contextDrawerWidthStorageKey);
       }
     } catch {
       // Non-critical UI preference.
@@ -316,7 +316,6 @@ export function useRoleplayPanelRuntime({
   const chatAutoFollowAnimatingRef = useRef(false);
   const chatAutoFollowProgrammaticScrollRef = useRef(false);
   const chatAutoFollowProgrammaticClearFrameRef = useRef(0);
-  const chatWheelFollowCheckFrameRef = useRef(0);
   const phoneImageInputRef = useRef<HTMLInputElement | null>(null);
   const phoneEmojiPickerRef = useRef<HTMLDivElement | null>(null);
   const phoneThreadRef = useRef<HTMLDivElement | null>(null);
@@ -1182,7 +1181,7 @@ export function useRoleplayPanelRuntime({
   function changePhoneAuthorBadgesEnabled(enabled: boolean) {
     setPhoneAuthorBadgesEnabled(enabled);
     try {
-      window.localStorage.setItem(phoneAuthorBadgesStorageKey, String(enabled));
+      accountPreferences.setItem(phoneAuthorBadgesStorageKey, String(enabled));
     } catch {
       // Non-critical UI preference.
     }
@@ -1191,7 +1190,7 @@ export function useRoleplayPanelRuntime({
   function changeChatReadsPhoneAppsEnabled(enabled: boolean) {
     setChatReadsPhoneAppsEnabled(enabled);
     try {
-      window.localStorage.setItem(chatReadsPhoneAppsStorageKey, String(enabled));
+      accountPreferences.setItem(chatReadsPhoneAppsStorageKey, String(enabled));
     } catch {
       // Non-critical UI preference.
     }
@@ -1529,16 +1528,9 @@ export function useRoleplayPanelRuntime({
     smoothChatAutoScrollEnabled,
   ]);
 
-  function chatThreadIsNearBottom(thread: HTMLDivElement, strict = false) {
-    // Re-engage auto-follow anywhere in the lower stretch of the viewport, not
-    // only within a few pixels of the bottom, so "almost at the bottom"
-    // counts. A wheel-driven check asks for the strict, fixed margin instead
-    // -- see the wheel handler below for why.
-    const followMargin = strict
-      ? chatAutoFollowBottomMargin
-      : Math.max(chatAutoFollowBottomMargin, thread.clientHeight * 0.1);
+  function chatThreadIsAtBottom(thread: HTMLDivElement) {
     return (
-      thread.scrollHeight - thread.scrollTop - thread.clientHeight <= followMargin
+      thread.scrollHeight - thread.scrollTop - thread.clientHeight <= 1
     );
   }
 
@@ -1556,51 +1548,46 @@ export function useRoleplayPanelRuntime({
     if (!thread) {
       return undefined;
     }
-    // Pause the follow animation while the user interacts (wheel, touch,
-    // scrollbar drag, keys) so it never fights their input.
-    //
-    // Wheel input gets its own, stronger path instead of relying on the
-    // native 'scroll' event: that event is dispatched asynchronously, with
-    // no guaranteed ordering against a streamed message update (which is
-    // driven by network/timer callbacks, not by the scroll/rAF pipeline).
-    // Every previous fix here tried to win that race by shrinking or
-    // bypassing it and kept losing, because the race itself was the wrong
-    // thing to fight. Instead: cancel any in-flight animation synchronously
-    // (so it can't keep writing scrollTop this frame), then, once the
-    // browser has actually applied the wheel's scroll (one rAF later --
-    // this is deterministic, unlike waiting on 'scroll'), read the thread's
-    // real position with the strict/fixed margin and write the follow ref
-    // directly. Only the most recent wheel tick's check is kept, so a fast
-    // scroll gesture doesn't pile up stale reads against a moving target.
+    let previousScrollTop = thread.scrollTop;
+    // Input owns the position synchronously, before native scrolling or a
+    // streamed update can run. A frame delay cannot establish user intent.
     const markUserScrollIntent = (event: Event) => {
-      cancelChatAutoFollowAnimation();
-      if (event?.type !== 'wheel') {
-        return;
-      }
-      if (chatWheelFollowCheckFrameRef.current) {
-        cancelAnimationFrame(chatWheelFollowCheckFrameRef.current);
-      }
-      chatWheelFollowCheckFrameRef.current = requestAnimationFrame(() => {
-        chatWheelFollowCheckFrameRef.current = 0;
-        const currentThread = chatThreadRef.current;
-        if (!currentThread) {
+      if (event.type === 'keydown') {
+        const keyEvent = event as KeyboardEvent;
+        const target = keyEvent.target as HTMLElement | null;
+        if (target?.closest?.('input, textarea, select, button, [contenteditable="true"]') ||
+          !['ArrowUp', 'ArrowDown', 'PageUp', 'PageDown', 'Home', 'End', ' '].includes(keyEvent.key)) {
           return;
         }
-        chatAutoFollowBottomRef.current = chatThreadIsNearBottom(currentThread, true);
-      });
+      }
+      if (event.type === 'wheel') {
+        const wheel = event as WheelEvent;
+        if (wheel.ctrlKey || !wheel.deltaY) return;
+      }
+      previousScrollTop = thread.scrollTop;
+      chatAutoFollowBottomRef.current = false;
+      cancelChatAutoFollowAnimation();
+      // Downward input at the limit produces no scroll event.
+      if (event.type === 'wheel' && (event as WheelEvent).deltaY > 0 && chatThreadIsAtBottom(thread)) {
+        chatAutoFollowBottomRef.current = true;
+      }
     };
-    // Non-wheel interactions (touch, scrollbar drag, keyboard) still decide
-    // follow purely from where the native 'scroll' event lands: a click or
-    // key press that scrolls nothing leaves auto-follow untouched.
     const updateAutoFollow = () => {
+      const movedDown = thread.scrollTop > previousScrollTop;
+      previousScrollTop = thread.scrollTop;
       if (
         chatAutoFollowProgrammaticScrollRef.current ||
         chatAutoFollowAnimatingRef.current
       ) {
-        chatAutoFollowBottomRef.current = true;
         return;
       }
-      chatAutoFollowBottomRef.current = chatThreadIsNearBottom(thread);
+      // Delayed scroll events and upward movement must not re-enable follow,
+      // even when the user is only a fraction of a pixel from the bottom.
+      if (!chatThreadIsAtBottom(thread)) {
+        chatAutoFollowBottomRef.current = false;
+      } else if (movedDown) {
+        chatAutoFollowBottomRef.current = true;
+      }
     };
     thread.addEventListener('wheel', markUserScrollIntent, { passive: true });
     thread.addEventListener('touchstart', markUserScrollIntent, { passive: true });
@@ -1609,10 +1596,6 @@ export function useRoleplayPanelRuntime({
     thread.addEventListener('scroll', updateAutoFollow, { passive: true });
     return () => {
       cancelChatAutoFollowAnimation();
-      if (chatWheelFollowCheckFrameRef.current) {
-        cancelAnimationFrame(chatWheelFollowCheckFrameRef.current);
-        chatWheelFollowCheckFrameRef.current = 0;
-      }
       thread.removeEventListener('wheel', markUserScrollIntent);
       thread.removeEventListener('touchstart', markUserScrollIntent);
       thread.removeEventListener('pointerdown', markUserScrollIntent);

@@ -1,3 +1,4 @@
+import { accountPreferences } from '../accounts/accountPreferences';
 import {
   useCallback,
   useEffect,
@@ -14,7 +15,7 @@ const defaultFavoriteModelsStorageKey = 'rpgraph.favoriteProviderModels';
 
 function loadFavoriteModels(storageKey: string) {
   try {
-    const parsed = JSON.parse(window.localStorage.getItem(storageKey) ?? '[]');
+    const parsed = JSON.parse(accountPreferences.getItem(storageKey) ?? '[]');
     return Array.isArray(parsed)
       ? parsed.filter((model): model is string => typeof model === 'string')
       : [];
@@ -119,7 +120,7 @@ export function ModelIdPicker({
   }, []);
 
   useEffect(() => {
-    window.localStorage.setItem(
+    accountPreferences.setItem(
       favoritesStorageKey,
       JSON.stringify(favoriteModels),
     );
