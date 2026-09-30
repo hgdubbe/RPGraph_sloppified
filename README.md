@@ -10,6 +10,8 @@ and design changes maintained by this fork on top of that upstream release.
 Local-profile account management, protection, migration and backups are documented in
 [the account user guide](docs/account-management/user-guide.md). Upstream integration
 and remaining release checks are in [the adoption notes](docs/account-management/adoption.md).
+##Accounts and full encryption are experimental: It is strongly advised to create a backup
+##of your Data BEFORE starting this the first time. These can usually be found in %appdata%/rpgraph studio
 
 ## Interface and Theme Showcase
 
