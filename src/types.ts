@@ -1017,6 +1017,7 @@ export type AppSettings = {
     uiScale?: number;
     retryFormatErrorsEnabled?: boolean;
     turnAutosaveEnabled?: boolean;
+    turnAutosaveEncryptionEnabled?: boolean;
     dialogueVoiceMode?: DialogueVoiceMode;
     dialogueNarratorProviderId?: string;
     dialogueCloneVoiceProviderId?: string;

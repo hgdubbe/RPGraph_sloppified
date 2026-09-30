@@ -28,8 +28,9 @@ into it.
 - explore the possibility of using fuse.js for semantic similarity lookup when the llm confuses a 
   character-handle or image file name. goal is further hardening. this could be done perhaps by doing 
   a fuse-lookup on a retry attempt, telling the llm something like "did you mean XXX"
-- Add the established encryption/decryption mechanism to rotating autosaves, with an
-  explicit user option to enable it.
+- [x] Add the established encryption/decryption mechanism to rotating autosaves, with an
+  explicit user option to enable it. Passwords stay in memory; encrypted backups require
+  a password to restore. Existing plaintext slots are replaced through normal rotation.
 - Glass mode for node display (`.studio.glass-design-active .workflow-node`/
   `.wire-link-shape`/`.react-flow__handle`, ~src/styles.css:21100) needs its own
   separate theming pass. It uses `rgba(r, g, b, var(--glass-opacity, N))` — the RGB
@@ -114,4 +115,3 @@ into it.
   count-only Images field is removed; a new phone contact-visibility matrix was wired
   onto the Phone rail page.
 - Instead of switching between roleplay and graph mode, make them tabs of the main window
-

@@ -10,16 +10,40 @@ directories:
 files:
   - dist/**/*
   - electron/**/*
+  - "!electron/**/*.test.ts"
   - comfy-workflows/api-workflows-with-variables/**/*
   - src/assets/app-icons/rpgraph.png
   - src/session/formatVersions.json
   - src/storybook/formatVersions.json
   - src/workflow/formatVersions.json
   - shared/**/*.cjs
+  - shared/**/*.mjs
   - package.json
   - LICENSE
 
 extraResources:
+  - from: scripts/decrypt-account.mjs
+    to: account-tools/scripts/decrypt-account.mjs
+  - from: electron/accounts
+    to: account-tools/electron/accounts
+    filter:
+      - accountArchive.cjs
+      - accountCrypto.cjs
+  - from: node_modules
+    to: account-tools/node_modules
+    filter:
+      - yauzl/**/*
+      - yazl/**/*
+      - pend/**/*
+      - buffer-crc32/**/*
+  - from: docs/account-management/user-guide.md
+    to: account-tools/README.md
+  - from: docs/account-management/archive-v1.md
+    to: account-tools/archive-v1.md
+  - from: docs/account-management/format-v1.md
+    to: account-tools/format-v1.md
+  - from: LICENSE
+    to: account-tools/LICENSE
   - from: scripts
     to: character-face-tools
     filter:
@@ -35,6 +59,10 @@ extraResources:
       - "**/*"
   - from: resources/themes
     to: themes
+    filter:
+      - "**/*"
+  - from: resources/phone-themes
+    to: phone-themes
     filter:
       - "**/*"
 

@@ -95,16 +95,18 @@ export function useRpgraphFiles({
   workflowRequiresProtection,
   workflowFollowsStorybookProtection,
 }: UseRpgraphFilesOptions) {
+  const accountManaged = !!window.rpgraph.accounts;
   const workspacePasswordRef = useRef('');
   const [workspacePassword, setWorkspacePasswordState] = useState('');
   const [encryptionRequired, setEncryptionRequired] = useState(false);
   function setWorkspacePassword(password: string) {
     workspacePasswordRef.current = password;
     setWorkspacePasswordState(password);
-    setEncryptionRequired(!!password);
+    setEncryptionRequired(!accountManaged && !!password);
     void onWorkspacePasswordChange?.(password).catch((error) => notifySystem('error', `Unable to update game protection: ${errorMessage(error)}`));
   }
   function checkImportedPassword(password: string) {
+    if (accountManaged) return;
     if (workspacePasswordRef.current && workspacePasswordRef.current !== password &&
       !workflowFollowsStorybookProtection?.() && (workflowRequiresProtection?.() ?? true)) {
       throw new Error('Use the same password as the current protected game, or open a different RP Save or workflow first.');
@@ -112,6 +114,8 @@ export function useRpgraphFiles({
   }
   const [showFiles, setShowFiles] = useState(false);
   const [turnAutosaveChoices, setTurnAutosaveChoices] = useState<LoadedRpgraphFile[]>([]);
+  const [startupRestorePending, setStartupRestorePending] = useState(false);
+  const startupRestoreRequestRef = useRef<{ preferTurnAutosave?: boolean } | null>(null);
   const [showStorybookPicker, setShowStorybookPicker] = useState(false);
   const [savedFiles, setSavedFiles] = useState<SavedFileSummary[]>([]);
   const [selectedFile, setSelectedFile] = useState<string | null>(null);
@@ -130,9 +134,10 @@ export function useRpgraphFiles({
   const [sessionPasswordAction, setSessionPasswordAction] =
     useState<'save-workflow' | 'save-session' | 'save-storybook' | 'save-character' | 'load' | 'open-file' | 'load-storybook' | 'load-character' | null>(null);
   const [fileProtectionDraft, setFileProtection] = useState<FileProtection>('plain');
-  const inheritedProtection = encryptionRequired && !!sessionPasswordAction?.startsWith('save-');
-  const fileProtection = inheritedProtection ? 'encrypted' : fileProtectionDraft;
-  const sessionPassword = inheritedProtection ? workspacePassword : sessionPasswordDraft;
+  const isSaving = !!sessionPasswordAction?.startsWith('save-');
+  const inheritedProtection = !accountManaged && encryptionRequired && isSaving;
+  const fileProtection = accountManaged && isSaving ? 'plain' : inheritedProtection ? 'encrypted' : fileProtectionDraft;
+  const sessionPassword = accountManaged && isSaving ? '' : inheritedProtection ? workspacePassword : sessionPasswordDraft;
   const [workflowSaveScope, setWorkflowSaveScope] = useState<WorkflowSaveScope>('workflow-storybook');
   const [sessionOverwritePending, setSessionOverwritePending] = useState(false);
   const [chooseSaveLocation, setChooseSaveLocation] = useState(false);
@@ -251,14 +256,14 @@ export function useRpgraphFiles({
       setFileStorageStatus('Enter a password or PIN for the encrypted workflow.');
       return;
     }
-    if (chooseSaveLocation) {
+    if (chooseSaveLocation && !accountManaged) {
       await saveWorkflowToChosenLocation(name);
       return;
     }
     setFileStorageStatus(
       fileProtection === 'encrypted'
         ? 'Encrypting and saving workflow ...'
-        : 'Saving workflow as plain JSON ...',
+        : accountManaged ? 'Saving workflow to account ...' : 'Saving workflow as plain JSON ...',
     );
     try {
       const workflow = await currentWorkflowForSave(workflowSaveScope === 'workflow-storybook');
@@ -292,7 +297,7 @@ export function useRpgraphFiles({
       setFileStorageStatus(
         fileProtection === 'encrypted'
           ? `Saved password-protected workflow: ${result.name}`
-          : `Saved plain workflow: ${result.name}`,
+          : accountManaged ? `Saved workflow to account: ${result.name}` : `Saved plain workflow: ${result.name}`,
       );
       setSessionPasswordAction(null);
       setShowFiles(returnToFilesAfterSaveRef.current);
@@ -412,11 +417,11 @@ export function useRpgraphFiles({
     setFileStorageStatus(
       fileProtection === 'encrypted'
         ? 'Encrypting and saving character card ...'
-        : 'Saving character card as plain JSON ...',
+        : accountManaged ? 'Saving character card to account ...' : 'Saving character card as plain JSON ...',
     );
     try {
       const characterCard = pending.createCard(includeCharacterOwnPosts, includeCharacterReceivedImages);
-      const result = characterSaveLocation === 'choose'
+      const result = characterSaveLocation === 'choose' && !accountManaged
         ? await window.rpgraph.saveRpgraphFileToPath({
             kind: 'character',
             name,
@@ -430,7 +435,7 @@ export function useRpgraphFiles({
             fileProtection,
             sessionPassword,
             sessionOverwritePending,
-            characterSaveLocation,
+            characterSaveLocation === 'choose' ? 'npc-characters' : characterSaveLocation,
           );
       if ('conflict' in result && result.conflict) {
         setSessionOverwritePending(true);
@@ -653,14 +658,14 @@ export function useRpgraphFiles({
       setFileStorageStatus('Enter a password or PIN for the encrypted RP save.');
       return;
     }
-    if (chooseSaveLocation) {
+    if (chooseSaveLocation && !accountManaged) {
       await saveSessionToChosenLocation(name);
       return;
     }
     setFileStorageStatus(
       fileProtection === 'encrypted'
         ? 'Encrypting and saving RP save ...'
-        : 'Saving RP save as plain JSON ...',
+        : accountManaged ? 'Saving RP save to account ...' : 'Saving RP save as plain JSON ...',
     );
     try {
       const session = await currentSession(name);
@@ -692,7 +697,7 @@ export function useRpgraphFiles({
       setFileStorageStatus(
         fileProtection === 'encrypted'
           ? `Saved password-protected RP save: ${result.name} at Turn ${latestSessionTurnNumber(session)}`
-          : `Saved plain RP save: ${result.name} at Turn ${latestSessionTurnNumber(session)}`,
+          : `Saved ${accountManaged ? '' : 'plain '}RP save: ${result.name} at Turn ${latestSessionTurnNumber(session)}`,
       );
       setSessionPasswordAction(null);
       setShowFiles(returnToFilesAfterSaveRef.current);
@@ -749,14 +754,14 @@ export function useRpgraphFiles({
       setFileStorageStatus('Enter a password or PIN for the encrypted storybook.');
       return;
     }
-    if (chooseSaveLocation) {
+    if (chooseSaveLocation && !accountManaged) {
       await saveStorybookToChosenLocation(current, name);
       return;
     }
     setFileStorageStatus(
       fileProtection === 'encrypted'
         ? 'Encrypting and saving storybook ...'
-        : 'Saving storybook as plain JSON ...',
+        : accountManaged ? 'Saving storybook to account ...' : 'Saving storybook as plain JSON ...',
     );
     try {
       const result = await window.rpgraph.saveStorybook(
@@ -789,7 +794,7 @@ export function useRpgraphFiles({
       setFileStorageStatus(
         fileProtection === 'encrypted'
           ? `Saved password-protected storybook: ${result.name}`
-          : `Saved plain storybook: ${result.name}`,
+          : `Saved ${accountManaged ? '' : 'plain '}storybook: ${result.name}`,
       );
       setSessionPasswordAction(null);
       setShowFiles(returnToFilesAfterSaveRef.current);
@@ -922,12 +927,12 @@ export function useRpgraphFiles({
 
   async function saveCurrentSession() {
     const filePath = activeSessionPathRef.current;
-    if (!filePath || !activeSessionFileName) {
+    if (!filePath || !activeSessionFileName || (accountManaged && !isAccountWorkspacePath(filePath))) {
       requestSaveSession();
       return;
     }
-    const protection = workspacePasswordRef.current ? 'encrypted' : activeSessionProtection;
-    const password = workspacePasswordRef.current || activeSessionPasswordRef.current;
+    const protection = accountManaged ? 'plain' : workspacePasswordRef.current ? 'encrypted' : activeSessionProtection;
+    const password = accountManaged ? '' : workspacePasswordRef.current || activeSessionPasswordRef.current;
     if (protection === 'encrypted' && !password) {
       notifySystem('error', 'Save RP failed: the password is no longer available in memory.');
       return;
@@ -956,18 +961,24 @@ export function useRpgraphFiles({
   }
 
   async function loadStartupWorkflow(options?: { preferTurnAutosave?: boolean }) {
+    // Do not even read saved workspace content until the user opts in.
+    startupRestoreRequestRef.current = options ?? {};
+    setStartupRestorePending(true);
+  }
+
+  async function confirmStartupRestore() {
+    const options = startupRestoreRequestRef.current;
+    if (!options) return;
+    startupRestoreRequestRef.current = null;
+    setStartupRestorePending(false);
     if (options?.preferTurnAutosave) {
       try {
         const entries = await window.rpgraph.listTurnAutosaves();
-        const valid = entries.filter((entry): entry is LoadedRpgraphFile & { value: RpgraphSessionV2 } =>
-          isRpgraphSessionV2(entry.value),
+        const valid = entries.filter((entry) =>
+          (entry.type === 'session' && entry.protection === 'encrypted') || isRpgraphSessionV2(entry.value),
         );
-        if (valid.length > 1) {
+        if (valid.length > 0) {
           setTurnAutosaveChoices(valid);
-          return;
-        }
-        if (valid.length === 1) {
-          applyLoadedRpgraphFile(valid[0]);
           return;
         }
       } catch {
@@ -1007,14 +1018,18 @@ export function useRpgraphFiles({
     }
   }
 
-  function chooseTurnAutosave(choice: LoadedRpgraphFile) {
+  async function chooseTurnAutosave(choice: LoadedRpgraphFile, password = '') {
+    const loaded = choice.protection === 'encrypted'
+      ? await window.rpgraph.loadFilePath(choice.filePath, password)
+      : choice;
+    applyLoadedRpgraphFile(loaded, password);
     setTurnAutosaveChoices([]);
-    applyLoadedRpgraphFile(choice);
   }
 
   function declineTurnAutosaveChoices() {
+    startupRestoreRequestRef.current = null;
+    setStartupRestorePending(false);
     setTurnAutosaveChoices([]);
-    void loadStartupWorkflow();
   }
 
   async function loadDefaultWorkflow() {
@@ -1120,7 +1135,8 @@ export function useRpgraphFiles({
   }
 
   async function saveCurrentWorkflow() {
-    if (workspacePasswordRef.current) {
+    if ((!accountManaged && workspacePasswordRef.current) ||
+        (accountManaged && !isAccountWorkspacePath(activeWorkflowPath))) {
       requestExportWorkflow();
       return;
     }
@@ -1151,6 +1167,8 @@ export function useRpgraphFiles({
     showFiles,
     setShowFiles,
     turnAutosaveChoices,
+    startupRestorePending,
+    confirmStartupRestore,
     chooseTurnAutosave,
     declineTurnAutosaveChoices,
     showStorybookPicker,
@@ -1236,6 +1254,11 @@ export function useRpgraphFiles({
     saveWorkflowAs,
     saveCurrentWorkflow,
   };
+}
+
+// Routing hint only: main validates account ownership before every write.
+function isAccountWorkspacePath(filePath: string | null) {
+  return !!filePath && /(?:^|[\\/])account-workspaces[\\/]/i.test(filePath);
 }
 
 type IncompatibleFileMetadata = {

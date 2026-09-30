@@ -1,4 +1,5 @@
 import type { CompatibleModelInfo } from '../shared/compatibleModels.cjs';
+import type { AccountAPI } from './accounts/types';
 import type {
   AppSettings,
   ChatImageAttachment,
@@ -31,6 +32,7 @@ type SelectedImageFile = {
 declare global {
   interface Window {
     rpgraph: {
+      accounts?: AccountAPI;
       listCompatibleModels: (connection: ConnectionPreset, onAbort?: (cancel: () => void) => void) => Promise<CompatibleModelInfo[]>;
       listModels: (
         connection: ConnectionPreset,
@@ -471,7 +473,7 @@ declare global {
         password: string,
         overwrite?: boolean,
       ) => Promise<{ fileName: string; name: string; filePath: string; conflict?: boolean }>;
-      saveTurnAutosave: (session: RpgraphSessionV2) => Promise<{
+      saveTurnAutosave: (session: RpgraphSessionV2, protection?: 'plain' | 'encrypted', password?: string) => Promise<{
         fileName: string;
         name: string;
         filePath: string;

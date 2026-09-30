@@ -7,6 +7,10 @@ and design changes maintained by this fork on top of that upstream release.
 
 *Authors note: Written by a confused AI Agent, might be redundant or straight up a lie.
 
+Local-profile account management, protection, migration and backups are documented in
+[the account user guide](docs/account-management/user-guide.md). Upstream integration
+and remaining release checks are in [the adoption notes](docs/account-management/adoption.md).
+
 ## Interface and Theme Showcase
 
 The fork applies its theme system across both the full Graph workspace and the dedicated

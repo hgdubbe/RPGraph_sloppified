@@ -280,6 +280,9 @@ describe('theme coverage for audited Studio surfaces', () => {
   it('themes startup autosave choices from application roles', () => {
     const selectors = [
       '.turn-autosave-choice-copy',
+      '.turn-autosave-dialog',
+      '.turn-autosave-dialog button',
+      '.turn-autosave-password input',
       '.turn-autosave-choice-row',
       '.turn-autosave-choice-row button',
       '.turn-autosave-choice-row button:hover,\n.turn-autosave-choice-row button:focus-visible',

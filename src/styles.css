@@ -14640,6 +14640,55 @@ button.message-timeline-row.phone:focus-visible {
   line-height: 1.5;
 }
 
+.turn-autosave-dialog {
+  color: var(--theme-app-dialog-text);
+  border-radius: var(--theme-radius-card, var(--theme-radius));
+}
+
+.turn-autosave-dialog button {
+  padding: 9px 14px;
+  border: 1px solid var(--theme-app-line);
+  border-radius: var(--theme-radius-button, var(--theme-radius));
+  color: var(--theme-primary-foreground);
+  background: var(--theme-button-background, var(--theme-primary));
+  cursor: pointer;
+}
+
+.turn-autosave-dialog button:hover,
+.turn-autosave-dialog button:focus-visible {
+  border-color: var(--theme-app-accent);
+  outline: 2px solid var(--theme-app-accent);
+  outline-offset: 2px;
+}
+
+.turn-autosave-dialog button:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.turn-autosave-password {
+  display: grid;
+  gap: 8px;
+  color: var(--theme-app-dialog-text);
+}
+
+.turn-autosave-password input {
+  padding: 10px;
+  color: var(--theme-app-dialog-text);
+  background: var(--theme-app-surface-soft);
+  border: 1px solid var(--theme-app-line);
+  border-radius: var(--theme-radius-input, var(--theme-radius));
+}
+
+.turn-autosave-password input:focus-visible {
+  outline: 2px solid var(--theme-app-accent);
+  outline-offset: 2px;
+}
+
+.turn-autosave-dialog [role="alert"] {
+  color: var(--theme-danger);
+}
+
 .turn-autosave-choice-row {
   display: flex;
   align-items: center;
@@ -20120,6 +20169,16 @@ button.message-timeline-row.phone:focus-visible {
   overflow-y: auto;
   padding: 0 23px 20px;
 }
+
+/* Providers reuse the Options navigation and content layout. */
+.provider-settings-dialog { width: min(1040px, calc(100vw - 40px)); height: min(860px, calc(100dvh - 40px)); }
+.provider-settings-dialog .options-panel { height: auto; }
+.provider-settings-sidebar .provider-health { align-self: flex-start; margin-top: 8px; }
+.provider-settings-sidebar .provider-new-preset { color: var(--accent-light, #c4b5fd); margin-top: 8px; }
+.provider-settings-dialog .provider-type-section { border-left: 0; border-top: 1px solid var(--theme-app-line); padding: 20px 0 0; }
+.provider-settings-dialog .provider-presets { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+@media (max-width: 768px) { .provider-settings-sidebar .options-tab-btn { flex-shrink: 0; } }
+@media (max-width: 620px) { .provider-settings-dialog .provider-presets { grid-template-columns: minmax(0, 1fr); } }
 
 .connection-dialog-left {
   display: flex;
