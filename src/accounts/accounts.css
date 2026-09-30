@@ -1,0 +1,102 @@
+/* Locked entry uses only bundled, neutral colors; account themes cannot brand it. */
+body:has(.account-login) { min-width: 0; }
+body:has(.account-bootstrap) { min-width: 0; }
+.account-bootstrap { min-height: 100dvh; display: flex; flex-direction: column; justify-content: center; align-items: center; gap: 20px; padding: 30px; background: #111923; color: #f0ede6; text-align: center; }
+.account-bootstrap p { max-width: 540px; line-height: 1.6; }
+.account-bootstrap button { padding: 14px 20px; border: 1px solid #c4b5fd; border-radius: 7px; background: #c4b5fd; color: #1b1531; cursor: pointer; }
+.account-demo-banner, .account-save-error { position: fixed; bottom: 0; left: 0; z-index: 901; padding: 10px 14px; background: #1b2633; color: #f0ede6; font-size: 13px; }
+.account-save-error { bottom: 64px; }
+.account-titlebar { position: absolute; top: 0; left: 0; right: 0; height: 44px; display: flex; align-items: center; justify-content: space-between; padding-left: 18px; z-index: 2; -webkit-app-region: drag; color: #b5c0cc; font-size: 12px; }
+.account-titlebar > div { display: flex; -webkit-app-region: no-drag; }
+.account-login .account-titlebar button { width: 46px; border: 0; border-radius: 0; padding: 0; background: transparent; font-size: 22px; color: #f0ede6; }
+.account-login {
+  --account-bg: #101218; --account-surface: #1b202c; --account-input: #101218;
+  --account-text: #f0ede6; --account-muted: #b5c0cc; --account-border: #536071;
+  --account-primary: #c4b5fd; --account-primary-text: #1b1531; --account-error: #ffb5b5;
+
+  position: fixed; inset: 0; overflow: auto; display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  background: var(--account-bg); color: var(--account-text); font-family: Ubuntu, Arial, sans-serif;
+  font-size: 16px; line-height: 1.5; z-index: 1000;
+}
+.account-entry { grid-column: 2; grid-row: 1; padding: 70px 32px 40px; display: flex; flex-direction: column; gap: 22px; width: 100%; max-width: 450px; margin: auto; }
+.account-brand { display: flex; align-items: center; gap: 12px; font-size: 19px; font-weight: 700; line-height: 1.2; color: #e6e6e6; }
+.account-brand img { width: 45px; height: 45px; object-fit: contain; }
+.account-login h1 { font-size: clamp(25px, 2.2vw, 32px); line-height: 1.2; letter-spacing: -.025em; margin: 8px 0 12px; color: var(--account-text); }
+.account-login p, .account-dialog p { margin: 0; }
+.account-eyebrow { color: var(--account-primary); font-size: 11px; letter-spacing: .17em; font-weight: 700; }
+.account-muted, .account-caption { color: var(--account-muted); }
+.account-caption { font-size: 13px; line-height: 1.55; }
+.account-login form, .account-dialog form, .account-login fieldset, .account-dialog fieldset { display: flex; flex-direction: column; gap: 18px; min-width: 0; margin: 0; padding: 0; border: 0; }
+.account-field { display: flex; flex-direction: column; gap: 8px; font-size: 14px; font-weight: 600; min-width: 0; }
+.account-login input:not([type=checkbox]), .account-login select, .account-dialog input:not([type=checkbox]) { width: 100%; min-width: 0; min-height: 46px; border: 1px solid var(--account-border); border-radius: 7px; background: var(--account-input); color: var(--account-text); padding: 10px 12px; font: inherit; font-size: 16px; }
+.account-login button, .account-dialog button { min-height: 44px; border: 1px solid var(--account-border); border-radius: 7px; padding: 10px 16px; background: var(--account-surface); color: var(--account-text); font: inherit; font-size: 14px; font-weight: 650; cursor: pointer; white-space: normal; }
+.account-login .account-primary, .account-dialog .account-primary { background: var(--account-primary); color: var(--account-primary-text); border-color: var(--account-primary); }
+.account-login button:hover:not(:disabled), .account-dialog button:hover:not(:disabled) { filter: brightness(1.12); }
+.account-login :focus-visible, .account-dialog :focus-visible { outline: 3px solid var(--account-primary); outline-offset: 3px; }
+.account-login button:disabled, .account-login fieldset:disabled, .account-dialog button:disabled, .account-dialog fieldset:disabled { opacity: .65; cursor: wait; }
+.account-password { display: flex; gap: 8px; }
+.account-password input { flex: 1; }
+.account-password button { flex-shrink: 0; min-width: 62px; }
+.account-actions { display: flex; flex-wrap: wrap; gap: 10px; }
+.account-actions > button { flex: 1; }
+.account-login .account-actions { gap: 6px 18px; }
+.account-login .account-actions > button { flex: none; background: transparent; border: 0; padding: 8px 0; color: var(--account-primary); font-weight: 500; }
+.account-login .account-primary { width: min(190px, 100%); }
+.account-notice { padding: 12px 14px; background: var(--account-surface); border-left: 3px solid var(--account-primary); border-radius: 3px; color: var(--account-text); font-size: 13px; overflow-wrap: anywhere; }
+.account-error { color: var(--account-error); font-size: 14px; line-height: 1.5; }
+.account-check { display: flex; align-items: flex-start; gap: 10px; font-size: 14px; cursor: pointer; }
+.account-check input { width: 18px; height: 18px; margin: 3px 0 0; flex: 0 0 auto; accent-color: var(--account-primary); }
+.account-help { color: var(--account-muted); font-size: 13px; line-height: 1.6; }
+.account-help summary { cursor: pointer; padding: 10px 0; }
+.account-help p + p { margin-top: 10px; }
+.account-art { grid-column: 1; grid-row: 1; position: relative; background: #142330; border-right: 1px solid #2c3c50; overflow: hidden; min-height: 100%; }
+.account-illustration { position: absolute; width: 100%; height: 100%; inset: 0; object-fit: contain; object-position: center bottom; pointer-events: none; user-select: none; }
+.account-art-copy { position: absolute; z-index: 1; top: 64px; left: clamp(24px, 4vw, 64px); right: 24px; max-width: 360px; padding: 22px 24px; border: 1px solid #c4b5fd26; border-radius: 10px; background: #101218d9; color: #efe8db; }
+.account-art-copy p { font-size: 11px; letter-spacing: .18em; margin-bottom: 15px; }
+.account-art-copy span { font-size: clamp(22px, 2.3vw, 30px); line-height: 1.2; letter-spacing: -.025em; }
+.account-dialog {
+  --account-bg: #111923; --account-surface: #1b2633;
+  --account-input: #101821; --account-text: #f0ede6;
+  --account-muted: #b5c0cc; --account-border: #536071;
+  --account-primary: var(--accent, #8a73c9); --account-primary-text: #fff;
+  --account-error: #ffb5b5;
+  width: min(560px, calc(100vw - 32px)); max-height: calc(100dvh - 40px); overflow: auto;
+  border: 1px solid var(--account-border); border-radius: 12px; padding: 26px; color: var(--account-text);
+  background: var(--account-bg); font-family: inherit; font-size: 15px; line-height: 1.5;
+}
+.account-dialog[open] { display: flex; flex-direction: column; gap: 18px; }
+.account-dialog::backdrop { background: #000a; }
+.account-dialog-heading { display: flex; justify-content: space-between; align-items: center; gap: 16px; }
+.account-dialog-heading h2 { margin: 0; font-size: 24px; color: var(--account-text); }
+.account-current { font-size: 18px; font-weight: 700; overflow-wrap: anywhere; }
+.account-management-actions { display: grid; gap: 10px; }
+.account-dialog .account-danger { color: var(--account-error); border-color: var(--account-error); }
+.account-settings-dialog {
+  --account-bg: #111722;
+  --account-surface: #1b2633;
+  --account-text: #f0ede6;
+  width: min(820px, calc(100vw - 40px)); height: min(860px, calc(100dvh - 40px));
+  padding: 0; border-radius: 18px; overflow: hidden;
+}
+.account-settings-dialog[open] { gap: 0; }
+.account-settings-dialog::backdrop { background: color-mix(in srgb, #111722 72%, transparent); backdrop-filter: blur(4px); }
+.account-settings-dialog .options-panel { height: auto; }
+.account-settings-dialog .options-tab-btn { background: transparent; border-color: transparent; color: var(--account-muted); text-align: left; padding: 10px 14px; font-weight: 500; }
+.account-settings-dialog .options-tab-btn.active { background: color-mix(in srgb, var(--accent, #c4b5fd) 10%, transparent); border-color: color-mix(in srgb, var(--accent, #c4b5fd) 25%, transparent); color: var(--account-text); }
+.account-settings-dialog .options-tab-btn:disabled { opacity: .45; cursor: not-allowed; }
+.account-settings-dialog .close-button { background: var(--account-primary); color: var(--account-primary-text); border-color: var(--account-primary); }
+.account-settings-dialog .account-management-actions { max-width: 360px; }
+@media (max-width: 800px) { .account-login { display: block; } .account-entry { padding: 62px 24px 26px; gap: 24px; } .account-art { display: none; } }
+@media (max-width: 768px) { .account-settings-dialog .options-tab-btn { flex-shrink: 0; } }
+@media (max-width: 380px) { .account-entry { padding: 62px 16px 24px; } .account-actions { flex-direction: column; } .account-dialog { padding: 18px; } }
+@media (max-width: 380px) { .account-settings-dialog { padding: 0; } }
+
+/* Recovery uses the existing native dialog, with only its content layout added. */
+.turn-autosave-dialog { width: min(680px, calc(100vw - 40px)); }
+.turn-autosave-choice-copy { line-height: 1.5; }
+.turn-autosave-choice-row { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 14px 0; border-top: 1px solid #26344a; }
+.turn-autosave-choice-row span { overflow-wrap: anywhere; min-width: 0; }
+.turn-autosave-choice-row button { flex-shrink: 0; }
+.turn-autosave-password { display: flex; flex-direction: column; gap: 8px; }
+.turn-autosave-password input { padding: 10px 12px; color: #edf1ff; background: #111722; border: 1px solid #334155; border-radius: 6px; }
+@media (max-width: 480px) { .turn-autosave-choice-row { align-items: flex-start; flex-direction: column; } }

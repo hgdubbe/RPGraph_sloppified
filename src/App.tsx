@@ -1,3 +1,4 @@
+import { accountPreferences, flushAccountPreferences } from './accounts/accountPreferences';
 import { openingHistoryNpcParticipantsFromNodes } from './characters/npcParticipantRuntime';
 import { useUserQuestion } from './app/useUserQuestion';
 import { imageModelContext } from './images/loraCompatibility';
@@ -228,6 +229,7 @@ import {
   useNodesState,
 } from '@xyflow/react';
 import { StudioDialogs } from './dialogs/StudioDialogs';
+import { TurnAutosaveChoiceDialog } from './components/TurnAutosaveChoiceDialog';
 import { ComfyGeneratedImageDialog } from './comfy/ComfyGeneratedImageDialog';
 import { isComfyVoiceConnection } from './comfy/connectionRole';
 import { useDialogueVoice } from './chat/useDialogueVoice';
@@ -492,7 +494,7 @@ const assistantConnectionStorageKey = 'rpgraph.assistantConnectionId';
 
 function loadAssistantConnectionId() {
   try {
-    return window.localStorage.getItem(assistantConnectionStorageKey) || undefined;
+    return accountPreferences.getItem(assistantConnectionStorageKey) || undefined;
   } catch {
     return undefined;
   }
@@ -625,7 +627,7 @@ type PreviewImageState = {
   image: ChatImageAttachment;
 };
 
-function App() {
+function App({ onOpenAccountManagement }: { onOpenAccountManagement?: () => void } = {}) {
   const npcLibrary = useNpcLibrary();
   const [characterRemoval, setCharacterRemoval] = useState<{ nodeId: string; characterId: string } | null>(null);
   const editedNpcSnapshotRef = useRef<import('./characters/npcParticipants').NpcParticipantSnapshots[string] | undefined>(undefined);
@@ -646,7 +648,7 @@ function App() {
   const [selectNodeViewSnapshot] = useState(createNodeViewSnapshot);
   const nodeViewNodes = selectNodeViewSnapshot(nodes);
   const [showWelcome, setShowWelcome] = useState(() => {
-    return window.localStorage.getItem('rpgraph.welcomeSeen') !== 'true';
+    return accountPreferences.getItem('rpgraph.welcomeSeen') !== 'true';
   });
   const {
     connections,
@@ -729,6 +731,8 @@ function App() {
     setUiScale,
     retryFormatErrorsEnabled,
     setRetryFormatErrorsEnabled,
+    turnAutosaveEnabled,
+    setTurnAutosaveEnabled,
     dialogueVoiceMode,
     setDialogueVoiceMode,
     dialogueNarratorProviderId,
@@ -1353,6 +1357,7 @@ function App() {
       try {
         await unloadAllProviderModelsForClose();
       } finally {
+        await flushAccountPreferences();
         await window.rpgraph.finishWindowCloseCleanup();
       }
     });
@@ -1458,6 +1463,11 @@ function App() {
     unlockStoredFile,
     saveCurrentSession,
     loadStartupWorkflow,
+    turnAutosaveChoices,
+    startupRestorePending,
+    confirmStartupRestore,
+    chooseTurnAutosave,
+    declineTurnAutosaveChoices,
     restoreDefaultFiles,
     resetWorkflow,
     saveCurrentWorkflow,
@@ -1469,6 +1479,8 @@ function App() {
     encryptionRequired,
   } = useRpgraphFiles({
     currentWorkflowForSave,
+    // Function declarations are hoisted; the file hook invokes this only after rendering.
+    // eslint-disable-next-line react-hooks/immutability
     currentSession,
     currentStorybookForSave,
     latestSessionTurnNumber,
@@ -1622,7 +1634,7 @@ function App() {
       if (matches.length > 1) throw new Error('Multiple local NPC files use this identity. Resolve the duplicate files first.');
       if (matches.length && !overwrite) throw new Error('A local NPC with this identity now exists. Reopen Remove to review the overwrite option.');
       const name = matches[0]?.fileName.replace(/\.json$/i, '') ?? character.name;
-      const password = workspacePasswordRef.current;
+      const password = window.rpgraph.accounts ? '' : workspacePasswordRef.current;
       const result = await window.rpgraph.saveCharacter(name, createCharacterContainer(character, true), password ? 'encrypted' : 'plain', password, !!matches.length && overwrite, 'npc-characters');
       if (result.conflict) throw new Error('A different NPC file already uses this filename. Save through Export Character with a unique filename first.');
       await npcLibrary.reload();
@@ -1755,9 +1767,9 @@ function App() {
 
   useEffect(() => {
     if (assistantConnectionId) {
-      window.localStorage.setItem(assistantConnectionStorageKey, assistantConnectionId);
+      accountPreferences.setItem(assistantConnectionStorageKey, assistantConnectionId);
     } else {
-      window.localStorage.removeItem(assistantConnectionStorageKey);
+      accountPreferences.removeItem(assistantConnectionStorageKey);
     }
   }, [assistantConnectionId]);
 
@@ -2392,10 +2404,37 @@ function App() {
     if (!settingsLoadComplete) {
       return;
     }
-    void loadStartupWorkflow();
-    // The last local workflow is loaded once settings are ready at app startup.
+    void loadStartupWorkflow({ preferTurnAutosave: turnAutosaveEnabled });
+    // Restore saved work only after the user consents.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [settingsLoadComplete]);
+
+  const lastTurnAutosaveIdRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (!settingsLoadComplete || !turnAutosaveEnabled || isRunning || activeRunRef.current || !window.rpgraph.accounts) return;
+    const turn = [...turns].reverse().find(candidate => !candidate.openingHistory);
+    if (!turn || turn.openingHistory || lastTurnAutosaveIdRef.current === turn.id) return;
+    lastTurnAutosaveIdRef.current = turn.id;
+    let canceled = false;
+    const save = async (attempt = 0): Promise<void> => {
+      try {
+        const session = await currentSession(sessionName || 'Turn Autosave');
+        await window.rpgraph.saveTurnAutosave(session, 'plain', '');
+      } catch (error) {
+        if (canceled) return;
+        if (attempt < 2 && errorMessage(error).includes('current run')) {
+          setTimeout(() => { if (!canceled) void save(attempt + 1); }, 400);
+          return;
+        }
+        if (lastTurnAutosaveIdRef.current === turn.id) lastTurnAutosaveIdRef.current = null;
+        notifySystem('warning', `Autosave failed: ${errorMessage(error)}`);
+      }
+    };
+    void save();
+    return () => { canceled = true; };
+    // Capture the completed turn's current session; unrelated UI changes do not trigger recovery writes.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [settingsLoadComplete, turnAutosaveEnabled, isRunning, turns]);
 
   function changeTokenEstimateBytesPerToken(value: number) {
     setTokenEstimateBytesPerToken(validEstimatedTokenBytesPerToken(value));
@@ -5218,6 +5257,7 @@ function App() {
             <button className="connection-button" type="button" onClick={() => void openFiles()}>
               Files
             </button>
+            {onOpenAccountManagement && <button className="connection-button" type="button" onClick={onOpenAccountManagement}>Account</button>}
           </div>
         </div>
         <div className="header-actions">
@@ -6355,6 +6395,8 @@ function App() {
         glassDesignOpacity={glassDesignOpacity}
         nodeTextSize={nodeTextSize}
         retryFormatErrorsEnabled={retryFormatErrorsEnabled}
+        turnAutosaveEnabled={turnAutosaveEnabled}
+        onTurnAutosaveEnabledChange={setTurnAutosaveEnabled}
         uiScale={appliedUiScale}
         minUiScale={minimumAllowedUiScale}
         maxUiScale={allowedUiScale}
@@ -6630,6 +6672,7 @@ function App() {
         onApplyConnectionToAllNodes={applyConnectionToAllNodes}
         onSetNarratorOnlyProvider={setDialogueNarratorProviderId}
       />
+      {(startupRestorePending || turnAutosaveChoices.length > 0) && <TurnAutosaveChoiceDialog startupRestorePending={startupRestorePending} onConfirmStartupRestore={() => void confirmStartupRestore()} choices={turnAutosaveChoices} latestSessionTurnNumber={latestSessionV2TurnNumber} onChoose={chooseTurnAutosave} onDecline={declineTurnAutosaveChoices} />}
       {showSystemLog && (
         <SystemLogDialog
           entries={systemLog}
@@ -6720,7 +6763,7 @@ function App() {
       {showWelcome && (
         <WelcomeDialog
           onClose={() => {
-            window.localStorage.setItem('rpgraph.welcomeSeen', 'true');
+            accountPreferences.setItem('rpgraph.welcomeSeen', 'true');
             setShowWelcome(false);
           }}
         />

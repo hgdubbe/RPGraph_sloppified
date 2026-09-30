@@ -1,3 +1,4 @@
+import type { AccountAPI } from './accounts/types';
 import type { CompatibleModelInfo } from '../shared/compatibleModels.cjs';
 import type {
   AppSettings,
@@ -29,6 +30,9 @@ type SelectedImageFile = {
 declare global {
   interface Window {
     rpgraph: {
+      accounts?: AccountAPI;
+      saveTurnAutosave: (session: RpgraphSessionV2, protection?: 'plain' | 'encrypted', password?: string) => Promise<{ fileName: string; name: string; filePath: string }>;
+      listTurnAutosaves: () => Promise<import('./app/useRpgraphFiles').LoadedRpgraphFile[]>;
       listCompatibleModels: (connection: ConnectionPreset, onAbort?: (cancel: () => void) => void) => Promise<CompatibleModelInfo[]>;
       listModels: (
         connection: ConnectionPreset,

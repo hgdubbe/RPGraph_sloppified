@@ -1,3 +1,4 @@
+import { accountPreferences } from '../accounts/accountPreferences';
 import { measureUiWork, markUiEvent } from '../diagnostics/uiPerformance';
 import { usePanelNavigationState, usePanelNavigationReset } from '../navigation/usePanelNavigation';
 import { interactedNpcIds } from '../characters/messageExchanges';
@@ -181,14 +182,14 @@ export function useRoleplayPanelRuntime({
   const [openedPhoneConversationKey, setOpenedPhoneConversationKey] = usePanelNavigationState('panel.openedPhoneConversationKey', '');
   const [phoneAuthorBadgesEnabled, setPhoneAuthorBadgesEnabled] = useState(() => {
     try {
-      return window.localStorage.getItem(phoneAuthorBadgesStorageKey) === 'true';
+      return accountPreferences.getItem(phoneAuthorBadgesStorageKey) === 'true';
     } catch {
       return false;
     }
   });
   const [chatReadsPhoneAppsEnabled, setChatReadsPhoneAppsEnabled] = useState(() => {
     try {
-      return window.localStorage.getItem(chatReadsPhoneAppsStorageKey) !== 'false';
+      return accountPreferences.getItem(chatReadsPhoneAppsStorageKey) !== 'false';
     } catch {
       return true;
     }
@@ -1057,7 +1058,7 @@ export function useRoleplayPanelRuntime({
   function changePhoneAuthorBadgesEnabled(enabled: boolean) {
     setPhoneAuthorBadgesEnabled(enabled);
     try {
-      window.localStorage.setItem(phoneAuthorBadgesStorageKey, String(enabled));
+      accountPreferences.setItem(phoneAuthorBadgesStorageKey, String(enabled));
     } catch {
       // Non-critical UI preference.
     }
@@ -1066,7 +1067,7 @@ export function useRoleplayPanelRuntime({
   function changeChatReadsPhoneAppsEnabled(enabled: boolean) {
     setChatReadsPhoneAppsEnabled(enabled);
     try {
-      window.localStorage.setItem(chatReadsPhoneAppsStorageKey, String(enabled));
+      accountPreferences.setItem(chatReadsPhoneAppsStorageKey, String(enabled));
     } catch {
       // Non-critical UI preference.
     }

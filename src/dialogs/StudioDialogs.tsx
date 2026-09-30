@@ -1,4 +1,5 @@
 import { isTextGenerationConnection } from '../llm/textProvider';
+import { getActiveAccount } from '../accounts/accountPreferences';
 import { UiPerformanceDiagnostics } from '../components/UiPerformanceDiagnostics';
 import { ProviderBaseUrlInput } from '../components/ProviderBaseUrlInput';
 import { ProviderModelSwitchIndicator } from '../components/ProviderModelSwitchIndicator';
@@ -189,6 +190,8 @@ type StudioDialogsProps = {
   minUiScale: number;
   maxUiScale: number;
   retryFormatErrorsEnabled: boolean;
+  turnAutosaveEnabled: boolean;
+  onTurnAutosaveEnabledChange: (enabled: boolean) => void;
   onCloseOptions: () => void;
   onEnglishProcessingChange: (enabled: boolean) => void;
   onInputTranslationOnlyChange: (enabled: boolean) => void;
@@ -439,6 +442,7 @@ function RetryIcon() {
 
 const OPTIONS_TABS = [
   { id: 'chat', label: 'Chat & UI', desc: 'Avatars, scrolling, UI scale and date/time' },
+  { id: 'autosave', label: 'Autosave & Recovery', desc: 'Automatic recovery saves' },
   { id: 'text', label: 'Text', desc: 'Sizes, colors, brightness and wave effects' },
   { id: 'translation', label: 'Translation', desc: 'English processing and display language' },
   { id: 'nodes', label: 'Node Design', desc: 'Canvas node transparency and appearance' },
@@ -998,6 +1002,8 @@ export function StudioDialogs({
   minUiScale,
   maxUiScale,
   retryFormatErrorsEnabled,
+  turnAutosaveEnabled,
+  onTurnAutosaveEnabledChange,
   onCloseOptions,
   onEnglishProcessingChange,
   onInputTranslationOnlyChange,
@@ -1130,6 +1136,16 @@ export function StudioDialogs({
   onApplyConnectionToAllNodes,
   onSetNarratorOnlyProvider,
 }: StudioDialogsProps) {
+  const accountManaged = !!window.rpgraph.accounts;
+  const activeAccount = getActiveAccount();
+  const storedFileLabel = accountManaged
+    ? activeAccount?.protected ? 'Account encrypted' : 'Account storage'
+    : 'Plain JSON';
+  const accountProtectionLabel = activeAccount?.shared
+    ? 'This shared default account uses the public default password. Create a personal password-protected account for private content.'
+    : activeAccount?.protected
+      ? 'All account saves and autosaves are encrypted with your account password. No additional password is needed.'
+      : 'This account has no password. Its saves and autosaves are not encrypted. Add a password in Account settings to protect them.';
   const sessionPasswordInputRef = useRef<HTMLInputElement>(null);
   const saveFileNameInputRef = useRef<HTMLInputElement>(null);
   const activeDialogRef = useRef<HTMLElement>(null);
@@ -2675,6 +2691,7 @@ export function StudioDialogs({
                   </div>
                 )}
 
+                {activeOptionsTab === 'autosave' && <div className="options-tab-content"><div className="options-tab-header"><h3>Autosave & Recovery</h3><p>Automatic recovery saves</p></div><div className="options-tab-body"><p className="option-info">Save the current RP, workflow, and embedded Storybook after each completed turn. Restoring saved work requires your approval at startup.</p><label className="option-toggle"><input type="checkbox" checked={turnAutosaveEnabled} onChange={event => onTurnAutosaveEnabledChange(event.target.checked)} /><span>Autosave after each turn</span></label><p className="option-info">{accountProtectionLabel}</p></div></div>}
                 {developerOptionsVisible && activeOptionsTab === 'reliability' && (
                   <div className="options-tab-content">
                     <div className="options-tab-header">
@@ -2779,7 +2796,7 @@ export function StudioDialogs({
                               <small>
                                 {choice.fileName} · {file.updatedAt ? `Modified ${formatFileDate(file.updatedAt)}` : 'Modified date unavailable'} ·{' '}
                                 Container v{file.formatVersion ?? 'Unknown'} ·{' '}
-                                {file.protection === 'encrypted' ? 'Encrypted' : 'Plain JSON'}
+                                {file.protection === 'encrypted' ? 'Legacy encrypted file' : storedFileLabel}
                                 {'unlocked' in file && file.unlocked ? ' · Unlocked for this session' : ''}
                                 {file.protection === 'encrypted' && ` · Envelope v${file.envelopeFormatVersion ?? 'Unknown'}`}
                               </small>
@@ -2891,7 +2908,7 @@ export function StudioDialogs({
                           )}
                         </strong>
                         <small>
-                          {formatFileDate(file.updatedAt)} · v{file.formatVersion} · {file.protection === 'encrypted' ? 'Encrypted' : 'Plain JSON'}
+                          {formatFileDate(file.updatedAt)} · v{file.formatVersion} · {file.protection === 'encrypted' ? 'Legacy encrypted file' : storedFileLabel}
                         </small>
                       </span>
                     </button>
@@ -3157,7 +3174,7 @@ export function StudioDialogs({
                               </svg>
                             )}
                             <span>·</span>
-                            <span>{file.protection === 'encrypted' ? 'Encrypted' : 'Plain JSON'}</span>
+                            <span>{file.protection === 'encrypted' ? 'Legacy encrypted file' : storedFileLabel}</span>
                             {file.type === 'session' && (
                               <>
                                 <span>·</span>
@@ -3285,7 +3302,7 @@ export function StudioDialogs({
                 <h2>{isSavingWorkflow ? 'Save Workflow' : isSavingStorybook ? 'Save Storybook' : isSavingCharacter ? 'Export Character' : isSavingSession ? 'Save RP' : 'Unlock File'}</h2>
                 <p>
                   {isSavingFile
-                    ? 'Choose how the complete file should be stored'
+                    ? accountManaged ? 'Save to the current account' : 'Choose how the complete file should be stored'
                     : 'Enter the password or PIN used when this file was saved'}
                 </p>
               </div>
@@ -3296,7 +3313,7 @@ export function StudioDialogs({
             <div className="chat-password-form">
               {isSavingFile && (
                 <>
-                  <div className="chat-security-info">
+                  {!accountManaged && <div className="chat-security-info">
                     <strong>Whole-file protection</strong>
                     <p>
                       Plain JSON is readable and easy to share. Password encrypted protects the
@@ -3308,7 +3325,7 @@ export function StudioDialogs({
                             ? 'Character Card contents, including images, voice sample, and app setup'
                           : 'RP save, including its workflow, Storybook data, chat history, and runtime state'}.
                     </p>
-                  </div>
+                  </div>}
                   <label className="chat-file-field" htmlFor="save-file-name">
                     {savingKindLabel.toUpperCase()} NAME
                     <input
@@ -3329,7 +3346,7 @@ export function StudioDialogs({
                       placeholder={isSavingWorkflow ? 'workflow' : isSavingStorybook ? 'storybook' : isSavingCharacter ? 'Character name' : 'My roleplay'}
                     />
                   </label>
-                  <div className="file-protection-options" role="radiogroup" aria-label="File protection">
+                  {accountManaged ? <p className="chat-security-info">{accountProtectionLabel} Use Account → Export account for a portable backup.</p> : <div className="file-protection-options" role="radiogroup" aria-label="File protection">
                     <label>
                       <input
                         type="radio"
@@ -3350,7 +3367,7 @@ export function StudioDialogs({
                       />
                       <span><strong>Password encrypted</strong><small>Protect the complete file</small></span>
                     </label>
-                  </div>
+                  </div>}
                   {isSavingWorkflow && (
                     <div className="file-protection-options" role="radiogroup" aria-label="Workflow contents">
                       <label>
@@ -3379,7 +3396,7 @@ export function StudioDialogs({
                       destinations={[
                         { value: 'npc-characters', label: 'NPC Library Folder' },
                         { value: 'characters', label: 'Characters Folder' },
-                        { value: 'choose', label: 'Choose Save Location…' },
+                        ...(!accountManaged ? [{ value: 'choose' as const, label: 'Choose Save Location…' }] : []),
                       ]} />
                   )}
                 </>
@@ -3394,8 +3411,8 @@ export function StudioDialogs({
                   </p>
                 </div>
               )}
-              {isSavingFile && encryptionRequired && <p className="chat-security-info">Encryption is required. The existing game password is used automatically.</p>}
-              {(!isSavingFile || (fileProtection === 'encrypted' && !encryptionRequired)) && (
+              {isSavingFile && !accountManaged && encryptionRequired && <p className="chat-security-info">Encryption is required. The existing game password is used automatically.</p>}
+              {(!isSavingFile || (!accountManaged && fileProtection === 'encrypted' && !encryptionRequired)) && (
                 <label className="chat-file-field" htmlFor="chat-password">
                   PASSWORD OR PIN
                   <input
@@ -3419,7 +3436,7 @@ export function StudioDialogs({
               {fileStorageStatus && <p className="chat-storage-status">{fileStorageStatus}</p>}
             </div>
             <div className="dialog-actions">
-              {isSavingFile && !isSavingCharacter && (
+              {isSavingFile && !isSavingCharacter && !accountManaged && (
                 <label className="dialog-action-checkbox">
                   <input
                     type="checkbox"

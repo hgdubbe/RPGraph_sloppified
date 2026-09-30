@@ -1,3 +1,4 @@
+import { accountPreferences } from './accounts/accountPreferences';
 import { normalizeTextEffects, type TextEffectsSettings } from './chat/textEffects';
 import { useEffect, useState, type Dispatch, type SetStateAction } from 'react';
 import type {
@@ -616,7 +617,7 @@ function normalizedConnectionPreset(connection: ConnectionPreset): ConnectionPre
 
 function loadLegacyConnections(): ConnectionPreset[] {
   try {
-    const stored = localStorage.getItem(connectionStorageKey);
+    const stored = accountPreferences.getItem(connectionStorageKey);
     if (!stored) {
       return [defaultConnection];
     }
@@ -835,6 +836,8 @@ function isAppSettings(value: unknown): value is AppSettings {
         settings.options.uiScale <= maxUiScale)) &&
     (settings.options.retryFormatErrorsEnabled === undefined ||
       typeof settings.options.retryFormatErrorsEnabled === 'boolean') &&
+    (settings.options.turnAutosaveEnabled === undefined ||
+      typeof settings.options.turnAutosaveEnabled === 'boolean') &&
     (settings.options.dialogueVoiceMode === undefined ||
       dialogueVoiceModes.includes(settings.options.dialogueVoiceMode)) &&
     (settings.options.dialogueNarratorProviderId === undefined ||
@@ -931,6 +934,8 @@ type AppSettingsState = {
   uiScale: number;
   setUiScale: Dispatch<SetStateAction<number>>;
   retryFormatErrorsEnabled: boolean;
+  turnAutosaveEnabled: boolean;
+  setTurnAutosaveEnabled: Dispatch<SetStateAction<boolean>>;
   setRetryFormatErrorsEnabled: Dispatch<SetStateAction<boolean>>;
   dialogueVoiceMode: DialogueVoiceMode;
   setDialogueVoiceMode: Dispatch<SetStateAction<DialogueVoiceMode>>;
@@ -947,6 +952,7 @@ type AppSettingsState = {
 };
 
 export function useAppSettings(): AppSettingsState {
+  const [turnAutosaveEnabled, setTurnAutosaveEnabled] = useState(true);
   const [connections, setConnections] = useState<ConnectionPreset[]>(loadLegacyConnections);
   const [defaultConnectionId, setDefaultConnectionId] = useState(defaultConnection.id);
   const [englishProcessingEnabled, setEnglishProcessingEnabled] = useState(false);
@@ -1112,6 +1118,7 @@ export function useAppSettings(): AppSettingsState {
         setRetryFormatErrorsEnabled(
           result.settings.options.retryFormatErrorsEnabled ?? defaultRetryFormatErrorsEnabled,
         );
+        setTurnAutosaveEnabled(result.settings.options.turnAutosaveEnabled ?? true);
         setDialogueVoiceMode(validDialogueVoiceMode(result.settings.options.dialogueVoiceMode));
         setDialogueNarratorProviderId(result.settings.options.dialogueNarratorProviderId ?? '');
         setDialogueCloneVoiceProviderId(result.settings.options.dialogueCloneVoiceProviderId ?? '');
@@ -1191,6 +1198,7 @@ export function useAppSettings(): AppSettingsState {
         nodeTextSize: validNodeTextSize(nodeTextSize),
         uiScale: validUiScale(uiScale),
         retryFormatErrorsEnabled,
+        turnAutosaveEnabled,
         dialogueVoiceMode,
         dialogueNarratorProviderId,
         dialogueCloneVoiceProviderId,
@@ -1210,7 +1218,7 @@ export function useAppSettings(): AppSettingsState {
           setApiKeyDecryptionUnavailable(false);
         }
         setSettingsStatus(settingsRecoveryNotice || apiKeyStorageNotice);
-        localStorage.removeItem(connectionStorageKey);
+        accountPreferences.removeItem(connectionStorageKey);
       })
       .catch((error) => {
         setSettingsStatus(
@@ -1257,6 +1265,7 @@ export function useAppSettings(): AppSettingsState {
     nodeTextSize,
     uiScale,
     retryFormatErrorsEnabled,
+    turnAutosaveEnabled,
     dialogueVoiceMode,
     dialogueNarratorProviderId,
     dialogueCloneVoiceProviderId,
@@ -1349,6 +1358,8 @@ export function useAppSettings(): AppSettingsState {
     setUiScale,
     retryFormatErrorsEnabled,
     setRetryFormatErrorsEnabled,
+    turnAutosaveEnabled,
+    setTurnAutosaveEnabled,
     dialogueVoiceMode,
     setDialogueVoiceMode,
     dialogueNarratorProviderId,

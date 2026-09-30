@@ -1006,6 +1006,7 @@ export type AppSettings = {
     nodeTextSize?: 'small' | 'normal' | 'big';
     uiScale?: number;
     retryFormatErrorsEnabled?: boolean;
+    turnAutosaveEnabled?: boolean;
     dialogueVoiceMode?: DialogueVoiceMode;
     dialogueNarratorProviderId?: string;
     dialogueCloneVoiceProviderId?: string;

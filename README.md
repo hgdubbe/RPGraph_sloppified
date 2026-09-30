@@ -8,7 +8,11 @@
 
 RPGraph Studio is a **local-first desktop app** for interactive AI roleplay. Instead of a plain chatbox, you get a full studio: a **visual node workflow** decides how your story is built, a rich **RP chat** shows the results, and an in-world **character phone** with its own apps brings the story world to life.
 
-🔒 **Run locally with your own models, or connect an optional cloud provider.** RPGraph itself requires no account or subscription. Your saves stay on your computer; when you use a cloud provider, the content needed for generation is sent to that provider.
+🔒 **Run locally with your own models, or connect an optional cloud provider.** RPGraph requires no online account or subscription. Local profiles organize and optionally encrypt your data; when you use a cloud provider, the content needed for generation is sent to that provider.
+
+> **Experimental local accounts:** This is experimental, it is strongly advised to create backups of the applications appdata folder before first run.
+
+See the [account and encryption guide](docs/account-management/user-guide.md) for login, migration, encrypted backups and limitations, and the [upstream integration notes](docs/account-management/upstream-integration.md) for scope and verification.
 
 > 🧠 **Recommended model:** [ReadyArt / gemma-4-31B-it-scotoma-2-GGUF](https://huggingface.co/ReadyArt/gemma-4-31B-it-scotoma-2-GGUF). RPGraph's workflows are tuned around Gemma 4 31B and rely on reliable **JSON output**. If you choose another model, check that it handles the workflow's structured responses as well as the roleplay itself.
 

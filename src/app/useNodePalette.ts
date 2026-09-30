@@ -1,3 +1,4 @@
+import { accountPreferences } from '../accounts/accountPreferences';
 import {
   type Dispatch,
   type DragEvent as ReactDragEvent,
@@ -63,7 +64,7 @@ type AddableNodeItem = (typeof addableNodeItems)[number];
 
 function loadFavoriteNodeTypes(): AddNodeType[] {
   try {
-    const parsed = JSON.parse(window.localStorage.getItem(favoriteNodeTypesStorageKey) ?? 'null');
+    const parsed = JSON.parse(accountPreferences.getItem(favoriteNodeTypesStorageKey) ?? 'null');
     if (!Array.isArray(parsed)) {
       return defaultFavoriteNodeTypes;
     }
@@ -128,7 +129,7 @@ export function useNodePalette({
   const favoriteNodeItems = addableNodeItems.filter((item) => favoriteNodeTypeSet.has(item.type));
 
   useEffect(() => {
-    window.localStorage.setItem(favoriteNodeTypesStorageKey, JSON.stringify(favoriteNodeTypes));
+    accountPreferences.setItem(favoriteNodeTypesStorageKey, JSON.stringify(favoriteNodeTypes));
   }, [favoriteNodeTypes]);
 
   function splitWireLink(nodeId: string) {

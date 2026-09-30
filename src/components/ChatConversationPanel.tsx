@@ -1,3 +1,4 @@
+import { accountPreferences } from '../accounts/accountPreferences';
 import { MatchMeActivityCard } from './MatchMeActivityCard';
 import { groupMatchMeHistory, type MatchMeHistoryRow } from '../chat/matchMe';
 import type { UserQuestion } from '../app/userQuestion';
@@ -1784,7 +1785,7 @@ const MemoizedChatConversationPanel = memo(function ChatConversationPanelContent
   const [outsidePhoneDisplayMode, setOutsidePhoneDisplayMode] =
     useState<OutsidePhoneDisplayMode>(() => {
       try {
-        const savedMode = window.localStorage.getItem(outsidePhoneDisplayModeStorageKey);
+        const savedMode = accountPreferences.getItem(outsidePhoneDisplayModeStorageKey);
         return savedMode === 'collapse' || savedMode === 'show' || savedMode === 'hide' || savedMode === 'bubbles'
           ? savedMode
           : 'bubbles';
@@ -1801,7 +1802,7 @@ const MemoizedChatConversationPanel = memo(function ChatConversationPanelContent
   const [scrollCollapsed, setScrollCollapsed] = useState(false);
   const [composerAutoCollapseEnabled, setComposerAutoCollapseEnabled] = useState(() => {
     try {
-      return window.localStorage.getItem(composerAutoCollapseStorageKey) !== 'false';
+      return accountPreferences.getItem(composerAutoCollapseStorageKey) !== 'false';
     } catch {
       return true;
     }
@@ -1947,7 +1948,7 @@ const MemoizedChatConversationPanel = memo(function ChatConversationPanelContent
 
   useEffect(() => {
     try {
-      window.localStorage.setItem(outsidePhoneDisplayModeStorageKey, outsidePhoneDisplayMode);
+      accountPreferences.setItem(outsidePhoneDisplayModeStorageKey, outsidePhoneDisplayMode);
     } catch {
       // Non-critical UI preference.
     }
@@ -1956,7 +1957,7 @@ const MemoizedChatConversationPanel = memo(function ChatConversationPanelContent
   function changeComposerAutoCollapseEnabled(enabled: boolean) {
     setComposerAutoCollapseEnabled(enabled);
     try {
-      window.localStorage.setItem(composerAutoCollapseStorageKey, String(enabled));
+      accountPreferences.setItem(composerAutoCollapseStorageKey, String(enabled));
     } catch {
       // Non-critical UI preference.
     }
